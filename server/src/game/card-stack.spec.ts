@@ -1,4 +1,4 @@
-import { CardStack } from './deck'
+import { CardStack } from './card-stack'
 
 describe('CardStack', () => {
   it('should return the deck id', () => {
