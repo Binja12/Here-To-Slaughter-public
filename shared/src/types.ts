@@ -1,4 +1,10 @@
-import { EffectDuration, HeroClass, CardType } from "./enums";
+import {
+  EffectDuration,
+  HeroClass,
+  CardType,
+  ReactionWindowType,
+  DecisionType,
+} from "./enums";
 
 export type HeroClassReq = HeroClass | "Any";
 
@@ -23,6 +29,7 @@ export type CardBase = {
   type: CardType;
   image: string;
   description: string;
+  set: string;
 };
 
 export type HeroCardData = CardBase & {
@@ -86,4 +93,36 @@ export type PlayerData = {
   hand: string[];
   partyId: string;
   actionPointsPerTurn: number;
+};
+
+export type PlayerResponse = {
+  playerId: string;
+  response: "Challenge" | "Modifier" | "Pass";
+  cardId?: string;
+  timestamp: number;
+};
+
+export type ReactionWindow = {
+  type: ReactionWindowType;
+  pendingActionId: string;
+  timeoutMs: number;
+  openedAt: number;
+  responses: PlayerResponse[];
+  resolved: boolean;
+};
+
+export type PendingDecision = {
+  type: DecisionType;
+  playerId: string;
+  options?: string[];
+  count?: number;
+};
+
+export type GameConfig = {
+  playerCount: { min: number; max: number };
+  startingHandSize: number;
+  actionPointsPerTurn: number;
+  cardSets: string[];
+  winConditions: string[];
+  timeControl: number;
 };

@@ -55,3 +55,34 @@ export enum ActionSource {
   PlayItemTrigger = "PlayItemTrigger",
 }
 
+export enum GameEventType {
+  // Card events
+  CardDrawn = "CardDrawn",
+  CardPlayed = "CardPlayed",
+  CardDiscarded = "CardDiscarded",
+
+  // Hero events
+  HeroAddedToParty = "HeroAddedToParty",
+  HeroSacrificed = "HeroSacrificed",
+  HeroDestroyed = "HeroDestroyed",
+  HeroStolen = "HeroStolen",
+
+  // Monster events
+  MonsterSlain = "MonsterSlain",
+  MonsterFlipped = "MonsterFlipped",
+
+  // Turn events
+  TurnStarted = "TurnStarted",
+  TurnEnded = "TurnEnded",
+
+  // Game events
+  GameStarted = "GameStarted",
+  GameEnded = "GameEnded",
+}
+
+export enum DecisionType {
+  PickCardsFromHand = "PickCardsFromHand",
+  PickHeroFromParty = "PickHeroFromParty",
+  PickPlayer = "PickPlayer",
+  PickMonster = "PickMonster",
+}
