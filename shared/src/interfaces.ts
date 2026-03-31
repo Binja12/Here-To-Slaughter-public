@@ -11,7 +11,6 @@ export interface ICard {
 
 export interface IBoardCard extends ICard {
   getSkill(): SkillData;
-  getReward(): SkillData;
 }
 
 export interface ICardStack {
