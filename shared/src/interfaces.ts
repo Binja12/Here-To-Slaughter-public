@@ -11,7 +11,6 @@ export interface ICard {
 
 export interface IBoardCard extends ICard {
   getSkill(): SkillData;
-  getReward(): SkillData;
 }
 
 export interface ICardStack {
@@ -27,7 +26,7 @@ export interface ICardStack {
 export interface ICardPile {
   getId(): string;
   getName(): string;
-  pick(cardId: string): string | null;
+  pick(cardId?: string): string | null;
   add(cardId: string): void;
   getAll(): string[];
   getSize(): number;
