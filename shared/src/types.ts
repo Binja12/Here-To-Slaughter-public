@@ -126,7 +126,7 @@ export type GameConfig = {
   actionPointsPerTurn: number;
   cardSets: string[];
   winConditions: string[];
-  timeControl: number;
+  timeControl: TimeControl;
 };
 
 export type TimeControl = {
