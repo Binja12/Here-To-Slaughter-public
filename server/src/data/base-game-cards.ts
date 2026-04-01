@@ -6,7 +6,6 @@ import {
   ModifierCardData,
   ChallengeCardData,
   PartyLeaderData,
-  TurnPhase,
 } from 'shared'
 import { CardType, HeroClass, EffectDuration } from 'shared'
 
@@ -1536,7 +1535,7 @@ export const baseLeaders: PartyLeaderData[] = [
       'Each time you roll to ATTACK a Monster card, +1 to your roll.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    skill: {},
+    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-117',
@@ -1547,7 +1546,7 @@ export const baseLeaders: PartyLeaderData[] = [
       "Once per turn on your turn, you may spend an action point to pull a card from another player's hand.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    skill: {},
+    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-118',
@@ -1557,7 +1556,7 @@ export const baseLeaders: PartyLeaderData[] = [
     description: 'Each time you roll to CHALLENGE, +2 to your roll.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    skill: {},
+    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-119',
@@ -1568,7 +1567,7 @@ export const baseLeaders: PartyLeaderData[] = [
       "Each time you roll to use a Hero card's effect, +1 to your roll.",
     set: 'base',
     heroClass: HeroClass.Bard,
-    skill: {},
+    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-120',
@@ -1578,7 +1577,7 @@ export const baseLeaders: PartyLeaderData[] = [
     description: 'Each time you play a Magic card, DRAW a card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    skill: {},
+    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-121',
@@ -1589,12 +1588,11 @@ export const baseLeaders: PartyLeaderData[] = [
       'Each time you play a Modifier card on a roll, +1 or -1 to that roll.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    skill: {},
+    skill: { condition: '', description: '' },
   },
 
   // add more leaders...
 ]
-
 export const baseGameCards = [
   ...baseHeroes,
   ...baseMonsters,

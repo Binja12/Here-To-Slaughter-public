@@ -13,10 +13,10 @@ export class Party {
     return this.data.heroIds
   }
   getMonsterIds(): string[] {
-    return this.data.MonsterIds
+    return this.data.monsterIds
   }
   getMonsterCount(): number {
-    return this.data.MonsterIds.length
+    return this.data.monsterIds.length
   }
 
   addHero(heroId: string): void {
@@ -26,6 +26,6 @@ export class Party {
     this.data.heroIds = this.data.heroIds.filter((id) => id !== heroId)
   }
   addMonster(monsterId: string): void {
-    this.data.MonsterIds.push(monsterId)
+    this.data.monsterIds.push(monsterId)
   }
 }
