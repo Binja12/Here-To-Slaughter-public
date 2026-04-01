@@ -1,8 +1,6 @@
 import { GameState } from './game-state'
 import { Player } from '../player'
 import { ICardRepository, HeroClass, HeroCardData } from 'shared'
-import { baseGameCards } from '../../data/base-game-cards'
-console.log('baseGameCards length:', baseGameCards.length)
 
 export class SlayMonsters {
   private monsterCount: number

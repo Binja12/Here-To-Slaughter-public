@@ -1,4 +1,4 @@
-import { CardType } from "./enums";
+import { CardType, HeroClass } from "./enums";
 import { SkillData, CardBase } from "./types";
 
 export interface ICard {
@@ -37,4 +37,5 @@ export interface ICardRepository {
   getByType(type: CardType): CardBase[];
   getBySet(setName: string): CardBase[];
   getAll(): CardBase[];
+  getAvailableClasses(): HeroClass[];
 }
