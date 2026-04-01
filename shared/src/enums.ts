@@ -86,3 +86,13 @@ export enum DecisionType {
   PickPlayer = "PickPlayer",
   PickMonster = "PickMonster",
 }
+
+export enum ActionFlow {
+  Instant = "Instant", // no reaction windows, execute immediately
+  WithReactions = "WithReactions", // save snapshot, wait for reactions
+}
+
+export enum TurnTimerMode {
+  PerTurn = "PerTurn", // each turn has its own timer, resets every turn
+  TotalTime = "TotalTime", // each player has a total time bank for whole game
+}

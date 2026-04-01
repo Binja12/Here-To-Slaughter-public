@@ -4,6 +4,8 @@ import {
   CardType,
   ReactionWindowType,
   DecisionType,
+  ActionFlow,
+  TurnTimerMode,
 } from "./enums";
 
 export type HeroClassReq = HeroClass | "Any";
@@ -125,4 +127,14 @@ export type GameConfig = {
   cardSets: string[];
   winConditions: string[];
   timeControl: number;
+};
+
+export type TimeControl = {
+  name: string;
+  reactionCountdownMs: number;
+  actionFlow: ActionFlow;
+  turnTimerMode?: TurnTimerMode; // undefined = unlimited
+  turnTimeMs?: number; // time per turn if PerTurn mode
+  totalTimeMs?: number; // total time bank if TotalTime mode
+  bonusTimeMs?: number; // added after each action (like chess increment)
 };
