@@ -7,6 +7,7 @@ import {
   ActionFlow,
   TurnTimerMode,
   WinConditionType,
+  RollCompareMode,
 } from "./enums";
 
 export type HeroClassReq = HeroClass | "Any";
@@ -60,9 +61,10 @@ export type ModifierCardData = CardBase & {
 export type ChallengeCardData = CardBase;
 
 export type MonsterCardData = CardBase & {
+  lowerReq: number;
+  higherReq: number;
+  rollCompareMode: RollCompareMode;
   partyReq: PartyReq;
-  rollWinReq: number;
-  rollLoseReq: number;
   skill: SkillData;
 };
 

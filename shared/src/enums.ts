@@ -101,3 +101,21 @@ export enum WinConditionType {
   SlayMonsters = "SlayMonsters",
   PartyClasses = "PartyClasses",
 }
+
+export enum RollResult {
+  // Hero
+  Success = "Success",
+  Failure = "Failure",
+  // Monster
+  Slay = "Slay",
+  FightBack = "FightBack",
+  Miss = "Miss",
+  // Challenge
+  ChallengerWins = "ChallengerWins",
+  ChallengerLoses = "ChallengerLoses",
+}
+
+export enum RollCompareMode {
+  HighToWin = "HighToWin", // normal: roll >= winReq → slay
+  LowToWin = "LowToWin", // special: roll <= winReq → slay
+}

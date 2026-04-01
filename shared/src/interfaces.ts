@@ -1,4 +1,4 @@
-import { CardType, HeroClass } from "./enums";
+import { CardType, HeroClass, RollResult } from "./enums";
 import { SkillData, CardBase } from "./types";
 
 export interface ICard {
@@ -38,4 +38,8 @@ export interface ICardRepository {
   getBySet(setName: string): CardBase[];
   getAll(): CardBase[];
   getAvailableClasses(): HeroClass[];
+}
+
+export interface IRollResolver {
+  resolve(finalRoll: number): RollResult;
 }
