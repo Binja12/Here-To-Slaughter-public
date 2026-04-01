@@ -1,4 +1,10 @@
-import { ICardRepository, CardBase, CardType } from 'shared'
+import {
+  ICardRepository,
+  CardBase,
+  CardType,
+  HeroClass,
+  HeroCardData,
+} from 'shared'
 
 export class InMemoryCardRepository implements ICardRepository {
   private cards: CardBase[] = []
@@ -20,5 +26,11 @@ export class InMemoryCardRepository implements ICardRepository {
   }
   getAll(): CardBase[] {
     return this.cards
+  }
+  getAvailableClasses(): HeroClass[] {
+    const classes = this.cards
+      .filter((card) => card.type === CardType.Hero)
+      .map((card) => (card as HeroCardData).heroClass)
+    return [...new Set(classes)]
   }
 }

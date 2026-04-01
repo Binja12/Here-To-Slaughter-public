@@ -3,6 +3,7 @@ import { CardPile } from '../card-pile'
 import { GamePhase, ReactionWindow, GameConfig } from 'shared'
 import { Player } from '../player'
 import { Party } from '../party'
+import { ICardRepository } from 'shared'
 
 export class GameState {
   private mainDeck: CardStack
@@ -20,6 +21,7 @@ export class GameState {
     private config: GameConfig,
     private players: Player[],
     private parties: Party[],
+    private cardRepo: ICardRepository,
   ) {
     // assigned inside using config
     this.mainDeck = new CardStack('main-deck', 'Main Deck')
@@ -72,6 +74,9 @@ export class GameState {
   }
   getWinnerId(): string | undefined {
     return this.winnerId
+  }
+  getCardRepo(): ICardRepository {
+    return this.cardRepo
   }
 
   // Setters
