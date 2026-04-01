@@ -6,6 +6,7 @@ import {
   ModifierCardData,
   ChallengeCardData,
   PartyLeaderData,
+  RollCompareMode,
 } from 'shared'
 import { CardType, HeroClass, EffectDuration } from 'shared'
 
@@ -580,8 +581,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time you would DESTROY a Hero card, you may STEAL that Hero card instead.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any', 'Any'] },
-    rollWinReq: 9,
-    rollLoseReq: 6,
+    higherReq: 9,
+    lowerReq: 6,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -595,8 +597,9 @@ export const baseMonsters: MonsterCardData[] = [
     description: 'You may spend an extra action point on each of your turns.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any', 'Any', 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 7,
+    higherReq: 8,
+    lowerReq: 7,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -610,8 +613,9 @@ export const baseMonsters: MonsterCardData[] = [
     description: 'Each time you roll, +1 to your roll.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any', 'Any'] },
-    rollWinReq: 7,
-    rollLoseReq: 6,
+    higherReq: 7,
+    lowerReq: 6,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -626,8 +630,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time any player (including you) plays a Modifier card, you may DRAW a card.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any'] },
-    rollWinReq: 10,
-    rollLoseReq: 7,
+    higherReq: 10,
+    lowerReq: 7,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -642,8 +647,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time a Hero card in your Party is destroyed, you may DRAW a card.',
     set: 'base',
     partyReq: { classes: ['Any'] },
-    rollWinReq: 5,
-    rollLoseReq: 8,
+    higherReq: 5,
+    lowerReq: 8,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -658,8 +664,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time another player CHALLENGES you, that player must DISCARD a card.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any'] },
-    rollWinReq: 9,
-    rollLoseReq: 6,
+    higherReq: 9,
+    lowerReq: 6,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -674,8 +681,9 @@ export const baseMonsters: MonsterCardData[] = [
       "Each time you successfully roll to use a Hero card's effect, you may DRAW a card.",
     set: 'base',
     partyReq: { classes: ['Any'] },
-    rollWinReq: 10,
-    rollLoseReq: 6,
+    higherReq: 10,
+    lowerReq: 6,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -690,8 +698,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time another player plays a Modifier card on one of your rolls, +1 to your roll.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 5,
+    higherReq: 8,
+    lowerReq: 5,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -705,8 +714,9 @@ export const baseMonsters: MonsterCardData[] = [
     description: 'Your Hero cards cannot be destroyed.',
     set: 'base',
     partyReq: { classes: ['Any'] },
-    rollWinReq: 11,
-    rollLoseReq: 7,
+    higherReq: 11,
+    lowerReq: 7,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -721,8 +731,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time you DRAW a Magic card, you may play it immediately.',
     set: 'base',
     partyReq: { classes: [HeroClass.Wizard, 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 4,
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -737,8 +748,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time you DRAW a Modifier card, you may reveal it and DRAW a second card.',
     set: 'base',
     partyReq: { classes: [HeroClass.Guardian, 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 4,
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -753,8 +765,9 @@ export const baseMonsters: MonsterCardData[] = [
       "Each time you roll for a Hero card's effect, +1 to your roll.",
     set: 'base',
     partyReq: { classes: [HeroClass.Bard, 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 4,
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -769,8 +782,9 @@ export const baseMonsters: MonsterCardData[] = [
       'Each time you DRAW an Item card, you may play it immediately.',
     set: 'base',
     partyReq: { classes: [HeroClass.Ranger, 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 4,
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -784,8 +798,9 @@ export const baseMonsters: MonsterCardData[] = [
     description: 'Item cards you play cannot be challenged.',
     set: 'base',
     partyReq: { classes: [HeroClass.Thief, 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 4,
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
@@ -799,15 +814,14 @@ export const baseMonsters: MonsterCardData[] = [
     description: 'Each time you roll for a Challenge card, +1 to your roll.',
     set: 'base',
     partyReq: { classes: [HeroClass.Thief, 'Any'] },
-    rollWinReq: 8,
-    rollLoseReq: 4,
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
     skill: {
       condition: 'When face up',
       description: 'All rolls -1',
     },
   },
-
-  // add more monsters...
 ]
 
 export const baseItems: ItemCardData[] = [

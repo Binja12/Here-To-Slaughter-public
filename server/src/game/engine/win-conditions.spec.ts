@@ -30,8 +30,8 @@ describe('win-condition', () => {
   const makeRepo = () => {
     const repo = new InMemoryCardRepository()
     repo.addMany(baseGameCards)
-    console.log('total cards loaded:', repo.getAll().length)
-    console.log('available classes:', repo.getAvailableClasses())
+    //console.log('total cards loaded:', repo.getAll().length)
+    //console.log('available classes:', repo.getAvailableClasses())
     return repo
   }
 
