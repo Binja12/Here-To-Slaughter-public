@@ -1,4 +1,4 @@
-import { CardType, HeroClass, RollResult } from "./enums";
+import { ActionType, CardType, HeroClass, RollResult } from "./enums";
 import { SkillData, CardBase } from "./types";
 
 export interface ICard {
@@ -8,9 +8,12 @@ export interface ICard {
   getImage(): string;
   getDescription(): string;
 }
-
-export interface IBoardCard extends ICard {
-  getSkill(): SkillData;
+export interface ICardRepository {
+  getById(id: string): CardBase | null;
+  getByType(type: CardType): CardBase[];
+  getBySet(setName: string): CardBase[];
+  getAll(): CardBase[];
+  getAvailableClasses(): HeroClass[];
 }
 
 export interface ICardStack {
@@ -30,16 +33,4 @@ export interface ICardPile {
   add(cardId: string): void;
   getAll(): string[];
   getSize(): number;
-}
-
-export interface ICardRepository {
-  getById(id: string): CardBase | null;
-  getByType(type: CardType): CardBase[];
-  getBySet(setName: string): CardBase[];
-  getAll(): CardBase[];
-  getAvailableClasses(): HeroClass[];
-}
-
-export interface IRollResolver {
-  resolve(finalRoll: number): RollResult;
 }

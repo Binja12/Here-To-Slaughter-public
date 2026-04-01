@@ -36,9 +36,10 @@ export enum ReactionWindowType {
 }
 
 export enum EffectDuration {
+  OneTime = "OneTime",
   TurnEnd = "TurnEnd",
-  RoundEnd = "RoundEnd",
-  Permanent = "Permanent",
+  NextTurn = "NextTurn",
+  Passive = "Passive",
 }
 
 export enum RollContext {
@@ -118,4 +119,19 @@ export enum RollResult {
 export enum RollCompareMode {
   HighToWin = "HighToWin", // normal: roll >= winReq → slay
   LowToWin = "LowToWin", // special: roll <= winReq → slay
+}
+
+export enum ActionType {
+  DrawCard = "DrawCard",
+  PlayHero = "PlayHero",
+  PlayItem = "PlayItem",
+  PlayMagic = "PlayMagic",
+  UseHeroEffect = "UseHeroEffect",
+  AttackMonster = "AttackMonster",
+  ResetHand = "ResetHand",
+  Sacrifice = "Sacrifice",
+  Discard = "Discard",
+  Destroy = "Destroy",
+  Steal = "Steal",
+  Draw = "Draw",
 }

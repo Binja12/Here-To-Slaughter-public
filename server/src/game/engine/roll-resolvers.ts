@@ -1,5 +1,5 @@
-import { IRollResolver, RollResult, RollCompareMode } from 'shared'
-
+import { RollResult, RollCompareMode } from 'shared'
+import { IRollResolver } from './engine-interfaces'
 export class HeroRollResolver implements IRollResolver {
   constructor(private rollReq: number) {}
 
