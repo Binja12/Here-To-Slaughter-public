@@ -6,6 +6,7 @@ import {
   DecisionType,
   ActionFlow,
   TurnTimerMode,
+  WinConditionType,
 } from "./enums";
 
 export type HeroClassReq = HeroClass | "Any";
@@ -86,7 +87,7 @@ export type PartyData = {
   playerId: string;
   leaderId: string;
   heroIds: string[];
-  MonsterIds: string[];
+  monsterIds: string[];
 };
 
 export type PlayerData = {
@@ -125,8 +126,8 @@ export type GameConfig = {
   startingHandSize: number;
   actionPointsPerTurn: number;
   cardSets: string[];
-  winConditions: string[];
   timeControl: TimeControl;
+  winConditions: WinConditionConfig[];
 };
 
 export type TimeControl = {
@@ -137,4 +138,9 @@ export type TimeControl = {
   turnTimeMs?: number; // time per turn if PerTurn mode
   totalTimeMs?: number; // total time bank if TotalTime mode
   bonusTimeMs?: number; // added after each action (like chess increment)
+};
+
+export type WinConditionConfig = {
+  type: WinConditionType;
+  value: number; // SlayMonsters: how many, PartyClasses: how many different classes
 };

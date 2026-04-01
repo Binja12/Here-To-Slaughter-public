@@ -96,3 +96,8 @@ export enum TurnTimerMode {
   PerTurn = "PerTurn", // each turn has its own timer, resets every turn
   TotalTime = "TotalTime", // each player has a total time bank for whole game
 }
+
+export enum WinConditionType {
+  SlayMonsters = "SlayMonsters",
+  PartyClasses = "PartyClasses",
+}
