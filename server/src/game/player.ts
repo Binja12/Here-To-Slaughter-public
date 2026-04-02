@@ -21,6 +21,9 @@ export class Player {
   getActionPointsPerTurn(): number {
     return this.data.actionPointsPerTurn
   }
+  getData(): PlayerData {
+    return this.data
+  }
 
   addToHand(cardId: string): void {
     this.data.hand.push(cardId)

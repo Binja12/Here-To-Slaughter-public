@@ -25,8 +25,8 @@ export enum GamePhase {
 
 export enum TurnPhase {
   TurnStart = "TurnStart",
-  ActionPhase = "ActionPhase",
-  ReactionPhase = "ReactionPhase",
+  ActionWindow = "ActionWindow",
+  ReactionWindow = "ReactionWindow",
   TurnEnd = "TurnEnd",
 }
 
