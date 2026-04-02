@@ -1,7 +1,6 @@
 import { GameState } from './game-state'
 import { IChallengeWindow, IModifierWindow } from './engine-interfaces'
-import { CardType } from 'shared'
-import { ModifierCardData } from 'shared'
+import { CardType, ModifierCardData } from 'shared'
 
 export class ReactionManager {
   private challengeWindow?: IChallengeWindow
@@ -27,7 +26,6 @@ export class ReactionManager {
 
     if (card.type === CardType.Challenge) {
       this.challengeWindow?.addResponse(playerId, cardId)
-      this.challengeWindow?.startResolution(this.gs)
       return
     }
 
@@ -37,13 +35,12 @@ export class ReactionManager {
 
       // modifier during challenge
       if (this.challengeWindow && !this.challengeWindow.isResolved()) {
-        this.challengeWindow.getChallengerWindow().applyModifier(value)
-        this.challengeWindow.getChallengerWindow().addUsedCard(cardId)
+        this.challengeWindow.applyModifier(value, cardId)
         return
       }
 
       // modifier during action roll
-      if (this.modifierWindow && !this.modifierWindow.isResolved()) {
+      if (this.modifierWindow) {
         this.modifierWindow.applyModifier(value)
         this.modifierWindow.addUsedCard(cardId)
       }
@@ -58,6 +55,7 @@ export class ReactionManager {
   getModifierWindow(): IModifierWindow | undefined {
     return this.modifierWindow
   }
+
   hasOpenWindow(): boolean {
     return (
       (!!this.challengeWindow && !this.challengeWindow.isResolved()) ||

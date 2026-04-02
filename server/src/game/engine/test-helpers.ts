@@ -1,9 +1,11 @@
-// test-helpers.ts
 import { GameConfig } from 'shared'
 import { GameState } from './game-state'
 import { defaultGameConfig } from './game-config'
 import { Player } from '../player'
 import { Party } from '../party'
+import { InMemoryCardRepository } from '../repositories/in-memory-card-repository'
+import { baseGameCards } from '../../data/base-game-cards'
+
 export function makeTestGameState(
   overrides?: Partial<GameConfig>,
   players?: Player[],
@@ -12,6 +14,9 @@ export function makeTestGameState(
   const config = overrides
     ? { ...defaultGameConfig, ...overrides }
     : defaultGameConfig
+
+  const repo = new InMemoryCardRepository()
+  repo.addMany(baseGameCards)
 
   const testPlayers = players ?? [
     new Player({
@@ -45,5 +50,5 @@ export function makeTestGameState(
     }),
   ]
 
-  return new GameState(config, testPlayers, testParties)
+  return new GameState(config, testPlayers, testParties, repo)
 }
