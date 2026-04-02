@@ -1,9 +1,18 @@
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { GamePhase, ReactionWindow, GameConfig } from 'shared'
+import { GamePhase } from 'shared'
+import { GameConfig } from './game-config'
 import { Player } from '../player'
 import { Party } from '../party'
+import { CardStack } from '../card-stack'
+import { CardPile } from '../card-pile'
 import { ICardRepository } from 'shared'
+import { PlayerData, PartyData } from 'shared'
+
+type GameStateSnapshot = {
+  players: PlayerData[]
+  parties: PartyData[]
+  phase: GamePhase
+  winnerId?: string
+}
 
 export class GameState {
   private mainDeck: CardStack
@@ -12,10 +21,8 @@ export class GameState {
   private slayableMonsters: CardPile
   private discardPile: CardPile
   private phase: GamePhase
-  private reactionWindow?: ReactionWindow
   private winnerId?: string
-  //TODO: private actionQueue: IAction[] = []
-  //TODO: private currentTurn?: TurnData
+  private snapshotStack: GameStateSnapshot[] = []
 
   constructor(
     private config: GameConfig,
@@ -23,7 +30,6 @@ export class GameState {
     private parties: Party[],
     private cardRepo: ICardRepository,
   ) {
-    // assigned inside using config
     this.mainDeck = new CardStack('main-deck', 'Main Deck')
     this.monsterDeck = new CardStack('monster-deck', 'Monster Deck')
     this.leaderDeck = new CardStack('leader-deck', 'Leader Deck')
@@ -35,7 +41,36 @@ export class GameState {
     this.phase = GamePhase.Setup
   }
 
-  // Getters
+  // ── Snapshot system ─────────────────────────────────────────
+
+  saveSnapshot(): void {
+    this.snapshotStack.push({
+      players: this.players.map((p) => p.getData()),
+      parties: this.parties.map((p) => p.getData()),
+      phase: this.phase,
+      winnerId: this.winnerId,
+    })
+  }
+
+  restoreSnapshot(): void {
+    const snapshot = this.snapshotStack.pop()
+    if (!snapshot) return
+    this.players = snapshot.players.map((d) => new Player(d))
+    this.parties = snapshot.parties.map((d) => new Party(d))
+    this.phase = snapshot.phase
+    this.winnerId = snapshot.winnerId
+  }
+
+  clearSnapshot(): void {
+    this.snapshotStack.pop()
+  }
+
+  hasSnapshot(): boolean {
+    return this.snapshotStack.length > 0
+  }
+
+  // ── Getters ─────────────────────────────────────────────────
+
   getConfig(): GameConfig {
     return this.config
   }
@@ -69,9 +104,6 @@ export class GameState {
   getPhase(): GamePhase {
     return this.phase
   }
-  getReactionWindow(): ReactionWindow | undefined {
-    return this.reactionWindow
-  }
   getWinnerId(): string | undefined {
     return this.winnerId
   }
@@ -79,17 +111,12 @@ export class GameState {
     return this.cardRepo
   }
 
-  // Setters
+  // ── Setters ─────────────────────────────────────────────────
+
   setPhase(phase: GamePhase): void {
     this.phase = phase
   }
   setWinner(playerId: string): void {
     this.winnerId = playerId
-  }
-  setReactionWindow(window: ReactionWindow): void {
-    this.reactionWindow = window
-  }
-  clearReactionWindow(): void {
-    this.reactionWindow = undefined
   }
 }

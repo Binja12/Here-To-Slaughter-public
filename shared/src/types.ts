@@ -102,8 +102,8 @@ export type PlayerData = {
 
 export type PlayerResponse = {
   playerId: string;
-  response: "Challenge" | "Modifier" | "Pass";
-  cardId?: string;
+  response: "Challenge" | "Modifier";
+  cardId: string;
   timestamp: number;
 };
 
@@ -112,9 +112,18 @@ export type ReactionWindow = {
   pendingActionId: string;
   timeoutMs: number;
   openedAt: number;
+  lastActivityAt: number;
   responses: PlayerResponse[];
   resolved: boolean;
+  challengerWon?: boolean;
 };
+
+export enum ChallengeResult {
+  NoChallengeOrWon = "NoChallengeOrWon",
+  ChallengerWon = "ChallengerWon",
+}
+
+export type ChallengeChecker = () => Promise<ChallengeResult>;
 
 export type PendingDecision = {
   type: DecisionType;
@@ -130,6 +139,7 @@ export type GameConfig = {
   cardSets: string[];
   timeControl: TimeControl;
   winConditions: WinConditionConfig[];
+  flawPlay: boolean;
 };
 
 export type TimeControl = {

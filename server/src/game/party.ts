@@ -18,6 +18,9 @@ export class Party {
   getMonsterCount(): number {
     return this.data.monsterIds.length
   }
+  getData(): PartyData {
+    return this.data
+  }
 
   addHero(heroId: string): void {
     this.data.heroIds.push(heroId)

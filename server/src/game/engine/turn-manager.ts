@@ -1,58 +1,82 @@
-import { TurnPhase, GamePhase, ReactionPhaseType } from 'shared'
+import { TurnPhase, ReactionWindowType, GameEventType, CardType } from 'shared'
 import { GameState } from './game-state'
-import { IAction, IChallengeable, IGameEvent } from './engine-interfaces'
-import { ReactionPhase } from 'shared'
+import { IAction, IGameEvent, IChallengeWindow } from './engine-interfaces'
+import { GameEvent } from './game-event'
+import { ChallengeWindow } from './challenge-window'
 
 type TurnData = {
   activePlayerId: string
-  phase: TurnPhase
   actionPoints: number
+  phase: TurnPhase
   usedHeroEffects: string[]
   actionQueue: IAction[]
-  reactionPhase?: ReactionPhase
+  reactionWindow?: ChallengeWindow
+}
+
+type QueueSnapshot = {
+  queue: IAction[]
 }
 
 export class TurnManager {
   private turn?: TurnData
-  private onEvents: (events: IGameEvent[]) => void
+  private reactionTimer?: NodeJS.Timeout
+  private snapshotStack: QueueSnapshot[] = []
 
   constructor(
     private gs: GameState,
-    onEvents: (events: IGameEvent[]) => void, // callback to broadcast events
-  ) {
-    this.onEvents = onEvents
-  }
+    private onEvents: (events: IGameEvent[]) => void,
+    private flawPlay: boolean = false,
+  ) {}
 
-  // ── Turn lifecycle ──────────────────────────────
+  // ── Turn lifecycle ──────────────────────────────────────────
 
   startTurn(playerId: string): void {
     const actionPoints = this.gs.getConfig().actionPointsPerTurn
-    // TODO: add bonus points from passive effects later
-
     this.turn = {
       activePlayerId: playerId,
-      phase: TurnPhase.ActionPhase,
       actionPoints,
+      phase: TurnPhase.ActionWindow,
       usedHeroEffects: [],
       actionQueue: [],
-      reactionPhase: undefined,
     }
+    this.onEvents([new GameEvent(GameEventType.TurnStarted, playerId)])
   }
 
   endTurn(): void {
     if (!this.turn) return
     this.turn.phase = TurnPhase.TurnEnd
-    // TODO: expire TurnEnd effects later
-    // TODO: check win conditions later
+    this.onEvents([
+      new GameEvent(GameEventType.TurnEnded, this.turn.activePlayerId),
+    ])
+    const nextPlayerId = this.nextPlayer()
     this.turn = undefined
+    this.startTurn(nextPlayerId)
   }
 
-  // ── Action submission ───────────────────────────
+  // ── Snapshot system ─────────────────────────────────────────
+
+  private saveSnapshot(): void {
+    this.snapshotStack.push({ queue: [...this.turn!.actionQueue] })
+    this.gs.saveSnapshot()
+  }
+
+  private restoreSnapshot(): void {
+    const snapshot = this.snapshotStack.pop()
+    if (snapshot) this.turn!.actionQueue = snapshot.queue
+    this.gs.restoreSnapshot()
+  }
+
+  private clearSnapshot(): void {
+    this.snapshotStack.pop()
+    this.gs.clearSnapshot()
+  }
+
+  // ── Action submission ───────────────────────────────────────
 
   submitAction(action: IAction): void {
     if (!this.turn) throw new Error('No active turn')
-    if (this.turn.phase !== TurnPhase.ActionPhase)
-      throw new Error('Not in action Phase')
+    if (this.turn.phase !== TurnPhase.ActionWindow)
+      throw new Error('Not in action window')
     if (this.turn.actionPoints < action.getCost())
       throw new Error('Not enough action points')
     if (action.getPlayerId() !== this.turn.activePlayerId)
@@ -60,97 +84,145 @@ export class TurnManager {
     if (!action.canExecute(this.gs))
       throw new Error('Action cannot be executed')
 
+    if (this.turn.reactionWindow && !this.turn.reactionWindow.isResolved()) {
+      if (action.isChallengeable()) {
+        throw new Error(
+          'Cannot play challengeable action while reaction window is open',
+        )
+      }
+      if (!this.flawPlay) {
+        throw new Error('Cannot act while reaction window is open')
+      }
+    }
+
     this.turn.actionPoints -= action.getCost()
     this.turn.actionQueue.push(action)
-    this.processQueue()
+    this.processActions()
   }
 
-  // ── Queue processing ────────────────────────────
+  // ── Queue processing ────────────────────────────────────────
 
-  private processQueue(): void {
+  private processActions(): void {
     if (!this.turn) return
     if (this.turn.actionQueue.length === 0) {
       if (this.turn.actionPoints === 0) this.endTurn()
       return
     }
 
-    // don't process if reaction Phase is open
-    if (this.turn.reactionPhase && !this.turn.reactionPhase.resolved) return
-
     const action = this.turn.actionQueue[0]
 
-    // open challenge Phase if needed
-    if (this.isChallengeable(action) && !this.turn.reactionPhase) {
-      this.openReactionPhase(action, ReactionPhaseType.Challenge)
+    // step 1 — open challenge window if needed (defensive check)
+    const challengedCardId = action.isChallengeable()
+
+    if (challengedCardId && !this.turn.reactionWindow) {
+      this.saveSnapshot()
+      this.turn.reactionWindow = new ChallengeWindow(
+        this.turn.activePlayerId,
+        challengedCardId,
+        this.gs.getConfig().timeControl.reactionCountdownMs,
+      )
+      this.startReactionTimer()
+
+      if (this.flawPlay) {
+        this.turn.actionQueue.shift()
+        const events = action.execute(this.gs)
+        this.onEvents(events)
+        this.processActions()
+      }
       return
     }
 
-    // execute action
+    // step 2 — challenge window resolved
+    if (this.turn.reactionWindow?.isResolved()) {
+      const challengeWindow = this.turn.reactionWindow
+      const challengerWon = challengeWindow.didChallengerWin()
+
+      if (challengerWon) {
+        this.restoreSnapshot()
+        challengeWindow.resolve(this.gs)
+        this.turn.reactionWindow = undefined
+        return
+      }
+
+      this.clearSnapshot()
+      challengeWindow.resolve(this.gs)
+      this.turn.reactionWindow = undefined
+      // fall through to step 3
+    }
+
+    // step 3 — execute action
     this.turn.actionQueue.shift()
-    this.turn.reactionPhase = undefined
     const events = action.execute(this.gs)
     this.onEvents(events)
-
-    // process next action if any
-    this.processQueue()
+    this.processActions()
   }
 
-  // ── Reaction Phases ────────────────────────────
+  // ── Reaction window ─────────────────────────────────────────
 
-  private openReactionPhase(action: IAction, type: ReactionPhaseType): void {
-    if (!this.turn) return
-    this.turn.reactionPhase = {
-      type,
-      pendingActionId: action.getId(),
-      timeoutMs: this.gs.getConfig().timeControl.reactionCountdownMs,
-      openedAt: Date.now(),
-      lastActivityAt: Date.now(),
-      responses: [],
-      resolved: false,
+  private startReactionTimer(): void {
+    if (this.reactionTimer) clearTimeout(this.reactionTimer)
+    this.reactionTimer = setTimeout(() => {
+      this.closeReactionWindow()
+    }, this.turn!.reactionWindow!.getTimeoutMs())
+  }
+
+  closeReactionWindow(): void {
+    if (!this.turn?.reactionWindow) return
+    this.turn.reactionWindow.resolve('', this.gs) // no challenger won
+    this.processActions()
+  }
+
+  // called by GameEngine when reaction card is played
+  handleReaction(playerId: string, cardId: string): void {
+    if (!this.turn?.reactionWindow) return
+    if (this.turn.reactionWindow.isResolved()) return
+
+    this.turn.reactionWindow.handleReaction(playerId, cardId, this.gs)
+
+    // emit rolls if challenge started
+    if (this.turn.reactionWindow.getChallengerWindow()) {
+      this.onEvents([
+        new GameEvent(
+          GameEventType.DiceRolled,
+          this.turn.reactionWindow.getChallengerId(),
+          {
+            roll: this.turn.reactionWindow.getChallengerWindow().getRoll(),
+          },
+        ),
+        new GameEvent(
+          GameEventType.DiceRolled,
+          this.turn.reactionWindow.getChallengedId(),
+          {
+            roll: this.turn.reactionWindow.getChallengedWindow().getRoll(),
+          },
+        ),
+      ])
     }
 
-    // start timer
-    setTimeout(() => {
-      this.closeReactionPhase()
-    }, this.gs.getConfig().timeControl.reactionCountdownMs)
+    this.startReactionTimer()
   }
 
-  closeReactionPhase(): void {
-    if (!this.turn?.reactionPhase) return
-    this.turn.reactionPhase.resolved = true
-    this.processQueue()
-  }
-
-  submitReaction(
+  // called by GameEngine when modifier card is played during challenge
+  handleModifier(
     playerId: string,
-    response: 'Challenge' | 'Modifier' | 'Pass',
-    cardId?: string,
+    cardId: string,
+    targetPlayerId: string,
+    valueIndex: number,
   ): void {
-    if (!this.turn?.reactionPhase) return
-    if (this.turn.reactionPhase.resolved) return
+    if (!this.turn?.reactionWindow) return
+    if (this.turn.reactionWindow.isResolved()) return
 
-    this.turn.reactionPhase.responses.push({
+    this.turn.reactionWindow.handleModifier(
       playerId,
-      response,
       cardId,
-      timestamp: Date.now(),
-    })
-
-    // reset timer on activity
-    this.turn.reactionPhase.lastActivityAt = Date.now()
-
-    // if all players passed → close Phase
-    const playerCount = this.gs.getPlayers().length
-    const passedCount = this.turn.reactionPhase.responses.filter(
-      (r) => r.response === 'Pass',
-    ).length
-
-    if (passedCount >= playerCount - 1) {
-      this.closeReactionPhase()
-    }
+      targetPlayerId,
+      valueIndex,
+      this.gs,
+    )
+    this.startReactionTimer()
   }
 
-  // ── Hero effect tracking ────────────────────────
+  // ── Hero effect tracking ────────────────────────────────────
 
   markHeroEffectUsed(heroId: string): void {
     this.turn?.usedHeroEffects.push(heroId)
@@ -160,7 +232,7 @@ export class TurnManager {
     return this.turn?.usedHeroEffects.includes(heroId) ?? false
   }
 
-  // ── Getters ─────────────────────────────────────
+  // ── Getters ─────────────────────────────────────────────────
 
   getActionPoints(): number {
     return this.turn?.actionPoints ?? 0
@@ -171,21 +243,14 @@ export class TurnManager {
   getPhase(): TurnPhase | undefined {
     return this.turn?.phase
   }
-  getReactionPhase(): ReactionPhase | undefined {
-    return this.turn?.reactionPhase
+  getReactionWindow(): ChallengeWindow | undefined {
+    return this.turn?.reactionWindow
   }
-  getCurrentTurn(): TurnData | undefined {
-    return this.turn
+  isActiveTurn(): boolean {
+    return this.turn !== undefined
   }
 
-  // ── Helpers ─────────────────────────────────────
-
-  private isChallengeable(action: IAction): boolean {
-    return (
-      'isChallengeable' in action &&
-      (action as unknown as IChallengeable).isChallengeable()
-    )
-  }
+  // ── Helpers ─────────────────────────────────────────────────
 
   nextPlayer(): string {
     const players = this.gs.getPlayers()

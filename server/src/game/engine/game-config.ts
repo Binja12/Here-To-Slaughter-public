@@ -11,4 +11,5 @@ export const defaultGameConfig: GameConfig = {
     { type: WinConditionType.PartyClasses, value: 6 },
   ],
   timeControl: StandardTimeControl,
+  flawPlay: true,
 }
