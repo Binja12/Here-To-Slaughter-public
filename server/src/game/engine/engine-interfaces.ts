@@ -23,7 +23,8 @@ export interface IAction {
   getType(): ActionType
   getPlayerId(): string
   getCost(): number
-  isChallengeable(): string | null // returns cardId if challengeable, null if not
+  isChallengeable(): string | null // returns cardId if flag=true, null if flag=false
+  setChallengeable(value: boolean): void // sets the flag
   canExecute(gs: GameState): boolean
   execute(gs: GameState): IGameEvent[]
 }
@@ -42,17 +43,18 @@ export interface IGameEvent {
 export interface IReactionWindow {
   getType(): ReactionWindowType
   isResolved(): boolean
-  resolve(): void
+  resolve(gs: GameState): void
   getTimeoutMs(): number
   getLastActivityAt(): number
   addResponse(playerId: string, cardId: string): void // ← no response type
 }
 
-export interface IModifierWindow extends IReactionWindow {
-  getPlayerId(): string
-  getRoll(): number
+export interface IModifierWindow {
   applyModifier(value: number): void
   getFinalRoll(): number
+  getRolls(): number[] // [challengerRoll, challengedRoll]
+  getUsedCardIds(): string[]
+  addUsedCard(cardId: string): void
 }
 
 export interface IChallengeWindow extends IReactionWindow {
@@ -61,7 +63,7 @@ export interface IChallengeWindow extends IReactionWindow {
   getChallengerWindow(): IModifierWindow
   getChallengedWindow(): IModifierWindow
   didChallengerWin(): boolean
-  startResolution(): void // rolls dice, creates modifier windows
+  startResolution(gs: GameState): void // rolls dice, creates modifier windows
 }
 
 export enum ChallengeResult {

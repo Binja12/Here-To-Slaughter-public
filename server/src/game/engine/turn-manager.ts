@@ -1,8 +1,9 @@
 import { TurnPhase, ReactionWindowType, GameEventType, CardType } from 'shared'
 import { GameState } from './game-state'
 import { IAction, IGameEvent, IChallengeWindow } from './engine-interfaces'
-import { GameEvent } from './game-event'
+import { GameEvent } from './game-event.ts'
 import { ChallengeWindow } from './challenge-window'
+import { ReactionManager } from './reaction-manager'
 
 type TurnData = {
   activePlayerId: string
@@ -24,6 +25,7 @@ export class TurnManager {
 
   constructor(
     private gs: GameState,
+    private reactionManager: ReactionManager,
     private onEvents: (events: IGameEvent[]) => void,
     private flawPlay: boolean = false,
   ) {}
@@ -114,14 +116,17 @@ export class TurnManager {
     // step 1 — open challenge window if needed (defensive check)
     const challengedCardId = action.isChallengeable()
 
-    if (challengedCardId && !this.turn.reactionWindow) {
+    if (challengedCardId && !this.reactionManager.getChallengeWindow()) {
       this.saveSnapshot()
-      this.turn.reactionWindow = new ChallengeWindow(
-        this.turn.activePlayerId,
-        challengedCardId,
-        this.gs.getConfig().timeControl.reactionCountdownMs,
+      this.reactionManager.setChallengeWindow(
+        new ChallengeWindow(
+          this.turn.activePlayerId,
+          challengedCardId,
+          this.gs.getConfig().timeControl.reactionCountdownMs,
+          () => this.processActions(), // onResolved callback
+        ),
       )
-      this.startReactionTimer()
+      action.setChallengeable(false)
 
       if (this.flawPlay) {
         this.turn.actionQueue.shift()
@@ -132,21 +137,23 @@ export class TurnManager {
       return
     }
 
-    // step 2 — challenge window resolved
-    if (this.turn.reactionWindow?.isResolved()) {
-      const challengeWindow = this.turn.reactionWindow
+    // processActions step 2
+    const challengeWindow = this.reactionManager.getChallengeWindow()
+    if (challengeWindow?.isResolved()) {
       const challengerWon = challengeWindow.didChallengerWin()
 
       if (challengerWon) {
         this.restoreSnapshot()
         challengeWindow.resolve(this.gs)
-        this.turn.reactionWindow = undefined
+        action.setChallengeable(true)
+        this.reactionManager.clearChallengeWindow()
         return
       }
 
       this.clearSnapshot()
       challengeWindow.resolve(this.gs)
-      this.turn.reactionWindow = undefined
+      action.setChallengeable(true)
+      this.reactionManager.clearChallengeWindow()
       // fall through to step 3
     }
 
@@ -155,71 +162,6 @@ export class TurnManager {
     const events = action.execute(this.gs)
     this.onEvents(events)
     this.processActions()
-  }
-
-  // ── Reaction window ─────────────────────────────────────────
-
-  private startReactionTimer(): void {
-    if (this.reactionTimer) clearTimeout(this.reactionTimer)
-    this.reactionTimer = setTimeout(() => {
-      this.closeReactionWindow()
-    }, this.turn!.reactionWindow!.getTimeoutMs())
-  }
-
-  closeReactionWindow(): void {
-    if (!this.turn?.reactionWindow) return
-    this.turn.reactionWindow.resolve('', this.gs) // no challenger won
-    this.processActions()
-  }
-
-  // called by GameEngine when reaction card is played
-  handleReaction(playerId: string, cardId: string): void {
-    if (!this.turn?.reactionWindow) return
-    if (this.turn.reactionWindow.isResolved()) return
-
-    this.turn.reactionWindow.handleReaction(playerId, cardId, this.gs)
-
-    // emit rolls if challenge started
-    if (this.turn.reactionWindow.getChallengerWindow()) {
-      this.onEvents([
-        new GameEvent(
-          GameEventType.DiceRolled,
-          this.turn.reactionWindow.getChallengerId(),
-          {
-            roll: this.turn.reactionWindow.getChallengerWindow().getRoll(),
-          },
-        ),
-        new GameEvent(
-          GameEventType.DiceRolled,
-          this.turn.reactionWindow.getChallengedId(),
-          {
-            roll: this.turn.reactionWindow.getChallengedWindow().getRoll(),
-          },
-        ),
-      ])
-    }
-
-    this.startReactionTimer()
-  }
-
-  // called by GameEngine when modifier card is played during challenge
-  handleModifier(
-    playerId: string,
-    cardId: string,
-    targetPlayerId: string,
-    valueIndex: number,
-  ): void {
-    if (!this.turn?.reactionWindow) return
-    if (this.turn.reactionWindow.isResolved()) return
-
-    this.turn.reactionWindow.handleModifier(
-      playerId,
-      cardId,
-      targetPlayerId,
-      valueIndex,
-      this.gs,
-    )
-    this.startReactionTimer()
   }
 
   // ── Hero effect tracking ────────────────────────────────────
