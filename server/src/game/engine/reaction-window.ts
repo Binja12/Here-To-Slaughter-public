@@ -1,136 +1,145 @@
-// challenge-window.ts
-export class ChallengeWindow implements IChallengeWindow {
-  private usedCardIds: string[] = []
-  private challengerWindow?: ModifierWindow
-  private challengedWindow?: ModifierWindow
-  private resolved: boolean = false
-  private challengerWon: boolean = false
-  private lastActivityAt: number
-  private challengerId?: string
-  private challengedCardId?: string
+// import { CardType, ModifierCardData, RollResult, ReactionWindowType } from "shared"
+// import { IChallengeWindow, IModifierWindow } from "./engine-interfaces"
+// import { GameState } from "./game-state"
+// import { ModifierWindow } from "./modifier-window"
+// import { ChallengeRollResolver } from "./roll-resolvers"
 
-  constructor(
-    private challengedId: string,
-    private timeoutMs: number,
-  ) {
-    this.lastActivityAt = Date.now()
-  }
+// // challenge-window.ts
+// export class ChallengeWindow implements IChallengeWindow {
+//   private usedCardIds: string[] = []
+//   private challengerWindow?: ModifierWindow
+//   private challengedWindow?: ModifierWindow
+//   private resolved: boolean = false
+//   private challengerWon: boolean = false
+//   private lastActivityAt: number
+//   private challengerId?: string
 
-  handleReaction(playerId: string, cardId: string, gs: GameState): void {
-    const card = gs.getCardRepo().getById(cardId)
-    if (!card) return
+//   constructor(
+//     private challengedId: string,
+//     private challengedCardId: string,
+//     private timeoutMs: number,
+//   ) {
+//     this.lastActivityAt = Date.now()
+//   }
 
-    // discard immediately in real time
-    gs.getDiscardPile().add(cardId)
-    gs.getPlayer(playerId)!.removeFromHand(cardId)
-    this.usedCardIds.push(cardId)
+//   handleReaction(playerId: string, cardId: string, gs: GameState): void {
+//     const card = gs.getCardRepo().getById(cardId)
+//     if (!card) return
 
-    this.addResponse(playerId, cardId)
+//     // discard immediately in real time
+//     gs.getDiscardPile().add(cardId)
+//     gs.getPlayer(playerId)!.removeFromHand(cardId)
+//     this.usedCardIds.push(cardId)
 
-    if (card.type === CardType.Challenge) {
-      this.challengerId = playerId
-      this.startResolution(gs)
-    }
-  }
+//     this.addResponse(playerId, cardId)
 
-  startResolution(gs: GameState): void {
-    this.challengerWindow = new ModifierWindow(
-      this.challengerId!,
-      this.timeoutMs,
-    )
-    this.challengedWindow = new ModifierWindow(
-      this.challengedId,
-      this.timeoutMs,
-    )
-  }
+//     if (card.type === CardType.Challenge) {
+//       this.challengerId = playerId
+//       this.startResolution(gs)
+//     }
+//   }
 
-  handleModifier(
-    playerId: string,
-    cardId: string,
-    targetPlayerId: string,
-    valueIndex: number,
-    gs: GameState,
-  ): void {
-    const card = gs.getCardRepo().getById(cardId) as ModifierCardData
-    if (!card) return
+//   startResolution(gs: GameState): void {
+//     this.challengerWindow = new ModifierWindow(
+//       this.challengerId!,
+//       this.timeoutMs,
+//     )
+//     this.challengedWindow = new ModifierWindow(
+//       this.challengedId,
+//       this.timeoutMs,
+//     )
+//   }
 
-    // discard immediately
-    gs.getDiscardPile().add(cardId)
-    gs.getPlayer(playerId)!.removeFromHand(cardId)
+//   handleModifier(
+//     playerId: string,
+//     cardId: string,
+//     targetPlayerId: string,
+//     valueIndex: number,
+//     gs: GameState,
+//   ): void {
+//     const card = gs.getCardRepo().getById(cardId) as ModifierCardData
+//     if (!card) return
 
-    // apply to correct modifier window
-    const value = card.values[valueIndex]
-    if (targetPlayerId === this.challengerId) {
-      this.challengerWindow?.applyModifier(value)
-      this.challengerWindow?.addResponse(playerId, cardId)
-    } else {
-      this.challengedWindow?.applyModifier(value)
-      this.challengedWindow?.addResponse(playerId, cardId)
-    }
-  }
+//     // discard immediately
+//     gs.getDiscardPile().add(cardId)
+//     gs.getPlayer(playerId)!.removeFromHand(cardId)
 
-  resolve(challengedCardId: string, gs: GameState): void {
-    this.challengedCardId = challengedCardId
+//     // apply to correct modifier window
+//     const value = card.values[valueIndex]
+//     if (targetPlayerId === this.challengerId) {
+//       this.challengerWindow?.applyModifier(value)
+//       this.challengerWindow?.addResponse(playerId, cardId)
+//     } else {
+//       this.challengedWindow?.applyModifier(value)
+//       this.challengedWindow?.addResponse(playerId, cardId)
+//     }
+//   }
 
-    if (this.challengerWindow && this.challengedWindow) {
-      // collect all used cards from modifier windows
-      const allUsedCards = [
-        ...this.usedCardIds,
-        ...this.challengerWindow.getUsedCardIds(),
-        ...this.challengedWindow.getUsedCardIds(),
-      ]
+//   resolve(challengedCardId: string, gs: GameState): void {
+//     this.challengedCardId = challengedCardId
 
-      // re-discard all used cards (in case snapshot reverted them)
-      allUsedCards.forEach((id) => {
-        gs.getDiscardPile().add(id)
-      })
+//     if (this.challengerWindow && this.challengedWindow) {
+//       // collect all used cards from modifier windows
+//       const allUsedCards = [
+//         ...this.usedCardIds,
+//         ...this.challengerWindow.getUsedCardIds(),
+//         ...this.challengedWindow.getUsedCardIds(),
+//       ]
 
-      // resolve winner
-      const resolver = new ChallengeRollResolver(
-        this.challengerWindow.getFinalRoll(),
-      )
-      const result = resolver.resolve(this.challengedWindow.getFinalRoll())
-      this.challengerWon = result === RollResult.ChallengerWins
-    }
+//       // re-discard all used cards (in case snapshot reverted them)
+//       allUsedCards.forEach((id) => {
+//         gs.getDiscardPile().add(id)
+//       })
 
-    // if challenger wins → discard the challenged card
-    if (this.challengerWon) {
-      gs.getDiscardPile().add(challengedCardId)
-    }
+//       // resolve winner
+//       const resolver = new ChallengeRollResolver(
+//         this.challengerWindow.getFinalRoll(),
+//       )
+//       const result = resolver.resolve(this.challengedWindow.getFinalRoll())
+//       this.challengerWon = result === RollResult.ChallengerWins
+//     }
 
-    this.resolved = true
-  }
+//     // if challenger wins → discard the challenged card
+//     if (this.challengerWon) {
+//       gs.getDiscardPile().add(challengedCardId)
+//     }
 
-  // ── IReactionWindow ─────────────────────────────────────────
-  getType(): ReactionWindowType {
-    return ReactionWindowType.Challenge
-  }
-  isResolved(): boolean {
-    return this.resolved
-  }
-  getTimeoutMs(): number {
-    return this.timeoutMs
-  }
-  getLastActivityAt(): number {
-    return this.lastActivityAt
-  }
-  getChallengerId(): string {
-    return this.challengerId ?? ''
-  }
-  getChallengedId(): string {
-    return this.challengedId
-  }
-  getChallengerWindow(): IModifierWindow {
-    return this.challengerWindow!
-  }
-  getChallengedWindow(): IModifierWindow {
-    return this.challengedWindow!
-  }
-  didChallengerWin(): boolean {
-    return this.challengerWon
-  }
+//     this.resolved = true
+//   }
 
-  addResponse(playerId: string, cardId: string): void {
-    this.lastActivityAt = Date.now()
-  }
-}
+//   // ── IReactionWindow ─────────────────────────────────────────
+//   getType(): ReactionWindowType {
+//     return ReactionWindowType.Challenge
+//   }
+//   isResolved(): boolean {
+//     return this.resolved
+//   }
+//   getTimeoutMs(): number {
+//     return this.timeoutMs
+//   }
+//   getLastActivityAt(): number {
+//     return this.lastActivityAt
+//   }
+//   getChallengerId(): string {
+//     return this.challengerId ?? ''
+//   }
+//   getChallengedId(): string {
+//     return this.challengedId
+//   }
+//   getChallengerWindow(): IModifierWindow {
+//     return this.challengerWindow!
+//   }
+//   getChallengedWindow(): IModifierWindow {
+//     return this.challengedWindow!
+//   }
+//   getChallengedCardId(): string {
+//     return this.challengedCardId
+//   }
+//   didChallengerWin(): boolean {
+//     return this.challengerWon
+//   }
+
+//   addResponse(playerId: string, cardId: string): void {
+//     this.lastActivityAt = Date.now()
+//   }
+// }
