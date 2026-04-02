@@ -10,7 +10,7 @@ export class ChallengeWindow implements IChallengeWindow {
   private usedCardIds: string[] = []
   private challengerId?: string
   private lastActivityAt: number
-  private modifierTimer?: NodeJS.Timeout
+  challengeTimer: any
 
   constructor(
     private challengedId: string,
@@ -20,6 +20,16 @@ export class ChallengeWindow implements IChallengeWindow {
     private onResolved: () => void,
   ) {
     this.lastActivityAt = Date.now()
+    this.startChallengeTimer()
+  }
+
+  private startChallengeTimer(): void {
+    if (this.challengeTimer) clearTimeout(this.challengeTimer)
+    this.challengeTimer = setTimeout(() => {
+      // nobody challenged — resolve with no winner
+      this.resolve(this.gs)
+      this.onResolved()
+    }, this.timeoutMs)
   }
 
   addResponse(playerId: string, cardId: string): void {
@@ -41,15 +51,6 @@ export class ChallengeWindow implements IChallengeWindow {
     this.douModifier.applyModifier(value)
     this.douModifier.addUsedCard(cardId)
     this.lastActivityAt = Date.now()
-    this.startModifierTimer() // reset timer
-  }
-
-  private startModifierTimer(): void {
-    if (this.modifierTimer) clearTimeout(this.modifierTimer)
-    this.modifierTimer = setTimeout(() => {
-      this.resolve(this.gs)
-      this.onResolved()
-    }, this.timeoutMs)
   }
 
   resolve(gs: GameState): void {

@@ -59,7 +59,7 @@ export class ReactionManager {
   hasOpenWindow(): boolean {
     return (
       (!!this.challengeWindow && !this.challengeWindow.isResolved()) ||
-      (!!this.modifierWindow && !this.modifierWindow.isResolved())
+      !!this.modifierWindow
     )
   }
 

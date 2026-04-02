@@ -11,7 +11,6 @@ type TurnData = {
   phase: TurnPhase
   usedHeroEffects: string[]
   actionQueue: IAction[]
-  reactionWindow?: ChallengeWindow
 }
 
 type QueueSnapshot = {
@@ -85,9 +84,12 @@ export class TurnManager {
       throw new Error('Not your turn')
     if (!action.canExecute(this.gs))
       throw new Error('Action cannot be executed')
-
-    if (this.turn.reactionWindow && !this.turn.reactionWindow.isResolved()) {
-      if (action.isChallengeable()) {
+    // no more than 1 challengable action can be played
+    if (this.reactionManager.getChallengeWindow()) {
+      if (
+        action.isChallengeable() ||
+        this.turn.actionQueue[0]?.isChallengeable()
+      ) {
         throw new Error(
           'Cannot play challengeable action while reaction window is open',
         )
@@ -96,7 +98,7 @@ export class TurnManager {
         throw new Error('Cannot act while reaction window is open')
       }
     }
-
+    // add action to queue
     this.turn.actionPoints -= action.getCost()
     this.turn.actionQueue.push(action)
     this.processActions()
@@ -106,12 +108,13 @@ export class TurnManager {
 
   private processActions(): void {
     if (!this.turn) return
+    this.resolvedWindow()
     if (this.turn.actionQueue.length === 0) {
       if (this.turn.actionPoints === 0) this.endTurn()
       return
     }
 
-    const action = this.turn.actionQueue[0]
+    const action = this.turn.actionQueue.shift()!
 
     // step 1 — open challenge window if needed (defensive check)
     const challengedCardId = action.isChallengeable()
@@ -127,42 +130,39 @@ export class TurnManager {
           () => this.processActions(), // onResolved callback
         ),
       )
-      action.setChallengeable(false)
-
       if (this.flawPlay) {
-        this.turn.actionQueue.shift()
         const events = action.execute(this.gs)
         this.onEvents(events)
         this.processActions()
+      } else {
+        this.turn.actionQueue.unshift(action)
+        action.setChallengeable(false)
       }
       return
     }
 
-    // processActions step 2
+    // step 2 — execute action
+    const events = action.execute(this.gs)
+    this.onEvents(events)
+    this.processActions()
+  }
+
+  private resolvedWindow() {
     const challengeWindow = this.reactionManager.getChallengeWindow()
     if (challengeWindow?.isResolved()) {
       const challengerWon = challengeWindow.didChallengerWin()
-
+      // restore game state, discard all, reaction window closes
       if (challengerWon) {
         this.restoreSnapshot()
         challengeWindow.resolve(this.gs)
-        action.setChallengeable(true)
         this.reactionManager.clearChallengeWindow()
         return
       }
 
       this.clearSnapshot()
       challengeWindow.resolve(this.gs)
-      action.setChallengeable(true)
       this.reactionManager.clearChallengeWindow()
-      // fall through to step 3
     }
-
-    // step 3 — execute action
-    this.turn.actionQueue.shift()
-    const events = action.execute(this.gs)
-    this.onEvents(events)
-    this.processActions()
   }
 
   // ── Hero effect tracking ────────────────────────────────────
@@ -185,9 +185,6 @@ export class TurnManager {
   }
   getPhase(): TurnPhase | undefined {
     return this.turn?.phase
-  }
-  getReactionWindow(): ChallengeWindow | undefined {
-    return this.turn?.reactionWindow
   }
   isActiveTurn(): boolean {
     return this.turn !== undefined
