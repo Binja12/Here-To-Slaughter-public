@@ -1,80 +1,43 @@
-import { ReactionWindowType } from 'shared'
 import { IModifierWindow } from './engine-interfaces'
 import { roll2Dice } from '../../utils/roll-utils'
 
-type PlayerResponse = {
-  playerId: string
-  cardId: string
-  timestamp: number
-}
-
 export class ModifierWindow implements IModifierWindow {
   private roll: number
-  private resolved: boolean = false
-  private lastActivityAt: number
-  private responses: PlayerResponse[] = []
   private usedCardIds: string[] = []
+  private timer: NodeJS.Timeout
 
   constructor(
     private playerId: string,
     private timeoutMs: number,
+    private onResolved: (finalRoll: number) => void,
   ) {
     this.roll = roll2Dice()
-    this.lastActivityAt = Date.now()
-  }
-
-  // ── IModifierWindow ─────────────────────────────────────────
-
-  getPlayerId(): string {
-    return this.playerId
-  }
-  getRoll(): number {
-    return this.roll
-  }
-  getFinalRoll(): number {
-    return this.roll
+    this.timer = setTimeout(() => {
+      this.onResolved(this.getFinalRoll())
+    }, timeoutMs)
   }
 
   applyModifier(value: number): void {
     this.roll += value
-    this.lastActivityAt = Date.now()
+    clearTimeout(this.timer)
+    this.timer = setTimeout(() => {
+      this.onResolved(this.getFinalRoll())
+    }, this.timeoutMs)
   }
 
-  // ── IReactionWindow ─────────────────────────────────────────
-
-  getType(): ReactionWindowType {
-    return ReactionWindowType.Modifier
+  getFinalRoll(): number {
+    return this.roll
   }
-  isResolved(): boolean {
-    return this.resolved
+  getRolls(): number[] {
+    return [this.roll]
   }
-  getTimeoutMs(): number {
-    return this.timeoutMs
-  }
-  getLastActivityAt(): number {
-    return this.lastActivityAt
-  }
-
-  resolve(): void {
-    this.resolved = true
-  }
-
-  addResponse(playerId: string, cardId: string): void {
-    this.responses.push({
-      playerId,
-      cardId,
-      timestamp: Date.now(),
-    })
-    this.usedCardIds.push(cardId)
-    this.lastActivityAt = Date.now()
-  }
-
-  // ── Extra ───────────────────────────────────────────────────
-
   getUsedCardIds(): string[] {
     return this.usedCardIds
   }
-  getResponses(): PlayerResponse[] {
-    return this.responses
+  addUsedCard(cardId: string): void {
+    this.usedCardIds.push(cardId)
+  }
+  getPlayerId(): string {
+    return this.playerId
   }
 }

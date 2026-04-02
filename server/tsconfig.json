@@ -22,6 +22,7 @@
     "strictBindCallApply": true,
     "noFallthroughCasesInSwitch": false,
     "strict": true,
+    "types": ["jest", "node"],
     "paths": {
       "shared": ["../shared/src/index.ts"]
     }

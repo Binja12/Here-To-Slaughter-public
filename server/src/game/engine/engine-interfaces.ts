@@ -60,10 +60,9 @@ export interface IModifierWindow {
 export interface IChallengeWindow extends IReactionWindow {
   getChallengerId(): string
   getChallengedId(): string
-  getChallengerWindow(): IModifierWindow
-  getChallengedWindow(): IModifierWindow
+  getModifierWindow(): IModifierWindow
   didChallengerWin(): boolean
-  startResolution(gs: GameState): void // rolls dice, creates modifier windows
+  applyModifier(value: number, cardId: string): void
 }
 
 export enum ChallengeResult {

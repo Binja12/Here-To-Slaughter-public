@@ -123,6 +123,7 @@ export class TurnManager {
           this.turn.activePlayerId,
           challengedCardId,
           this.gs.getConfig().timeControl.reactionCountdownMs,
+          this.gs,
           () => this.processActions(), // onResolved callback
         ),
       )
