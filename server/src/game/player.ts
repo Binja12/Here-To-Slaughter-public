@@ -31,4 +31,10 @@ export class Player {
   removeFromHand(cardId: string): void {
     this.data.hand = this.data.hand.filter((id) => id !== cardId)
   }
+  clone(): Player {
+    return new Player({
+      ...this.data,
+      hand: [...this.data.hand],
+    })
+  }
 }

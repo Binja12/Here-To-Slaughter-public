@@ -33,14 +33,25 @@ export class ChallengeWindow implements IChallengeWindow {
   }
 
   addResponse(playerId: string, cardId: string): void {
+    console.log('cloning for challenge resolve')
+    const newerGs = this.gs.clone()
+    this.gs.restoreSnapshot()
+
+    console.log('player 1 cards', this.gs.getPlayer('player-1')?.getHand())
+    console.log('player 2 cards', this.gs.getPlayer('player-2')?.getHand())
     this.usedCardIds.push(cardId)
     this.lastActivityAt = Date.now()
 
     const card = this.gs.getCardRepo().getById(cardId)
     if (card?.type === CardType.Challenge) {
+      if (this.challengeTimer) {
+        clearTimeout(this.challengeTimer)
+        this.challengeTimer = undefined
+      }
+
       this.challengerId = playerId
-      this.douModifier = new DouModifier(this.timeoutMs, (finalRoll) => {
-        this.resolve(this.gs) // finalRoll already inside douModifier
+      this.douModifier = new DouModifier(this.timeoutMs, () => {
+        this.resolve(newerGs)
         this.onResolved()
       })
     }
@@ -48,12 +59,19 @@ export class ChallengeWindow implements IChallengeWindow {
 
   applyModifier(value: number, cardId: string): void {
     if (!this.douModifier) return
+    if (
+      this.gs
+        .getPlayers()
+        .find((player) => player.getHand().includes(cardId))
+        ?.getId() !== this.challengedId
+    )
+      value = value * -1
     this.douModifier.applyModifier(value)
     this.douModifier.addUsedCard(cardId)
     this.lastActivityAt = Date.now()
   }
 
-  resolve(gs: GameState): void {
+  resolve(newerGs: GameState): void {
     if (this.resolved) return
 
     const allUsedCards = [
@@ -61,21 +79,37 @@ export class ChallengeWindow implements IChallengeWindow {
       ...(this.douModifier?.getUsedCardIds() ?? []),
     ]
 
-    allUsedCards.forEach((id) => {
-      if (!gs.getDiscardPile().getAll().includes(id)) {
-        gs.getDiscardPile().add(id)
-      }
-    })
-
     if (this.douModifier) {
-      this.challengerWon = this.douModifier.getFinalRoll() <= 0
+      this.challengerWon = this.douModifier.getFinalRoll() >= 0
     }
+    console.log(this.challengerWon)
+    console.log('cards to discard' + allUsedCards)
+    console.log(this.challengedCardId)
 
     if (this.challengerWon) {
-      gs.getDiscardPile().add(this.challengedCardId)
-      gs.getPlayer(this.challengedId)!.removeFromHand(this.challengedCardId)
+      this.gs.getDiscardPile().add(this.challengedCardId)
+      this.gs
+        .getPlayer(this.challengedId)!
+        .removeFromHand(this.challengedCardId)
+      this.gs.getParty(this.challengedId)!.removeHero(this.challengedCardId)
+    } else {
+      this.gs.loadSnapshot(newerGs)
     }
 
+    // discard used cards on final gs
+    allUsedCards.forEach((id) => {
+      if (!this.gs.getDiscardPile().getAll().includes(id)) {
+        const player = this.gs
+          .getPlayers()
+          .find((player) => player.getHand().includes(id))
+
+        if (player) {
+          player.removeFromHand(id)
+        }
+
+        this.gs.getDiscardPile().add(id)
+      }
+    })
     this.resolved = true
   }
 
