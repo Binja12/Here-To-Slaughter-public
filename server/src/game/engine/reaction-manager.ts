@@ -1,5 +1,8 @@
-import { GameState } from './game-state'
-import { IChallengeWindow, IModifierWindow } from './engine-interfaces'
+import { GameState } from './states/game-state'
+import {
+  IChallengeWindow,
+  IModifierWindow,
+} from './interfaces/engine-interfaces'
 import { CardType, ModifierCardData } from 'shared'
 
 export class ReactionManager {

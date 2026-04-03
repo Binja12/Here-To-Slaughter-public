@@ -1,8 +1,12 @@
 import { TurnPhase, ReactionWindowType, GameEventType, CardType } from 'shared'
-import { GameState } from './game-state'
-import { IAction, IGameEvent, IChallengeWindow } from './engine-interfaces'
-import { GameEvent } from './game-event.ts'
-import { ChallengeWindow } from './challenge-window'
+import { GameState } from './states/game-state'
+import {
+  IAction,
+  IGameEvent,
+  IChallengeWindow,
+} from './interfaces/engine-interfaces'
+import { GameEvent } from './game-event'
+import { ChallengeWindow } from './windows/challenge-window'
 import { ReactionManager } from './reaction-manager'
 
 type TurnData = {
@@ -19,7 +23,6 @@ type QueueSnapshot = {
 
 export class TurnManager {
   private turn?: TurnData
-  private reactionTimer?: NodeJS.Timeout
   private snapshotStack: QueueSnapshot[] = []
 
   constructor(

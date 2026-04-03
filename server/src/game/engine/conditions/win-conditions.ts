@@ -1,5 +1,5 @@
-import { GameState } from './game-state'
-import { Player } from '../player'
+import { GameState } from '../states/game-state'
+import { Player } from '../../player'
 import { ICardRepository, HeroClass, HeroCardData } from 'shared'
 
 export class SlayMonsters {

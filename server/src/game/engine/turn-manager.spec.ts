@@ -2,7 +2,7 @@ import { TurnManager } from './turn-manager'
 import { ReactionManager } from './reaction-manager'
 import { makeTestGameState } from './test-helpers'
 import { TurnPhase } from '../../../../shared/src/enums'
-import { IAction, IGameEvent } from './engine-interfaces'
+import { IAction, IGameEvent } from './interfaces/engine-interfaces'
 import { ActionType } from '../../../../shared/src/enums'
 import { GameEventType } from '../../../../shared/src/enums'
 

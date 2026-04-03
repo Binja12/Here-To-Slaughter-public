@@ -1,18 +1,10 @@
 import { GamePhase } from 'shared'
-import { GameConfig } from './game-config'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { GameConfig } from '../config/game-config'
+import { Player } from '../../player'
+import { Party } from '../../party'
+import { CardStack } from '../../card-stack'
+import { CardPile } from '../../card-pile'
 import { ICardRepository } from 'shared'
-import { PlayerData, PartyData } from 'shared'
-
-type GameStateSnapshot = {
-  players: PlayerData[]
-  parties: PartyData[]
-  phase: GamePhase
-  winnerId?: string
-}
 
 export class GameState {
   private mainDeck: CardStack

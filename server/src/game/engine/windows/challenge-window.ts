@@ -1,7 +1,10 @@
 import { CardType, ReactionWindowType } from 'shared'
 import { DouModifier } from './dou-modifier'
-import { IChallengeWindow, IModifierWindow } from './engine-interfaces'
-import { GameState } from './game-state'
+import {
+  IChallengeWindow,
+  IModifierWindow,
+} from '../interfaces/engine-interfaces'
+import { GameState } from '../states/game-state'
 
 export class ChallengeWindow implements IChallengeWindow {
   private douModifier?: DouModifier

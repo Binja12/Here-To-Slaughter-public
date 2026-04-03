@@ -7,8 +7,8 @@ import {
   GameEventType,
   ReactionWindowType,
 } from 'shared'
-import { GameState } from './game-state'
-import { Player } from '../player'
+import { GameState } from '../states/game-state'
+import { Player } from '../../player'
 
 export interface IWinCondition {
   check(gs: GameState): Player | null

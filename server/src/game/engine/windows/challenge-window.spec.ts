@@ -1,5 +1,5 @@
 import { ChallengeWindow } from './challenge-window'
-import { makeTestGameState } from './test-helpers'
+import { makeTestGameState } from '../test-helpers'
 
 const challengeCard = {
   id: 'challenge-001',

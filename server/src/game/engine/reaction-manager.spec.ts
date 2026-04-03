@@ -1,7 +1,7 @@
 import { ReactionManager } from './reaction-manager'
 import { makeTestGameState } from './test-helpers'
-import { ChallengeWindow } from './challenge-window'
-import { ModifierWindow } from './modifier-window'
+import { ChallengeWindow } from './windows/challenge-window'
+import { ModifierWindow } from './windows/modifier-window'
 
 const challengeCard = {
   id: 'challenge-001',
