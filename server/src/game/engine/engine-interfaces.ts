@@ -43,7 +43,7 @@ export interface IGameEvent {
 export interface IReactionWindow {
   getType(): ReactionWindowType
   isResolved(): boolean
-  resolve(gs: GameState): void
+  resolve(newerGs: GameState): void
   getTimeoutMs(): number
   getLastActivityAt(): number
   addResponse(playerId: string, cardId: string): void // ← no response type

@@ -120,7 +120,8 @@ export class TurnManager {
     const challengedCardId = action.isChallengeable()
 
     if (challengedCardId && !this.reactionManager.getChallengeWindow()) {
-      this.saveSnapshot()
+      console.log('saving snapshot for action', action.getId())
+      this.gs.saveSnapshot()
       this.reactionManager.setChallengeWindow(
         new ChallengeWindow(
           this.turn.activePlayerId,

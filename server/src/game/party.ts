@@ -28,7 +28,16 @@ export class Party {
   removeHero(heroId: string): void {
     this.data.heroIds = this.data.heroIds.filter((id) => id !== heroId)
   }
+  removeItem(itemId: string): void {
+    //TODO: deattach item
+  }
   addMonster(monsterId: string): void {
     this.data.monsterIds.push(monsterId)
+  }
+  clone(): Party {
+    return new Party({
+      ...this.data,
+      heroIds: [...this.data.heroIds],
+    })
   }
 }

@@ -22,7 +22,7 @@ export class GameState {
   private discardPile: CardPile
   private phase: GamePhase
   private winnerId?: string
-  private snapshotStack: GameStateSnapshot[] = []
+  private snapshotStack: GameState[] = []
 
   constructor(
     private config: GameConfig,
@@ -44,21 +44,69 @@ export class GameState {
   // ── Snapshot system ─────────────────────────────────────────
 
   saveSnapshot(): void {
-    this.snapshotStack.push({
-      players: this.players.map((p) => p.getData()),
-      parties: this.parties.map((p) => p.getData()),
-      phase: this.phase,
-      winnerId: this.winnerId,
-    })
+    this.snapshotStack.push(this.clone())
+    console.log(
+      'snapshots in stack',
+      this.snapshotStack[0]?.getPlayer('player-1')?.getHand(),
+    )
+  }
+
+  clone(): GameState {
+    console.log('cloning')
+    const copy = new GameState(
+      this.config,
+      this.players.map((p) => p.clone()),
+      this.parties.map((p) => p.clone()),
+      this.cardRepo,
+    )
+    copy.mainDeck.setCards(this.mainDeck.getCards())
+    copy.discardPile.setCards(this.discardPile.getAll())
+    copy.slayableMonsters.setCards(this.slayableMonsters.getAll())
+    copy.phase = this.phase
+    copy.winnerId = this.winnerId
+    console.log('cloning Game State: ', copy.getPlayer('player-1')?.getHand())
+    return copy
   }
 
   restoreSnapshot(): void {
+    console.log('restoring snapshot')
+    console.log(
+      'snapshots in stack',
+      this.snapshotStack[0]?.getPlayer('player-1')?.getHand(),
+    )
     const snapshot = this.snapshotStack.pop()
     if (!snapshot) return
-    this.players = snapshot.players.map((d) => new Player(d))
-    this.parties = snapshot.parties.map((d) => new Party(d))
-    this.phase = snapshot.phase
-    this.winnerId = snapshot.winnerId
+    this.copyFrom(snapshot)
+    console.log(
+      'snapshots in stack',
+      this.snapshotStack[0]?.getPlayer('player-1')?.getHand(),
+    )
+  }
+
+  private copyFrom(gs: GameState): void {
+    console.log('player 1 before copy', this.getPlayer('player-1')?.getHand())
+    console.log(
+      'player 1 after copy should be:',
+      gs.getPlayer('player-1')?.getHand(),
+    )
+    this.players = gs.players.map((p) => new Player(p.getData()))
+    this.parties = gs.parties.map((p) => new Party(p.getData()))
+    console.log('player 1 after copy', this.getPlayer('player-1')?.getHand())
+    this.mainDeck.setCards([...gs.mainDeck.getCards()])
+    this.discardPile.setCards([...gs.discardPile.getAll()])
+    this.slayableMonsters.setCards([...gs.slayableMonsters.getAll()])
+    this.phase = gs.phase
+    this.winnerId = gs.winnerId
+  }
+
+  loadSnapshot(other: GameState): void {
+    this.players = other.players.map((p) => new Player(p.getData()))
+    this.parties = other.parties.map((p) => new Party(p.getData()))
+    this.mainDeck.setCards(other.mainDeck.getCards())
+    this.discardPile.setCards(other.discardPile.getAll())
+    this.slayableMonsters.setCards(other.slayableMonsters.getAll())
+    this.phase = other.phase
+    this.winnerId = other.winnerId
   }
 
   clearSnapshot(): void {

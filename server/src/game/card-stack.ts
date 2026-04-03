@@ -30,4 +30,10 @@ export class CardStack implements ICardStack {
   getSize(): number {
     return this.cards.length
   }
+  getCards(): string[] {
+    return [...this.cards]
+  }
+  setCards(cards: string[]): void {
+    this.cards = [...cards]
+  }
 }
