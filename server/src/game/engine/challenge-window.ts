@@ -33,12 +33,8 @@ export class ChallengeWindow implements IChallengeWindow {
   }
 
   addResponse(playerId: string, cardId: string): void {
-    console.log('cloning for challenge resolve')
     const newerGs = this.gs.clone()
     this.gs.restoreSnapshot()
-
-    console.log('player 1 cards', this.gs.getPlayer('player-1')?.getHand())
-    console.log('player 2 cards', this.gs.getPlayer('player-2')?.getHand())
     this.usedCardIds.push(cardId)
     this.lastActivityAt = Date.now()
 
@@ -82,10 +78,6 @@ export class ChallengeWindow implements IChallengeWindow {
     if (this.douModifier) {
       this.challengerWon = this.douModifier.getFinalRoll() >= 0
     }
-    console.log(this.challengerWon)
-    console.log('cards to discard' + allUsedCards)
-    console.log(this.challengedCardId)
-
     if (this.challengerWon) {
       this.gs.getDiscardPile().add(this.challengedCardId)
       this.gs
