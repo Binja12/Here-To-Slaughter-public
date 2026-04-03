@@ -1,6 +1,6 @@
 import { GameConfig } from 'shared'
-import { GameState } from './game-state'
-import { defaultGameConfig } from './game-config'
+import { GameState } from './states/game-state'
+import { defaultGameConfig } from './config/game-config'
 import { Player } from '../player'
 import { Party } from '../party'
 import { InMemoryCardRepository } from '../repositories/in-memory-card-repository'

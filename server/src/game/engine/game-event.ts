@@ -1,4 +1,4 @@
-import { IGameEvent } from './engine-interfaces'
+import { IGameEvent } from './interfaces/engine-interfaces'
 import { GameEventType } from 'shared'
 
 export class GameEvent implements IGameEvent {

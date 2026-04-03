@@ -1,24 +1,27 @@
-import { IModifierWindow } from './engine-interfaces'
-import { roll2Dice } from '../../utils/roll-utils'
+import { IModifierWindow } from '../interfaces/engine-interfaces'
+import { roll2Dice } from '../../../utils/roll-utils'
 
-export class ModifierWindow implements IModifierWindow {
-  private roll: number
+export class DouModifier implements IModifierWindow {
+  private challengerRoll: number
+  private challengedRoll: number
+  private currRollValue: number
   private usedCardIds: string[] = []
   private timer: NodeJS.Timeout
 
   constructor(
-    private playerId: string,
     private timeoutMs: number,
     private onResolved: (finalRoll: number) => void,
   ) {
-    this.roll = roll2Dice()
+    this.challengerRoll = roll2Dice()
+    this.challengedRoll = roll2Dice()
+    this.currRollValue = this.challengedRoll - this.challengerRoll
     this.timer = setTimeout(() => {
       this.onResolved(this.getFinalRoll())
     }, timeoutMs)
   }
 
   applyModifier(value: number): void {
-    this.roll += value
+    this.currRollValue += value
     clearTimeout(this.timer)
     this.timer = setTimeout(() => {
       this.onResolved(this.getFinalRoll())
@@ -26,18 +29,15 @@ export class ModifierWindow implements IModifierWindow {
   }
 
   getFinalRoll(): number {
-    return this.roll
+    return this.currRollValue
   }
   getRolls(): number[] {
-    return [this.roll]
+    return [this.challengerRoll, this.challengedRoll]
   }
   getUsedCardIds(): string[] {
     return this.usedCardIds
   }
   addUsedCard(cardId: string): void {
     this.usedCardIds.push(cardId)
-  }
-  getPlayerId(): string {
-    return this.playerId
   }
 }

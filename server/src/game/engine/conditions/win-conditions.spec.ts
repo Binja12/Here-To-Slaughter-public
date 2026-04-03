@@ -1,8 +1,8 @@
-import { makeTestGameState } from './test-helpers'
+import { makeTestGameState } from '../test-helpers'
 import { SlayMonsters } from './win-conditions'
 import { AllClassesInParty } from './win-conditions'
-import { InMemoryCardRepository } from '../repositories/in-memory-card-repository'
-import { baseGameCards } from '../../data/base-game-cards'
+import { InMemoryCardRepository } from '../../repositories/in-memory-card-repository'
+import { baseGameCards } from '../../../data/base-game-cards'
 
 describe('win-condition', () => {
   it('should detect no win condition', () => {
