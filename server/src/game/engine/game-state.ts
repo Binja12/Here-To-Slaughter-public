@@ -45,14 +45,9 @@ export class GameState {
 
   saveSnapshot(): void {
     this.snapshotStack.push(this.clone())
-    console.log(
-      'snapshots in stack',
-      this.snapshotStack[0]?.getPlayer('player-1')?.getHand(),
-    )
   }
 
   clone(): GameState {
-    console.log('cloning')
     const copy = new GameState(
       this.config,
       this.players.map((p) => p.clone()),
@@ -64,34 +59,20 @@ export class GameState {
     copy.slayableMonsters.setCards(this.slayableMonsters.getAll())
     copy.phase = this.phase
     copy.winnerId = this.winnerId
-    console.log('cloning Game State: ', copy.getPlayer('player-1')?.getHand())
+
     return copy
   }
 
   restoreSnapshot(): void {
-    console.log('restoring snapshot')
-    console.log(
-      'snapshots in stack',
-      this.snapshotStack[0]?.getPlayer('player-1')?.getHand(),
-    )
     const snapshot = this.snapshotStack.pop()
     if (!snapshot) return
     this.copyFrom(snapshot)
-    console.log(
-      'snapshots in stack',
-      this.snapshotStack[0]?.getPlayer('player-1')?.getHand(),
-    )
   }
 
   private copyFrom(gs: GameState): void {
-    console.log('player 1 before copy', this.getPlayer('player-1')?.getHand())
-    console.log(
-      'player 1 after copy should be:',
-      gs.getPlayer('player-1')?.getHand(),
-    )
     this.players = gs.players.map((p) => new Player(p.getData()))
     this.parties = gs.parties.map((p) => new Party(p.getData()))
-    console.log('player 1 after copy', this.getPlayer('player-1')?.getHand())
+
     this.mainDeck.setCards([...gs.mainDeck.getCards()])
     this.discardPile.setCards([...gs.discardPile.getAll()])
     this.slayableMonsters.setCards([...gs.slayableMonsters.getAll()])
