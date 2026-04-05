@@ -1,4 +1,11 @@
-import { ActionType, CardType, HeroClass, RollResult } from "./enums";
+import {
+  ActionType,
+  CardType,
+  HeroClass,
+  RollResult,
+  GameEventType,
+  Audience,
+} from "./enums";
 import { SkillData, CardBase } from "./types";
 
 export interface ICard {
@@ -33,4 +40,21 @@ export interface ICardPile {
   add(cardId: string): void;
   getAll(): string[];
   getSize(): number;
+}
+
+export interface IGameEvent {
+  getType(): GameEventType;
+  getPlayerId(): string;
+  getPayload(): unknown;
+  getAudience(): Audience;
+}
+
+export interface IGameEventListener {
+  onEvent(event: IGameEvent): void;
+}
+
+export interface IGameEventEmitter {
+  emit(event: IGameEvent): void;
+  addListener(listener: IGameEventListener): void;
+  removeListener(listener: IGameEventListener): void;
 }

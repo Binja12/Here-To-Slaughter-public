@@ -122,21 +122,6 @@ export enum RollCompareMode {
   LowToWin = "LowToWin", // special: roll <= winReq → slay
 }
 
-export enum ActionType {
-  DrawCard = "DrawCard",
-  PlayHero = "PlayHero",
-  PlayItem = "PlayItem",
-  PlayMagic = "PlayMagic",
-  UseHeroEffect = "UseHeroEffect",
-  AttackMonster = "AttackMonster",
-  ResetHand = "ResetHand",
-  Sacrifice = "Sacrifice",
-  Discard = "Discard",
-  Destroy = "Destroy",
-  Steal = "Steal",
-  Draw = "Draw",
-}
-
 export enum TargetPlayer {
   Self = "Self",
   Opponent = "Opponent",
@@ -180,4 +165,16 @@ export enum ExpiryCondition {
 export enum ChallengeResult {
   NoChallengeOrWon = "NoChallengeOrWon",
   ChallengerWon = "ChallengerWon",
+}
+
+export enum Audience {
+  All = "All",
+  PlayerOnly = "PlayerOnly",
+  Opponents = "Opponents",
+}
+
+export enum ActionType {
+  DrawCard = "DrawCard",
+  RollOnHero = "RollOnHero",
+  PlayCard = "PlayCard",
 }

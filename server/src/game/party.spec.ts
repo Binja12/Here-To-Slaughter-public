@@ -5,7 +5,7 @@ const mockPartyData = {
   playerId: 'player-1',
   leaderId: 'leader-1',
   heroIds: [],
-  monsterIds: [],
+  MonsterIds: [],
 }
 
 describe('Party', () => {

@@ -1,16 +1,16 @@
-import { ActionType, GameEventType, Audience } from 'shared'
-import { IAction, IGameEvent } from '../engine/interfaces/engine-interfaces'
-import { GameState } from '../engine/states/game-state'
-import { GameEvent } from '../engine/game-event'
-import { randomUUID } from 'crypto'
+import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
+import { IAction } from '../interfaces'
+import { GameState } from '../game-state'
+import { GameEvent } from '../game-event'
+
+const MAX_HAND_SIZE = 10
+const COST = 1
 
 export class DrawCardAction implements IAction {
-  private id: string = randomUUID()
-
   constructor(private playerId: string) {}
 
   getId(): string {
-    return this.id
+    return `draw-card-${this.playerId}-${Date.now()}`
   }
 
   getType(): ActionType {
@@ -22,22 +22,21 @@ export class DrawCardAction implements IAction {
   }
 
   getCost(): number {
-    return 1
+    return COST
   }
 
   canExecute(gs: GameState): boolean {
-    const player = gs.getPlayers().find((p) => p.getId() === this.playerId)
+    const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    if (player.getHandSize() >= 10) return false
+    if (player.getHandSize() >= MAX_HAND_SIZE) return false
     if (gs.getMainDeck().getSize() === 0) return false
     return true
   }
 
   execute(gs: GameState): IGameEvent[] {
-    const player = gs.getPlayers().find((p) => p.getId() === this.playerId)!
     const cardId = gs.getMainDeck().draw()
     if (!cardId) return []
-    player.addToHand(cardId)
+    gs.getPlayer(this.playerId)!.addToHand(cardId)
     return [
       new GameEvent(
         GameEventType.CardDrawn,
