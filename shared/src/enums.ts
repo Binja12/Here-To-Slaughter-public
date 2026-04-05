@@ -79,6 +79,7 @@ export enum GameEventType {
   // Game events
   GameStarted = "GameStarted",
   GameEnded = "GameEnded",
+  DiceRolled = "DiceRolled",
 }
 
 export enum DecisionType {
@@ -134,4 +135,49 @@ export enum ActionType {
   Destroy = "Destroy",
   Steal = "Steal",
   Draw = "Draw",
+}
+
+export enum TargetPlayer {
+  Self = "Self",
+  Opponent = "Opponent",
+  Any = "Any",
+}
+
+export enum SelectionMode {
+  PlayerChooses = "PlayerChooses",
+  OpponentChooses = "OpponentChooses",
+  Random = "Random",
+}
+
+export enum CardLocation {
+  Party = "Party",
+  Hand = "Hand",
+}
+
+export enum SearchLocation {
+  DiscardPile = "DiscardPile",
+  OpponentHand = "OpponentHand",
+}
+
+export enum PeakTarget {
+  OwnDeck = "OwnDeck",
+  OpponentDeck = "OpponentDeck",
+}
+
+export enum PassiveType {
+  RollBonus = "RollBonus",
+  CantBeStolen = "CantBeStolen",
+  CantChallenge = "CantChallenge",
+  CantBeChallenged = "CantBeChallenged",
+}
+
+export enum ExpiryCondition {
+  EndOfTurn = "EndOfTurn",
+  StartOfNextTurn = "StartOfNextTurn",
+  Permanent = "Permanent",
+}
+
+export enum ChallengeResult {
+  NoChallengeOrWon = "NoChallengeOrWon",
+  ChallengerWon = "ChallengerWon",
 }
