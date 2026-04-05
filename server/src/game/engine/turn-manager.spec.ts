@@ -1,4 +1,4 @@
-import { TurnManager } from './turn-manager'
+import { TurnManager } from './turn-manager-old'
 import { ReactionManager } from './reaction-manager'
 import { makeTestGameState } from './test-helpers'
 import { TurnPhase } from '../../../../shared/src/enums'

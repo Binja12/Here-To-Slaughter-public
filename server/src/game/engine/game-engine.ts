@@ -1,6 +1,6 @@
 import { GameConfig } from './config/game-config'
 import { GameState } from './states/game-state'
-import { TurnManager } from './turn-manager'
+import { TurnManager } from './turn-manager-old'
 import { ReactionManager } from './reaction-manager'
 import { IGameEvent, IWinCondition } from './interfaces/engine-interfaces'
 import { Player } from '../player'

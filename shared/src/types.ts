@@ -34,6 +34,10 @@ export type CardBase = {
   image: string;
   description: string;
   set: string;
+  ability: {
+    trigger: [];
+    steps: [];
+  };
 };
 
 export type HeroCardData = CardBase & {

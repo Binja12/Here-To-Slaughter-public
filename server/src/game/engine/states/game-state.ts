@@ -13,6 +13,8 @@ export class GameState {
   private slayableMonsters: CardPile
   private discardPile: CardPile
   private phase: GamePhase
+  private playerTurn?: string
+  private abilitiesUsedThisTurn: string[]
   private winnerId?: string
   private snapshotStack: GameState[] = []
 
@@ -31,6 +33,7 @@ export class GameState {
     )
     this.discardPile = new CardPile('discard-pile', 'Discard Pile')
     this.phase = GamePhase.Setup
+    this.abilitiesUsedThisTurn = []
   }
 
   // ── Snapshot system ─────────────────────────────────────────
@@ -130,6 +133,12 @@ export class GameState {
   }
   getCardRepo(): ICardRepository {
     return this.cardRepo
+  }
+  getPlayerTurnId(): string | null {
+    return this.playerTurn ?? null
+  }
+  getAbilitiesThisTurn() {
+    return this.abilitiesUsedThisTurn
   }
 
   // ── Setters ─────────────────────────────────────────────────
