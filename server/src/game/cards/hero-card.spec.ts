@@ -1,6 +1,7 @@
 import { HeroCard } from './hero-card'
-import { CardType, HeroClass, EffectDuration } from 'shared'
+import { CardType, HeroClass, EffectDuration, GameEventType } from 'shared'
 import { HeroCardData } from 'shared'
+import { IAbility, IPassive } from '../interfaces'
 
 const mockHeroData: HeroCardData = {
   id: 'hero-1',
@@ -72,5 +73,26 @@ describe('HeroCard', () => {
     const card = new HeroCard(mockHeroData)
     card.equipItem('item-1')
     expect(card.getEquippedItem()).toBe('item-1')
+  })
+  it('should return undefined ability when none provided', () => {
+    const card = new HeroCard(mockHeroData)
+    expect(card.getAbility()).toBeUndefined()
+  })
+
+  it('should return the provided ability', () => {
+    const ability: IAbility = { steps: [] }
+    const card = new HeroCard(mockHeroData, ability)
+    expect(card.getAbility()).toBe(ability)
+  })
+
+  it('should return empty passives by default', () => {
+    const card = new HeroCard(mockHeroData)
+    expect(card.getPassives()).toEqual([])
+  })
+
+  it('should return the provided passives', () => {
+    const passive: IPassive = { trigger: GameEventType.CardDrawn, steps: [] }
+    const card = new HeroCard(mockHeroData, undefined, [passive])
+    expect(card.getPassives()).toEqual([passive])
   })
 })

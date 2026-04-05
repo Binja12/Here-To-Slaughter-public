@@ -15,9 +15,6 @@ export class CardPile implements ICardPile {
   getName(): string {
     return this.name
   }
-  setCards(cards: string[]): void {
-    this.cards = [...cards]
-  }
 
   pick(cardId?: string): string | null {
     let pickedCard: string | null = null

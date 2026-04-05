@@ -13,13 +13,10 @@ export class Party {
     return this.data.heroIds
   }
   getMonsterIds(): string[] {
-    return this.data.monsterIds
+    return this.data.MonsterIds
   }
   getMonsterCount(): number {
-    return this.data.monsterIds.length
-  }
-  getData(): PartyData {
-    return this.data
+    return this.data.MonsterIds.length
   }
 
   addHero(heroId: string): void {
@@ -28,16 +25,7 @@ export class Party {
   removeHero(heroId: string): void {
     this.data.heroIds = this.data.heroIds.filter((id) => id !== heroId)
   }
-  removeItem(itemId: string): void {
-    //TODO: deattach item
-  }
   addMonster(monsterId: string): void {
-    this.data.monsterIds.push(monsterId)
-  }
-  clone(): Party {
-    return new Party({
-      ...this.data,
-      heroIds: [...this.data.heroIds],
-    })
+    this.data.MonsterIds.push(monsterId)
   }
 }
