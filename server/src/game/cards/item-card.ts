@@ -19,9 +19,6 @@ export class ItemCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
-  getAbility(): AbilityData {
-    return this.data.ability
-  }
   isCursed(): boolean {
     return this.data.cursed
   }
@@ -30,5 +27,8 @@ export class ItemCard implements ICard {
   }
   equipTo(heroId: string): void {
     this.data.equippedHero = heroId
+  }
+  getAbility() {
+    return this.data.ability
   }
 }

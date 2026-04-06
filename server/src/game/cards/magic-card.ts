@@ -19,7 +19,7 @@ export class MagicCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
-  getEffect(): EffectData {
-    return this.data.effect
+  getAbility() {
+    return this.data.ability
   }
 }

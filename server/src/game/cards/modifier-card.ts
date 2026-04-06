@@ -19,10 +19,7 @@ export class ModifierCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
-  getValues(): number[] {
-    return this.data.values
-  }
-  getCondition(): string | null {
-    return this.data.condition ?? null
+  getAbility() {
+    return this.data.ability
   }
 }

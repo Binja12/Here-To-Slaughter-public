@@ -8,6 +8,7 @@ const mockMagicData: MagicCardData = {
   type: CardType.Magic,
   image: 'fireball.png',
   description: 'Deals massive damage',
+  set: 'base',
   ability: {
     trigger: [],
     steps: [],
@@ -40,8 +41,8 @@ describe('MagicCard', () => {
     expect(card.getDescription()).toBe('Deals massive damage')
   })
 
-  it('should return effect', () => {
+  it('should return ability', () => {
     const card = new MagicCard(mockMagicData)
-    expect(card.getEffect()).toEqual(mockMagicData.effect)
+    expect(card.getAbility()).toEqual(mockMagicData.ability)
   })
 })

@@ -32,6 +32,6 @@ export class HeroCard implements ICard {
     this.data.equippedItem = itemId
   }
   getAbility() {
-    this.data.ability
+    return this.data.ability
   }
 }

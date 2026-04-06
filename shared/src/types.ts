@@ -8,6 +8,7 @@ import {
   TurnTimerMode,
   WinConditionType,
   RollCompareMode,
+  ChallengeResult,
 } from "./enums";
 
 export type HeroClassReq = HeroClass | "Any";
@@ -53,10 +54,7 @@ export type ItemCardData = CardBase & {
 
 export type MagicCardData = CardBase;
 
-export type ModifierCardData = CardBase & {
-  values: number[];
-  condition?: string;
-};
+export type ModifierCardData = CardBase;
 
 export type ChallengeCardData = CardBase;
 
@@ -115,11 +113,6 @@ export type ReactionWindow = {
   resolved: boolean;
   challengerWon?: boolean;
 };
-
-export enum ChallengeResult {
-  NoChallengeOrWon = "NoChallengeOrWon",
-  ChallengerWon = "ChallengerWon",
-}
 
 export type ChallengeChecker = () => Promise<ChallengeResult>;
 
