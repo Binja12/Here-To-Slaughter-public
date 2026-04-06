@@ -9,9 +9,10 @@ const mockItemData: ItemCardData = {
   image: 'sword.png',
   description: 'A powerful sword',
   cursed: false,
-  effect: {
-    rollBonus: 2,
-    duration: EffectDuration.Permanent,
+  set: 'base',
+  ability: {
+    trigger: [],
+    steps: [],
   },
 }
 
@@ -20,9 +21,10 @@ const mockCursedItemData: ItemCardData = {
   id: 'item-2',
   name: 'Cursed Dagger',
   cursed: true,
-  effect: {
-    attackBonus: -2,
-    duration: EffectDuration.Permanent,
+  set: 'base',
+  ability: {
+    trigger: [],
+    steps: [],
   },
 }
 
@@ -52,9 +54,9 @@ describe('ItemCard', () => {
     expect(card.getDescription()).toBe('A powerful sword')
   })
 
-  it('should return effect', () => {
+  it('should return ability', () => {
     const card = new ItemCard(mockItemData)
-    expect(card.getEffect()).toEqual(mockItemData.effect)
+    expect(card.getAbility()).toEqual(mockItemData.ability)
   })
 
   it('should return cursed false', () => {

@@ -26,18 +26,30 @@ export class GameEngine implements IGameEventListener {
   }
 
   onEvent(event: IGameEvent): void {
-    if (event.getType() === GameEventType.TurnEnded) {
-      const winner = this.checkWinConditions()
-      if (winner) {
-        this.emitter.emit(
-          new GameEvent(GameEventType.GameEnded, winner.getId(), {
-            winnerId: winner.getId(),
-          }),
-        )
-        return
-      }
-      this.startNextTurn(event.getPlayerId())
+    switch (event.getType()) {
+      case GameEventType.TurnEnded:
+        this.handleTurnEnded(event.getPlayerId())
+        break
+
+      // Both window-close events signal that the drain loop can resume.
+      case GameEventType.ModifierWindowClosed:
+      case GameEventType.ChallengeWindowClosed:
+        this.turnManager.resumeDrain()
+        break
     }
+  }
+
+  private handleTurnEnded(currentPlayerId: string): void {
+    const winner = this.checkWinConditions()
+    if (winner) {
+      this.emitter.emit(
+        new GameEvent(GameEventType.GameEnded, winner.getId(), {
+          winnerId: winner.getId(),
+        }),
+      )
+      return
+    }
+    this.startNextTurn(currentPlayerId)
   }
 
   private checkWinConditions(): Player | null {

@@ -8,6 +8,11 @@ const mockChallengeData: ChallengeCardData = {
   type: CardType.Challenge,
   image: 'challenge.png',
   description: 'Counter any card play',
+  set: '',
+  ability: {
+    trigger: [],
+    steps: [],
+  },
 }
 
 describe('ChallengeCard', () => {

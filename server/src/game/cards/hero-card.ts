@@ -25,13 +25,13 @@ export class HeroCard implements ICard {
   getRollReq(): number {
     return this.data.rollReq
   }
-  getEffect(): EffectData {
-    return this.data.effect
-  }
   getEquippedItem(): string | null {
     return this.data.equippedItem ?? null
   }
   equipItem(itemId: string): void {
     this.data.equippedItem = itemId
+  }
+  getAbility() {
+    this.data.ability
   }
 }

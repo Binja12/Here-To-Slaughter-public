@@ -43,19 +43,15 @@ export type CardBase = {
 export type HeroCardData = CardBase & {
   heroClass: HeroClass;
   rollReq: number;
-  effect: EffectData;
   equippedItem?: string;
 };
 
 export type ItemCardData = CardBase & {
-  effect: EffectData;
   equippedHero?: string;
   cursed: boolean;
 };
 
-export type MagicCardData = CardBase & {
-  effect: EffectData;
-};
+export type MagicCardData = CardBase;
 
 export type ModifierCardData = CardBase & {
   values: number[];
@@ -69,12 +65,10 @@ export type MonsterCardData = CardBase & {
   higherReq: number;
   rollCompareMode: RollCompareMode;
   partyReq: PartyReq;
-  skill: SkillData;
 };
 
 export type PartyLeaderData = CardBase & {
   heroClass: HeroClass;
-  skill: SkillData;
 };
 
 export type CardStackData = {
@@ -101,7 +95,7 @@ export type PlayerData = {
   name: string;
   hand: string[];
   partyId: string;
-  actionPointsPerTurn: number;
+  actionPoints: number;
 };
 
 export type PlayerResponse = {

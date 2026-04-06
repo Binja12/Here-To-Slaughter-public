@@ -14,7 +14,7 @@ const makePlayer = (id: string, points = 3) =>
     name: id,
     hand: [],
     partyId: `party-${id}`,
-    actionPointsPerTurn: points,
+    actionPoints: points,
   })
 
 const makeParty = (playerId: string) =>

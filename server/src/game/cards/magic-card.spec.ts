@@ -8,9 +8,9 @@ const mockMagicData: MagicCardData = {
   type: CardType.Magic,
   image: 'fireball.png',
   description: 'Deals massive damage',
-  effect: {
-    attackBonus: 3,
-    duration: EffectDuration.TurnEnd,
+  ability: {
+    trigger: [],
+    steps: [],
   },
 }
 
