@@ -23,6 +23,14 @@ export interface IAction {
   isChallengeable(): boolean
 }
 
+export interface IReactionAction {
+  getId(): string
+  getType(): ActionType
+  getPlayerId(): string
+  canExecute(gs: GameState): boolean
+  execute(gs: GameState): IGameEvent[]
+}
+
 // ---------------------------------------------------------------------------
 // Ability tasks
 // ---------------------------------------------------------------------------

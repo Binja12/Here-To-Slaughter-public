@@ -25,7 +25,11 @@ const makeHeroCard = (id: string) =>
     description: '',
     heroClass: HeroClass.Wizard,
     rollReq: 4,
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
+    ability: {
+      trigger: [],
+      steps: [],
+    },
   })
 
 const makeMagicCard = (id: string) =>
@@ -35,7 +39,11 @@ const makeMagicCard = (id: string) =>
     type: CardType.Magic,
     image: '',
     description: '',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
+    ability: {
+      trigger: [],
+      steps: [],
+    },
   })
 
 const makeGs = (
@@ -55,7 +63,7 @@ const makeGs = (
     playerId: 'p1',
     leaderId: 'leader-1',
     heroIds: [],
-    MonsterIds: [],
+    monsterIds: [],
   })
   const gs = new GameState(deck)
   gs.registerPlayer(player)
@@ -69,10 +77,10 @@ const makeReactionManager = (gs: GameState) => {
   const emitter = new GameEventEmitter()
   const ap = new AbilityProcessor(gs, emitter)
   const captured: { options: any }[] = []
-  const rm = new ReactionManager(gs, emitter, ap, () => {})
-  rm.openChallengeWindow = (opts) => {
-    captured.push({ options: opts })
-  }
+  const rm = new ReactionManager(gs, emitter, () => {})
+  // rm.openChallengeWindow = (opts) => {
+  //   captured.push({ options: opts })
+  // }
   ;(rm as any)._captured = captured
   return { rm, emitter }
 }
@@ -200,7 +208,9 @@ describe('PlayCardAction', () => {
       const successEvents = onSuccess()
       expect(party.getHeroIds()).toContain('hero-1')
       expect(
-        successEvents.some((e: any) => e.getType() === GameEventType.HeroAdded),
+        successEvents.some(
+          (e: any) => e.getType() === GameEventType.HeroAddedToParty,
+        ),
       ).toBe(true)
     })
 

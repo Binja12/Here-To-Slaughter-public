@@ -23,7 +23,7 @@ const makeGs = (
     playerId: 'p1',
     leaderId: 'leader-1',
     heroIds: [],
-    MonsterIds: [],
+    monsterIds: [],
   })
   const gs = new GameState(deck)
   gs.registerPlayer(player)

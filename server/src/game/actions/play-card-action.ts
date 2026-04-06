@@ -67,7 +67,7 @@ export class PlayCardAction implements IAction {
         gs.getParty(this.playerId).addHero(this.cardId)
         return [
           new GameEvent(
-            GameEventType.HeroAdded,
+            GameEventType.HeroAddedToParty,
             this.playerId,
             { cardId: this.cardId },
             Audience.All,
@@ -93,11 +93,11 @@ export class PlayCardAction implements IAction {
       Audience.All,
     )
 
-    this.reactionManager.openChallengeWindow({
-      challengedId: this.playerId,
-      cardId: this.cardId,
-      onSuccess,
-    })
+    // this.reactionManager.openChallengeWindow({
+    //   challengedId: this.playerId,
+    //   cardId: this.cardId,
+    //   onSuccess,
+    // })
 
     return [attemptEvent]
   }

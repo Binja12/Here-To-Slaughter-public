@@ -1,24 +1,15 @@
 import { ReactionWindowType } from 'shared'
 import { GameState } from '../game-state'
-import { IReactionWindow } from '../interfaces'
+import { IReactionWindow, IReactionAction } from '../interfaces'
+import { GameEventEmitter } from '../game-event-emitter'
+import { ModifierWindow } from './modifier-window'
 
-/**
- * Pure registry for reaction windows.
- *
- * Responsibilities:
- *   - registerWindow   → stores window + syncs to GameState for TurnManager queries
- *   - unregisterWindow → removes window + syncs to GameState + calls onWindowClosed
- *   - submitReaction   → routes a player reaction payload to the correct open window
- *   - getWindowByType  → lookup helper for actions that need to target an open window
- *
- * Must NOT: roll dice, mutate GameState, decide outcomes, know about abilities or cards.
- */
 export class ReactionManager {
   private windows: Map<string, IReactionWindow> = new Map()
 
   constructor(
     private readonly gs: GameState,
-    /** Called each time a window fully closes — used to resume TurnManager drain. */
+    private readonly em: GameEventEmitter,
     private readonly onWindowClosed: () => void,
   ) {}
 
@@ -34,11 +25,37 @@ export class ReactionManager {
     this.onWindowClosed()
   }
 
+  openModifierWindow(
+    rollerId: string,
+    baseRoll: number,
+    rollReq: number,
+    heroId: string,
+    onResolve: (finalRoll: number) => void,
+  ): void {
+    const id = crypto.randomUUID()
+
+    const window = new ModifierWindow(
+      id,
+      rollerId,
+      baseRoll,
+      rollReq,
+      heroId,
+      5000,
+      this.em,
+      (finalRoll) => {
+        onResolve(finalRoll)
+        return []
+      },
+      () => this.unregisterWindow(id),
+    )
+
+    this.registerWindow(window)
+  }
+
   submitReaction(windowId: string, playerId: string, payload: unknown): void {
     this.windows.get(windowId)?.submitReaction(playerId, payload)
   }
 
-  /** Returns the first open window of the given type, or undefined. */
   getWindowByType(type: ReactionWindowType): IReactionWindow | undefined {
     for (const w of this.windows.values()) {
       if (w.isOpen() && w.getType() === type) return w
