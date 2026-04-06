@@ -9,14 +9,14 @@ import { IAction } from './interfaces'
 import { GameEvent } from './game-event'
 import { Audience } from 'shared'
 
-const makeGs = (actionPointsPerTurn = 3) => {
+const makeGs = (actionPoints = 3) => {
   const deck = new CardStack('deck', 'main')
   const player = new Player({
     id: 'p1',
     name: 'P1',
     hand: [],
     partyId: 'party-1',
-    actionPointsPerTurn,
+    actionPoints,
   })
   const party = new Party({
     playerId: 'p1',
@@ -30,17 +30,29 @@ const makeGs = (actionPointsPerTurn = 3) => {
   return gs
 }
 
+/**
+ * Realistic mock action: canExecute checks player AP, execute deducts it.
+ * This mirrors how real actions behave so TurnManager tests stay accurate.
+ */
 const makeAction = (
   cost: number,
-  canExec = true,
+  canExecBase = true,
   events: IGameEvent[] = [],
 ): IAction => ({
   getId: () => 'test-action',
   getType: () => ActionType.DrawCard,
   getPlayerId: () => 'p1',
   getCost: () => cost,
-  canExecute: () => canExec,
-  execute: () => events,
+  isChallengeable: () => false,
+  canExecute: (gs: GameState) => {
+    if (!canExecBase) return false
+    const player = gs.getPlayer('p1')
+    return !!player && player.getActionPoints() >= cost
+  },
+  execute: (gs: GameState) => {
+    gs.getPlayer('p1')?.decreaseActionPoints(cost)
+    return events
+  },
 })
 
 describe('TurnManager', () => {
@@ -59,8 +71,10 @@ describe('TurnManager', () => {
       expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
     })
 
-    it('should reset action points from player data', () => {
+    it('should reset action points from player', () => {
       const gs = makeGs(3)
+      // Simulate previous turn spending
+      gs.getPlayer('p1')!.decreaseActionPoints(2)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
       expect(tm.getActionPoints()).toBe(3)
@@ -98,34 +112,26 @@ describe('TurnManager', () => {
     it('should ignore actions when phase is not ActionWindow', () => {
       const gs = makeGs()
       const tm = new TurnManager(gs, new GameEventEmitter())
-      // phase starts as TurnStart, not ActionWindow
       const executed: boolean[] = []
-      const action = makeAction(1, true, [])
+      const action = makeAction(1)
       action.execute = () => {
         executed.push(true)
         return []
       }
-      tm.enqueue(action)
+      tm.enqueue(action) // phase is TurnStart — ignored
       expect(executed).toHaveLength(0)
     })
 
     it('should execute a valid action', () => {
       const gs = makeGs(3)
-      const emitter = new GameEventEmitter()
-      const tm = new TurnManager(gs, emitter)
+      const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
-
       const executed: boolean[] = []
-      const action: IAction = {
-        getId: () => 'a1',
-        getType: () => require('shared').ActionType.DrawCard,
-        getPlayerId: () => 'p1',
-        getCost: () => 1,
-        canExecute: () => true,
-        execute: () => {
-          executed.push(true)
-          return []
-        },
+      const action = makeAction(1)
+      action.execute = (g) => {
+        gs.getPlayer('p1')?.decreaseActionPoints(1)
+        executed.push(true)
+        return []
       }
       tm.enqueue(action)
       expect(executed).toHaveLength(1)
@@ -139,39 +145,35 @@ describe('TurnManager', () => {
       expect(tm.getActionPoints()).toBe(1)
     })
 
-    it('should skip actions whose cost exceeds remaining points', () => {
+    it('should skip actions when canExecute returns false (e.g. cost exceeds AP)', () => {
       const gs = makeGs(1)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
-      // 1 point left, enqueue cost-2 action — should be skipped
+      // cost-2 action → canExecute checks player AP (1) < 2 → returns false → skipped
       const executed: boolean[] = []
-      const action: IAction = {
-        ...makeAction(2),
-        execute: () => {
-          executed.push(true)
-          return []
-        },
+      const expensive = makeAction(2)
+      const origExecute = expensive.execute
+      expensive.execute = (g) => {
+        executed.push(true)
+        return origExecute(g)
       }
-      // First, use 0 points with a 0-cost? No, min cost is 1. Let's reduce points first.
-      // Use the 1 point with a valid action, then try cost-2
-      tm.enqueue(makeAction(1)) // uses 1 point → 0 left → endTurn fires
-      // endTurn changes phase, so further enqueues are ignored
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      tm.enqueue(expensive)
+      expect(executed).toHaveLength(0)
+      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow) // turn not ended, just skipped
+      expect(tm.getActionPoints()).toBe(1)
     })
 
-    it('should skip actions that canExecute returns false', () => {
+    it('should skip actions whose canExecute explicitly returns false', () => {
       const gs = makeGs(3)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
       const executed: boolean[] = []
-      const action: IAction = {
-        ...makeAction(1, false),
-        execute: () => {
-          executed.push(true)
-          return []
-        },
+      const blocked = makeAction(1, false)
+      blocked.execute = () => {
+        executed.push(true)
+        return []
       }
-      tm.enqueue(action)
+      tm.enqueue(blocked)
       expect(executed).toHaveLength(0)
     })
 
@@ -182,7 +184,6 @@ describe('TurnManager', () => {
       emitter.addListener({ onEvent: (e) => received.push(e) })
       const tm = new TurnManager(gs, emitter)
       tm.startTurn('p1')
-
       const actionEvent = new GameEvent(
         GameEventType.CardDrawn,
         'p1',
@@ -191,6 +192,82 @@ describe('TurnManager', () => {
       )
       tm.enqueue(makeAction(1, true, [actionEvent]))
       expect(received).toContain(actionEvent)
+    })
+
+    it('should pause drain when a reaction window is open', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      // Action that opens a fake window as a side-effect
+      const executed: string[] = []
+      const windowAction: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          executed.push('window-action')
+          // Simulate opening a window
+          g.addReactionWindow({
+            getType: () => require('shared').ReactionWindowType.Modifier,
+            isOpen: () => true,
+          })
+          return []
+        },
+      }
+      const afterAction: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          executed.push('after-action')
+          return []
+        },
+      }
+
+      tm.enqueue(windowAction)
+      tm.enqueue(afterAction)
+
+      // window-action ran, afterAction was paused
+      expect(executed).toEqual(['window-action'])
+      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+    })
+
+    it('should resume drain after resumeDrain() is called', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      const executed: string[] = []
+      let windowRef: any
+
+      const windowAction: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          windowRef = {
+            getType: () => require('shared').ReactionWindowType.Modifier,
+            isOpen: () => true,
+          }
+          g.addReactionWindow(windowRef)
+          executed.push('window-action')
+          return []
+        },
+      }
+      const afterAction: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          executed.push('after-action')
+          return []
+        },
+      }
+
+      tm.enqueue(windowAction)
+      tm.enqueue(afterAction)
+      expect(executed).toEqual(['window-action'])
+
+      // Close the window and resume
+      gs.removeReactionWindow(windowRef)
+      tm.resumeDrain()
+      expect(executed).toEqual(['window-action', 'after-action'])
     })
   })
 
@@ -224,11 +301,32 @@ describe('TurnManager', () => {
       emitter.addListener({ onEvent: (e) => received.push(e) })
       const tm = new TurnManager(gs, emitter)
       tm.startTurn('p1')
-      tm.enqueue(makeAction(1)) // costs 1 point — uses the last point
+      tm.enqueue(makeAction(1)) // costs last point → auto-endTurn
       expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
       expect(
         received.some((e) => e.getType() === GameEventType.TurnEnded),
       ).toBe(true)
+    })
+
+    it('should NOT auto-end when AP=0 but a reaction window is still open', () => {
+      const gs = makeGs(1)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      const windowAction: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          g.addReactionWindow({
+            getType: () => require('shared').ReactionWindowType.Modifier,
+            isOpen: () => true,
+          })
+          return []
+        },
+      }
+      tm.enqueue(windowAction)
+      // AP is 0 but window is open — turn should NOT have ended
+      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
     })
   })
 })

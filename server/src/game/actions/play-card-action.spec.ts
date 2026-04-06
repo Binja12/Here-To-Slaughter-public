@@ -1,6 +1,5 @@
 import {
   ActionType,
-  Audience,
   CardType,
   EffectDuration,
   GameEventType,
@@ -13,11 +12,14 @@ import { Party } from '../party'
 import { CardStack } from '../card-stack'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
+import { ReactionManager } from '../reactions/reaction-manager'
+import { GameEventEmitter } from '../game-event-emitter'
+import { AbilityProcessor } from '../ability-processor'
 
 const makeHeroCard = (id: string) =>
   new HeroCard({
     id,
-    name: `Hero ${id}`,
+    name: id,
     type: CardType.Hero,
     image: '',
     description: '',
@@ -29,21 +31,25 @@ const makeHeroCard = (id: string) =>
 const makeMagicCard = (id: string) =>
   new MagicCard({
     id,
-    name: `Magic ${id}`,
+    name: id,
     type: CardType.Magic,
     image: '',
     description: '',
     effect: { duration: EffectDuration.TurnEnd },
   })
 
-const makeGs = (handCards: string[], registeredCards: any[] = []) => {
+const makeGs = (
+  handCards: string[],
+  registeredCards: any[] = [],
+  actionPoints = 3,
+) => {
   const deck = new CardStack('deck', 'main')
   const player = new Player({
     id: 'p1',
     name: 'P1',
     hand: handCards,
     partyId: 'party-1',
-    actionPointsPerTurn: 3,
+    actionPoints,
   })
   const party = new Party({
     playerId: 'p1',
@@ -58,85 +64,159 @@ const makeGs = (handCards: string[], registeredCards: any[] = []) => {
   return { gs, player, party }
 }
 
+/** Stub ReactionManager that captures openChallengeWindow calls and its onSuccess. */
+const makeReactionManager = (gs: GameState) => {
+  const emitter = new GameEventEmitter()
+  const ap = new AbilityProcessor(gs, emitter)
+  const captured: { options: any }[] = []
+  const rm = new ReactionManager(gs, emitter, ap, () => {})
+  rm.openChallengeWindow = (opts) => {
+    captured.push({ options: opts })
+  }
+  ;(rm as any)._captured = captured
+  return { rm, emitter }
+}
+
 describe('PlayCardAction', () => {
   it('should have type PlayCard', () => {
-    expect(new PlayCardAction('p1', 'card-1').getType()).toBe(
+    const { gs } = makeGs([])
+    const { rm } = makeReactionManager(gs)
+    expect(new PlayCardAction('play-1', 'p1', 'card-1', rm).getType()).toBe(
       ActionType.PlayCard,
     )
   })
 
+  it('should return the injected id', () => {
+    const { gs } = makeGs([])
+    const { rm } = makeReactionManager(gs)
+    expect(new PlayCardAction('my-id', 'p1', 'card-1', rm).getId()).toBe(
+      'my-id',
+    )
+  })
+
   it('should have cost 1', () => {
-    expect(new PlayCardAction('p1', 'card-1').getCost()).toBe(1)
+    const { gs } = makeGs([])
+    const { rm } = makeReactionManager(gs)
+    expect(new PlayCardAction('p', 'p1', 'card-1', rm).getCost()).toBe(1)
   })
 
   it('should be challengeable', () => {
-    expect(new PlayCardAction('p1', 'card-1').isChallengeable()).toBe(true)
+    const { gs } = makeGs([])
+    const { rm } = makeReactionManager(gs)
+    expect(new PlayCardAction('p', 'p1', 'card-1', rm).isChallengeable()).toBe(
+      true,
+    )
   })
 
   describe('canExecute()', () => {
     it('should return false for unknown player', () => {
       const hero = makeHeroCard('hero-1')
       const { gs } = makeGs(['hero-1'], [hero])
-      expect(new PlayCardAction('unknown', 'hero-1').canExecute(gs)).toBe(false)
+      const { rm } = makeReactionManager(gs)
+      expect(
+        new PlayCardAction('p', 'unknown', 'hero-1', rm).canExecute(gs),
+      ).toBe(false)
+    })
+
+    it('should return false when player has no action points', () => {
+      const hero = makeHeroCard('hero-1')
+      const { gs } = makeGs(['hero-1'], [hero], 0)
+      const { rm } = makeReactionManager(gs)
+      expect(new PlayCardAction('p', 'p1', 'hero-1', rm).canExecute(gs)).toBe(
+        false,
+      )
     })
 
     it('should return false when card not in hand', () => {
       const hero = makeHeroCard('hero-1')
       const { gs } = makeGs([], [hero])
-      expect(new PlayCardAction('p1', 'hero-1').canExecute(gs)).toBe(false)
+      const { rm } = makeReactionManager(gs)
+      expect(new PlayCardAction('p', 'p1', 'hero-1', rm).canExecute(gs)).toBe(
+        false,
+      )
     })
 
-    it('should return false when card not registered in game state', () => {
-      const { gs } = makeGs(['hero-1'], [])
-      expect(new PlayCardAction('p1', 'hero-1').canExecute(gs)).toBe(false)
-    })
-
-    it('should return true when card is in hand and registered', () => {
+    it('should return true when card is in hand with AP available', () => {
       const hero = makeHeroCard('hero-1')
       const { gs } = makeGs(['hero-1'], [hero])
-      expect(new PlayCardAction('p1', 'hero-1').canExecute(gs)).toBe(true)
+      const { rm } = makeReactionManager(gs)
+      expect(new PlayCardAction('p', 'p1', 'hero-1', rm).canExecute(gs)).toBe(
+        true,
+      )
     })
   })
 
-  describe('execute() — Hero card', () => {
-    it('should remove hero from hand', () => {
+  describe('execute()', () => {
+    it('should remove the card from hand immediately (cost paid)', () => {
       const hero = makeHeroCard('hero-1')
       const { gs, player } = makeGs(['hero-1'], [hero])
-      new PlayCardAction('p1', 'hero-1').execute(gs)
+      const { rm } = makeReactionManager(gs)
+      new PlayCardAction('p', 'p1', 'hero-1', rm).execute(gs)
       expect(player.getHand()).not.toContain('hero-1')
     })
 
-    it('should add hero to party', () => {
+    it('should deduct 1 action point', () => {
       const hero = makeHeroCard('hero-1')
-      const { gs, party } = makeGs(['hero-1'], [hero])
-      new PlayCardAction('p1', 'hero-1').execute(gs)
-      expect(party.getHeroIds()).toContain('hero-1')
+      const { gs, player } = makeGs(['hero-1'], [hero])
+      const { rm } = makeReactionManager(gs)
+      new PlayCardAction('p', 'p1', 'hero-1', rm).execute(gs)
+      expect(player.getActionPoints()).toBe(2)
     })
 
-    it('should emit HeroAdded event with All audience', () => {
+    it('should emit CardPlayAttempted event', () => {
       const hero = makeHeroCard('hero-1')
       const { gs } = makeGs(['hero-1'], [hero])
-      const events = new PlayCardAction('p1', 'hero-1').execute(gs)
-      expect(events).toHaveLength(1)
-      expect(events[0].getType()).toBe(GameEventType.HeroAdded)
-      expect(events[0].getAudience()).toBe(Audience.All)
-      expect((events[0].getPayload() as any).cardId).toBe('hero-1')
-    })
-  })
-
-  describe('execute() — non-Hero card', () => {
-    it('should remove magic card from hand', () => {
-      const magic = makeMagicCard('magic-1')
-      const { gs, player } = makeGs(['magic-1'], [magic])
-      new PlayCardAction('p1', 'magic-1').execute(gs)
-      expect(player.getHand()).not.toContain('magic-1')
+      const { rm } = makeReactionManager(gs)
+      const events = new PlayCardAction('p', 'p1', 'hero-1', rm).execute(gs)
+      expect(
+        events.some((e) => e.getType() === GameEventType.CardPlayAttempted),
+      ).toBe(true)
     })
 
-    it('should emit CardPlayed event for non-Hero cards', () => {
+    it('should open a challenge window via ReactionManager', () => {
+      const hero = makeHeroCard('hero-1')
+      const { gs } = makeGs(['hero-1'], [hero])
+      const { rm } = makeReactionManager(gs)
+      new PlayCardAction('p', 'p1', 'hero-1', rm).execute(gs)
+      expect((rm as any)._captured).toHaveLength(1)
+    })
+
+    it('should NOT immediately add hero to party — deferred to onSuccess', () => {
+      const hero = makeHeroCard('hero-1')
+      const { gs, party } = makeGs(['hero-1'], [hero])
+      const { rm } = makeReactionManager(gs)
+      new PlayCardAction('p', 'p1', 'hero-1', rm).execute(gs)
+      expect(party.getHeroIds()).not.toContain('hero-1')
+    })
+
+    it('onSuccess: should add hero to party and emit HeroAdded', () => {
+      const hero = makeHeroCard('hero-1')
+      const { gs, party } = makeGs(['hero-1'], [hero])
+      const { rm } = makeReactionManager(gs)
+      new PlayCardAction('p', 'p1', 'hero-1', rm).execute(gs)
+      // Invoke the deferred onSuccess callback
+      const onSuccess = (rm as any)._captured[0].options
+        .onSuccess as () => any[]
+      const successEvents = onSuccess()
+      expect(party.getHeroIds()).toContain('hero-1')
+      expect(
+        successEvents.some((e: any) => e.getType() === GameEventType.HeroAdded),
+      ).toBe(true)
+    })
+
+    it('onSuccess: magic card should emit CardPlayed', () => {
       const magic = makeMagicCard('magic-1')
       const { gs } = makeGs(['magic-1'], [magic])
-      const events = new PlayCardAction('p1', 'magic-1').execute(gs)
-      expect(events[0].getType()).toBe(GameEventType.CardPlayed)
+      const { rm } = makeReactionManager(gs)
+      new PlayCardAction('p', 'p1', 'magic-1', rm).execute(gs)
+      const onSuccess = (rm as any)._captured[0].options
+        .onSuccess as () => any[]
+      const successEvents = onSuccess()
+      expect(
+        successEvents.some(
+          (e: any) => e.getType() === GameEventType.CardPlayed,
+        ),
+      ).toBe(true)
     })
   })
 })

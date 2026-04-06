@@ -4,7 +4,6 @@ import {
   EffectDuration,
   GameEventType,
   HeroClass,
-  RollResult,
 } from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../game-state'
@@ -12,18 +11,16 @@ import { Player } from '../player'
 import { Party } from '../party'
 import { CardStack } from '../card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { AbilityProcessor } from '../ability-processor.ts'
+import { IAbility } from '../interfaces'
+import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../game-event-emitter'
-import { IAbility, ITask } from '../interfaces'
-import { IGameEvent } from 'shared'
-import { GameEvent } from '../game-event'
-import { Audience } from 'shared'
+import { AbilityProcessor } from '../ability-processor'
 
 const makeHeroCard = (id: string, rollReq: number, ability?: IAbility) =>
   new HeroCard(
     {
       id,
-      name: `Hero ${id}`,
+      name: id,
       type: CardType.Hero,
       image: '',
       description: '',
@@ -37,6 +34,7 @@ const makeHeroCard = (id: string, rollReq: number, ability?: IAbility) =>
 const makeGs = (
   heroIds: string[] = ['hero-1'],
   abilitiesUsed: string[] = [],
+  actionPoints = 3,
 ) => {
   const deck = new CardStack('deck', 'main')
   const player = new Player({
@@ -44,7 +42,7 @@ const makeGs = (
     name: 'P1',
     hand: [],
     partyId: 'party-1',
-    actionPointsPerTurn: 3,
+    actionPoints,
   })
   const party = new Party({
     playerId: 'p1',
@@ -59,128 +57,181 @@ const makeGs = (
   return gs
 }
 
-const makeAp = (gs: GameState) =>
-  new AbilityProcessor(gs, new GameEventEmitter())
+/** Stub ReactionManager — captures openModifierWindow calls. */
+const makeReactionManager = (gs: GameState) => {
+  const emitter = new GameEventEmitter()
+  const ap = new AbilityProcessor(gs, emitter)
+  const openedWindows: any[] = []
+  const rm = new ReactionManager(gs, emitter, ap, () => {})
+  const original = rm.openModifierWindow.bind(rm)
+  rm.openModifierWindow = (opts) => {
+    openedWindows.push(opts)
+    original(opts)
+  }
+  ;(rm as any)._openedWindows = openedWindows
+  return rm
+}
 
 describe('RollOnHeroAction', () => {
   it('should have type RollOnHero', () => {
-    const ap = makeAp(makeGs())
-    expect(new RollOnHeroAction('p1', 'hero-1', ap).getType()).toBe(
+    const gs = makeGs()
+    const rm = makeReactionManager(gs)
+    expect(new RollOnHeroAction('roll-1', 'p1', 'hero-1', rm).getType()).toBe(
       ActionType.RollOnHero,
     )
   })
 
+  it('should return the injected id', () => {
+    const gs = makeGs()
+    const rm = makeReactionManager(gs)
+    expect(new RollOnHeroAction('my-id', 'p1', 'hero-1', rm).getId()).toBe(
+      'my-id',
+    )
+  })
+
   it('should have cost 1', () => {
-    const ap = makeAp(makeGs())
-    expect(new RollOnHeroAction('p1', 'hero-1', ap).getCost()).toBe(1)
+    const gs = makeGs()
+    expect(
+      new RollOnHeroAction(
+        'r',
+        'p1',
+        'hero-1',
+        makeReactionManager(gs),
+      ).getCost(),
+    ).toBe(1)
+  })
+
+  it('should not be challengeable', () => {
+    const gs = makeGs()
+    expect(
+      new RollOnHeroAction(
+        'r',
+        'p1',
+        'hero-1',
+        makeReactionManager(gs),
+      ).isChallengeable(),
+    ).toBe(false)
   })
 
   describe('canExecute()', () => {
-    it('should return false when hero not in party', () => {
-      const gs = makeGs(['hero-2']) // hero-1 not present
+    it('should return false for unknown player', () => {
+      const gs = makeGs(['hero-1'])
       expect(
-        new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).canExecute(gs),
+        new RollOnHeroAction(
+          'r',
+          'unknown',
+          'hero-1',
+          makeReactionManager(gs),
+        ).canExecute(gs),
+      ).toBe(false)
+    })
+
+    it('should return false when player has no action points', () => {
+      const gs = makeGs(['hero-1'], [], 0)
+      expect(
+        new RollOnHeroAction(
+          'r',
+          'p1',
+          'hero-1',
+          makeReactionManager(gs),
+        ).canExecute(gs),
+      ).toBe(false)
+    })
+
+    it('should return false when hero not in party', () => {
+      const gs = makeGs(['hero-2'])
+      expect(
+        new RollOnHeroAction(
+          'r',
+          'p1',
+          'hero-1',
+          makeReactionManager(gs),
+        ).canExecute(gs),
       ).toBe(false)
     })
 
     it('should return false when ability already used this turn', () => {
       const gs = makeGs(['hero-1'], ['hero-1'])
       expect(
-        new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).canExecute(gs),
+        new RollOnHeroAction(
+          'r',
+          'p1',
+          'hero-1',
+          makeReactionManager(gs),
+        ).canExecute(gs),
       ).toBe(false)
     })
 
-    it('should return true when hero is in party and ability not used', () => {
+    it('should return true when all conditions pass', () => {
       const gs = makeGs(['hero-1'])
       expect(
-        new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).canExecute(gs),
+        new RollOnHeroAction(
+          'r',
+          'p1',
+          'hero-1',
+          makeReactionManager(gs),
+        ).canExecute(gs),
       ).toBe(true)
     })
   })
 
   describe('execute()', () => {
-    it('should always emit a DiceRolled event', () => {
+    it('should emit a DiceRolled event', () => {
       const gs = makeGs(['hero-1'])
-      const card = makeHeroCard('hero-1', 1) // rollReq=1, always succeeds
+      const card = makeHeroCard('hero-1', 4)
       gs.registerCard(card)
-      const events = new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).execute(
-        gs,
-      )
+      const events = new RollOnHeroAction(
+        'r',
+        'p1',
+        'hero-1',
+        makeReactionManager(gs),
+      ).execute(gs)
       expect(events.some((e) => e.getType() === GameEventType.DiceRolled)).toBe(
         true,
       )
     })
 
-    it('should mark ability used on success', () => {
-      // Force success by setting rollReq = 1
+    it('should deduct 1 action point from the player', () => {
       const gs = makeGs(['hero-1'])
-      const card = makeHeroCard('hero-1', 1)
-      gs.registerCard(card)
-      jest.spyOn(Math, 'random').mockReturnValue(0.99) // roll = 6
-      new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).execute(gs)
-      expect(gs.getAbilitiesUsedThisTurn()).toContain('hero-1')
-      jest.restoreAllMocks()
-    })
-
-    it('should not mark ability used on failure', () => {
-      // Force failure by setting rollReq = 7 (impossible)
-      const gs = makeGs(['hero-1'])
-      const card = makeHeroCard('hero-1', 7)
-      gs.registerCard(card)
-      jest.spyOn(Math, 'random').mockReturnValue(0) // roll = 1
-      new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).execute(gs)
-      expect(gs.getAbilitiesUsedThisTurn()).not.toContain('hero-1')
-      jest.restoreAllMocks()
-    })
-
-    it('should include ability events on success', () => {
-      const gs = makeGs(['hero-1'])
-      const abilityEvent = new GameEvent(
-        GameEventType.CardDrawn,
+      const player = gs.getPlayer('p1')!
+      new RollOnHeroAction(
+        'r',
         'p1',
-        {},
-        Audience.PlayerOnly,
-      )
-      const task: ITask = { execute: () => [abilityEvent] }
-      const ability: IAbility = { steps: [task] }
-      const card = makeHeroCard('hero-1', 1, ability)
-      gs.registerCard(card)
-      jest.spyOn(Math, 'random').mockReturnValue(0.99) // roll = 6
-      const events = new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).execute(
-        gs,
-      )
-      expect(events).toContain(abilityEvent)
-      jest.restoreAllMocks()
+        'hero-1',
+        makeReactionManager(gs),
+      ).execute(gs)
+      expect(player.getActionPoints()).toBe(2)
     })
 
-    it('should include Success result on high roll', () => {
+    it('should open a modifier window via ReactionManager', () => {
+      const gs = makeGs(['hero-1'])
+      const card = makeHeroCard('hero-1', 4)
+      gs.registerCard(card)
+      const rm = makeReactionManager(gs)
+      new RollOnHeroAction('r', 'p1', 'hero-1', rm).execute(gs)
+      expect((rm as any)._openedWindows).toHaveLength(1)
+    })
+
+    it('should pass the hero rollReq to the modifier window', () => {
+      const gs = makeGs(['hero-1'])
+      const card = makeHeroCard('hero-1', 5)
+      gs.registerCard(card)
+      const rm = makeReactionManager(gs)
+      new RollOnHeroAction('r', 'p1', 'hero-1', rm).execute(gs)
+      expect((rm as any)._openedWindows[0].rollReq).toBe(5)
+    })
+
+    it('should open a reaction window in GameState', () => {
       const gs = makeGs(['hero-1'])
       const card = makeHeroCard('hero-1', 1)
       gs.registerCard(card)
-      jest.spyOn(Math, 'random').mockReturnValue(0.99)
-      const events = new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).execute(
-        gs,
-      )
-      const diceEvent = events.find(
-        (e) => e.getType() === GameEventType.DiceRolled,
-      )!
-      expect((diceEvent.getPayload() as any).result).toBe(RollResult.Success)
-      jest.restoreAllMocks()
-    })
-
-    it('should include Failure result on low roll against high rollReq', () => {
-      const gs = makeGs(['hero-1'])
-      const card = makeHeroCard('hero-1', 6)
-      gs.registerCard(card)
-      jest.spyOn(Math, 'random').mockReturnValue(0) // roll = 1
-      const events = new RollOnHeroAction('p1', 'hero-1', makeAp(gs)).execute(
-        gs,
-      )
-      const diceEvent = events.find(
-        (e) => e.getType() === GameEventType.DiceRolled,
-      )!
-      expect((diceEvent.getPayload() as any).result).toBe(RollResult.Failure)
-      jest.restoreAllMocks()
+      new RollOnHeroAction(
+        'r',
+        'p1',
+        'hero-1',
+        makeReactionManager(gs),
+      ).execute(gs)
+      expect(gs.hasOpenReactionWindow()).toBe(true)
     })
   })
 })

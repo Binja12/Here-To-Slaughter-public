@@ -7,10 +7,13 @@ const MAX_HAND_SIZE = 10
 const COST = 1
 
 export class DrawCardAction implements IAction {
-  constructor(private playerId: string) {}
+  constructor(
+    private readonly id: string,
+    private readonly playerId: string,
+  ) {}
 
   getId(): string {
-    return `draw-card-${this.playerId}-${Date.now()}`
+    return this.id
   }
 
   getType(): ActionType {
@@ -25,18 +28,25 @@ export class DrawCardAction implements IAction {
     return COST
   }
 
+  isChallengeable(): boolean {
+    return false
+  }
+
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
+    if (player.getActionPoints() < COST) return false
     if (player.getHandSize() >= MAX_HAND_SIZE) return false
     if (gs.getMainDeck().getSize() === 0) return false
     return true
   }
 
   execute(gs: GameState): IGameEvent[] {
+    const player = gs.getPlayer(this.playerId)!
     const cardId = gs.getMainDeck().draw()
     if (!cardId) return []
-    gs.getPlayer(this.playerId)!.addToHand(cardId)
+    player.decreaseActionPoints(COST)
+    player.addToHand(cardId)
     return [
       new GameEvent(
         GameEventType.CardDrawn,

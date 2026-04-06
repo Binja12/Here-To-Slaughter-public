@@ -1,7 +1,17 @@
-import { ActionType, GameEventType, IGameEvent, RollResult } from 'shared'
+import {
+  ActionType,
+  GameEventType,
+  IGameEvent,
+  ReactionWindowType,
+  RollResult,
+} from 'shared'
 import type { GameState } from './game-state'
 import type { AbilityContext } from './ability-context'
 import type { Player } from './player'
+
+// ---------------------------------------------------------------------------
+// Turn actions
+// ---------------------------------------------------------------------------
 
 export interface IAction {
   getId(): string
@@ -10,11 +20,12 @@ export interface IAction {
   getCost(): number
   canExecute(gs: GameState): boolean
   execute(gs: GameState): IGameEvent[]
-}
-
-export interface IChallengeable {
   isChallengeable(): boolean
 }
+
+// ---------------------------------------------------------------------------
+// Ability tasks
+// ---------------------------------------------------------------------------
 
 export interface ITask {
   execute(gs: GameState, ctx: AbilityContext): IGameEvent[]
@@ -35,10 +46,30 @@ export interface IPassive {
   steps: ITask[]
 }
 
+// ---------------------------------------------------------------------------
+// Win / roll resolution
+// ---------------------------------------------------------------------------
+
 export interface IWinCondition {
   check(gs: GameState): Player | null
 }
 
 export interface IRollResolver {
   resolve(finalRoll: number): RollResult
+}
+
+// ---------------------------------------------------------------------------
+// Reaction windows
+// ---------------------------------------------------------------------------
+
+/** Base interface for any timed reaction window. */
+export interface IReactionWindow {
+  getId(): string
+  getType(): ReactionWindowType
+  /** True until the timer fires or resolve() is called explicitly. */
+  isOpen(): boolean
+  /** Route a player's reaction payload into the window. */
+  submitReaction(playerId: string, payload: unknown): void
+  /** Force immediate resolution (e.g. timeout, test helpers). */
+  resolve(): void
 }

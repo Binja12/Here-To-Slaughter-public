@@ -33,6 +33,7 @@ export enum TurnPhase {
 export enum ReactionWindowType {
   Challenge = "Challenge",
   Modifier = "Modifier",
+  Choice = "Choice",
 }
 
 export enum EffectDuration {
@@ -80,6 +81,18 @@ export enum GameEventType {
   GameStarted = "GameStarted",
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
+
+  // Modifier window
+  ModifierWindowOpened = "ModifierWindowOpened",
+  ModifierApplied = "ModifierApplied",
+  ModifierWindowClosed = "ModifierWindowClosed",
+  ModifierResolved = "ModifierResolved",
+  // Challenge window
+  CardPlayAttempted = "CardPlayAttempted",
+  ChallengeWindowOpened = "ChallengeWindowOpened",
+  ChallengeStarted = "ChallengeStarted",
+  ChallengeWindowClosed = "ChallengeWindowClosed",
+  ChallengeResolved = "ChallengeResolved",
 }
 
 export enum DecisionType {
@@ -177,4 +190,6 @@ export enum ActionType {
   DrawCard = "DrawCard",
   RollOnHero = "RollOnHero",
   PlayCard = "PlayCard",
+  ApplyModifier = "ApplyModifier",
+  Challenge = "Challenge",
 }

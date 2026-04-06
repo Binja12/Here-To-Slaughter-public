@@ -29,7 +29,7 @@ const makeGs = (deckCards: string[] = []) => {
     name: 'P1',
     hand: [],
     partyId: 'party-1',
-    actionPointsPerTurn: 3,
+    actionPoints: 3,
   })
   const party = new Party({
     playerId: 'p1',

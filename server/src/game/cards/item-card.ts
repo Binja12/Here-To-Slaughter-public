@@ -19,8 +19,8 @@ export class ItemCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
-  getEffect(): EffectData {
-    return this.data.effect
+  getAbility(): AbilityData {
+    return this.data.ability
   }
   isCursed(): boolean {
     return this.data.cursed

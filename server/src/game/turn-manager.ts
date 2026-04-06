@@ -6,8 +6,8 @@ import { GameEvent } from './game-event'
 
 export class TurnManager {
   private actionQueue: IAction[] = []
-  private actionPoints: number = 0
   private phase: TurnPhase = TurnPhase.TurnStart
+  private cardsChallengedThisTurn: string[] = []
 
   constructor(
     private gs: GameState,
@@ -18,8 +18,10 @@ export class TurnManager {
     return this.phase
   }
 
+  /** Current AP for the active player — delegates to Player. */
   getActionPoints(): number {
-    return this.actionPoints
+    const playerId = this.gs.getCurrentPlayerId()
+    return playerId ? (this.gs.getPlayer(playerId)?.getActionPoints() ?? 0) : 0
   }
 
   enqueue(action: IAction): void {
@@ -28,12 +30,18 @@ export class TurnManager {
     this.drain()
   }
 
+  /** Called by GameEngine after a reaction window closes to continue the drain loop. */
+  resumeDrain(): void {
+    this.drain()
+  }
+
   startTurn(playerId: string): void {
     const player = this.gs.getPlayer(playerId)
     if (!player) return
     this.gs.setCurrentPlayerId(playerId)
     this.gs.clearUsedAbilities()
-    this.actionPoints = player.getActionPointsPerTurn()
+    this.clearChallengedCards()
+    player.resetActionPoints()
     this.phase = TurnPhase.ActionWindow
     this.emitter.emit(
       new GameEvent(GameEventType.TurnStarted, playerId, { playerId }),
@@ -41,6 +49,7 @@ export class TurnManager {
   }
 
   endTurn(): void {
+    this.clearChallengedCards()
     this.phase = TurnPhase.TurnEnd
     const playerId = this.gs.getCurrentPlayerId() ?? ''
     this.emitter.emit(
@@ -48,14 +57,28 @@ export class TurnManager {
     )
   }
 
+  // --- Challenged-card tracking ---
+
+  markCardChallenged(cardId: string): void {
+    this.cardsChallengedThisTurn.push(cardId)
+  }
+
+  hasCardBeenChallenged(cardId: string): boolean {
+    return this.cardsChallengedThisTurn.includes(cardId)
+  }
+
+  clearChallengedCards(): void {
+    this.cardsChallengedThisTurn = []
+  }
+
+  // --- Internal ---
+
   private drain(): void {
     while (this.actionQueue.length > 0) {
-      const action = this.actionQueue[0]
+      // Pause the loop while a reaction window is open.
+      if (this.gs.hasOpenReactionWindow()) return
 
-      if (action.getCost() > this.actionPoints) {
-        this.actionQueue.shift()
-        continue
-      }
+      const action = this.actionQueue[0]
 
       if (!action.canExecute(this.gs)) {
         this.actionQueue.shift()
@@ -63,14 +86,21 @@ export class TurnManager {
       }
 
       this.actionQueue.shift()
-      this.actionPoints -= action.getCost()
       const events = action.execute(this.gs)
       for (const event of events) {
         this.emitter.emit(event)
       }
+
+      // After each paid action, check whether AP is exhausted.
+      // Don't end the turn if a reaction window is now open — resumeDrain handles that.
+      if (this.getActionPoints() <= 0 && !this.gs.hasOpenReactionWindow()) {
+        this.endTurn()
+        return
+      }
     }
 
-    if (this.actionPoints <= 0) {
+    // Queue drained — end turn if AP is 0 and no window is blocking.
+    if (this.getActionPoints() <= 0 && !this.gs.hasOpenReactionWindow()) {
       this.endTurn()
     }
   }

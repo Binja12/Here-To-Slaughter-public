@@ -11,9 +11,10 @@ const mockHeroData: HeroCardData = {
   description: 'A powerful wizard',
   heroClass: HeroClass.Wizard,
   rollReq: 4,
-  effect: {
-    rollBonus: 2,
-    duration: EffectDuration.TurnEnd,
+  set: 'base',
+  ability: {
+    trigger: [],
+    steps: [],
   },
 }
 
@@ -53,9 +54,9 @@ describe('HeroCard', () => {
     expect(card.getRollReq()).toBe(4)
   })
 
-  it('should return effect', () => {
+  it('should return ability', () => {
     const card = new HeroCard(mockHeroData)
-    expect(card.getEffect()).toEqual(mockHeroData.effect)
+    expect(card.getAbility()).toEqual(mockHeroData.ability)
   })
 
   it('should return null when no item equipped', () => {
@@ -77,22 +78,5 @@ describe('HeroCard', () => {
   it('should return undefined ability when none provided', () => {
     const card = new HeroCard(mockHeroData)
     expect(card.getAbility()).toBeUndefined()
-  })
-
-  it('should return the provided ability', () => {
-    const ability: IAbility = { steps: [] }
-    const card = new HeroCard(mockHeroData, ability)
-    expect(card.getAbility()).toBe(ability)
-  })
-
-  it('should return empty passives by default', () => {
-    const card = new HeroCard(mockHeroData)
-    expect(card.getPassives()).toEqual([])
-  })
-
-  it('should return the provided passives', () => {
-    const passive: IPassive = { trigger: GameEventType.CardDrawn, steps: [] }
-    const card = new HeroCard(mockHeroData, undefined, [passive])
-    expect(card.getPassives()).toEqual([passive])
   })
 })
