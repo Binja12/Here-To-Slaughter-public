@@ -22,7 +22,7 @@ export class PartyLeaderCard implements ICard, IBoardCard {
   getHeroClass(): HeroClass {
     return this.data.heroClass
   }
-  getSkill(): SkillData {
-    return this.data.skill
+  getAbility() {
+    return this.getAbility
   }
 }

@@ -8,13 +8,16 @@ const mockModifierData: ModifierCardData = {
   type: CardType.Modifier,
   image: 'lucky.png',
   description: 'Adds 2 to any roll',
-  values: [2, -1],
+  set: 'base',
+  ability: {
+    trigger: [],
+    steps: [],
+  },
 }
 
 const mockModifierWithCondition: ModifierCardData = {
   ...mockModifierData,
   id: 'modifier-2',
-  condition: 'Challenge only',
 }
 
 describe('ModifierCard', () => {
@@ -43,18 +46,8 @@ describe('ModifierCard', () => {
     expect(card.getDescription()).toBe('Adds 2 to any roll')
   })
 
-  it('should return values', () => {
+  it('should return ability', () => {
     const card = new ModifierCard(mockModifierData)
-    expect(card.getValues()).toEqual([2, -1])
-  })
-
-  it('should return null condition when none set', () => {
-    const card = new ModifierCard(mockModifierData)
-    expect(card.getCondition()).toBeNull()
-  })
-
-  it('should return condition when set', () => {
-    const card = new ModifierCard(mockModifierWithCondition)
-    expect(card.getCondition()).toBe('Challenge only')
+    expect(card.getAbility()).toEqual(mockModifierData.ability)
   })
 })
