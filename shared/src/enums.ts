@@ -77,10 +77,14 @@ export enum GameEventType {
   TurnStarted = "TurnStarted",
   TurnEnded = "TurnEnded",
 
+  // Item events
+  ItemEquippedToHero = "ItemEquippedToHero",
+
   // Game events
   GameStarted = "GameStarted",
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
+  RollSuccess = "RollSuccess",
 
   // Modifier window
   ModifierWindowOpened = "ModifierWindowOpened",

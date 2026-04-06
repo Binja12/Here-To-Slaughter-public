@@ -70,6 +70,23 @@ export class GameState {
     return undefined
   }
 
+  /** Returns the IAbility for any card type that carries one. */
+  getCardAbility(cardId: string): IAbility | undefined {
+    const card = this.cards.get(cardId)
+    if (!card) return undefined
+    if ('getAbility' in card && typeof card.getAbility === 'function') {
+      return (card as { getAbility(): IAbility | undefined }).getAbility()
+    }
+    return undefined
+  }
+
+  /** Returns the item id equipped to a hero, or undefined. */
+  getEquippedItem(heroId: string): string | undefined {
+    const card = this.cards.get(heroId)
+    if (card instanceof HeroCard) return card.getEquippedItem() ?? undefined
+    return undefined
+  }
+
   getMonsterPile(): CardPile {
     return this.monsterPile
   }

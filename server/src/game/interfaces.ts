@@ -2,6 +2,7 @@ import {
   ActionType,
   GameEventType,
   IGameEvent,
+  IGameEventEmitter,
   ReactionType,
   ReactionWindowType,
   RollResult,
@@ -36,7 +37,7 @@ export interface IReaction {
 // ---------------------------------------------------------------------------
 
 export interface ITask {
-  execute(gs: GameState, ctx: AbilityContext): IGameEvent[]
+  execute(gs: GameState, ctx: AbilityContext, em: IGameEventEmitter): void
 }
 
 export interface IIfTask extends ITask {
@@ -46,12 +47,13 @@ export interface IIfTask extends ITask {
 }
 
 export interface IAbility {
+  trigger?: GameEventType // if set, fires automatically via AbilityProcessor when event occurs
   steps: ITask[]
 }
 
-export interface IPassive {
+/** A passive is an ability with a required trigger — registered on a card entering play. */
+export interface IPassive extends IAbility {
   trigger: GameEventType
-  steps: ITask[]
 }
 
 // ---------------------------------------------------------------------------
