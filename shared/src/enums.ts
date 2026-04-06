@@ -189,7 +189,11 @@ export enum Audience {
 export enum ActionType {
   DrawCard = "DrawCard",
   RollOnHero = "RollOnHero",
-  PlayCard = "PlayCard",
+  PlayHero = "PlayHero",
+  PlayItem = "PlayItem",
+  PlayMagic = "PlayMagic",
+  AttackMonster = "AttackMonster",
+  ReDraw = "ReDraw",
 }
 
 export enum ReactionType {
