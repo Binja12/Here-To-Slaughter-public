@@ -164,7 +164,7 @@ export class GameEventFactory {
     heroId: string,
   ): IGameEvent {
     return new GameEvent(
-      GameEventType.HeroAddedToParty,
+      GameEventType.ItemEquippedToHero,
       playerId,
       { cardId, heroId },
       Audience.All,
@@ -198,8 +198,26 @@ export class GameEventFactory {
     )
   }
 
-  static cardDrawn(playerId: string): IGameEvent {
-    return new GameEvent(GameEventType.CardDrawn, playerId, Audience.PlayerOnly)
+  static cardDrawn(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(GameEventType.CardDrawn, playerId, { cardId }, Audience.PlayerOnly)
+  }
+
+  static rollSuccess(playerId: string, heroId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.RollSuccess,
+      playerId,
+      { cardId: heroId },
+      Audience.All,
+    )
+  }
+
+  static heroDestroyed(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroDestroyed,
+      playerId,
+      { cardId },
+      Audience.All,
+    )
   }
 
   static monsterSlain(playerId: string, cardId: string): IGameEvent {

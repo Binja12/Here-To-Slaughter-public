@@ -1,34 +1,10 @@
-import { Audience, CardType, GameEventType, IGameEvent } from 'shared'
+import { CardType, IGameEventEmitter } from 'shared'
 import { IAbility, IIfTask, ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
-import { GameEvent } from '../events/game-event'
+import { DrawTask } from './tasks'
 
-export class DrawTask implements ITask {
-  constructor(private count: number) {}
-
-  execute(gs: GameState, ctx: AbilityContext): IGameEvent[] {
-    const events: IGameEvent[] = []
-    const player = gs.getPlayer(ctx.ownerId)
-    if (!player) return events
-
-    for (let i = 0; i < this.count; i++) {
-      const cardId = gs.getMainDeck().draw()
-      if (!cardId) break
-      player.addToHand(cardId)
-      ctx.set(CTX_LAST_DRAWN_CARD_ID, cardId)
-      events.push(
-        new GameEvent(
-          GameEventType.CardDrawn,
-          ctx.ownerId,
-          { cardId },
-          Audience.PlayerOnly,
-        ),
-      )
-    }
-    return events
-  }
-}
+export { DrawTask }
 
 export class CardTypeCondition implements IIfTask {
   condition: (gs: GameState, ctx: AbilityContext) => boolean
@@ -46,28 +22,25 @@ export class CardTypeCondition implements IIfTask {
     this.ifFalse = ifFalse
   }
 
-  execute(gs: GameState, ctx: AbilityContext): IGameEvent[] {
+  execute(gs: GameState, ctx: AbilityContext, em: IGameEventEmitter): void {
     const branch = this.condition(gs, ctx) ? this.ifTrue : (this.ifFalse ?? [])
-    const events: IGameEvent[] = []
     for (const task of branch) {
-      events.push(...task.execute(gs, ctx))
+      task.execute(gs, ctx, em)
     }
-    return events
   }
 }
 
 export class InstaPlayTask implements ITask {
   constructor(private optional: boolean) {}
 
-  execute(gs: GameState, ctx: AbilityContext): IGameEvent[] {
+  execute(gs: GameState, ctx: AbilityContext, _em: IGameEventEmitter): void {
     const cardId = ctx.get<string>(CTX_LAST_DRAWN_CARD_ID)
-    if (!cardId) return []
+    if (!cardId) return
     gs.setPendingInstaPlay({
       playerId: ctx.ownerId,
       cardId,
       optional: this.optional,
     })
-    return []
   }
 }
 
