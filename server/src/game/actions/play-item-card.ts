@@ -33,7 +33,7 @@ export class PlayItemAction implements IAction {
   }
 
   getType(): ActionType {
-    return ActionType.PlayCard
+    return ActionType.PlayItem
   }
 
   getPlayerId(): string {

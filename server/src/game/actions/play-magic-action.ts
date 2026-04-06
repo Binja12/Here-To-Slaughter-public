@@ -30,7 +30,7 @@ export class PlayMagicAction implements IAction {
   }
 
   getType(): ActionType {
-    return ActionType.PlayCard
+    return ActionType.PlayMagic
   }
 
   getPlayerId(): string {

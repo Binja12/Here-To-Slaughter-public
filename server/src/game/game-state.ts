@@ -22,6 +22,8 @@ export class GameState {
   constructor(
     private mainDeck: CardStack,
     private discrdPile: CardPile,
+    private monsterDeck: CardStack,
+    private monsterPile: CardPile,
   ) {}
 
   // --- Registration ---
@@ -68,10 +70,8 @@ export class GameState {
     return undefined
   }
 
-  getCardPassives(cardId: string): IPassive[] {
-    const card = this.cards.get(cardId)
-    if (card instanceof HeroCard) return card.getPassives()
-    return []
+  getMonsterPile(): CardPile {
+    return this.monsterPile
   }
 
   getCardOwner(cardId: string): string | undefined {

@@ -202,6 +202,15 @@ export class GameEventFactory {
     return new GameEvent(GameEventType.CardDrawn, playerId, Audience.PlayerOnly)
   }
 
+  static monsterSlain(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.MonsterSlain,
+      playerId,
+      { cardId },
+      Audience.All,
+    )
+  }
+
   // --- Challenge Action ---
 
   static challengeWindowOpened(

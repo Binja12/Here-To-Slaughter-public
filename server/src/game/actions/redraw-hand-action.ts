@@ -1,25 +1,17 @@
-import {
-  ActionType,
-  Audience,
-  CardType,
-  GameEventType,
-  IGameEvent,
-} from 'shared'
+import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../events/game-event'
-import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
 
-const COST = 1
+const MAX_HAND_SIZE = 10
+const COST = 3
 
-export class PlayHeroAction implements IAction {
+export class redrawHandAction implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
-    private readonly cardId: string,
-    private readonly reactionManager: ReactionManager,
     private readonly emmiter: GameEventEmitter,
   ) {}
 
@@ -28,7 +20,7 @@ export class PlayHeroAction implements IAction {
   }
 
   getType(): ActionType {
-    return ActionType.PlayHero
+    return ActionType.ReDraw
   }
 
   getPlayerId(): string {
@@ -42,22 +34,18 @@ export class PlayHeroAction implements IAction {
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    if (gs.getCurrentPlayerId() !== this.playerId) return false
     if (player.getActionPoints() < COST) return false
-    if (!player.getHand().includes(this.cardId)) return false
+    if (gs.getMainDeck().getSize() < 5) return false
     return true
   }
 
   execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
-    player.removeFromHand(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
-    )
-    gs.getParty(this.playerId).addHero(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.heroAddedToParty(this.playerId, this.cardId),
-    )
+    for (let i = 1; i <= 5; i++) {
+      const cardId = gs.getMainDeck().draw()!
+      player.addToHand(cardId)
+      this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId))
+    }
   }
 }

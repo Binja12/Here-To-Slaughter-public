@@ -20,7 +20,7 @@ export class DrawCardAction implements IAction {
   }
 
   getType(): ActionType {
-    return ActionType.DrawCard
+    return ActionType.ReDraw
   }
 
   getPlayerId(): string {
@@ -29,10 +29,6 @@ export class DrawCardAction implements IAction {
 
   getCost(): number {
     return COST
-  }
-
-  isChallengeable(): boolean {
-    return false
   }
 
   canExecute(gs: GameState): boolean {
