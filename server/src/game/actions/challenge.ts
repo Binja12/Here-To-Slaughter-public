@@ -1,5 +1,5 @@
 import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
-import { IAction } from '../interfaces'
+import { IAction, IReactionAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
@@ -11,7 +11,7 @@ const COST = 0
  * Cost is 0; it can be played outside the active player's turn.
  * Goes through ReactionManager.enqueueReaction(), NOT TurnManager.
  */
-export class ChallengeCardAction implements IAction {
+export class ChallengeCardAction implements IReactionAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,

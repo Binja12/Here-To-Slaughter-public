@@ -8,7 +8,7 @@ import {
 } from 'shared'
 import { GameState } from '../states/game-state'
 import { Player } from '../../player'
-import { AbilityContext } from '../ability-context'
+import { AbilityContext } from '../../ability-context'
 
 // ── Win / Roll ──────────────────────────────────────────────────────────────
 

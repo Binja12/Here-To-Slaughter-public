@@ -17,19 +17,20 @@ import { GameEventEmitter } from '../game-event-emitter'
 import { AbilityProcessor } from '../ability-processor'
 
 const makeHeroCard = (id: string, rollReq: number, ability?: IAbility) =>
-  new HeroCard(
-    {
-      id,
-      name: id,
-      type: CardType.Hero,
-      image: '',
-      description: '',
-      heroClass: HeroClass.Wizard,
-      rollReq,
-      effect: { duration: EffectDuration.TurnEnd },
+  new HeroCard({
+    id,
+    name: id,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    heroClass: HeroClass.Wizard,
+    rollReq,
+    set: 'base',
+    ability: {
+      trigger: [],
+      steps: [],
     },
-    ability,
-  )
+  })
 
 const makeGs = (
   heroIds: string[] = ['hero-1'],
@@ -48,7 +49,7 @@ const makeGs = (
     playerId: 'p1',
     leaderId: 'leader-1',
     heroIds,
-    MonsterIds: [],
+    monsterIds: [],
   })
   const gs = new GameState(deck)
   gs.registerPlayer(player)
@@ -62,13 +63,15 @@ const makeReactionManager = (gs: GameState) => {
   const emitter = new GameEventEmitter()
   const ap = new AbilityProcessor(gs, emitter)
   const openedWindows: any[] = []
-  const rm = new ReactionManager(gs, emitter, ap, () => {})
+  const rm = new ReactionManager(gs, emitter, () => {})
+
   const original = rm.openModifierWindow.bind(rm)
-  rm.openModifierWindow = (opts) => {
-    openedWindows.push(opts)
-    original(opts)
+  rm.openModifierWindow = (rollerId, baseRoll, rollReq, heroId, onResolve) => {
+    openedWindows.push({ rollerId, baseRoll, rollReq, heroId })
+    original(rollerId, baseRoll, rollReq, heroId, onResolve)
   }
   ;(rm as any)._openedWindows = openedWindows
+  ;(rm as any)._abilityProcessor = ap
   return rm
 }
 

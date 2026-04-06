@@ -3,33 +3,31 @@ import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
+import { AbilityProcessor } from '../ability-processor'
+import { AbilityContext } from '../ability-context'
 import { HeroCard } from '../cards/hero-card'
-import { rollDie } from '../../utils/roll-utils'
-
-const COST = 1
 
 export class RollOnHeroAction implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
-    private readonly heroId: string,
+    private readonly cardId: string,
     private readonly reactionManager: ReactionManager,
   ) {}
 
   getId(): string {
     return this.id
   }
+  getPlayerId(): string {
+    return this.playerId
+  }
 
   getType(): ActionType {
     return ActionType.RollOnHero
   }
 
-  getPlayerId(): string {
-    return this.playerId
-  }
-
   getCost(): number {
-    return COST
+    return 1
   }
 
   isChallengeable(): boolean {
@@ -39,38 +37,54 @@ export class RollOnHeroAction implements IAction {
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    if (player.getActionPoints() < COST) return false
+    if (player.getActionPoints() <= 0) return false
+
     const party = gs.getParty(this.playerId)
-    if (!party.getHeroIds().includes(this.heroId)) return false
-    if (gs.getAbilitiesUsedThisTurn().includes(this.heroId)) return false
+    if (!party?.getHeroIds().includes(this.cardId)) return false
+
+    if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) return false
+
     return true
   }
 
   execute(gs: GameState): IGameEvent[] {
+    const events: IGameEvent[] = []
+
     const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
+    player.decreaseActionPoints(this.getCost())
 
-    const baseRoll = rollDie()
-    const heroCard = gs.getCard(this.heroId)
-    const rollReq = heroCard instanceof HeroCard ? heroCard.getRollReq() : 6
+    const card = gs.getCard(this.cardId)
+    const heroCard = card as HeroCard | undefined
+    const rollReq = heroCard?.getRollReq?.() ?? 0
+    const ability = heroCard?.getAbility?.()
 
-    // Announce the raw roll — modifier window opens next.
-    const rollEvent = new GameEvent(
-      GameEventType.DiceRolled,
-      this.playerId,
-      { heroId: this.heroId, baseRoll, rollReq },
-      Audience.All,
+    const baseRoll = Math.ceil(Math.random() * 6)
+
+    events.push(
+      new GameEvent(
+        GameEventType.DiceRolled,
+        this.playerId,
+        { baseRoll, cardId: this.cardId },
+        Audience.All,
+      ),
     )
 
-    // Open the modifier window (5 s).  The ability fires inside ReactionManager
-    // once the window resolves, not here.
-    this.reactionManager.openModifierWindow({
-      rollerId: this.playerId,
+    this.reactionManager.openModifierWindow(
+      this.playerId,
       baseRoll,
       rollReq,
-      heroId: this.heroId,
-    })
+      this.cardId,
+      (finalRoll) => {
+        if (finalRoll >= rollReq && ability) {
+          const ctx = new AbilityContext(this.cardId, this.playerId)
+          const ap = (this.reactionManager as any)
+            ._abilityProcessor as AbilityProcessor
+          ap?.execute(ability, gs, ctx)
+          gs.markAbilityUsed(this.cardId)
+        }
+      },
+    )
 
-    return [rollEvent]
+    return events
   }
 }
