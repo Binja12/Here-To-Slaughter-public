@@ -2,6 +2,8 @@ import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../events/game-event'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { GameEventFactory } from '../events/game-event-factory'
 
 const MAX_HAND_SIZE = 10
 const COST = 1
@@ -10,6 +12,7 @@ export class DrawCardAction implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
+    private readonly emmiter: GameEventEmitter,
   ) {}
 
   getId(): string {
@@ -41,19 +44,11 @@ export class DrawCardAction implements IAction {
     return true
   }
 
-  execute(gs: GameState): IGameEvent[] {
+  execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
-    const cardId = gs.getMainDeck().draw()
-    if (!cardId) return []
     player.decreaseActionPoints(COST)
+    const cardId = gs.getMainDeck().draw()!
     player.addToHand(cardId)
-    return [
-      new GameEvent(
-        GameEventType.CardDrawn,
-        this.playerId,
-        { cardId },
-        Audience.PlayerOnly,
-      ),
-    ]
+    this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId))
   }
 }

@@ -2,7 +2,7 @@ import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
 import { IAction, IReactionAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../events/game-event'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { ReactionManager } from './reaction-manager'
 
 const COST = 0
 

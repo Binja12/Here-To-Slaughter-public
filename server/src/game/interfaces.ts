@@ -2,6 +2,7 @@ import {
   ActionType,
   GameEventType,
   IGameEvent,
+  ReactionType,
   ReactionWindowType,
   RollResult,
 } from 'shared'
@@ -19,16 +20,15 @@ export interface IAction {
   getPlayerId(): string
   getCost(): number
   canExecute(gs: GameState): boolean
-  execute(gs: GameState): IGameEvent[]
-  isChallengeable(): boolean
+  execute(gs: GameState): void
 }
 
-export interface IReactionAction {
+export interface IReaction {
   getId(): string
-  getType(): ActionType
+  getType(): ReactionType
   getPlayerId(): string
   canExecute(gs: GameState): boolean
-  execute(gs: GameState): IGameEvent[]
+  execute(gs: GameState): void
 }
 
 // ---------------------------------------------------------------------------
