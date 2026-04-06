@@ -6,11 +6,10 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { IReactionWindow } from '../interfaces'
-import { GameEvent } from '../game-event'
+import { GameEvent } from '../events/game-event'
 
 export class ModifierWindow implements IReactionWindow {
   private bonuses: number[] = []
-  private open: boolean = true
   private timer?: ReturnType<typeof setTimeout>
 
   constructor(
@@ -52,13 +51,8 @@ export class ModifierWindow implements IReactionWindow {
     return ReactionWindowType.Modifier
   }
 
-  isOpen(): boolean {
-    return this.open
-  }
-
   /** payload: { value: number } — the modifier bonus to apply. */
   submitReaction(playerId: string, payload: unknown): void {
-    if (!this.open) return
     const { value } = payload as { value: number }
     this.bonuses.push(value)
     this.emitter.emit(
@@ -72,13 +66,6 @@ export class ModifierWindow implements IReactionWindow {
     this.resetTimer()
   }
 
-  /** Force-resolve immediately (timer cancelled). */
-  resolve(): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.open = false
-    this.doResolve()
-  }
-
   // --- Public helpers ---
 
   getFinalRoll(): number {
@@ -90,12 +77,11 @@ export class ModifierWindow implements IReactionWindow {
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => {
-      this.open = false
-      this.doResolve()
+      this.resolve()
     }, this.timeoutMs)
   }
 
-  private doResolve(): void {
+  private resolve(): void {
     const finalRoll = this.getFinalRoll()
     const successEvents = this.onSuccess(finalRoll)
 

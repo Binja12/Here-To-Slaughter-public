@@ -3,8 +3,8 @@ import { IWinCondition } from './interfaces'
 import { GameState } from './game-state'
 import { Player } from './player'
 import { TurnManager } from './turn-manager'
-import { GameEventEmitter } from './game-event-emitter'
-import { GameEvent } from './game-event'
+import { GameEventEmitter } from './events/game-event-emitter'
+import { GameEvent } from './events/game-event'
 
 export class GameEngine implements IGameEventListener {
   private playerOrder: string[] = []

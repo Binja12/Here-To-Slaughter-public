@@ -15,8 +15,9 @@ export class ApplyModifierAction implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
-    /** The modifier card to play from hand. */
     private readonly cardId: string,
+    private readonly value: number,
+    private readonly targetPlayerId: string | undefined, // undefined = ModifierWindow context
     private readonly reactionManager: ReactionManager,
   ) {}
 
@@ -59,13 +60,13 @@ export class ApplyModifierAction implements IAction {
     const player = gs.getPlayer(this.playerId)!
     const card = gs.getCard(this.cardId) as ModifierCard | undefined
     if (!card) return []
-
-    // Use the first value in the modifier card's values array.
-    const value = card.getValues()[0] ?? 0
     player.removeFromHand(this.cardId)
 
-    // Apply via ReactionManager which emits ModifierApplied.
-    this.reactionManager.applyModifier(this.playerId, value)
+    this.reactionManager.applyModifier(
+      this.playerId,
+      this.value,
+      this.targetPlayerId,
+    )
 
     return []
   }

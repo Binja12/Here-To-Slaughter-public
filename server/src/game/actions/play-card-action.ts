@@ -7,8 +7,9 @@ import {
 } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { GameEvent } from '../game-event'
+import { GameEvent } from '../events/game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
+import { GameEventEmitter } from '../events/game-event-emitter'
 
 const COST = 1
 
@@ -18,6 +19,7 @@ export class PlayCardAction implements IAction {
     private readonly playerId: string,
     private readonly cardId: string,
     private readonly reactionManager: ReactionManager,
+    private readonly emmiter: GameEventEmitter,
   ) {}
 
   getId(): string {
@@ -53,14 +55,10 @@ export class PlayCardAction implements IAction {
   execute(gs: GameState): IGameEvent[] {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
-    // Remove from hand immediately — the cost is paid whether or not the
-    // challenge succeeds.  The card will be placed (or discarded) when the
-    // challenge window resolves.
     player.removeFromHand(this.cardId)
 
     const card = gs.getCard(this.cardId)
 
-    // Build the deferred card-play logic that executes only if unchallenged.
     const onSuccess = (): IGameEvent[] => {
       if (!card) return []
       if (card.getType() === CardType.Hero) {
@@ -74,7 +72,6 @@ export class PlayCardAction implements IAction {
           ),
         ]
       }
-      // Item / Magic: one-time effects — full resolution deferred
       return [
         new GameEvent(
           GameEventType.CardPlayed,
@@ -85,20 +82,24 @@ export class PlayCardAction implements IAction {
       ]
     }
 
-    // Announce the attempt and open the 5 s challenge window.
-    const attemptEvent = new GameEvent(
-      GameEventType.CardPlayAttempted,
-      this.playerId,
-      { cardId: this.cardId },
-      Audience.All,
-    )
+    const onChallengeLost = (): void => {
+      gs.getDiscardPile().add(this.cardId)
+    }
 
-    // this.reactionManager.openChallengeWindow({
-    //   challengedId: this.playerId,
-    //   cardId: this.cardId,
-    //   onSuccess,
-    // })
+    this.reactionManager.openChallengeWindow({
+      defenderId: this.playerId,
+      cardId: this.cardId,
+      onSuccess,
+      onChallengeLost,
+    })
 
-    return [attemptEvent]
+    return [
+      new GameEvent(
+        GameEventType.CardPlayAttempted,
+        this.playerId,
+        { cardId: this.cardId },
+        Audience.All,
+      ),
+    ]
   }
 }

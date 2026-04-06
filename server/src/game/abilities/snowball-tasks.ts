@@ -2,7 +2,7 @@ import { Audience, CardType, GameEventType, IGameEvent } from 'shared'
 import { IAbility, IIfTask, ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
-import { GameEvent } from '../game-event'
+import { GameEvent } from '../events/game-event'
 
 export class DrawTask implements ITask {
   constructor(private count: number) {}

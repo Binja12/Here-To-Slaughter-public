@@ -74,8 +74,6 @@ export interface IRollResolver {
 export interface IReactionWindow {
   getId(): string
   getType(): ReactionWindowType
-  /** True until the timer fires or resolve() is called explicitly. */
-  isOpen(): boolean
   /** Route a player's reaction payload into the window. */
   submitReaction(playerId: string, payload: unknown): void
   /** Force immediate resolution (e.g. timeout, test helpers). */

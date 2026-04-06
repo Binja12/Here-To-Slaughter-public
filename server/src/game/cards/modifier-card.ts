@@ -22,4 +22,7 @@ export class ModifierCard implements ICard {
   getAbility() {
     return this.data.ability
   }
+  getValues() {
+    this.data.values
+  }
 }

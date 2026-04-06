@@ -54,7 +54,9 @@ export type ItemCardData = CardBase & {
 
 export type MagicCardData = CardBase;
 
-export type ModifierCardData = CardBase;
+export type ModifierCardData = CardBase & {
+  values: number[];
+};
 
 export type ChallengeCardData = CardBase;
 

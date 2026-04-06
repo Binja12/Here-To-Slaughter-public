@@ -1,7 +1,7 @@
 import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { GameEvent } from '../game-event'
+import { GameEvent } from '../events/game-event'
 
 const MAX_HAND_SIZE = 10
 const COST = 1

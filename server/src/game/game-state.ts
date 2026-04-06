@@ -4,6 +4,7 @@ import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
 import { HeroCard } from './cards/hero-card'
+import { CardPile } from './card-pile'
 
 export class GameState {
   private players: Map<string, Player> = new Map()
@@ -18,7 +19,10 @@ export class GameState {
     optional: boolean
   }
 
-  constructor(private mainDeck: CardStack) {}
+  constructor(
+    private mainDeck: CardStack,
+    private discrdPile: CardPile,
+  ) {}
 
   // --- Registration ---
 
@@ -97,6 +101,10 @@ export class GameState {
 
   getMainDeck(): CardStack {
     return this.mainDeck
+  }
+
+  getDiscardPile() {
+    return this.discrdPile
   }
 
   // --- Turn state ---

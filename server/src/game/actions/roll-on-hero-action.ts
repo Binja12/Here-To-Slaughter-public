@@ -1,7 +1,7 @@
 import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { GameEvent } from '../game-event'
+import { GameEvent } from '../events/game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { AbilityProcessor } from '../ability-processor'
 import { AbilityContext } from '../ability-context'
