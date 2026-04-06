@@ -1,8 +1,8 @@
 import { GameEventType, TurnPhase } from 'shared'
 import { IAction } from './interfaces'
 import { GameState } from './game-state'
-import { GameEventEmitter } from './game-event-emitter'
-import { GameEvent } from './game-event'
+import { GameEventEmitter } from './events/game-event-emitter'
+import { GameEvent } from './events/game-event'
 
 export class TurnManager {
   private actionQueue: IAction[] = []

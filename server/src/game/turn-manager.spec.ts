@@ -1,12 +1,12 @@
 import { ActionType, GameEventType, IGameEvent, TurnPhase } from 'shared'
 import { TurnManager } from './turn-manager'
 import { GameState } from './game-state'
-import { GameEventEmitter } from './game-event-emitter'
+import { GameEventEmitter } from './events/game-event-emitter'
 import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
 import { IAction } from './interfaces'
-import { GameEvent } from './game-event'
+import { GameEvent } from './events/game-event'
 import { Audience } from 'shared'
 
 const makeGs = (actionPoints = 3) => {

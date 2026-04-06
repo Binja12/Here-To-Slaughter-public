@@ -4,8 +4,8 @@ import { GameState } from './game-state'
 import { CardStack } from './card-stack'
 import { AbilityContext } from './ability-context'
 import { IAbility, IPassive, ITask } from './interfaces'
-import { GameEvent } from './game-event'
-import { GameEventEmitter } from './game-event-emitter'
+import { GameEvent } from './events/game-event'
+import { GameEventEmitter } from './events/game-event-emitter'
 
 const makeGs = () => new GameState(new CardStack('deck', 'main'))
 

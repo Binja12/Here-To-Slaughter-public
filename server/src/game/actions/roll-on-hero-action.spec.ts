@@ -13,7 +13,7 @@ import { CardStack } from '../card-stack'
 import { HeroCard } from '../cards/hero-card'
 import { IAbility } from '../interfaces'
 import { ReactionManager } from '../reactions/reaction-manager'
-import { GameEventEmitter } from '../game-event-emitter'
+import { GameEventEmitter } from '../events/game-event-emitter'
 import { AbilityProcessor } from '../ability-processor'
 
 const makeHeroCard = (id: string, rollReq: number, ability?: IAbility) =>
