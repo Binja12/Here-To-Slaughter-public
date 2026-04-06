@@ -6,12 +6,14 @@ import { ReactionManager } from '../reactions/reaction-manager'
 import { AbilityProcessor } from '../ability-processor'
 import { AbilityContext } from '../ability-context'
 import { HeroCard } from '../cards/hero-card'
+import { GameEventEmitter } from '../events/game-event-emitter'
 
 export class RollOnHeroAction implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
+    private readonly emmiter: GameEventEmitter,
     private readonly reactionManager: ReactionManager,
   ) {}
 
@@ -30,61 +32,25 @@ export class RollOnHeroAction implements IAction {
     return 1
   }
 
-  isChallengeable(): boolean {
-    return false
-  }
-
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
     if (player.getActionPoints() <= 0) return false
-
     const party = gs.getParty(this.playerId)
     if (!party?.getHeroIds().includes(this.cardId)) return false
-
     if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) return false
-
     return true
   }
 
-  execute(gs: GameState): IGameEvent[] {
-    const events: IGameEvent[] = []
-
+  execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(this.getCost())
-
-    const card = gs.getCard(this.cardId)
-    const heroCard = card as HeroCard | undefined
-    const rollReq = heroCard?.getRollReq?.() ?? 0
-    const ability = heroCard?.getAbility?.()
-
-    const baseRoll = Math.ceil(Math.random() * 6)
-
-    events.push(
-      new GameEvent(
-        GameEventType.DiceRolled,
-        this.playerId,
-        { baseRoll, cardId: this.cardId },
-        Audience.All,
-      ),
-    )
-
-    this.reactionManager.openModifierWindow(
-      this.playerId,
-      baseRoll,
-      rollReq,
-      this.cardId,
-      (finalRoll) => {
-        if (finalRoll >= rollReq && ability) {
-          const ctx = new AbilityContext(this.cardId, this.playerId)
-          const ap = (this.reactionManager as any)
-            ._abilityProcessor as AbilityProcessor
-          ap?.execute(ability, gs, ctx)
-          gs.markAbilityUsed(this.cardId)
-        }
-      },
-    )
-
-    return events
+    const card = gs.getCard(this.cardId) as HeroCard
+    const ability = card.getAbility()
+    const baseRoll = Math.ceil(Math.random() * 11) + 1
+    if (baseRoll >= card.getRollReq()) {
+      const ap = new AbilityProcessor(this.emmiter)
+      ap.process(card.getAbility(), gs, ctx)
+    }
   }
 }

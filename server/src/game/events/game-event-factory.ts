@@ -158,6 +158,28 @@ export class GameEventFactory {
     )
   }
 
+  static itemEquipedToHero(
+    playerId: string,
+    cardId: string,
+    heroId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroAddedToParty,
+      playerId,
+      { cardId, heroId },
+      Audience.All,
+    )
+  }
+
+  static cardRemovedFromHand(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroAddedToParty,
+      playerId,
+      { cardId },
+      Audience.All,
+    )
+  }
+
   static cardPlayed(playerId: string, cardId: string): IGameEvent {
     return new GameEvent(
       GameEventType.CardPlayed,
@@ -176,13 +198,8 @@ export class GameEventFactory {
     )
   }
 
-  static cardDrawn(playerId: string, cardId: string): IGameEvent {
-    return new GameEvent(
-      GameEventType.CardDrawn,
-      playerId,
-      { cardId },
-      Audience.PlayerOnly,
-    )
+  static cardDrawn(playerId: string): IGameEvent {
+    return new GameEvent(GameEventType.CardDrawn, playerId, Audience.PlayerOnly)
   }
 
   // --- Challenge Action ---

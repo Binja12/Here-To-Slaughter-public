@@ -75,9 +75,6 @@ export class TurnManager {
 
   private drain(): void {
     while (this.actionQueue.length > 0) {
-      // Pause the loop while a reaction window is open.
-      if (this.gs.hasOpenReactionWindow()) return
-
       const action = this.actionQueue[0]
 
       if (!action.canExecute(this.gs)) {
@@ -86,21 +83,11 @@ export class TurnManager {
       }
 
       this.actionQueue.shift()
-      const events = action.execute(this.gs)
-      for (const event of events) {
-        this.emitter.emit(event)
-      }
-
-      // After each paid action, check whether AP is exhausted.
-      // Don't end the turn if a reaction window is now open — resumeDrain handles that.
-      if (this.getActionPoints() <= 0 && !this.gs.hasOpenReactionWindow()) {
-        this.endTurn()
-        return
-      }
+      action.execute(this.gs)
     }
 
     // Queue drained — end turn if AP is 0 and no window is blocking.
-    if (this.getActionPoints() <= 0 && !this.gs.hasOpenReactionWindow()) {
+    if (this.getActionPoints() <= 0) {
       this.endTurn()
     }
   }

@@ -190,6 +190,9 @@ export enum ActionType {
   DrawCard = "DrawCard",
   RollOnHero = "RollOnHero",
   PlayCard = "PlayCard",
+}
+
+export enum ReactionType {
   ApplyModifier = "ApplyModifier",
   Challenge = "Challenge",
 }

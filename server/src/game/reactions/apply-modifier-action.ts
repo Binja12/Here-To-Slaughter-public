@@ -1,7 +1,7 @@
 import { ActionType, CardType, IGameEvent, ReactionWindowType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { ReactionManager } from './reaction-manager'
 import { ModifierCard } from '../cards/modifier-card'
 
 const COST = 0
