@@ -1,7 +1,6 @@
 import {
   Audience,
   CardType,
-  EffectDuration,
   GameEventType,
   HeroClass,
   IGameEvent,
@@ -70,7 +69,8 @@ const makeMagicCard = (id: string) =>
     type: CardType.Magic,
     image: '',
     description: '',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
+    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeHeroCard = (id: string) =>
@@ -82,7 +82,8 @@ const makeHeroCard = (id: string) =>
     description: '',
     heroClass: HeroClass.Wizard,
     rollReq: 4,
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
+    ability: { trigger: GameEventType.RollSuccess },
   })
 
 // ---------------------------------------------------------------------------
