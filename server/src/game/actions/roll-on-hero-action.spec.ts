@@ -1,4 +1,4 @@
-import { ActionType, CardType, GameEventType, HeroClass } from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -8,6 +8,7 @@ import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { HeroCard } from '../cards/hero-card'
+import { AbilityProcessor } from '../ability-processor'
 
 // --- Helpers ---
 
@@ -140,33 +141,78 @@ describe('RollOnHeroAction', () => {
 
   // --- execute ---
 
-  describe('execute', () => {
-    // Math.random mock guide for execute():
-    //   baseRoll = Math.ceil(Math.random() * 11) + 1  →  range [2, 12]
-    //   mockReturnValue(0)    → Math.ceil(0)  + 1 = 1  (miss for any rollReq >= 2)
-    //   mockReturnValue(0.99) → Math.ceil(10.89) + 1 = 12 (hit for any rollReq <= 12)
+  // Math.random mock guide for execute():
+  //   baseRoll = Math.ceil(Math.random() * 11) + 1  →  range [2, 12]
+  //   mockReturnValue(0)    → Math.ceil(0)  + 1 = 1  (miss for rollReq >= 2)
+  //   mockReturnValue(0.99) → Math.ceil(10.89) + 1 = 12 (hit for rollReq <= 12)
 
-    it('always decreases player action points by 1 regardless of roll', () => {
-      // Force a miss so we don't hit the ctx bug in the success branch
+  describe('execute', () => {
+    it('decreases player action points by 1 regardless of roll outcome', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       makeAction().execute(gs)
       expect(player.getActionPoints()).toBe(2)
     })
 
-    it('does not process ability when roll misses', () => {
-      // rollReq = 10, baseRoll = 1 → miss, no ability processing → no error
+    it('emits DiceRolled on every roll', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
-      expect(() => makeAction().execute(gs)).not.toThrow()
+      const emitted: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => emitted.push(e) })
+      makeAction().execute(gs)
+      expect(emitted.some((e) => e.getType() === GameEventType.DiceRolled)).toBe(true)
     })
 
-    // NOTE: RollOnHeroAction.execute() references an undefined variable `ctx`
-    // inside the roll-success branch. When the roll meets or exceeds the hero's
-    // rollReq, AbilityProcessor.process() is called with an undeclared `ctx`,
-    // causing a ReferenceError. Document this known bug and update once fixed.
-    it('BUG: throws a ReferenceError when roll succeeds because ctx is not declared', () => {
-      // rollReq = 10, baseRoll = 12 → success, ctx bug triggered
+    it('does not emit RollSuccess when roll misses', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0)
+      const emitted: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => emitted.push(e) })
+      makeAction().execute(gs)
+      expect(emitted.some((e) => e.getType() === GameEventType.RollSuccess)).toBe(false)
+    })
+
+    it('does not mark ability used when roll misses', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0)
+      makeAction().execute(gs)
+      expect(gs.getAbilitiesUsedThisTurn()).not.toContain('hero-1')
+    })
+
+    it('emits RollSuccess when roll succeeds', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
-      expect(() => makeAction().execute(gs)).toThrow(ReferenceError)
+      const emitted: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => emitted.push(e) })
+      makeAction().execute(gs)
+      const event = emitted.find((e) => e.getType() === GameEventType.RollSuccess)
+      expect(event).toBeDefined()
+      expect((event!.getPayload() as { cardId: string }).cardId).toBe('hero-1')
+    })
+
+    it('marks ability used when roll succeeds', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.99)
+      makeAction().execute(gs)
+      expect(gs.getAbilitiesUsedThisTurn()).toContain('hero-1')
+    })
+
+    it('fires hero ability tasks via AbilityProcessor when roll succeeds', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.99)
+      const taskSpy = jest.fn()
+      gs.registerCard(
+        new HeroCard({
+          id: 'hero-1',
+          name: 'Hero hero-1',
+          type: CardType.Hero,
+          image: '',
+          description: '',
+          set: '',
+          heroClass: HeroClass.Wizard,
+          rollReq: 10,
+          ability: {
+            trigger: GameEventType.RollSuccess,
+            steps: [{ execute: (_gs, _ctx, _em) => taskSpy() }],
+          } as any,
+        }),
+      )
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(taskSpy).toHaveBeenCalledTimes(1)
     })
   })
 })
