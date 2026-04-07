@@ -64,12 +64,6 @@ export class GameState {
     return this.cards.get(cardId)
   }
 
-  getHeroAbility(heroId: string): IAbility | undefined {
-    const card = this.cards.get(heroId)
-    if (card instanceof HeroCard) return card.getAbility()
-    return undefined
-  }
-
   /** Returns the IAbility for any card type that carries one. */
   getCardAbility(cardId: string): IAbility | undefined {
     const card = this.cards.get(cardId)

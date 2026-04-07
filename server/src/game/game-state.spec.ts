@@ -4,10 +4,10 @@ import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
 import { HeroCard } from './cards/hero-card'
-import { IAbility, IPassive } from './interfaces'
+import { IAbility } from './interfaces'
 import { GameEventType } from 'shared'
 import { CardPile } from './card-pile'
-import { DiscardTask } from './abilities/tasks'
+import { DiscardTask } from './tasks/tasks'
 
 const makePlayer = (id: string) =>
   new Player({
@@ -24,7 +24,7 @@ const makeParty = (
   heroIds: string[] = [],
 ) => new Party({ playerId, leaderId, heroIds, monsterIds: [] })
 
-const makeHeroCard = (id: string, ability?: IAbility, passives?: IPassive[]) =>
+const makeHeroCard = (id: string, ability?: IAbility) =>
   new HeroCard({
     id,
     name: `Hero ${id}`,
@@ -34,7 +34,7 @@ const makeHeroCard = (id: string, ability?: IAbility, passives?: IPassive[]) =>
     heroClass: HeroClass.Wizard,
     rollReq: 4,
     set: 'base',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.CardPlayed },
   })
 
 describe('GameState', () => {
@@ -116,18 +116,6 @@ describe('GameState', () => {
     gs.markAbilityUsed('hero-1')
     gs.clearUsedAbilities()
     expect(gs.getAbilitiesUsedThisTurn()).toHaveLength(0)
-  })
-
-  // --- Hero ability / passives ---
-
-  it('should return hero ability from registered HeroCard', () => {
-    const card = makeHeroCard('hero-1')
-    gs.registerCard(card)
-    expect(gs.getHeroAbility('hero-1')).toEqual({ trigger: [], steps: [] })
-  })
-
-  it('should return undefined ability for unknown card', () => {
-    expect(gs.getHeroAbility('ghost')).toBeUndefined()
   })
 
   // --- Card ownership ---

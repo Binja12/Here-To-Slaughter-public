@@ -1,4 +1,10 @@
-import { Audience, CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
+import {
+  Audience,
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+} from 'shared'
 import { DrawTask, DiscardTask, DestroyTask } from './tasks'
 import { GameState } from '../game-state'
 import { CardStack } from '../card-stack'
@@ -28,12 +34,23 @@ const makePlayer = (id: string, hand: string[] = []) =>
   new Player({ id, name: id, hand, partyId: `${id}-party`, actionPoints: 3 })
 
 const makeParty = (playerId: string, heroIds: string[] = []) =>
-  new Party({ playerId, leaderId: `${playerId}-leader`, heroIds, monsterIds: [] })
+  new Party({
+    playerId,
+    leaderId: `${playerId}-leader`,
+    heroIds,
+    monsterIds: [],
+  })
 
 const makeHeroCard = (id: string) =>
   new HeroCard({
-    id, name: id, type: CardType.Hero, image: '', description: '',
-    set: 'test', heroClass: HeroClass.Fighter, rollReq: 5,
+    id,
+    name: id,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    set: 'test',
+    heroClass: HeroClass.Fighter,
+    rollReq: 5,
   })
 
 const makeCtx = (sourceCardId = 'src-card', ownerId = 'p1') =>
@@ -76,15 +93,20 @@ describe('DrawTask', () => {
     const handSizeAtEmit: number[] = []
     emitter.addListener({
       onEvent: (e) => {
-        if (e.getType() === GameEventType.CardDrawn) handSizeAtEmit.push(player.getHand().length)
+        if (e.getType() === GameEventType.CardDrawn)
+          handSizeAtEmit.push(player.getHand().length)
       },
     })
 
     new DrawTask(3).execute(gs, makeCtx(), emitter)
 
-    const drawEvents = emitted.filter((e) => e.getType() === GameEventType.CardDrawn)
+    const drawEvents = emitted.filter(
+      (e) => e.getType() === GameEventType.CardDrawn,
+    )
     expect(drawEvents).toHaveLength(3)
-    expect(drawEvents.every((e) => e.getAudience() === Audience.PlayerOnly)).toBe(true)
+    expect(
+      drawEvents.every((e) => e.getAudience() === Audience.PlayerOnly),
+    ).toBe(true)
     // Each event fired while that specific card was already in hand
     expect(handSizeAtEmit).toEqual([1, 2, 3])
   })

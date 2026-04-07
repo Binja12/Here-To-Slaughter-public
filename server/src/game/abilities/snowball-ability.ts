@@ -2,7 +2,7 @@ import { CardType, GameEventType, IGameEventEmitter } from 'shared'
 import { IAbility, IIfTask, ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
-import { DrawTask } from './tasks'
+import { DrawTask } from '../tasks/tasks'
 
 export { DrawTask }
 
