@@ -1,7 +1,7 @@
-import { ICard, IBoardCard } from 'shared'
+import { ICard, RollResult, RollCompareMode } from 'shared'
 import { MonsterCardData, CardType, SkillData, PartyReq } from 'shared'
 
-export class MonsterCard implements ICard, IBoardCard {
+export class MonsterCard implements ICard {
   constructor(private data: MonsterCardData) {}
 
   getId(): string {
@@ -19,16 +19,22 @@ export class MonsterCard implements ICard, IBoardCard {
   getDescription(): string {
     return this.data.description
   }
-  getRollReq(): number {
-    return this.data.rollWinReq
-  }
-  getFightBackRange(): number {
-    return this.data.rollLoseReq
-  }
   getPartyReq(): PartyReq {
     return this.data.partyReq
   }
-  getSkill(): SkillData {
-    return this.data.skill
+  trySlay(roll: number): RollResult {
+    if (this.data.rollCompareMode === RollCompareMode.HighToWin) {
+      return roll >= this.data.higherReq
+        ? RollResult.Slay
+        : roll <= this.data.lowerReq
+          ? RollResult.FightBack
+          : RollResult.Miss
+    } else {
+      return roll <= this.data.higherReq
+        ? RollResult.Slay
+        : roll >= this.data.lowerReq
+          ? RollResult.FightBack
+          : RollResult.Miss
+    }
   }
 }

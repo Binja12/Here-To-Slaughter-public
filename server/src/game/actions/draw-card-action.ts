@@ -31,10 +31,6 @@ export class DrawCardAction implements IAction {
     return COST
   }
 
-  isChallengeable(): boolean {
-    return false
-  }
-
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
@@ -49,6 +45,6 @@ export class DrawCardAction implements IAction {
     player.decreaseActionPoints(COST)
     const cardId = gs.getMainDeck().draw()!
     player.addToHand(cardId)
-    this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId))
+    this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId, cardId))
   }
 }

@@ -4,6 +4,7 @@ import {
   CardType,
   GameEventType,
   IGameEvent,
+  RollResult,
 } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
@@ -11,10 +12,11 @@ import { GameEvent } from '../events/game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
+import { MonsterCard } from '../cards/monster-card'
 
-const COST = 1
+const COST = 2
 
-export class PlayHeroAction implements IAction {
+export class AttackMonsterAction implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
@@ -28,7 +30,7 @@ export class PlayHeroAction implements IAction {
   }
 
   getType(): ActionType {
-    return ActionType.PlayHero
+    return ActionType.AttackMonster
   }
 
   getPlayerId(): string {
@@ -44,20 +46,26 @@ export class PlayHeroAction implements IAction {
     if (!player) return false
     if (gs.getCurrentPlayerId() !== this.playerId) return false
     if (player.getActionPoints() < COST) return false
-    if (!player.getHand().includes(this.cardId)) return false
+    if (!gs.getMonsterPile().getAll().includes(this.cardId)) return false
     return true
   }
 
   execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
-    player.removeFromHand(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
+    const baseRoll = Math.ceil(Math.random() * 11) + 1
+    const rollResult = (gs.getCard(this.cardId) as MonsterCard).trySlay(
+      baseRoll,
     )
-    gs.getParty(this.playerId).addHero(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.heroAddedToParty(this.playerId, this.cardId),
-    )
+    if (rollResult == RollResult.Slay) {
+      gs.getMonsterPile().pick(this.cardId)
+      gs.getParty(this.playerId).addMonster(this.cardId)
+      this.emmiter.emit(
+        GameEventFactory.monsterSlain(this.playerId, this.cardId),
+      )
+    }
+    if (rollResult == RollResult.FightBack) {
+      //later implement
+    }
   }
 }

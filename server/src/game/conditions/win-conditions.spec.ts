@@ -1,13 +1,37 @@
-import { makeTestGameState } from '../test-helpers'
 import { SlayMonsters } from './win-conditions'
 import { AllClassesInParty } from './win-conditions'
-import { InMemoryCardRepository } from '../../repositories/in-memory-card-repository'
-import { baseGameCards } from '../../../data/base-game-cards'
+import { InMemoryCardRepository } from '../repositories/in-memory-card-repository'
+import { baseGameCards } from '../../data/base-game-cards'
+import { CardStack } from '../card-stack'
+import { CardPile } from '../card-pile'
+import { GameState } from '../game-state'
+import { Player } from '../player'
+import { Party } from '../party'
+
+const makeGs = () => {
+  const deck = new CardStack('deck-1', 'main-deck')
+  const discardPile = new CardPile('discard pile', 'discard pile')
+  const monsterDeck = new CardStack('monster deck', 'main monster deck')
+  const monsterPile = new CardPile('slayable monsters', 'monster pile')
+  return new GameState(deck, discardPile, monsterDeck, monsterPile)
+}
+
+const makePlayer = (id: string) =>
+  new Player({ id, name: `Player ${id}`, hand: [], partyId: `party-${id}`, actionPoints: 3 })
+
+const makeParty = (playerId: string) =>
+  new Party({ playerId, leaderId: `leader-${playerId}`, heroIds: [], monsterIds: [] })
+
+const setupPlayer = (gs: GameState, playerId: string) => {
+  gs.registerPlayer(makePlayer(playerId))
+  gs.registerParty(makeParty(playerId))
+  return gs.getParty(playerId)
+}
 
 describe('win-condition', () => {
   it('should detect no win condition', () => {
-    const gs = makeTestGameState()
-    const p = gs.getParty('player-1')!
+    const gs = makeGs()
+    const p = setupPlayer(gs, 'player-1')
     const condition = new SlayMonsters(3)
     expect(condition.check(gs)).toBe(null)
     p.addMonster('monster-1')
@@ -15,9 +39,10 @@ describe('win-condition', () => {
     p.addHero('hero-1')
     expect(condition.check(gs)).toBe(null)
   })
+
   it('should detect win condition by 3+ monsters', () => {
-    const gs = makeTestGameState()
-    const p = gs.getParty('player-1')!
+    const gs = makeGs()
+    const p = setupPlayer(gs, 'player-1')
     const condition = new SlayMonsters(3)
     p.addMonster('monster-1')
     p.addMonster('monster-2')
@@ -30,23 +55,22 @@ describe('win-condition', () => {
   const makeRepo = () => {
     const repo = new InMemoryCardRepository()
     repo.addMany(baseGameCards)
-    //console.log('total cards loaded:', repo.getAll().length)
-    //console.log('available classes:', repo.getAvailableClasses())
     return repo
   }
 
   describe('AllClassesInParty', () => {
     it('should return null when no player has all classes', () => {
       const repo = makeRepo()
-      const gs = makeTestGameState()
+      const gs = makeGs()
+      setupPlayer(gs, 'player-1')
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)).toBeNull()
     })
 
     it('should return winning player when they have all 6 classes', () => {
       const repo = makeRepo()
-      const gs = makeTestGameState()
-      const party = gs.getParty('player-1')!
+      const gs = makeGs()
+      const party = setupPlayer(gs, 'player-1')
       party.addHero('hero-041') // bard
       party.addHero('hero-040') // wizard
       party.addHero('hero-025') // guardian
@@ -59,8 +83,8 @@ describe('win-condition', () => {
 
     it('should return null when player is missing one class', () => {
       const repo = makeRepo()
-      const gs = makeTestGameState()
-      const party = gs.getParty('player-1')!
+      const gs = makeGs()
+      const party = setupPlayer(gs, 'player-1')
       party.addHero('hero-041') // bard
       party.addHero('hero-040') // wizard
       party.addHero('hero-025') // guardian
@@ -73,8 +97,8 @@ describe('win-condition', () => {
 
     it('should not count duplicate classes', () => {
       const repo = makeRepo()
-      const gs = makeTestGameState()
-      const party = gs.getParty('player-1')!
+      const gs = makeGs()
+      const party = setupPlayer(gs, 'player-1')
       party.addHero('hero-041') // bard
       party.addHero('hero-040') // wizard
       party.addHero('hero-025') // guardian

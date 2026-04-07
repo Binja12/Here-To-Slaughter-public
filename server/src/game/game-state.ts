@@ -22,6 +22,8 @@ export class GameState {
   constructor(
     private mainDeck: CardStack,
     private discrdPile: CardPile,
+    private monsterDeck: CardStack,
+    private monsterPile: CardPile,
   ) {}
 
   // --- Registration ---
@@ -68,11 +70,26 @@ export class GameState {
     return undefined
   }
 
-  // getCardPassives(cardId: string): IPassive[] {
-  //   const card = this.cards.get(cardId)
-  //   if (card instanceof HeroCard) return card.getPassives()
-  //   return []
-  // }
+  /** Returns the IAbility for any card type that carries one. */
+  getCardAbility(cardId: string): IAbility | undefined {
+    const card = this.cards.get(cardId)
+    if (!card) return undefined
+    if ('getAbility' in card && typeof card.getAbility === 'function') {
+      return (card as { getAbility(): IAbility | undefined }).getAbility()
+    }
+    return undefined
+  }
+
+  /** Returns the item id equipped to a hero, or undefined. */
+  getEquippedItem(heroId: string): string | undefined {
+    const card = this.cards.get(heroId)
+    if (card instanceof HeroCard) return card.getEquippedItem() ?? undefined
+    return undefined
+  }
+
+  getMonsterPile(): CardPile {
+    return this.monsterPile
+  }
 
   getCardOwner(cardId: string): string | undefined {
     for (const [playerId, player] of this.players) {
@@ -141,10 +158,6 @@ export class GameState {
 
   getReactionWindows(): IReactionWindow[] {
     return [...this.reactionWindows]
-  }
-
-  hasOpenReactionWindow(): boolean {
-    return this.reactionWindows.some((w) => w.isOpen())
   }
 
   // --- Pending actions ---
