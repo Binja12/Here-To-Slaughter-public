@@ -20,7 +20,7 @@ export class DrawCardAction implements IAction {
   }
 
   getType(): ActionType {
-    return ActionType.ReDraw
+    return ActionType.DrawCard
   }
 
   getPlayerId(): string {
@@ -45,6 +45,6 @@ export class DrawCardAction implements IAction {
     player.decreaseActionPoints(COST)
     const cardId = gs.getMainDeck().draw()!
     player.addToHand(cardId)
-    this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId))
+    this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId, cardId))
   }
 }

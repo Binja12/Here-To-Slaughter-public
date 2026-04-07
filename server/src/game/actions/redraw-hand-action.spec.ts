@@ -49,8 +49,7 @@ describe('redrawHandAction (exported as DrawCardAction from redraw-hand-action.t
       expect(action.getId()).toBe('a1')
     })
 
-    // BUG: likely should return ActionType.ReDraw — documents current behaviour
-    it('getType returns ActionType.DrawCard (BUG: should be ActionType.ReDraw)', () => {
+    it('getType returns ActionType.ReDraw (BUG: should be ActionType.ReDraw)', () => {
       const action = new redrawHandAction('a1', 'p1', emitter)
       expect(action.getType()).toBe(ActionType.ReDraw)
     })

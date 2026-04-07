@@ -1,5 +1,5 @@
-import { GameState } from '../states/game-state'
-import { Player } from '../../player'
+import { GameState } from '../game-state'
+import { Player } from '../player'
 import { ICardRepository, HeroClass, HeroCardData } from 'shared'
 
 export class SlayMonsters {
@@ -14,10 +14,10 @@ export class SlayMonsters {
   }
 
   check(gs: GameState): Player | null {
-    const parties = gs.getParties()
-    for (const party of parties) {
+    for (const player of gs.getPlayers()) {
+      const party = gs.getParty(player.getId())
       if (party.getMonsterCount() >= this.monsterCount) {
-        return gs.getPlayer(party.getPlayerId())
+        return player
       }
     }
     return null

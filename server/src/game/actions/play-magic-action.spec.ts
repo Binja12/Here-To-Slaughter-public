@@ -40,7 +40,12 @@ const makeMagicCard = (id: string, taskSpy?: jest.Mock) =>
     ability: {
       trigger: GameEventType.MagicPlayed,
       steps: taskSpy
-        ? [{ execute: (_gs: GameState, _ctx: unknown, _em: unknown) => taskSpy() }]
+        ? [
+            {
+              execute: (_gs: GameState, _ctx: unknown, _em: unknown) =>
+                taskSpy(),
+            },
+          ]
         : [],
     } as any,
   })
@@ -168,9 +173,13 @@ describe('PlayMagicAction', () => {
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
-      const magicPlayed = emitted.find((e) => e.getType() === GameEventType.MagicPlayed)
+      const magicPlayed = emitted.find(
+        (e) => e.getType() === GameEventType.MagicPlayed,
+      )
       expect(magicPlayed).toBeDefined()
-      expect((magicPlayed!.getPayload() as { cardId: string }).cardId).toBe('magic-1')
+      expect((magicPlayed!.getPayload() as { cardId: string }).cardId).toBe(
+        'magic-1',
+      )
     })
 
     it('emits CardDiscarded after ability resolves', () => {
@@ -178,7 +187,9 @@ describe('PlayMagicAction', () => {
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
-      const discarded = emitted.find((e) => e.getType() === GameEventType.CardDiscarded)
+      const discarded = emitted.find(
+        (e) => e.getType() === GameEventType.CardDiscarded,
+      )
       expect(discarded).toBeDefined()
     })
 
@@ -195,7 +206,10 @@ describe('PlayMagicAction', () => {
       emitter.addListener({
         onEvent: (e) => {
           if (e.getType() === GameEventType.MagicPlayed) {
-            inInstanceAtEmit = gs.getParty('p1').getInstanceCardIds().includes('magic-1')
+            inInstanceAtEmit = gs
+              .getParty('p1')
+              .getInstanceCardIds()
+              .includes('magic-1')
           }
         },
       })
