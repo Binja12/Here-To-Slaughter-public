@@ -47,13 +47,8 @@ export interface IIfTask extends ITask {
 }
 
 export interface IAbility {
-  trigger?: GameEventType // if set, fires automatically via AbilityProcessor when event occurs
-  steps: ITask[]
-}
-
-/** A passive is an ability with a required trigger — registered on a card entering play. */
-export interface IPassive extends IAbility {
   trigger: GameEventType
+  steps: ITask[]
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { CardType, IGameEventEmitter } from 'shared'
+import { CardType, GameEventType, IGameEventEmitter } from 'shared'
 import { IAbility, IIfTask, ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
@@ -45,6 +45,7 @@ export class InstaPlayTask implements ITask {
 }
 
 export const SnowballAbility: IAbility = {
+  trigger: GameEventType.RollSuccess,
   steps: [
     new DrawTask(1),
     new CardTypeCondition(CardType.Magic, [

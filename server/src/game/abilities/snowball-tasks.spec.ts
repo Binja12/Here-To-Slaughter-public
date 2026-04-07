@@ -1,7 +1,6 @@
 import {
   Audience,
   CardType,
-  EffectDuration,
   GameEventType,
   HeroClass,
   IGameEvent,
@@ -55,14 +54,14 @@ const makeEmitter = () => {
 const makeMagicCard = (id: string) =>
   new MagicCard({
     id, name: id, type: CardType.Magic, image: '', description: '',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base', ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeHeroCard = (id: string) =>
   new HeroCard({
     id, name: id, type: CardType.Hero, image: '', description: '',
     heroClass: HeroClass.Wizard, rollReq: 4,
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base', ability: { trigger: GameEventType.RollSuccess },
   })
 
 // ---------------------------------------------------------------------------

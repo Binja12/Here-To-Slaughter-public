@@ -47,6 +47,7 @@ export class RollOnHeroAction implements IAction {
     const baseRoll = Math.ceil(Math.random() * 11) + 1
     this.emmiter.emit(GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll))
     if (baseRoll >= card.getRollReq()) {
+      gs.markAbilityUsed(this.cardId)
       this.emmiter.emit(GameEventFactory.rollSuccess(this.playerId, this.cardId))
     }
   }

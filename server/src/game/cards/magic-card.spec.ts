@@ -1,5 +1,5 @@
 import { MagicCard } from './magic-card'
-import { CardType, EffectDuration } from 'shared'
+import { CardType, GameEventType } from 'shared'
 import { MagicCardData } from 'shared'
 
 const mockMagicData: MagicCardData = {
@@ -10,8 +10,7 @@ const mockMagicData: MagicCardData = {
   description: 'Deals massive damage',
   set: 'base',
   ability: {
-    trigger: [],
-    steps: [],
+    trigger: GameEventType.CardPlayed,
   },
 }
 
