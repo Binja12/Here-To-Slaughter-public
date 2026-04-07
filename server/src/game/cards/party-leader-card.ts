@@ -1,7 +1,7 @@
-import { ICard, IBoardCard } from 'shared'
+import { ICard } from 'shared'
 import { PartyLeaderData, CardType, HeroClass, SkillData } from 'shared'
 
-export class PartyLeaderCard implements ICard, IBoardCard {
+export class PartyLeaderCard implements ICard {
   constructor(private data: PartyLeaderData) {}
 
   getId(): string {
@@ -23,6 +23,6 @@ export class PartyLeaderCard implements ICard, IBoardCard {
     return this.data.heroClass
   }
   getAbility() {
-    return this.getAbility
+    return this.data.ability
   }
 }

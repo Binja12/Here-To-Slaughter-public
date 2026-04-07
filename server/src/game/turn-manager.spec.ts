@@ -8,9 +8,13 @@ import { CardStack } from './card-stack'
 import { IAction } from './interfaces'
 import { GameEvent } from './events/game-event'
 import { Audience } from 'shared'
+import { CardPile } from './card-pile'
 
 const makeGs = (actionPoints = 3) => {
-  const deck = new CardStack('deck', 'main')
+  const deck = new CardStack('deck-1', 'main-deck')
+  const discardPile = new CardPile('discard pile', 'discard pile')
+  const monsterDeck = new CardStack('monster deck', 'main monster deck')
+  const monsterPile = new CardPile('slayable monsters', 'monster pile')
   const player = new Player({
     id: 'p1',
     name: 'P1',
@@ -22,9 +26,10 @@ const makeGs = (actionPoints = 3) => {
     playerId: 'p1',
     leaderId: 'leader-1',
     heroIds: [],
-    MonsterIds: [],
+    monsterIds: [],
   })
-  const gs = new GameState(deck)
+
+  const gs = new GameState(deck, discardPile, monsterDeck, monsterPile)
   gs.registerPlayer(player)
   gs.registerParty(party)
   return gs
@@ -43,7 +48,6 @@ const makeAction = (
   getType: () => ActionType.DrawCard,
   getPlayerId: () => 'p1',
   getCost: () => cost,
-  isChallengeable: () => false,
   canExecute: (gs: GameState) => {
     if (!canExecBase) return false
     const player = gs.getPlayer('p1')

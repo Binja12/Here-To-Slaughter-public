@@ -9,6 +9,7 @@ const mockLeaderData: PartyLeaderData = {
   image: 'shadow.png',
   description: 'A mysterious leader',
   heroClass: HeroClass.Thief,
+  set: 'base',
   ability: {
     trigger: [],
     steps: [],

@@ -11,6 +11,8 @@ import {
   ChallengeResult,
 } from "./enums";
 
+import { IGameEvent } from "./interfaces";
+
 export type HeroClassReq = HeroClass | "Any";
 
 export type PartyReq = {
@@ -36,7 +38,7 @@ export type CardBase = {
   description: string;
   set: string;
   ability: {
-    trigger: [];
+    trigger: IGameEvent;
     steps: [];
   };
 };

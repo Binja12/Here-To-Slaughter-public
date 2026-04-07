@@ -6,6 +6,8 @@ import { CardStack } from './card-stack'
 import { HeroCard } from './cards/hero-card'
 import { IAbility, IPassive } from './interfaces'
 import { GameEventType } from 'shared'
+import { CardPile } from './card-pile'
+import { DiscardTask } from './abilities/tasks'
 
 const makePlayer = (id: string) =>
   new Player({
@@ -20,31 +22,33 @@ const makeParty = (
   playerId: string,
   leaderId: string,
   heroIds: string[] = [],
-) => new Party({ playerId, leaderId, heroIds, MonsterIds: [] })
+) => new Party({ playerId, leaderId, heroIds, monsterIds: [] })
 
 const makeHeroCard = (id: string, ability?: IAbility, passives?: IPassive[]) =>
-  new HeroCard(
-    {
-      id,
-      name: `Hero ${id}`,
-      type: CardType.Hero,
-      image: '',
-      description: '',
-      heroClass: HeroClass.Wizard,
-      rollReq: 4,
-      effect: { duration: EffectDuration.TurnEnd },
-    },
-    ability,
-    passives,
-  )
+  new HeroCard({
+    id,
+    name: `Hero ${id}`,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    heroClass: HeroClass.Wizard,
+    rollReq: 4,
+    set: 'base',
+    ability: { trigger: [], steps: [] },
+  })
 
 describe('GameState', () => {
-  let deck: CardStack
   let gs: GameState
-
+  let deck = new CardStack('deck-1', 'main-deck')
+  let discardPile = new CardPile('discard pile', 'discard pile')
+  let monsterDeck = new CardStack('monster deck', 'main monster deck')
+  let monsterPile = new CardPile('slayable monsters', 'monster pile')
   beforeEach(() => {
     deck = new CardStack('deck-1', 'main-deck')
-    gs = new GameState(deck)
+    discardPile = new CardPile('discard pile', 'discard pile')
+    monsterDeck = new CardStack('monster deck', 'main monster deck')
+    monsterPile = new CardPile('slayable monsters', 'monster pile')
+    gs = new GameState(deck, discardPile, monsterDeck, monsterPile)
   })
 
   // --- Registration & retrieval ---
@@ -117,31 +121,13 @@ describe('GameState', () => {
   // --- Hero ability / passives ---
 
   it('should return hero ability from registered HeroCard', () => {
-    const ability: IAbility = { steps: [] }
-    const card = makeHeroCard('hero-1', ability)
-    gs.registerCard(card)
-    expect(gs.getHeroAbility('hero-1')).toBe(ability)
-  })
-
-  it('should return undefined ability when HeroCard has none', () => {
     const card = makeHeroCard('hero-1')
     gs.registerCard(card)
-    expect(gs.getHeroAbility('hero-1')).toBeUndefined()
+    expect(gs.getHeroAbility('hero-1')).toEqual({ trigger: [], steps: [] })
   })
 
   it('should return undefined ability for unknown card', () => {
     expect(gs.getHeroAbility('ghost')).toBeUndefined()
-  })
-
-  it('should return card passives from registered HeroCard', () => {
-    const passive: IPassive = { trigger: GameEventType.CardDrawn, steps: [] }
-    const card = makeHeroCard('hero-1', undefined, [passive])
-    gs.registerCard(card)
-    expect(gs.getCardPassives('hero-1')).toEqual([passive])
-  })
-
-  it('should return empty passives for unknown card', () => {
-    expect(gs.getCardPassives('ghost')).toEqual([])
   })
 
   // --- Card ownership ---

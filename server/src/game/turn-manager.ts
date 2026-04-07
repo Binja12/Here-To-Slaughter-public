@@ -40,7 +40,6 @@ export class TurnManager {
     if (!player) return
     this.gs.setCurrentPlayerId(playerId)
     this.gs.clearUsedAbilities()
-    this.clearChallengedCards()
     player.resetActionPoints()
     this.phase = TurnPhase.ActionWindow
     this.emitter.emit(
@@ -49,26 +48,12 @@ export class TurnManager {
   }
 
   endTurn(): void {
-    this.clearChallengedCards()
+    this.gs.clearUsedAbilities()
     this.phase = TurnPhase.TurnEnd
     const playerId = this.gs.getCurrentPlayerId() ?? ''
     this.emitter.emit(
       new GameEvent(GameEventType.TurnEnded, playerId, { playerId }),
     )
-  }
-
-  // --- Challenged-card tracking ---
-
-  markCardChallenged(cardId: string): void {
-    this.cardsChallengedThisTurn.push(cardId)
-  }
-
-  hasCardBeenChallenged(cardId: string): boolean {
-    return this.cardsChallengedThisTurn.includes(cardId)
-  }
-
-  clearChallengedCards(): void {
-    this.cardsChallengedThisTurn = []
   }
 
   // --- Internal ---

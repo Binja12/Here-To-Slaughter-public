@@ -160,10 +160,6 @@ export class GameState {
     return [...this.reactionWindows]
   }
 
-  hasOpenReactionWindow(): boolean {
-    return this.reactionWindows.some((w) => w.isOpen())
-  }
-
   // --- Pending actions ---
 
   setPendingInstaPlay(data: {

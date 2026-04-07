@@ -45,9 +45,13 @@ export class RollOnHeroAction implements IAction {
     player.decreaseActionPoints(this.getCost())
     const card = gs.getCard(this.cardId) as HeroCard
     const baseRoll = Math.ceil(Math.random() * 11) + 1
-    this.emmiter.emit(GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll))
+    this.emmiter.emit(
+      GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll),
+    )
     if (baseRoll >= card.getRollReq()) {
-      this.emmiter.emit(GameEventFactory.rollSuccess(this.playerId, this.cardId))
+      this.emmiter.emit(
+        GameEventFactory.rollSuccess(this.playerId, this.cardId),
+      )
     }
   }
 }

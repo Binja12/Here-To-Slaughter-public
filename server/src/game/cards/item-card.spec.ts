@@ -1,6 +1,7 @@
 import { ItemCard } from './item-card'
-import { CardType, EffectDuration } from 'shared'
+import { CardType, GameEventType, IGameEvent } from 'shared'
 import { ItemCardData } from 'shared'
+import 
 
 const mockItemData: ItemCardData = {
   id: 'item-1',
@@ -11,7 +12,7 @@ const mockItemData: ItemCardData = {
   cursed: false,
   set: 'base',
   ability: {
-    trigger: [],
+    trigger: GameEventType.CardDrawn,
     steps: [],
   },
 }
