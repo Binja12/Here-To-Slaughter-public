@@ -92,6 +92,7 @@ export type PartyData = {
   leaderId: string;
   heroIds: string[];
   monsterIds: string[];
+  instanceCardIds?: string[];
 };
 
 export type PlayerData = {

@@ -62,6 +62,7 @@ export enum GameEventType {
   CardDrawn = "CardDrawn",
   CardPlayed = "CardPlayed",
   CardDiscarded = "CardDiscarded",
+  MagicPlayed = "MagicPlayed",
 
   // Hero events
   HeroAddedToParty = "HeroAddedToParty",
