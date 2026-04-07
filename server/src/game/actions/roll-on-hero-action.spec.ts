@@ -1,4 +1,4 @@
-import { ActionType, CardType, HeroClass } from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass } from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -12,10 +12,21 @@ import { HeroCard } from '../cards/hero-card'
 // --- Helpers ---
 
 const makePlayer = (id: string, ap = 3) =>
-  new Player({ id, name: `Player ${id}`, hand: [], partyId: `party-${id}`, actionPoints: ap })
+  new Player({
+    id,
+    name: `Player ${id}`,
+    hand: [],
+    partyId: `party-${id}`,
+    actionPoints: ap,
+  })
 
 const makeParty = (playerId: string, heroIds: string[] = []) =>
-  new Party({ playerId, leaderId: `leader-${playerId}`, heroIds, monsterIds: [] })
+  new Party({
+    playerId,
+    leaderId: `leader-${playerId}`,
+    heroIds,
+    monsterIds: [],
+  })
 
 /** rollReq defaults to 10 so we can easily control hit/miss with Math.random mock. */
 const makeHeroCard = (id: string, rollReq = 10) =>
@@ -28,13 +39,15 @@ const makeHeroCard = (id: string, rollReq = 10) =>
     heroClass: HeroClass.Wizard,
     rollReq,
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.DiceRolled },
   })
 
 const makeGs = () => {
   const deck = new CardStack('deck-1', 'main-deck')
-  const discard = new CardPile('discard-1', 'discard-pile')
-  return new GameState(deck, discard)
+  const discardPile = new CardPile('discard pile', 'discard pile')
+  const monsterDeck = new CardStack('monster deck', 'main monster deck')
+  const monsterPile = new CardPile('slayable monsters', 'monster pile')
+  return new GameState(deck, discardPile, monsterDeck, monsterPile)
 }
 
 // --- Tests ---

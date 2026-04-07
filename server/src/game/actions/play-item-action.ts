@@ -51,15 +51,13 @@ export class PlayItemAction implements IAction {
     if (player.getActionPoints() < COST) return false
     if (!player.getHand().includes(this.cardId)) return false
     if (gs.getCard(this.targetHeroId)?.getType() !== CardType.Hero) return false
-    // trying to put a not cursed item on someone else's team
-    const isCursed = (gs.getCard(this.cardId) as ItemCard).isCursed
-    const targetedCardOwner = gs
-      .getPlayers()
-      .filter((p) =>
-        gs.getParty(p.getPartyId()).getHeroIds().includes(this.targetHeroId),
-      )
-    if (!isCursed && targetedCardOwner[0].getId() !== this.playerId)
-      return false
+
+    const itemCard = gs.getCard(this.cardId) as ItemCard
+    const targetOwnerId = gs.getCardOwner(this.targetHeroId)
+    if (!targetOwnerId) return false
+
+    if (!itemCard.isCursed() && targetOwnerId !== this.playerId) return false
+
     return true
   }
 
