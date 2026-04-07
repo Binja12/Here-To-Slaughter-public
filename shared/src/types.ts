@@ -2,6 +2,7 @@ import {
   EffectDuration,
   HeroClass,
   CardType,
+  GameEventType,
   ReactionWindowType,
   DecisionType,
   ActionFlow,
@@ -10,6 +11,8 @@ import {
   RollCompareMode,
   ChallengeResult,
 } from "./enums";
+
+import { IGameEvent } from "./interfaces";
 
 export type HeroClassReq = HeroClass | "Any";
 
@@ -28,6 +31,10 @@ export type SkillData = {
   description: string;
 };
 
+export type AbilityData = {
+  trigger: GameEventType;
+};
+
 export type CardBase = {
   id: string;
   name: string;
@@ -35,10 +42,7 @@ export type CardBase = {
   image: string;
   description: string;
   set: string;
-  ability: {
-    trigger: [];
-    steps: [];
-  };
+  ability: AbilityData;
 };
 
 export type HeroCardData = CardBase & {
@@ -88,6 +92,7 @@ export type PartyData = {
   leaderId: string;
   heroIds: string[];
   monsterIds: string[];
+  instanceCardIds?: string[];
 };
 
 export type PlayerData = {

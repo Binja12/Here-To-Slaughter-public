@@ -1,12 +1,10 @@
-import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
+import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { GameEvent } from '../events/game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
-import { AbilityProcessor } from '../ability-processor'
-import { AbilityContext } from '../ability-context'
 import { HeroCard } from '../cards/hero-card'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import { GameEventFactory } from '../events/game-event-factory'
 
 export class RollOnHeroAction implements IAction {
   constructor(
@@ -46,11 +44,15 @@ export class RollOnHeroAction implements IAction {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(this.getCost())
     const card = gs.getCard(this.cardId) as HeroCard
-    const ability = card.getAbility()
     const baseRoll = Math.ceil(Math.random() * 11) + 1
+    this.emmiter.emit(
+      GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll),
+    )
     if (baseRoll >= card.getRollReq()) {
-      const ap = new AbilityProcessor(this.emmiter)
-      ap.process(card.getAbility(), gs, ctx)
+      gs.markAbilityUsed(this.cardId)
+      this.emmiter.emit(
+        GameEventFactory.rollSuccess(this.playerId, this.cardId),
+      )
     }
   }
 }

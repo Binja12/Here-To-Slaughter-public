@@ -1,7 +1,6 @@
 import { HeroCard } from './hero-card'
-import { CardType, HeroClass, EffectDuration, GameEventType } from 'shared'
+import { CardType, HeroClass, GameEventType } from 'shared'
 import { HeroCardData } from 'shared'
-import { IAbility, IPassive } from '../interfaces'
 
 const mockHeroData: HeroCardData = {
   id: 'hero-1',
@@ -13,8 +12,7 @@ const mockHeroData: HeroCardData = {
   rollReq: 4,
   set: 'base',
   ability: {
-    trigger: [],
-    steps: [],
+    trigger: GameEventType.RollSuccess,
   },
 }
 
@@ -74,9 +72,5 @@ describe('HeroCard', () => {
     const card = new HeroCard(mockHeroData)
     card.equipItem('item-1')
     expect(card.getEquippedItem()).toBe('item-1')
-  })
-  it('should return undefined ability when none provided', () => {
-    const card = new HeroCard(mockHeroData)
-    expect(card.getAbility()).toBeUndefined()
   })
 })

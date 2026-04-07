@@ -62,6 +62,7 @@ export enum GameEventType {
   CardDrawn = "CardDrawn",
   CardPlayed = "CardPlayed",
   CardDiscarded = "CardDiscarded",
+  MagicPlayed = "MagicPlayed",
 
   // Hero events
   HeroAddedToParty = "HeroAddedToParty",
@@ -77,10 +78,14 @@ export enum GameEventType {
   TurnStarted = "TurnStarted",
   TurnEnded = "TurnEnded",
 
+  // Item events
+  ItemEquippedToHero = "ItemEquippedToHero",
+
   // Game events
   GameStarted = "GameStarted",
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
+  RollSuccess = "RollSuccess",
 
   // Modifier window
   ModifierWindowOpened = "ModifierWindowOpened",
@@ -189,7 +194,11 @@ export enum Audience {
 export enum ActionType {
   DrawCard = "DrawCard",
   RollOnHero = "RollOnHero",
-  PlayCard = "PlayCard",
+  PlayHero = "PlayHero",
+  PlayItem = "PlayItem",
+  PlayMagic = "PlayMagic",
+  AttackMonster = "AttackMonster",
+  ReDraw = "ReDraw",
 }
 
 export enum ReactionType {

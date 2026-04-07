@@ -2,6 +2,7 @@ import {
   ActionType,
   GameEventType,
   IGameEvent,
+  IGameEventEmitter,
   ReactionType,
   ReactionWindowType,
   RollResult,
@@ -36,7 +37,7 @@ export interface IReaction {
 // ---------------------------------------------------------------------------
 
 export interface ITask {
-  execute(gs: GameState, ctx: AbilityContext): IGameEvent[]
+  execute(gs: GameState, ctx: AbilityContext, em: IGameEventEmitter): void
 }
 
 export interface IIfTask extends ITask {
@@ -46,10 +47,6 @@ export interface IIfTask extends ITask {
 }
 
 export interface IAbility {
-  steps: ITask[]
-}
-
-export interface IPassive {
   trigger: GameEventType
   steps: ITask[]
 }
