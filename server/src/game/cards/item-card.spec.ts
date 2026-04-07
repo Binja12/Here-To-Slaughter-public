@@ -1,5 +1,5 @@
 import { ItemCard } from './item-card'
-import { CardType, EffectDuration } from 'shared'
+import { CardType, GameEventType } from 'shared'
 import { ItemCardData } from 'shared'
 
 const mockItemData: ItemCardData = {
@@ -11,8 +11,7 @@ const mockItemData: ItemCardData = {
   cursed: false,
   set: 'base',
   ability: {
-    trigger: [],
-    steps: [],
+    trigger: GameEventType.HeroAddedToParty,
   },
 }
 
@@ -21,11 +20,6 @@ const mockCursedItemData: ItemCardData = {
   id: 'item-2',
   name: 'Cursed Dagger',
   cursed: true,
-  set: 'base',
-  ability: {
-    trigger: [],
-    steps: [],
-  },
 }
 
 describe('ItemCard', () => {
