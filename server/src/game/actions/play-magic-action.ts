@@ -4,8 +4,6 @@ import { GameState } from '../game-state'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
-import { AbilityContext } from '../ability-context'
-import { MagicCard } from '../cards/magic-card'
 
 const COST = 1
 
@@ -46,21 +44,22 @@ export class PlayMagicAction implements IAction {
   execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
+
+    // Move card from hand to party instance pile
     player.removeFromHand(this.cardId)
     this.emmiter.emit(
       GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
     )
 
-    // Run the magic card's ability tasks directly — magic is one-shot and never
-    // registered with the AbilityProcessor. Events emitted here will still be
-    // picked up by any registered passives listening on the emitter.
-    const card = gs.getCard(this.cardId)! as MagicCard
-    const ability = card.getAbility()
-    const ctx = new AbilityContext(this.cardId, this.playerId)
-    for (const task of ability.steps) {
-      task.execute(gs, ctx, this.emmiter)
-    }
+    const party = gs.getParty(this.playerId)
+    party.addInstanceCard(this.cardId)
 
+    // Emit MagicPlayed — AbilityProcessor picks this up via onEvent(),
+    // finds the card in instance sources, and executes its ability synchronously.
+    this.emmiter.emit(GameEventFactory.magicPlayed(this.playerId, this.cardId))
+
+    // Resolve: remove from instance, move to discard
+    party.removeInstanceCard(this.cardId)
     gs.getDiscardPile().add(this.cardId)
     this.emmiter.emit(
       GameEventFactory.cardDiscarded(this.playerId, this.cardId),

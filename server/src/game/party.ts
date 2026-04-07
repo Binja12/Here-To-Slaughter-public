@@ -28,4 +28,16 @@ export class Party {
   addMonster(monsterId: string): void {
     this.data.monsterIds.push(monsterId)
   }
+
+  getInstanceCardIds(): string[] {
+    return this.data.instanceCardIds ?? []
+  }
+  addInstanceCard(cardId: string): void {
+    if (!this.data.instanceCardIds) this.data.instanceCardIds = []
+    this.data.instanceCardIds.push(cardId)
+  }
+  removeInstanceCard(cardId: string): void {
+    if (!this.data.instanceCardIds) return
+    this.data.instanceCardIds = this.data.instanceCardIds.filter((id) => id !== cardId)
+  }
 }

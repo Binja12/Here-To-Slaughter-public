@@ -17,7 +17,7 @@ export class AbilityProcessor implements IGameEventListener {
   // ---------------------------------------------------------------------------
 
   process(ability: IAbility, gs: GameState, ctx: AbilityContext): void {
-    for (const task of ability.steps) {
+    for (const task of (ability.steps ?? [])) {
       task.execute(gs, ctx, this.em)
     }
   }
@@ -82,6 +82,9 @@ export class AbilityProcessor implements IGameEventListener {
       const party = this.gs.getParty(pid)
       for (const heroId of party.getHeroIds()) {
         out.push({ cardId: heroId, ownerId: pid })
+      }
+      for (const instanceId of party.getInstanceCardIds()) {
+        out.push({ cardId: instanceId, ownerId: pid })
       }
     }
     return out

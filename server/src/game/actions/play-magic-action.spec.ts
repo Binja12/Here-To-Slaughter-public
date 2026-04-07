@@ -1,4 +1,4 @@
-import { ActionType, CardType, GameEventType } from 'shared'
+import { ActionType, CardType, GameEventType, IGameEvent } from 'shared'
 import { PlayMagicAction } from './play-magic-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -8,6 +8,7 @@ import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { MagicCard } from '../cards/magic-card'
+import { AbilityProcessor } from '../ability-processor'
 
 // --- Helpers ---
 
@@ -28,7 +29,7 @@ const makeParty = (playerId: string) =>
     monsterIds: [],
   })
 
-const makeMagicCard = (id: string) =>
+const makeMagicCard = (id: string, taskSpy?: jest.Mock) =>
   new MagicCard({
     id,
     name: `Magic ${id}`,
@@ -36,7 +37,12 @@ const makeMagicCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.CardPlayed },
+    ability: {
+      trigger: GameEventType.MagicPlayed,
+      steps: taskSpy
+        ? [{ execute: (_gs: GameState, _ctx: unknown, _em: unknown) => taskSpy() }]
+        : [],
+    } as any,
   })
 
 const makeGs = () => {
@@ -76,8 +82,8 @@ describe('PlayMagicAction', () => {
       expect(makeAction().getId()).toBe('a1')
     })
 
-    it('getType returns ActionType.PlayCard', () => {
-      expect(makeAction().getType()).toBe(ActionType.PlayCard)
+    it('getType returns ActionType.PlayMagic', () => {
+      expect(makeAction().getType()).toBe(ActionType.PlayMagic)
     })
 
     it('getPlayerId returns the player id', () => {
@@ -132,13 +138,70 @@ describe('PlayMagicAction', () => {
 
   // --- execute ---
 
-  // NOTE: PlayMagicAction.execute() references an undefined variable `ctx` when
-  // calling AbilityProcessor.process(). This is a bug in the source — `ctx` is
-  // never declared in the method body. The method will always throw a
-  // ReferenceError. Tests below document this known bug; update them once fixed.
-  describe('execute (known bug: ctx is not defined)', () => {
-    it('throws a ReferenceError because ctx is not declared', () => {
-      expect(() => makeAction().execute(gs)).toThrow(ReferenceError)
+  describe('execute', () => {
+    it('decreases action points by 1', () => {
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
+    })
+
+    it('removes card from hand', () => {
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain('magic-1')
+    })
+
+    it('card ends up in discard pile after resolve', () => {
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(gs.getDiscardPile().getAll()).toContain('magic-1')
+    })
+
+    it('card is not in instance pile after resolve', () => {
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
+    })
+
+    it('emits MagicPlayed event with cardId in payload', () => {
+      new AbilityProcessor(gs, emitter)
+      const emitted: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => emitted.push(e) })
+      makeAction().execute(gs)
+      const magicPlayed = emitted.find((e) => e.getType() === GameEventType.MagicPlayed)
+      expect(magicPlayed).toBeDefined()
+      expect((magicPlayed!.getPayload() as { cardId: string }).cardId).toBe('magic-1')
+    })
+
+    it('emits CardDiscarded after ability resolves', () => {
+      new AbilityProcessor(gs, emitter)
+      const emitted: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => emitted.push(e) })
+      makeAction().execute(gs)
+      const discarded = emitted.find((e) => e.getType() === GameEventType.CardDiscarded)
+      expect(discarded).toBeDefined()
+    })
+
+    it('executes the magic card ability tasks via AbilityProcessor', () => {
+      const taskSpy = jest.fn()
+      gs.registerCard(makeMagicCard('magic-1', taskSpy))
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(taskSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('card is in instance pile when MagicPlayed fires', () => {
+      let inInstanceAtEmit = false
+      emitter.addListener({
+        onEvent: (e) => {
+          if (e.getType() === GameEventType.MagicPlayed) {
+            inInstanceAtEmit = gs.getParty('p1').getInstanceCardIds().includes('magic-1')
+          }
+        },
+      })
+      new AbilityProcessor(gs, emitter)
+      makeAction().execute(gs)
+      expect(inInstanceAtEmit).toBe(true)
     })
   })
 })
