@@ -20,7 +20,7 @@ const makeParty = (
   playerId: string,
   leaderId: string,
   heroIds: string[] = [],
-) => new Party({ playerId, leaderId, heroIds, MonsterIds: [] })
+) => new Party({ playerId, leaderId, heroIds, monsterIds: [] })
 
 const makeHeroCard = (id: string, ability?: IAbility, passives?: IPassive[]) =>
   new HeroCard(

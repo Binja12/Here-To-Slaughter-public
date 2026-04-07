@@ -68,11 +68,11 @@ export class GameState {
     return undefined
   }
 
-  getCardPassives(cardId: string): IPassive[] {
-    const card = this.cards.get(cardId)
-    if (card instanceof HeroCard) return card.getPassives()
-    return []
-  }
+  // getCardPassives(cardId: string): IPassive[] {
+  //   const card = this.cards.get(cardId)
+  //   if (card instanceof HeroCard) return card.getPassives()
+  //   return []
+  // }
 
   getCardOwner(cardId: string): string | undefined {
     for (const [playerId, player] of this.players) {
