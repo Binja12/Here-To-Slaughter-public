@@ -2,6 +2,7 @@ import {
   EffectDuration,
   HeroClass,
   CardType,
+  GameEventType,
   ReactionWindowType,
   DecisionType,
   ActionFlow,
@@ -30,6 +31,10 @@ export type SkillData = {
   description: string;
 };
 
+export type AbilityData = {
+  trigger: GameEventType;
+};
+
 export type CardBase = {
   id: string;
   name: string;
@@ -37,10 +42,7 @@ export type CardBase = {
   image: string;
   description: string;
   set: string;
-  ability: {
-    trigger: IGameEvent;
-    steps: [];
-  };
+  ability: AbilityData;
 };
 
 export type HeroCardData = CardBase & {

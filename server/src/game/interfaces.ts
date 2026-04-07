@@ -47,7 +47,7 @@ export interface IIfTask extends ITask {
 }
 
 export interface IAbility {
-  trigger?: GameEventType // if set, fires automatically via AbilityProcessor when event occurs
+  trigger: GameEventType
   steps: ITask[]
 }
 
