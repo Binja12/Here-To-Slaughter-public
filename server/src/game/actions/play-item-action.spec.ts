@@ -1,5 +1,5 @@
-import { ActionType, CardType, HeroClass } from 'shared'
-import { PlayItemAction } from './play-item-card'
+import { ActionType, CardType, GameEventType, HeroClass } from 'shared'
+import { PlayItemAction } from './play-item-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { Player } from '../player'
@@ -14,10 +14,21 @@ import { MagicCard } from '../cards/magic-card'
 // --- Helpers ---
 
 const makePlayer = (id: string, hand: string[] = [], ap = 3) =>
-  new Player({ id, name: `Player ${id}`, hand, partyId: `party-${id}`, actionPoints: ap })
+  new Player({
+    id,
+    name: `Player ${id}`,
+    hand,
+    partyId: `party-${id}`,
+    actionPoints: ap,
+  })
 
 const makeParty = (playerId: string, heroIds: string[] = []) =>
-  new Party({ playerId, leaderId: `leader-${playerId}`, heroIds, monsterIds: [] })
+  new Party({
+    playerId,
+    leaderId: `leader-${playerId}`,
+    heroIds,
+    monsterIds: [],
+  })
 
 const makeHeroCard = (id: string) =>
   new HeroCard({
@@ -29,7 +40,7 @@ const makeHeroCard = (id: string) =>
     heroClass: HeroClass.Wizard,
     rollReq: 4,
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeItemCard = (id: string, cursed = false) =>
@@ -40,7 +51,7 @@ const makeItemCard = (id: string, cursed = false) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.CardPlayed },
     cursed,
   })
 
@@ -52,13 +63,15 @@ const makeMagicCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeGs = () => {
   const deck = new CardStack('deck-1', 'main-deck')
-  const discard = new CardPile('discard-1', 'discard-pile')
-  return new GameState(deck, discard)
+  const discardPile = new CardPile('discard pile', 'discard pile')
+  const monsterDeck = new CardStack('monster deck', 'main monster deck')
+  const monsterPile = new CardPile('slayable monsters', 'monster pile')
+  return new GameState(deck, discardPile, monsterDeck, monsterPile)
 }
 
 // --- Tests ---
@@ -95,8 +108,8 @@ describe('PlayItemAction', () => {
       expect(makeAction().getId()).toBe('a1')
     })
 
-    it('getType returns ActionType.PlayCard', () => {
-      expect(makeAction().getType()).toBe(ActionType.PlayCard)
+    it('getType returns ActionType.PlayItem', () => {
+      expect(makeAction().getType()).toBe(ActionType.PlayItem)
     })
 
     it('getPlayerId returns the player id', () => {
@@ -115,7 +128,14 @@ describe('PlayItemAction', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
       const rm = new ReactionManager(emptyGs, emitter, () => {})
-      const action = new PlayItemAction('a1', 'p1', 'item-1', 'hero-1', rm, emitter)
+      const action = new PlayItemAction(
+        'a1',
+        'p1',
+        'item-1',
+        'hero-1',
+        rm,
+        emitter,
+      )
       expect(action.canExecute(emptyGs)).toBe(false)
     })
 
@@ -132,7 +152,14 @@ describe('PlayItemAction', () => {
       gs2.registerCard(makeItemCard('item-1'))
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter, () => {})
-      const action = new PlayItemAction('a1', 'p1', 'item-1', 'hero-1', rm, emitter)
+      const action = new PlayItemAction(
+        'a1',
+        'p1',
+        'item-1',
+        'hero-1',
+        rm,
+        emitter,
+      )
       expect(action.canExecute(gs2)).toBe(false)
     })
 
@@ -144,7 +171,14 @@ describe('PlayItemAction', () => {
       gs2.registerCard(makeItemCard('item-1'))
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter, () => {})
-      const action = new PlayItemAction('a1', 'p1', 'item-1', 'hero-1', rm, emitter)
+      const action = new PlayItemAction(
+        'a1',
+        'p1',
+        'item-1',
+        'hero-1',
+        rm,
+        emitter,
+      )
       expect(action.canExecute(gs2)).toBe(false)
     })
 
@@ -161,21 +195,13 @@ describe('PlayItemAction', () => {
       expect(makeAction('hero-1').canExecute(gs)).toBe(true)
     })
 
-    // NOTE: There is a bug in PlayItemAction.canExecute — `isCursed` is read as a
-    // property but ItemCard.isCursed() is a method. The method reference is always
-    // truthy, so `!isCursed` is always false and the ownership guard never fires.
-    // A non-cursed item targeting an opponent's hero should return false but
-    // currently returns true.
-    it('BUG: non-cursed item targeting an opponent hero incorrectly returns true', () => {
+    it("non-cursed item targeting an opponent hero can't execute", () => {
       const opponent = makePlayer('p2')
       const opponentParty = makeParty('p2', ['enemy-hero'])
       gs.registerPlayer(opponent)
       gs.registerParty(opponentParty)
       gs.registerCard(makeHeroCard('enemy-hero'))
-
-      // Intent: should be false (non-cursed item on opponent's hero)
-      // Actual: true (isCursed method reference is truthy, disabling the check)
-      expect(makeAction('enemy-hero').canExecute(gs)).toBe(true)
+      expect(makeAction('enemy-hero').canExecute(gs)).toBe(false)
     })
   })
 

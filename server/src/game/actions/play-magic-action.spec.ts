@@ -1,4 +1,4 @@
-import { ActionType, CardType } from 'shared'
+import { ActionType, CardType, GameEventType } from 'shared'
 import { PlayMagicAction } from './play-magic-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -12,10 +12,21 @@ import { MagicCard } from '../cards/magic-card'
 // --- Helpers ---
 
 const makePlayer = (id: string, hand: string[] = [], ap = 3) =>
-  new Player({ id, name: `Player ${id}`, hand, partyId: `party-${id}`, actionPoints: ap })
+  new Player({
+    id,
+    name: `Player ${id}`,
+    hand,
+    partyId: `party-${id}`,
+    actionPoints: ap,
+  })
 
 const makeParty = (playerId: string) =>
-  new Party({ playerId, leaderId: `leader-${playerId}`, heroIds: [], monsterIds: [] })
+  new Party({
+    playerId,
+    leaderId: `leader-${playerId}`,
+    heroIds: [],
+    monsterIds: [],
+  })
 
 const makeMagicCard = (id: string) =>
   new MagicCard({
@@ -25,13 +36,15 @@ const makeMagicCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeGs = () => {
   const deck = new CardStack('deck-1', 'main-deck')
-  const discard = new CardPile('discard-1', 'discard-pile')
-  return new GameState(deck, discard)
+  const discardPile = new CardPile('discard pile', 'discard pile')
+  const monsterDeck = new CardStack('monster deck', 'main monster deck')
+  const monsterPile = new CardPile('slayable monsters', 'monster pile')
+  return new GameState(deck, discardPile, monsterDeck, monsterPile)
 }
 
 // --- Tests ---

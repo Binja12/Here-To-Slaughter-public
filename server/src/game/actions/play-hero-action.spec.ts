@@ -1,4 +1,4 @@
-import { ActionType, CardType, HeroClass } from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass } from 'shared'
 import { PlayHeroAction } from './play-hero-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -12,10 +12,21 @@ import { HeroCard } from '../cards/hero-card'
 // --- Helpers ---
 
 const makePlayer = (id: string, hand: string[] = [], ap = 3) =>
-  new Player({ id, name: `Player ${id}`, hand, partyId: `party-${id}`, actionPoints: ap })
+  new Player({
+    id,
+    name: `Player ${id}`,
+    hand,
+    partyId: `party-${id}`,
+    actionPoints: ap,
+  })
 
 const makeParty = (playerId: string, heroIds: string[] = []) =>
-  new Party({ playerId, leaderId: `leader-${playerId}`, heroIds, monsterIds: [] })
+  new Party({
+    playerId,
+    leaderId: `leader-${playerId}`,
+    heroIds,
+    monsterIds: [],
+  })
 
 const makeHeroCard = (id: string) =>
   new HeroCard({
@@ -27,13 +38,15 @@ const makeHeroCard = (id: string) =>
     heroClass: HeroClass.Wizard,
     rollReq: 4,
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeGs = () => {
   const deck = new CardStack('deck-1', 'main-deck')
-  const discard = new CardPile('discard-1', 'discard-pile')
-  return new GameState(deck, discard)
+  const discardPile = new CardPile('discard pile', 'discard pile')
+  const monsterDeck = new CardStack('monster deck', 'main monster deck')
+  const monsterPile = new CardPile('slayable monsters', 'monster pile')
+  return new GameState(deck, discardPile, monsterDeck, monsterPile)
 }
 
 // --- Tests ---
@@ -69,8 +82,8 @@ describe('PlayHeroAction', () => {
       expect(makeAction().getId()).toBe('a1')
     })
 
-    it('getType returns ActionType.PlayCard', () => {
-      expect(makeAction().getType()).toBe(ActionType.PlayCard)
+    it('getType returns ActionType.PlayHero', () => {
+      expect(makeAction().getType()).toBe(ActionType.PlayHero)
     })
 
     it('getPlayerId returns the player id', () => {
