@@ -1,12 +1,5 @@
-import {
-  ActionType,
-  CardType,
-  HeroClass,
-  RollResult,
-  GameEventType,
-  Audience,
-} from "./enums";
-import { SkillData, CardBase } from "./types";
+import { Audience, CardType, GameEventType, HeroClass } from "./enums";
+import { CardBase } from "./types";
 
 export interface ICard {
   getId(): string;

@@ -51,11 +51,6 @@ export interface IAbility {
   steps: ITask[]
 }
 
-/** A passive is an ability with a required trigger — registered on a card entering play. */
-export interface IPassive extends IAbility {
-  trigger: GameEventType
-}
-
 // ---------------------------------------------------------------------------
 // Win / roll resolution
 // ---------------------------------------------------------------------------

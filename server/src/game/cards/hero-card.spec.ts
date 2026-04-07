@@ -12,10 +12,6 @@ const mockHeroData: HeroCardData = {
   heroClass: HeroClass.Wizard,
   rollReq: 4,
   set: 'base',
-  ability: {
-    trigger: [],
-    steps: [],
-  },
 }
 
 describe('HeroCard', () => {
@@ -78,5 +74,26 @@ describe('HeroCard', () => {
   it('should return undefined ability when none provided', () => {
     const card = new HeroCard(mockHeroData)
     expect(card.getAbility()).toBeUndefined()
+  })
+  it('should return hero ability when none provided', () => {
+    const newMockHeroData: HeroCardData = {
+      id: 'hero-1',
+      name: 'Zara the Wizard',
+      type: CardType.Hero,
+      image: 'zara.png',
+      description: 'A powerful wizard',
+      heroClass: HeroClass.Wizard,
+      rollReq: 4,
+      set: 'base',
+      ability: {
+        trigger: [],
+        steps: [],
+      },
+    }
+    const card = new HeroCard(newMockHeroData)
+    expect(card.getAbility()).toEqual({
+      trigger: [],
+      steps: [],
+    })
   })
 })

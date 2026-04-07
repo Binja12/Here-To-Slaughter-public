@@ -11,7 +11,7 @@ import {
   CardTypeCondition,
   InstaPlayTask,
   SnowballAbility,
-} from './snowball-tasks'
+} from './snowball-ability'
 import { GameState } from '../game-state'
 import { Player } from '../player'
 import { Party } from '../party'
@@ -30,8 +30,19 @@ import { GameEventEmitter } from '../events/game-event-emitter'
 const makeGs = (deckCards: string[] = []) => {
   const deck = new CardStack('deck', 'main')
   for (const c of deckCards) deck.addToBottom(c)
-  const player = new Player({ id: 'p1', name: 'P1', hand: [], partyId: 'party-1', actionPoints: 3 })
-  const party = new Party({ playerId: 'p1', leaderId: 'leader-1', heroIds: [], monsterIds: [] })
+  const player = new Player({
+    id: 'p1',
+    name: 'P1',
+    hand: [],
+    partyId: 'party-1',
+    actionPoints: 3,
+  })
+  const party = new Party({
+    playerId: 'p1',
+    leaderId: 'leader-1',
+    heroIds: [],
+    monsterIds: [],
+  })
   const gs = new GameState(
     deck,
     new CardPile('discard', 'discard'),
@@ -54,14 +65,23 @@ const makeEmitter = () => {
 
 const makeMagicCard = (id: string) =>
   new MagicCard({
-    id, name: id, type: CardType.Magic, image: '', description: '',
+    id,
+    name: id,
+    type: CardType.Magic,
+    image: '',
+    description: '',
     effect: { duration: EffectDuration.TurnEnd },
   })
 
 const makeHeroCard = (id: string) =>
   new HeroCard({
-    id, name: id, type: CardType.Hero, image: '', description: '',
-    heroClass: HeroClass.Wizard, rollReq: 4,
+    id,
+    name: id,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    heroClass: HeroClass.Wizard,
+    rollReq: 4,
     effect: { duration: EffectDuration.TurnEnd },
   })
 
@@ -113,7 +133,11 @@ describe('DrawTask', () => {
       new CardPile('mpile', 'monster-pile'),
     )
     const { emitter, emitted } = makeEmitter()
-    new DrawTask(1).execute(gs, new AbilityContext('src', 'unknown-player'), emitter)
+    new DrawTask(1).execute(
+      gs,
+      new AbilityContext('src', 'unknown-player'),
+      emitter,
+    )
     expect(emitted).toHaveLength(0)
   })
 })
@@ -131,9 +155,21 @@ describe('CardTypeCondition', () => {
     new DrawTask(1).execute(gs, ctx, emitter) // draws magic-1 → sets CTX_LAST_DRAWN_CARD_ID
 
     const ran: string[] = []
-    const ifTrue: ITask = { execute: () => { ran.push('true') } }
-    const ifFalse: ITask = { execute: () => { ran.push('false') } }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, emitter)
+    const ifTrue: ITask = {
+      execute: () => {
+        ran.push('true')
+      },
+    }
+    const ifFalse: ITask = {
+      execute: () => {
+        ran.push('false')
+      },
+    }
+    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
+      gs,
+      ctx,
+      emitter,
+    )
     expect(ran).toEqual(['true'])
   })
 
@@ -145,9 +181,21 @@ describe('CardTypeCondition', () => {
     new DrawTask(1).execute(gs, ctx, emitter)
 
     const ran: string[] = []
-    const ifTrue: ITask = { execute: () => { ran.push('true') } }
-    const ifFalse: ITask = { execute: () => { ran.push('false') } }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, emitter)
+    const ifTrue: ITask = {
+      execute: () => {
+        ran.push('true')
+      },
+    }
+    const ifFalse: ITask = {
+      execute: () => {
+        ran.push('false')
+      },
+    }
+    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
+      gs,
+      ctx,
+      emitter,
+    )
     expect(ran).toEqual(['false'])
   })
 
@@ -158,7 +206,9 @@ describe('CardTypeCondition', () => {
     const { emitter } = makeEmitter()
     new DrawTask(1).execute(gs, ctx, emitter)
     // should not throw
-    expect(() => new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, emitter)).not.toThrow()
+    expect(() =>
+      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, emitter),
+    ).not.toThrow()
   })
 
   it('takes ifFalse branch when no card drawn yet', () => {
@@ -166,8 +216,16 @@ describe('CardTypeCondition', () => {
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
     const ran: string[] = []
-    const ifFalse: ITask = { execute: () => { ran.push('false') } }
-    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(gs, ctx, emitter)
+    const ifFalse: ITask = {
+      execute: () => {
+        ran.push('false')
+      },
+    }
+    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(
+      gs,
+      ctx,
+      emitter,
+    )
     expect(ran).toEqual(['false'])
   })
 })
@@ -182,13 +240,17 @@ describe('InstaPlayTask', () => {
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
     ctx.set(CTX_LAST_DRAWN_CARD_ID, 'magic-1')
-    expect(() => new InstaPlayTask(true).execute(gs, ctx, emitter)).not.toThrow()
+    expect(() =>
+      new InstaPlayTask(true).execute(gs, ctx, emitter),
+    ).not.toThrow()
   })
 
   it('does nothing when no last drawn card in context', () => {
     const { gs } = makeGs([])
     const { emitter } = makeEmitter()
-    expect(() => new InstaPlayTask(true).execute(gs, makeCtx(), emitter)).not.toThrow()
+    expect(() =>
+      new InstaPlayTask(true).execute(gs, makeCtx(), emitter),
+    ).not.toThrow()
   })
 })
 
@@ -207,7 +269,9 @@ describe('SnowballAbility', () => {
     const ctx = makeCtx()
     const { emitter, emitted } = makeEmitter()
     for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter)
-    expect(emitted.some((e) => e.getType() === GameEventType.CardDrawn)).toBe(true)
+    expect(emitted.some((e) => e.getType() === GameEventType.CardDrawn)).toBe(
+      true,
+    )
     expect(player.getHand()).toContain('hero-1')
   })
 
@@ -219,6 +283,8 @@ describe('SnowballAbility', () => {
     for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter)
     expect(player.getHand()).toContain('magic-1')
     expect(player.getHand()).toContain('card-2')
-    expect(emitted.filter((e) => e.getType() === GameEventType.CardDrawn)).toHaveLength(2)
+    expect(
+      emitted.filter((e) => e.getType() === GameEventType.CardDrawn),
+    ).toHaveLength(2)
   })
 })

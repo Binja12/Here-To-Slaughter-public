@@ -32,7 +32,10 @@ const makeTask = (events: IGameEvent[] = [], spy?: () => void): ITask => ({
 })
 
 /** Minimal ICard that also exposes getAbility() for duck-typing. */
-const makeFakeCard = (id: string, ability?: IAbility): ICard & { getAbility(): IAbility | undefined } => ({
+const makeFakeCard = (
+  id: string,
+  ability?: IAbility,
+): ICard & { getAbility(): IAbility | undefined } => ({
   getId: () => id,
   getName: () => id,
   getType: () => CardType.Hero,
@@ -61,16 +64,25 @@ const makeHeroCard = (
   })
 
 const makePlayer = (id: string) =>
-  new Player({ id, name: id, hand: [], partyId: `${id}-party`, actionPoints: 3 })
+  new Player({
+    id,
+    name: id,
+    hand: [],
+    partyId: `${id}-party`,
+    actionPoints: 3,
+  })
 
-const makeParty = (playerId: string, leaderId: string, heroIds: string[] = [], monsterIds: string[] = []) =>
-  new Party({ playerId, leaderId, heroIds, monsterIds })
+const makeParty = (
+  playerId: string,
+  leaderId: string,
+  heroIds: string[] = [],
+  monsterIds: string[] = [],
+) => new Party({ playerId, leaderId, heroIds, monsterIds })
 
 const makeEvent = (
   type: GameEventType,
   payload?: Record<string, unknown>,
-): IGameEvent =>
-  new GameEvent(type, 'p1', payload ?? {}, Audience.All)
+): IGameEvent => new GameEvent(type, 'p1', payload ?? {}, Audience.All)
 
 // ---------------------------------------------------------------------------
 // Helpers to populate GameState
@@ -118,9 +130,23 @@ describe('AbilityProcessor', () => {
       emitter.addListener({ onEvent: (e) => received.push(e) })
 
       const ap = new AbilityProcessor(makeGs(), emitter)
-      const e1 = new GameEvent(GameEventType.CardDrawn, 'p1', {}, Audience.PlayerOnly)
-      const e2 = new GameEvent(GameEventType.CardDrawn, 'p1', {}, Audience.PlayerOnly)
-      ap.process({ steps: [makeTask([e1]), makeTask([e2])] }, makeGs(), new AbilityContext('card-1', 'p1'))
+      const e1 = new GameEvent(
+        GameEventType.CardDrawn,
+        'p1',
+        {},
+        Audience.PlayerOnly,
+      )
+      const e2 = new GameEvent(
+        GameEventType.CardDrawn,
+        'p1',
+        {},
+        Audience.PlayerOnly,
+      )
+      ap.process(
+        { steps: [makeTask([e1]), makeTask([e2])] },
+        makeGs(),
+        new AbilityContext('card-1', 'p1'),
+      )
 
       expect(received).toContain(e1)
       expect(received).toContain(e2)
@@ -131,8 +157,16 @@ describe('AbilityProcessor', () => {
       const order: number[] = []
       const ability: IAbility = {
         steps: [
-          { execute: () => { order.push(1) } },
-          { execute: () => { order.push(2) } },
+          {
+            execute: () => {
+              order.push(1)
+            },
+          },
+          {
+            execute: () => {
+              order.push(2)
+            },
+          },
         ],
       }
       ap.process(ability, makeGs(), new AbilityContext('c', 'p'))
@@ -145,8 +179,17 @@ describe('AbilityProcessor', () => {
       emitter.addListener({ onEvent: (e) => received.push(e) })
 
       const ap = new AbilityProcessor(makeGs(), emitter)
-      const taskEvent = new GameEvent(GameEventType.CardDrawn, 'p1', {}, Audience.PlayerOnly)
-      ap.process({ steps: [makeTask([taskEvent])] }, makeGs(), new AbilityContext('c', 'p'))
+      const taskEvent = new GameEvent(
+        GameEventType.CardDrawn,
+        'p1',
+        {},
+        Audience.PlayerOnly,
+      )
+      ap.process(
+        { steps: [makeTask([taskEvent])] },
+        makeGs(),
+        new AbilityContext('c', 'p'),
+      )
 
       expect(received).toContain(taskEvent)
     })
@@ -159,7 +202,9 @@ describe('AbilityProcessor', () => {
   describe('onEvent()', () => {
     it('does not crash when GameState has no players', () => {
       const ap = new AbilityProcessor(makeGs(), new GameEventEmitter())
-      expect(() => ap.onEvent(makeEvent(GameEventType.DiceRolled))).not.toThrow()
+      expect(() =>
+        ap.onEvent(makeEvent(GameEventType.DiceRolled)),
+      ).not.toThrow()
     })
 
     // -----------------------------------------------------------------------
@@ -172,10 +217,12 @@ describe('AbilityProcessor', () => {
       const fired: boolean[] = []
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1'))
-      gs.registerCard(makeFakeCard('leader-1', {
-        trigger: GameEventType.DiceRolled,
-        steps: [makeTask([], () => fired.push(true))],
-      }))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: GameEventType.DiceRolled,
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
@@ -189,13 +236,17 @@ describe('AbilityProcessor', () => {
       const fired: boolean[] = []
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1'))
-      gs.registerCard(makeFakeCard('leader-1', {
-        trigger: GameEventType.DiceRolled,
-        steps: [makeTask([], () => fired.push(true))],
-      }))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: GameEventType.DiceRolled,
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
-      ap.onEvent(makeEvent(GameEventType.DiceRolled, { cardId: 'some-other-card' }))
+      ap.onEvent(
+        makeEvent(GameEventType.DiceRolled, { cardId: 'some-other-card' }),
+      )
 
       expect(fired).toHaveLength(1)
     })
@@ -230,10 +281,12 @@ describe('AbilityProcessor', () => {
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1', [], ['monster-1']))
       gs.registerCard(makeFakeCard('leader-1'))
-      gs.registerCard(makeFakeCard('monster-1', {
-        trigger: GameEventType.DiceRolled,
-        steps: [makeTask([], () => fired.push(true))],
-      }))
+      gs.registerCard(
+        makeFakeCard('monster-1', {
+          trigger: GameEventType.DiceRolled,
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
@@ -250,10 +303,12 @@ describe('AbilityProcessor', () => {
       gs.registerParty(makeParty('p1', 'leader-1', ['hero-1']))
       gs.registerCard(makeFakeCard('leader-1'))
       gs.registerCard(hero)
-      gs.registerCard(makeFakeCard('item-1', {
-        trigger: GameEventType.DiceRolled,
-        steps: [makeTask([], () => fired.push(true))],
-      }))
+      gs.registerCard(
+        makeFakeCard('item-1', {
+          trigger: GameEventType.DiceRolled,
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
@@ -282,7 +337,9 @@ describe('AbilityProcessor', () => {
       setupPlayer(gs, 'p1', 'leader-1') // leader has no ability
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
-      expect(() => ap.onEvent(makeEvent(GameEventType.DiceRolled))).not.toThrow()
+      expect(() =>
+        ap.onEvent(makeEvent(GameEventType.DiceRolled)),
+      ).not.toThrow()
     })
 
     it('skips passive cards whose ability has no trigger', () => {
@@ -290,7 +347,11 @@ describe('AbilityProcessor', () => {
       const fired: boolean[] = []
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1'))
-      gs.registerCard(makeFakeCard('leader-1', { steps: [makeTask([], () => fired.push(true))] }))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
@@ -307,7 +368,13 @@ describe('AbilityProcessor', () => {
       const gs = makeGs()
       const fired: boolean[] = []
       setupPlayer(gs, 'p1', 'leader-1', [
-        { cardId: 'hero-1', ability: { trigger: GameEventType.RollSuccess, steps: [makeTask([], () => fired.push(true))] } },
+        {
+          cardId: 'hero-1',
+          ability: {
+            trigger: GameEventType.RollSuccess,
+            steps: [makeTask([], () => fired.push(true))],
+          },
+        },
       ])
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
@@ -320,7 +387,13 @@ describe('AbilityProcessor', () => {
       const gs = makeGs()
       const fired: boolean[] = []
       setupPlayer(gs, 'p1', 'leader-1', [
-        { cardId: 'hero-1', ability: { trigger: GameEventType.DiceRolled, steps: [makeTask([], () => fired.push(true))] } },
+        {
+          cardId: 'hero-1',
+          ability: {
+            trigger: GameEventType.DiceRolled,
+            steps: [makeTask([], () => fired.push(true))],
+          },
+        },
       ])
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
@@ -360,10 +433,20 @@ describe('AbilityProcessor', () => {
       const received: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => received.push(e) })
 
-      const taskEvent = new GameEvent(GameEventType.CardDrawn, 'p1', {}, Audience.PlayerOnly)
+      const taskEvent = new GameEvent(
+        GameEventType.CardDrawn,
+        'p1',
+        {},
+        Audience.PlayerOnly,
+      )
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1'))
-      gs.registerCard(makeFakeCard('leader-1', { trigger: GameEventType.DiceRolled, steps: [makeTask([taskEvent])] }))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: GameEventType.DiceRolled,
+          steps: [makeTask([taskEvent])],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, emitter)
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
@@ -375,11 +458,20 @@ describe('AbilityProcessor', () => {
       const gs = makeGs()
       let capturedCtx: AbilityContext | undefined
 
-      const step: ITask = { execute: (_gs, ctx, _em) => { capturedCtx = ctx } }
+      const step: ITask = {
+        execute: (_gs, ctx, _em) => {
+          capturedCtx = ctx
+        },
+      }
 
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1'))
-      gs.registerCard(makeFakeCard('leader-1', { trigger: GameEventType.DiceRolled, steps: [step] }))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: GameEventType.DiceRolled,
+          steps: [step],
+        }),
+      )
 
       const ap = new AbilityProcessor(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
