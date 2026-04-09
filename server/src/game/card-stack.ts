@@ -30,4 +30,10 @@ export class CardStack implements ICardStack {
   getSize(): number {
     return this.cards.length
   }
+
+  clone(): CardStack {
+    const copy = new CardStack(this.id, this.name)
+    for (const c of this.cards) copy.addToBottom(c)
+    return copy
+  }
 }

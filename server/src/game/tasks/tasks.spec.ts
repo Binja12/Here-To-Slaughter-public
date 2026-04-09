@@ -14,6 +14,7 @@ import { Party } from '../party'
 import { HeroCard } from '../cards/hero-card'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -64,6 +65,9 @@ const makeEmitter = () => {
   return { emitter, emitted }
 }
 
+/** Stub ReactionManager — tasks under test don't open frames. */
+const stubRm = null as unknown as ReactionManager
+
 // ---------------------------------------------------------------------------
 // DrawTask
 // ---------------------------------------------------------------------------
@@ -76,7 +80,7 @@ describe('DrawTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter } = makeEmitter()
 
-    new DrawTask(2).execute(gs, makeCtx(), emitter)
+    new DrawTask(2).execute(gs, makeCtx(), emitter, stubRm)
 
     expect(player.getHand()).toContain('card-1')
     expect(player.getHand()).toContain('card-2')
@@ -98,7 +102,7 @@ describe('DrawTask', () => {
       },
     })
 
-    new DrawTask(3).execute(gs, makeCtx(), emitter)
+    new DrawTask(3).execute(gs, makeCtx(), emitter, stubRm)
 
     const drawEvents = emitted.filter(
       (e) => e.getType() === GameEventType.CardDrawn,
@@ -118,7 +122,7 @@ describe('DrawTask', () => {
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
 
-    new DrawTask(2).execute(gs, ctx, emitter)
+    new DrawTask(2).execute(gs, ctx, emitter, stubRm)
 
     expect(ctx.get(CTX_LAST_DRAWN_CARD_ID)).toBe('card-2')
   })
@@ -130,7 +134,7 @@ describe('DrawTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter, emitted } = makeEmitter()
 
-    new DrawTask(3).execute(gs, makeCtx(), emitter)
+    new DrawTask(3).execute(gs, makeCtx(), emitter, stubRm)
 
     expect(emitted).toHaveLength(1)
     expect(player.getHand()).toHaveLength(1)
@@ -140,7 +144,7 @@ describe('DrawTask', () => {
     const gs = makeGs(['card-1'])
     const { emitter, emitted } = makeEmitter()
 
-    new DrawTask(1).execute(gs, makeCtx('src', 'unknown'), emitter)
+    new DrawTask(1).execute(gs, makeCtx('src', 'unknown'), emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
   })
@@ -158,7 +162,7 @@ describe('DiscardTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter } = makeEmitter()
 
-    new DiscardTask('card-1').execute(gs, makeCtx(), emitter)
+    new DiscardTask('card-1').execute(gs, makeCtx(), emitter, stubRm)
 
     expect(player.getHand()).not.toContain('card-1')
     expect(player.getHand()).toContain('card-2')
@@ -171,7 +175,7 @@ describe('DiscardTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter, emitted } = makeEmitter()
 
-    new DiscardTask('card-1').execute(gs, makeCtx(), emitter)
+    new DiscardTask('card-1').execute(gs, makeCtx(), emitter, stubRm)
 
     expect(emitted).toHaveLength(1)
     expect(emitted[0].getType()).toBe(GameEventType.CardDiscarded)
@@ -186,7 +190,7 @@ describe('DiscardTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter } = makeEmitter()
 
-    new DiscardTask().execute(gs, makeCtx('src-card'), emitter)
+    new DiscardTask().execute(gs, makeCtx('src-card'), emitter, stubRm)
 
     expect(player.getHand()).not.toContain('src-card')
     expect(gs.getDiscardPile().getAll()).toContain('src-card')
@@ -198,7 +202,7 @@ describe('DiscardTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter, emitted } = makeEmitter()
 
-    new DiscardTask('missing').execute(gs, makeCtx(), emitter)
+    new DiscardTask('missing').execute(gs, makeCtx(), emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
   })
@@ -207,7 +211,7 @@ describe('DiscardTask', () => {
     const gs = makeGs()
     const { emitter, emitted } = makeEmitter()
 
-    new DiscardTask('card-1').execute(gs, makeCtx('src', 'unknown'), emitter)
+    new DiscardTask('card-1').execute(gs, makeCtx('src', 'unknown'), emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
   })
@@ -225,7 +229,7 @@ describe('DestroyTask', () => {
     gs.registerCard(makeHeroCard('hero-1'))
     const { emitter } = makeEmitter()
 
-    new DestroyTask('hero-1').execute(gs, makeCtx(), emitter)
+    new DestroyTask('hero-1').execute(gs, makeCtx(), emitter, stubRm)
 
     expect(gs.getParty('p1').getHeroIds()).not.toContain('hero-1')
     expect(gs.getParty('p1').getHeroIds()).toContain('hero-2')
@@ -238,7 +242,7 @@ describe('DestroyTask', () => {
     gs.registerParty(makeParty('p1', ['hero-1']))
     const { emitter, emitted } = makeEmitter()
 
-    new DestroyTask('hero-1').execute(gs, makeCtx(), emitter)
+    new DestroyTask('hero-1').execute(gs, makeCtx(), emitter, stubRm)
 
     expect(emitted).toHaveLength(1)
     expect(emitted[0].getType()).toBe(GameEventType.HeroDestroyed)
@@ -252,7 +256,7 @@ describe('DestroyTask', () => {
     gs.registerParty(makeParty('p1', ['src-card']))
     const { emitter } = makeEmitter()
 
-    new DestroyTask().execute(gs, makeCtx('src-card'), emitter)
+    new DestroyTask().execute(gs, makeCtx('src-card'), emitter, stubRm)
 
     expect(gs.getParty('p1').getHeroIds()).not.toContain('src-card')
     expect(gs.getDiscardPile().getAll()).toContain('src-card')
@@ -264,7 +268,7 @@ describe('DestroyTask', () => {
     gs.registerParty(makeParty('p1', []))
     const { emitter, emitted } = makeEmitter()
 
-    new DestroyTask('missing').execute(gs, makeCtx(), emitter)
+    new DestroyTask('missing').execute(gs, makeCtx(), emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
   })

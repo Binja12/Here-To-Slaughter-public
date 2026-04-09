@@ -49,10 +49,7 @@ export class ApplyModifierAction implements IAction {
     const card = gs.getCard(this.cardId)
     if (!card || card.getType() !== CardType.Modifier) return false
     // A modifier window must be open.
-    const hasModifierWindow = gs
-      .getReactionWindows()
-      .some((w) => w.isOpen() && w.getType() === ReactionWindowType.Modifier)
-    if (!hasModifierWindow) return false
+    if (!gs.getFrameByWindowType(ReactionWindowType.Modifier)) return false
     return true
   }
 
@@ -60,6 +57,12 @@ export class ApplyModifierAction implements IAction {
     const player = gs.getPlayer(this.playerId)!
     const card = gs.getCard(this.cardId) as ModifierCard | undefined
     if (!card) return []
+
+    // Track before spending — on rollback the snapshot restores the card to
+    // hand, so RM will re-discard it after restoring.
+    const frameEntry = gs.getFrameByWindowType(ReactionWindowType.Modifier)
+    if (frameEntry) gs.trackCardSpent(frameEntry.frameId, this.cardId)
+
     player.removeFromHand(this.cardId)
 
     this.reactionManager.applyModifier(

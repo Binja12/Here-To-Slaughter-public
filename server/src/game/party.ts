@@ -40,4 +40,13 @@ export class Party {
     if (!this.data.instanceCardIds) return
     this.data.instanceCardIds = this.data.instanceCardIds.filter((id) => id !== cardId)
   }
+
+  clone(): Party {
+    return new Party({
+      ...this.data,
+      heroIds: [...this.data.heroIds],
+      monsterIds: [...this.data.monsterIds],
+      instanceCardIds: this.data.instanceCardIds ? [...this.data.instanceCardIds] : undefined,
+    })
+  }
 }

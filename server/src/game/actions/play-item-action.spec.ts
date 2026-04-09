@@ -97,7 +97,7 @@ describe('PlayItemAction', () => {
   })
 
   const makeAction = (targetHeroId = 'hero-1') => {
-    const rm = new ReactionManager(gs, emitter, () => {})
+    const rm = new ReactionManager(gs, emitter)
     return new PlayItemAction('a1', 'p1', 'item-1', targetHeroId, rm, emitter)
   }
 
@@ -127,7 +127,7 @@ describe('PlayItemAction', () => {
     it('returns false when player does not exist', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(emptyGs, emitter, () => {})
+      const rm = new ReactionManager(emptyGs, emitter)
       const action = new PlayItemAction(
         'a1',
         'p1',
@@ -151,7 +151,7 @@ describe('PlayItemAction', () => {
       gs2.setCurrentPlayerId('p1')
       gs2.registerCard(makeItemCard('item-1'))
       gs2.registerCard(makeHeroCard('hero-1'))
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new PlayItemAction(
         'a1',
         'p1',
@@ -170,7 +170,7 @@ describe('PlayItemAction', () => {
       gs2.setCurrentPlayerId('p1')
       gs2.registerCard(makeItemCard('item-1'))
       gs2.registerCard(makeHeroCard('hero-1'))
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new PlayItemAction(
         'a1',
         'p1',

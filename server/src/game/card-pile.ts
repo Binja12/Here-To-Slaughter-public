@@ -42,4 +42,10 @@ export class CardPile implements ICardPile {
   getSize(): number {
     return this.cards.length
   }
+
+  clone(): CardPile {
+    const copy = new CardPile(this.id, this.name)
+    for (const c of [...this.cards].reverse()) copy.add(c)
+    return copy
+  }
 }

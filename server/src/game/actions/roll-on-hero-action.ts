@@ -1,4 +1,4 @@
-import { ActionType } from 'shared'
+import { ActionType, ReactionWindowType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { ReactionManager } from '../reactions/reaction-manager'
@@ -15,20 +15,10 @@ export class RollOnHeroAction implements IAction {
     private readonly reactionManager: ReactionManager,
   ) {}
 
-  getId(): string {
-    return this.id
-  }
-  getPlayerId(): string {
-    return this.playerId
-  }
-
-  getType(): ActionType {
-    return ActionType.RollOnHero
-  }
-
-  getCost(): number {
-    return 1
-  }
+  getId(): string { return this.id }
+  getPlayerId(): string { return this.playerId }
+  getType(): ActionType { return ActionType.RollOnHero }
+  getCost(): number { return 1 }
 
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
@@ -43,16 +33,30 @@ export class RollOnHeroAction implements IAction {
   execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(this.getCost())
+
     const card = gs.getCard(this.cardId) as HeroCard
+    const rollReq = card.getRollReq()
     const baseRoll = Math.ceil(Math.random() * 11) + 1
-    this.emmiter.emit(
-      GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll),
-    )
-    if (baseRoll >= card.getRollReq()) {
-      gs.markAbilityUsed(this.cardId)
-      this.emmiter.emit(
-        GameEventFactory.rollSuccess(this.playerId, this.cardId),
-      )
-    }
+
+    this.emmiter.emit(GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll))
+
+    // Snapshot + open modifier window. FrameResolved fires on settlement;
+    // if finalRoll < rollReq the snapshot is restored (rollback) and
+    // RollSuccess is never emitted. Since this is an action (not a task
+    // pipeline), we listen for FrameResolved in GameEngine to do post-roll work.
+    // For now, the roll result is embedded in the window's onResolve via RM.
+    const frameId = this.reactionManager.openFrame()
+    this.reactionManager.openWindow(frameId, ReactionWindowType.Modifier, this.playerId, {
+      rollerId: this.playerId,
+      baseRoll,
+      rollReq,
+      heroId: this.cardId,
+    })
+
+    // RollSuccess is emitted by GameEngine on FrameResolved when finalRoll >= rollReq.
+    // The frameId is consumed by AbilityProcessor (via takeLastFrameId) only if this
+    // were inside a task pipeline; for actions, GameEngine handles FrameResolved.
+    // We clear lastFrameId here so AbilityProcessor doesn't try to suspend a pipeline.
+    this.reactionManager.takeLastFrameId()
   }
 }

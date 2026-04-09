@@ -1,72 +1,89 @@
-import { IGameEvent, IGameEventEmitter, IGameEventListener } from 'shared' // IGameEvent kept for onEvent signature
-import { IAbility } from './interfaces'
+import { GameEventType, IGameEvent, IGameEventEmitter, IGameEventListener } from 'shared'
+import { ITask } from './interfaces'
 import { GameState } from './game-state'
-import { AbilityContext } from './ability-context'
-import { HeroCard } from './cards/hero-card'
+
+import { AbilityContext, CTX_FRAME_RESULTS } from './ability-context'
+import type { ReactionManager } from './reactions/reaction-manager'
 
 export class AbilityProcessor implements IGameEventListener {
   constructor(
     private readonly gs: GameState,
     private readonly em: IGameEventEmitter,
+    private readonly rm: ReactionManager,
   ) {
     em.addListener(this)
   }
 
   // ---------------------------------------------------------------------------
-  // Direct invocation — magic cards and any one-shot caller
-  // ---------------------------------------------------------------------------
-
-  process(ability: IAbility, gs: GameState, ctx: AbilityContext): void {
-    for (const task of (ability.steps ?? [])) {
-      task.execute(gs, ctx, this.em)
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // IGameEventListener — scans active cards on every game event
+  // IGameEventListener
   // ---------------------------------------------------------------------------
 
   onEvent(event: IGameEvent): void {
+    // FrameResolved — resume a suspended pipeline.
+    if (event.getType() === GameEventType.FrameResolved) {
+      const { frameId, results } = event.getPayload() as {
+        frameId: string
+        results: unknown[]
+      }
+      const entry = this.gs.abilityPipelines.get(frameId)
+      if (!entry) return
+      this.gs.abilityPipelines.delete(frameId)
+      entry.ctx.set(CTX_FRAME_RESULTS, results)
+      this.runSteps(entry.steps, entry.ctx)
+      return
+    }
+
     const payload = event.getPayload() as Record<string, unknown> | undefined
 
+    // Passive sources — leaders, monsters, equipped items.
     for (const { cardId, ownerId } of this.passiveSources()) {
       const ability = this.gs.getCardAbility(cardId)
       if (!ability?.trigger || ability.trigger !== event.getType()) continue
-
-      this.process(ability, this.gs, new AbilityContext(cardId, ownerId))
+      this.runSteps(ability.steps ?? [], new AbilityContext(cardId, ownerId))
     }
 
+    // Active sources — heroes and instance cards (filtered by payload.cardId).
     for (const { cardId, ownerId } of this.activeSources()) {
       const ability = this.gs.getCardAbility(cardId)
       if (!ability?.trigger || ability.trigger !== event.getType()) continue
       if (!payload?.cardId || payload.cardId !== cardId) continue
-      this.process(ability, this.gs, new AbilityContext(cardId, ownerId))
+      this.runSteps(ability.steps ?? [], new AbilityContext(cardId, ownerId))
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Private helpers
+  // Step runner
   // ---------------------------------------------------------------------------
 
-  /**
-   * Passive sources — scanned on every game event without any explicit play.
-   * Includes: party leaders, equipped items, and active monsters.
-   */
+  private runSteps(steps: ITask[], ctx: AbilityContext): void {
+    for (let i = 0; i < steps.length; i++) {
+      steps[i].execute(this.gs, ctx, this.em, this.rm)
+
+      const frameId = this.rm.takeLastFrameId()
+      if (frameId) {
+        // Step opened a reaction frame — suspend; resume on FrameResolved.
+        this.gs.abilityPipelines.set(frameId, { steps: steps.slice(i + 1), ctx })
+        return
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Source scanners
+  // ---------------------------------------------------------------------------
+
   private passiveSources(): { cardId: string; ownerId: string }[] {
     const out: { cardId: string; ownerId: string }[] = []
-
     for (const player of this.gs.getPlayers()) {
       const pid = player.getId()
       const party = this.gs.getParty(pid)
 
-      // Leader — always passive
       out.push({ cardId: party.getLeaderId(), ownerId: pid })
 
       for (const monsterId of party.getMonsterIds()) {
         out.push({ cardId: monsterId, ownerId: pid })
       }
 
-      // Equipped items — passive; heroes themselves are NOT included
       for (const heroId of party.getHeroIds()) {
         const equippedItem = this.gs.getEquippedItem(heroId)
         if (equippedItem) out.push({ cardId: equippedItem, ownerId: pid })

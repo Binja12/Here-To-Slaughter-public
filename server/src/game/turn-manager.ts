@@ -5,7 +5,6 @@ import { GameEventEmitter } from './events/game-event-emitter'
 import { GameEvent } from './events/game-event'
 
 export class TurnManager {
-  private actionQueue: IAction[] = []
   private phase: TurnPhase = TurnPhase.TurnStart
   private cardsChallengedThisTurn: string[] = []
 
@@ -26,7 +25,7 @@ export class TurnManager {
 
   enqueue(action: IAction): void {
     if (this.phase !== TurnPhase.ActionWindow) return
-    this.actionQueue.push(action)
+    this.gs.actionQueue.push(action)
     this.drain()
   }
 
@@ -56,23 +55,32 @@ export class TurnManager {
     )
   }
 
-  // --- Internal ---
+  // ---------------------------------------------------------------------------
+  // Internal
+  // ---------------------------------------------------------------------------
+
+  private hasOpenWindow(): boolean {
+    return this.gs.hasOpenFrames()
+  }
 
   private drain(): void {
-    while (this.actionQueue.length > 0) {
-      const action = this.actionQueue[0]
+    while (this.gs.actionQueue.length > 0) {
+      if (this.hasOpenWindow()) return
+
+      const action = this.gs.actionQueue[0]
 
       if (!action.canExecute(this.gs)) {
-        this.actionQueue.shift()
+        this.gs.actionQueue.shift()
         continue
       }
 
-      this.actionQueue.shift()
+      this.gs.actionQueue.shift()
       action.execute(this.gs)
+
+      if (this.hasOpenWindow()) return
     }
 
-    // Queue drained — end turn if AP is 0 and no window is blocking.
-    if (this.getActionPoints() <= 0) {
+    if (this.getActionPoints() <= 0 && !this.hasOpenWindow()) {
       this.endTurn()
     }
   }

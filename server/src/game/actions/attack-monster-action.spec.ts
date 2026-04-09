@@ -73,7 +73,7 @@ describe('AttackMonsterAction', () => {
   })
 
   const makeAction = () => {
-    const rm = new ReactionManager(gs, emitter, () => {})
+    const rm = new ReactionManager(gs, emitter)
     return new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
   }
 
@@ -104,7 +104,7 @@ describe('AttackMonsterAction', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
       emptyGs.getMonsterPile().add('monster-1')
-      const rm = new ReactionManager(emptyGs, emitter, () => {})
+      const rm = new ReactionManager(emptyGs, emitter)
       const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
       expect(action.canExecute(emptyGs)).toBe(false)
     })
@@ -121,7 +121,7 @@ describe('AttackMonsterAction', () => {
       gs2.setCurrentPlayerId('p1')
       gs2.registerCard(makeMonsterCard('monster-1'))
       gs2.getMonsterPile().add('monster-1')
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
       expect(action.canExecute(gs2)).toBe(false)
     })
@@ -133,7 +133,7 @@ describe('AttackMonsterAction', () => {
       gs2.setCurrentPlayerId('p1')
       gs2.registerCard(makeMonsterCard('monster-1'))
       // deliberately not adding monster-1 to the pile
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
       expect(action.canExecute(gs2)).toBe(false)
     })

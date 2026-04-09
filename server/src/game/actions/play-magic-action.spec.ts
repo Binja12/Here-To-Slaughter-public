@@ -42,7 +42,7 @@ const makeMagicCard = (id: string, taskSpy?: jest.Mock) =>
       steps: taskSpy
         ? [
             {
-              execute: (_gs: GameState, _ctx: unknown, _em: unknown) =>
+              execute: (_gs: GameState, _ctx: unknown, _em: unknown, _rm: unknown) =>
                 taskSpy(),
             },
           ]
@@ -76,7 +76,7 @@ describe('PlayMagicAction', () => {
   })
 
   const makeAction = () => {
-    const rm = new ReactionManager(gs, emitter, () => {})
+    const rm = new ReactionManager(gs, emitter)
     return new PlayMagicAction('a1', 'p1', 'magic-1', rm, emitter)
   }
 
@@ -106,7 +106,7 @@ describe('PlayMagicAction', () => {
     it('returns false when player does not exist', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(emptyGs, emitter, () => {})
+      const rm = new ReactionManager(emptyGs, emitter)
       const action = new PlayMagicAction('a1', 'p1', 'magic-1', rm, emitter)
       expect(action.canExecute(emptyGs)).toBe(false)
     })
@@ -121,7 +121,7 @@ describe('PlayMagicAction', () => {
       gs2.registerPlayer(makePlayer('p1', ['magic-1'], 0))
       gs2.registerParty(makeParty('p1'))
       gs2.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new PlayMagicAction('a1', 'p1', 'magic-1', rm, emitter)
       expect(action.canExecute(gs2)).toBe(false)
     })
@@ -131,7 +131,7 @@ describe('PlayMagicAction', () => {
       gs2.registerPlayer(makePlayer('p1', []))
       gs2.registerParty(makeParty('p1'))
       gs2.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new PlayMagicAction('a1', 'p1', 'magic-1', rm, emitter)
       expect(action.canExecute(gs2)).toBe(false)
     })
@@ -145,31 +145,31 @@ describe('PlayMagicAction', () => {
 
   describe('execute', () => {
     it('decreases action points by 1', () => {
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
     })
 
     it('removes card from hand', () => {
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getPlayer('p1')!.getHand()).not.toContain('magic-1')
     })
 
     it('card ends up in discard pile after resolve', () => {
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getDiscardPile().getAll()).toContain('magic-1')
     })
 
     it('card is not in instance pile after resolve', () => {
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
     })
 
     it('emits MagicPlayed event with cardId in payload', () => {
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
@@ -183,7 +183,7 @@ describe('PlayMagicAction', () => {
     })
 
     it('emits CardDiscarded after ability resolves', () => {
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
@@ -196,7 +196,7 @@ describe('PlayMagicAction', () => {
     it('executes the magic card ability tasks via AbilityProcessor', () => {
       const taskSpy = jest.fn()
       gs.registerCard(makeMagicCard('magic-1', taskSpy))
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(taskSpy).toHaveBeenCalledTimes(1)
     })
@@ -213,7 +213,7 @@ describe('PlayMagicAction', () => {
           }
         },
       })
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(inInstanceAtEmit).toBe(true)
     })

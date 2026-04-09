@@ -31,9 +31,7 @@ export class GameEngine implements IGameEventListener {
         this.handleTurnEnded(event.getPlayerId())
         break
 
-      // Both window-close events signal that the drain loop can resume.
-      case GameEventType.ModifierWindowClosed:
-      case GameEventType.ChallengeWindowClosed:
+      case GameEventType.FrameResolved:
         this.turnManager.resumeDrain()
         break
     }

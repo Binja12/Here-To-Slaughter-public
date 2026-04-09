@@ -1,4 +1,4 @@
-import { ActionType, GameEventType, IGameEvent, TurnPhase } from 'shared'
+import { ActionType, GameEventType, IGameEvent, ReactionWindowType, TurnPhase } from 'shared'
 import { TurnManager } from './turn-manager'
 import { GameState } from './game-state'
 import { GameEventEmitter } from './events/game-event-emitter'
@@ -210,11 +210,8 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          // Simulate opening a window
-          g.addReactionWindow({
-            getType: () => require('shared').ReactionWindowType.Modifier,
-            isOpen: () => true,
-          })
+          const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub], cardsSpent: [] })
           return []
         },
       }
@@ -240,17 +237,13 @@ describe('TurnManager', () => {
       tm.startTurn('p1')
 
       const executed: string[] = []
-      let windowRef: any
 
       const windowAction: IAction = {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          windowRef = {
-            getType: () => require('shared').ReactionWindowType.Modifier,
-            isOpen: () => true,
-          }
-          g.addReactionWindow(windowRef)
+          const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub], cardsSpent: [] })
           executed.push('window-action')
           return []
         },
@@ -268,8 +261,8 @@ describe('TurnManager', () => {
       tm.enqueue(afterAction)
       expect(executed).toEqual(['window-action'])
 
-      // Close the window and resume
-      gs.removeReactionWindow(windowRef)
+      // Release the frame and resume
+      gs.releaseFrame('f1')
       tm.resumeDrain()
       expect(executed).toEqual(['window-action', 'after-action'])
     })
@@ -321,10 +314,8 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          g.addReactionWindow({
-            getType: () => require('shared').ReactionWindowType.Modifier,
-            isOpen: () => true,
-          })
+          const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub], cardsSpent: [] })
           return []
         },
       }

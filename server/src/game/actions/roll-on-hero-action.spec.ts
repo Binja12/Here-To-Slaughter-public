@@ -60,6 +60,7 @@ describe('RollOnHeroAction', () => {
   let party: Party
 
   beforeEach(() => {
+    jest.useFakeTimers()
     emitter = new GameEventEmitter()
     gs = makeGs()
     player = makePlayer('p1', 3)
@@ -70,11 +71,12 @@ describe('RollOnHeroAction', () => {
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     jest.restoreAllMocks()
   })
 
   const makeAction = () => {
-    const rm = new ReactionManager(gs, emitter, () => {})
+    const rm = new ReactionManager(gs, emitter)
     return new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
   }
 
@@ -104,7 +106,7 @@ describe('RollOnHeroAction', () => {
     it('returns false when player does not exist', () => {
       const emptyGs = makeGs()
       emptyGs.registerParty(makeParty('p1', ['hero-1']))
-      const rm = new ReactionManager(emptyGs, emitter, () => {})
+      const rm = new ReactionManager(emptyGs, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
       expect(action.canExecute(emptyGs)).toBe(false)
     })
@@ -114,7 +116,7 @@ describe('RollOnHeroAction', () => {
       gs2.registerPlayer(makePlayer('p1', 0))
       gs2.registerParty(makeParty('p1', ['hero-1']))
       gs2.registerCard(makeHeroCard('hero-1'))
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
       expect(action.canExecute(gs2)).toBe(false)
     })
@@ -124,7 +126,7 @@ describe('RollOnHeroAction', () => {
       gs2.registerPlayer(makePlayer('p1'))
       gs2.registerParty(makeParty('p1', []))
       gs2.registerCard(makeHeroCard('hero-1'))
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
       expect(action.canExecute(gs2)).toBe(false)
     })
@@ -140,11 +142,14 @@ describe('RollOnHeroAction', () => {
   })
 
   // --- execute ---
-
-  // Math.random mock guide for execute():
+  //
+  // Math.random mock guide:
   //   baseRoll = Math.ceil(Math.random() * 11) + 1  →  range [2, 12]
-  //   mockReturnValue(0)    → Math.ceil(0)  + 1 = 1  (miss for rollReq >= 2)
-  //   mockReturnValue(0.99) → Math.ceil(10.89) + 1 = 12 (hit for rollReq <= 12)
+  //   mockReturnValue(0)    → ceil(0)  + 1 = 1  (miss for rollReq ≥ 2)
+  //   mockReturnValue(0.99) → ceil(10.89) + 1 = 12 (hit for rollReq ≤ 12)
+  //
+  // RollSuccess and markAbilityUsed are deferred until the modifier window
+  // closes (5 s timeout).  Use jest.runAllTimers() to advance fake timers.
 
   describe('execute', () => {
     it('decreases player action points by 1 regardless of roll outcome', () => {
@@ -153,7 +158,7 @@ describe('RollOnHeroAction', () => {
       expect(player.getActionPoints()).toBe(2)
     })
 
-    it('emits DiceRolled on every roll', () => {
+    it('emits DiceRolled immediately on every roll', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
@@ -161,33 +166,37 @@ describe('RollOnHeroAction', () => {
       expect(emitted.some((e) => e.getType() === GameEventType.DiceRolled)).toBe(true)
     })
 
-    it('does not emit RollSuccess when roll misses', () => {
+    it('does not emit RollSuccess when roll misses (after window closes)', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
+      jest.runAllTimers()
       expect(emitted.some((e) => e.getType() === GameEventType.RollSuccess)).toBe(false)
     })
 
     it('does not mark ability used when roll misses', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       makeAction().execute(gs)
+      jest.runAllTimers()
       expect(gs.getAbilitiesUsedThisTurn()).not.toContain('hero-1')
     })
 
-    it('emits RollSuccess when roll succeeds', () => {
+    it('emits RollSuccess when roll succeeds (after modifier window closes)', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
+      jest.runAllTimers() // advance past the 5 s modifier window
       const event = emitted.find((e) => e.getType() === GameEventType.RollSuccess)
       expect(event).toBeDefined()
       expect((event!.getPayload() as { cardId: string }).cardId).toBe('hero-1')
     })
 
-    it('marks ability used when roll succeeds', () => {
+    it('marks ability used when roll succeeds (after modifier window closes)', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
       makeAction().execute(gs)
+      jest.runAllTimers()
       expect(gs.getAbilitiesUsedThisTurn()).toContain('hero-1')
     })
 
@@ -206,12 +215,13 @@ describe('RollOnHeroAction', () => {
           rollReq: 10,
           ability: {
             trigger: GameEventType.RollSuccess,
-            steps: [{ execute: (_gs, _ctx, _em) => taskSpy() }],
+            steps: [{ execute: (_gs, _ctx, _em, _rm) => taskSpy() }],
           } as any,
         }),
       )
-      new AbilityProcessor(gs, emitter)
+      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
+      jest.runAllTimers() // modifier window closes → RollSuccess → ability fires
       expect(taskSpy).toHaveBeenCalledTimes(1)
     })
   })
