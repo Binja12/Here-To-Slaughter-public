@@ -1,4 +1,4 @@
-import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
+import { ActionType, Audience, GameEventType, IGameEvent, ReactionWindowType } from 'shared'
 import { IAction, IReactionAction } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../events/game-event'
@@ -50,7 +50,7 @@ export class ChallengeCardAction implements IReactionAction {
     if (gs.getCardsChallengedThisTurn().includes(this.targetedCardId))
       return false
     // A challenge window must be open for the targeted card.
-    if (!gs.getReactionWindows().some((w) => w.isOpen())) return false
+    if (!gs.getFrameByWindowType(ReactionWindowType.Challenge)) return false
     return true
   }
 

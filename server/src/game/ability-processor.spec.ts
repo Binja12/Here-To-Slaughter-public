@@ -11,6 +11,13 @@ import { Player } from './player'
 import { Party } from './party'
 import { HeroCard } from './cards/hero-card'
 import { HeroClass } from 'shared'
+import { ReactionManager } from './reactions/reaction-manager'
+
+const makeRm = (gs: GameState, em: GameEventEmitter) =>
+  new ReactionManager(gs, em)
+
+const makeAp = (gs: GameState, em: GameEventEmitter) =>
+  new AbilityProcessor(gs, em, makeRm(gs, em))
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -25,7 +32,7 @@ const makeGs = () =>
   )
 
 const makeTask = (events: IGameEvent[] = [], spy?: () => void): ITask => ({
-  execute: (_gs, _ctx, em) => {
+  execute: (_gs, _ctx, em, _rm) => {
     spy?.()
     for (const e of events) em.emit(e)
   },
@@ -109,99 +116,12 @@ function setupPlayer(
 
 describe('AbilityProcessor', () => {
   // -------------------------------------------------------------------------
-  // process()
-  // -------------------------------------------------------------------------
-
-  describe('process()', () => {
-    it('does nothing for an ability with no steps', () => {
-      const emitter = new GameEventEmitter()
-      const received: IGameEvent[] = []
-      emitter.addListener({ onEvent: (e) => received.push(e) })
-
-      const ap = new AbilityProcessor(makeGs(), emitter)
-      ap.process({ steps: [] }, makeGs(), new AbilityContext('card-1', 'p1'))
-
-      expect(received).toHaveLength(0)
-    })
-
-    it('executes all steps and emits their events', () => {
-      const emitter = new GameEventEmitter()
-      const received: IGameEvent[] = []
-      emitter.addListener({ onEvent: (e) => received.push(e) })
-
-      const ap = new AbilityProcessor(makeGs(), emitter)
-      const e1 = new GameEvent(
-        GameEventType.CardDrawn,
-        'p1',
-        {},
-        Audience.PlayerOnly,
-      )
-      const e2 = new GameEvent(
-        GameEventType.CardDrawn,
-        'p1',
-        {},
-        Audience.PlayerOnly,
-      )
-      ap.process(
-        { steps: [makeTask([e1]), makeTask([e2])] },
-        makeGs(),
-        new AbilityContext('card-1', 'p1'),
-      )
-
-      expect(received).toContain(e1)
-      expect(received).toContain(e2)
-    })
-
-    it('executes steps in order', () => {
-      const ap = new AbilityProcessor(makeGs(), new GameEventEmitter())
-      const order: number[] = []
-      const ability: IAbility = {
-        steps: [
-          {
-            execute: () => {
-              order.push(1)
-            },
-          },
-          {
-            execute: () => {
-              order.push(2)
-            },
-          },
-        ],
-      }
-      ap.process(ability, makeGs(), new AbilityContext('c', 'p'))
-      expect(order).toEqual([1, 2])
-    })
-
-    it('passes the shared emitter into each task', () => {
-      const emitter = new GameEventEmitter()
-      const received: IGameEvent[] = []
-      emitter.addListener({ onEvent: (e) => received.push(e) })
-
-      const ap = new AbilityProcessor(makeGs(), emitter)
-      const taskEvent = new GameEvent(
-        GameEventType.CardDrawn,
-        'p1',
-        {},
-        Audience.PlayerOnly,
-      )
-      ap.process(
-        { steps: [makeTask([taskEvent])] },
-        makeGs(),
-        new AbilityContext('c', 'p'),
-      )
-
-      expect(received).toContain(taskEvent)
-    })
-  })
-
-  // -------------------------------------------------------------------------
   // onEvent() — scan-based passive triggering
   // -------------------------------------------------------------------------
 
   describe('onEvent()', () => {
     it('does not crash when GameState has no players', () => {
-      const ap = new AbilityProcessor(makeGs(), new GameEventEmitter())
+      const ap = makeAp(makeGs(), new GameEventEmitter())
       expect(() =>
         ap.onEvent(makeEvent(GameEventType.DiceRolled)),
       ).not.toThrow()
@@ -224,7 +144,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(fired).toHaveLength(1)
@@ -243,7 +163,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(
         makeEvent(GameEventType.DiceRolled, { cardId: 'some-other-card' }),
       )
@@ -268,7 +188,7 @@ describe('AbilityProcessor', () => {
       gs.registerParty(makeParty('p2', 'leader-2'))
       gs.registerCard(makeFakeCard('leader-2', makeAbility('p2-leader')))
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(firedBy).toContain('p1-leader')
@@ -288,7 +208,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(fired).toHaveLength(1)
@@ -310,7 +230,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(fired).toHaveLength(1)
@@ -326,7 +246,7 @@ describe('AbilityProcessor', () => {
       gs.registerCard(makeFakeCard('leader-1'))
       gs.registerCard(hero)
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(fired).toHaveLength(0)
@@ -336,7 +256,7 @@ describe('AbilityProcessor', () => {
       const gs = makeGs()
       setupPlayer(gs, 'p1', 'leader-1') // leader has no ability
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       expect(() =>
         ap.onEvent(makeEvent(GameEventType.DiceRolled)),
       ).not.toThrow()
@@ -353,7 +273,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(fired).toHaveLength(0)
@@ -377,7 +297,7 @@ describe('AbilityProcessor', () => {
         },
       ])
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.RollSuccess, { cardId: 'hero-1' }))
 
       expect(fired).toHaveLength(1)
@@ -396,7 +316,7 @@ describe('AbilityProcessor', () => {
         },
       ])
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled)) // no cardId in payload
 
       expect(fired).toHaveLength(0)
@@ -416,7 +336,7 @@ describe('AbilityProcessor', () => {
         { cardId: 'hero-2', ability: makeAbility('hero-2') },
       ])
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.RollSuccess, { cardId: 'hero-1' }))
 
       expect(firedBy).toContain('hero-1')
@@ -448,7 +368,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, emitter)
+      const ap = makeAp(gs, emitter)
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(received).toContain(taskEvent)
@@ -473,7 +393,7 @@ describe('AbilityProcessor', () => {
         }),
       )
 
-      const ap = new AbilityProcessor(gs, new GameEventEmitter())
+      const ap = makeAp(gs, new GameEventEmitter())
       ap.onEvent(makeEvent(GameEventType.DiceRolled))
 
       expect(capturedCtx).toBeDefined()

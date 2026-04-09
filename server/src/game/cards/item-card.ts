@@ -31,4 +31,8 @@ export class ItemCard implements ICard {
   getAbility() {
     return this.data.ability
   }
+
+  clone(): ItemCard {
+    return new ItemCard({ ...this.data })
+  }
 }

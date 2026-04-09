@@ -87,6 +87,9 @@ export enum GameEventType {
   DiceRolled = "DiceRolled",
   RollSuccess = "RollSuccess",
 
+  // Reaction frame
+  FrameResolved = "FrameResolved",
+
   // Modifier window
   ModifierWindowOpened = "ModifierWindowOpened",
   ModifierApplied = "ModifierApplied",

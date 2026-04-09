@@ -4,6 +4,7 @@ import { GameEventFactory } from '../events/game-event-factory'
 
 export class ChallengeWindow implements IReactionWindow {
   private timer?: ReturnType<typeof setTimeout>
+  private _resolved = false
   private challenged: boolean = false
   private challengerId?: string
   private challengerRoll: number = 0
@@ -34,6 +35,10 @@ export class ChallengeWindow implements IReactionWindow {
 
   getType(): ReactionWindowType {
     return ReactionWindowType.Challenge
+  }
+
+  isOpen(): boolean {
+    return !this._resolved
   }
 
   getCardId(): string {
@@ -97,7 +102,10 @@ export class ChallengeWindow implements IReactionWindow {
     this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
   }
 
-  private resolve(): void {
+  resolve(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
     if (!this.challenged) {
       this.emitter.emit(
         GameEventFactory.challengeWindowClosed(this.challengedId, this.cardId),

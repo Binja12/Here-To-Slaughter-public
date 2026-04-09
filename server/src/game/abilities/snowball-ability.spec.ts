@@ -5,12 +5,9 @@ import {
   HeroClass,
   IGameEvent,
 } from 'shared'
-import {
-  DrawTask,
-  CardTypeCondition,
-  InstaPlayTask,
-  SnowballAbility,
-} from './snowball-ability'
+import { SnowballAbility } from './snowball-ability'
+import { DrawTask } from '../tasks/tasks'
+import { CardTypeCondition } from '../tasks/conditions'
 import { GameState } from '../game-state'
 import { Player } from '../player'
 import { Party } from '../party'
@@ -21,6 +18,7 @@ import { MagicCard } from '../cards/magic-card'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
 import { ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -62,6 +60,9 @@ const makeEmitter = () => {
   return { emitter, emitted }
 }
 
+/** Stub ReactionManager — tasks under test don't open frames. */
+const stubRm = null as unknown as ReactionManager
+
 const makeMagicCard = (id: string) =>
   new MagicCard({
     id,
@@ -94,7 +95,7 @@ describe('DrawTask', () => {
   it('draws N cards and adds them to player hand', () => {
     const { gs, player } = makeGs(['card-1', 'card-2'])
     const { emitter } = makeEmitter()
-    new DrawTask(2).execute(gs, makeCtx(), emitter)
+    new DrawTask(2).execute(gs, makeCtx(), emitter, stubRm)
     expect(player.getHand()).toContain('card-1')
     expect(player.getHand()).toContain('card-2')
   })
@@ -102,7 +103,7 @@ describe('DrawTask', () => {
   it('emits CardDrawn (PlayerOnly) for each card drawn', () => {
     const { gs } = makeGs(['card-1'])
     const { emitter, emitted } = makeEmitter()
-    new DrawTask(1).execute(gs, makeCtx(), emitter)
+    new DrawTask(1).execute(gs, makeCtx(), emitter, stubRm)
     expect(emitted).toHaveLength(1)
     expect(emitted[0].getType()).toBe(GameEventType.CardDrawn)
     expect(emitted[0].getAudience()).toBe(Audience.PlayerOnly)
@@ -112,14 +113,14 @@ describe('DrawTask', () => {
     const { gs } = makeGs(['card-1', 'card-2'])
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
-    new DrawTask(2).execute(gs, ctx, emitter)
+    new DrawTask(2).execute(gs, ctx, emitter, stubRm)
     expect(ctx.get(CTX_LAST_DRAWN_CARD_ID)).toBe('card-2')
   })
 
   it('stops drawing when deck is empty', () => {
     const { gs, player } = makeGs(['card-1'])
     const { emitter, emitted } = makeEmitter()
-    new DrawTask(3).execute(gs, makeCtx(), emitter)
+    new DrawTask(3).execute(gs, makeCtx(), emitter, stubRm)
     expect(emitted).toHaveLength(1)
     expect(player.getHand()).toHaveLength(1)
   })
@@ -138,6 +139,7 @@ describe('DrawTask', () => {
       gs,
       new AbilityContext('src', 'unknown-player'),
       emitter,
+      stubRm,
     )
     expect(emitted).toHaveLength(0)
   })
@@ -153,24 +155,12 @@ describe('CardTypeCondition', () => {
     gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
-    new DrawTask(1).execute(gs, ctx, emitter) // draws magic-1 → sets CTX_LAST_DRAWN_CARD_ID
+    new DrawTask(1).execute(gs, ctx, emitter, stubRm) // draws magic-1 → sets CTX_LAST_DRAWN_CARD_ID
 
     const ran: string[] = []
-    const ifTrue: ITask = {
-      execute: () => {
-        ran.push('true')
-      },
-    }
-    const ifFalse: ITask = {
-      execute: () => {
-        ran.push('false')
-      },
-    }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
-      gs,
-      ctx,
-      emitter,
-    )
+    const ifTrue: ITask = { execute: () => { ran.push('true') } }
+    const ifFalse: ITask = { execute: () => { ran.push('false') } }
+    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, emitter, stubRm)
     expect(ran).toEqual(['true'])
   })
 
@@ -179,24 +169,12 @@ describe('CardTypeCondition', () => {
     gs.registerCard(makeHeroCard('hero-1'))
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
-    new DrawTask(1).execute(gs, ctx, emitter)
+    new DrawTask(1).execute(gs, ctx, emitter, stubRm)
 
     const ran: string[] = []
-    const ifTrue: ITask = {
-      execute: () => {
-        ran.push('true')
-      },
-    }
-    const ifFalse: ITask = {
-      execute: () => {
-        ran.push('false')
-      },
-    }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
-      gs,
-      ctx,
-      emitter,
-    )
+    const ifTrue: ITask = { execute: () => { ran.push('true') } }
+    const ifFalse: ITask = { execute: () => { ran.push('false') } }
+    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, emitter, stubRm)
     expect(ran).toEqual(['false'])
   })
 
@@ -205,10 +183,9 @@ describe('CardTypeCondition', () => {
     gs.registerCard(makeHeroCard('hero-1'))
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
-    new DrawTask(1).execute(gs, ctx, emitter)
-    // should not throw
+    new DrawTask(1).execute(gs, ctx, emitter, stubRm)
     expect(() =>
-      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, emitter),
+      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, emitter, stubRm),
     ).not.toThrow()
   })
 
@@ -217,41 +194,9 @@ describe('CardTypeCondition', () => {
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
     const ran: string[] = []
-    const ifFalse: ITask = {
-      execute: () => {
-        ran.push('false')
-      },
-    }
-    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(
-      gs,
-      ctx,
-      emitter,
-    )
+    const ifFalse: ITask = { execute: () => { ran.push('false') } }
+    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(gs, ctx, emitter, stubRm)
     expect(ran).toEqual(['false'])
-  })
-})
-
-// ---------------------------------------------------------------------------
-// InstaPlayTask
-// ---------------------------------------------------------------------------
-
-describe('InstaPlayTask', () => {
-  it('sets pending insta play on game state', () => {
-    const { gs } = makeGs([])
-    const ctx = makeCtx()
-    const { emitter } = makeEmitter()
-    ctx.set(CTX_LAST_DRAWN_CARD_ID, 'magic-1')
-    expect(() =>
-      new InstaPlayTask(true).execute(gs, ctx, emitter),
-    ).not.toThrow()
-  })
-
-  it('does nothing when no last drawn card in context', () => {
-    const { gs } = makeGs([])
-    const { emitter } = makeEmitter()
-    expect(() =>
-      new InstaPlayTask(true).execute(gs, makeCtx(), emitter),
-    ).not.toThrow()
   })
 })
 
@@ -269,10 +214,8 @@ describe('SnowballAbility', () => {
     gs.registerCard(makeHeroCard('hero-1'))
     const ctx = makeCtx()
     const { emitter, emitted } = makeEmitter()
-    for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter)
-    expect(emitted.some((e) => e.getType() === GameEventType.CardDrawn)).toBe(
-      true,
-    )
+    for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter, stubRm)
+    expect(emitted.some((e) => e.getType() === GameEventType.CardDrawn)).toBe(true)
     expect(player.getHand()).toContain('hero-1')
   })
 
@@ -281,7 +224,7 @@ describe('SnowballAbility', () => {
     gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
     const { emitter, emitted } = makeEmitter()
-    for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter)
+    for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter, stubRm)
     expect(player.getHand()).toContain('magic-1')
     expect(player.getHand()).toContain('card-2')
     expect(

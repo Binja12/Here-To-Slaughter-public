@@ -34,4 +34,8 @@ export class HeroCard implements ICard {
   getAbility() {
     return this.data.ability
   }
+
+  clone(): HeroCard {
+    return new HeroCard({ ...this.data })
+  }
 }

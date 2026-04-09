@@ -71,7 +71,7 @@ describe('PlayHeroAction', () => {
   })
 
   const makeAction = () => {
-    const rm = new ReactionManager(gs, emitter, () => {})
+    const rm = new ReactionManager(gs, emitter)
     return new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
   }
 
@@ -101,7 +101,7 @@ describe('PlayHeroAction', () => {
     it('returns false when player does not exist', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(emptyGs, emitter, () => {})
+      const rm = new ReactionManager(emptyGs, emitter)
       const action = new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
       expect(action.canExecute(emptyGs)).toBe(false)
     })
@@ -116,7 +116,7 @@ describe('PlayHeroAction', () => {
       gs2.registerPlayer(makePlayer('p1', ['hero-1'], 0))
       gs2.registerParty(makeParty('p1'))
       gs2.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
       expect(action.canExecute(gs2)).toBe(false)
     })
@@ -126,7 +126,7 @@ describe('PlayHeroAction', () => {
       gs2.registerPlayer(makePlayer('p1', []))
       gs2.registerParty(makeParty('p1'))
       gs2.setCurrentPlayerId('p1')
-      const rm = new ReactionManager(gs2, emitter, () => {})
+      const rm = new ReactionManager(gs2, emitter)
       const action = new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
       expect(action.canExecute(gs2)).toBe(false)
     })

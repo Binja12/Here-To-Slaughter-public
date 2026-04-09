@@ -220,6 +220,15 @@ export class GameEventFactory {
     )
   }
 
+  static heroStolen(toPlayerId: string, fromPlayerId: string, heroId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroStolen,
+      toPlayerId,
+      { cardId: heroId, fromPlayerId, toPlayerId },
+      Audience.All,
+    )
+  }
+
   static heroDestroyed(playerId: string, cardId: string): IGameEvent {
     return new GameEvent(
       GameEventType.HeroDestroyed,
@@ -234,6 +243,17 @@ export class GameEventFactory {
       GameEventType.MonsterSlain,
       playerId,
       { cardId },
+      Audience.All,
+    )
+  }
+
+  // --- Reaction Frame ---
+
+  static frameResolved(frameId: string, results: unknown[]): IGameEvent {
+    return new GameEvent(
+      GameEventType.FrameResolved,
+      '',
+      { frameId, results },
       Audience.All,
     )
   }

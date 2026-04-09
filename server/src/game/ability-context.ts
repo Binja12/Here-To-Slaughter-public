@@ -3,6 +3,9 @@ export const CTX_STOLEN_FROM_PLAYER_ID = "stolenFromPlayerId";
 export const CTX_LAST_AFFECTED_CARD_ID = "lastAffectedCardId";
 export const CTX_LAST_AFFECTED_PLAYER_ID = "lastAffectedPlayerId";
 
+/** Written by AbilityProcessor when a FrameResolved event resumes the pipeline. */
+export const CTX_FRAME_RESULTS = "frameResults";
+
 export class AbilityContext {
   private data: Map<string, unknown> = new Map();
 
