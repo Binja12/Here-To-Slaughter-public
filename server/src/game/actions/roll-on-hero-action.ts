@@ -40,11 +40,12 @@ export class RollOnHeroAction implements IAction {
 
     this.emmiter.emit(GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll))
 
-    // Snapshot + open modifier window. FrameResolved fires on settlement;
-    // if finalRoll < rollReq the snapshot is restored (rollback) and
-    // RollSuccess is never emitted. Since this is an action (not a task
-    // pipeline), we listen for FrameResolved in GameEngine to do post-roll work.
-    // For now, the roll result is embedded in the window's onResolve via RM.
+    // Mark ability used before the snapshot so rollback doesn't undo it —
+    // the hero's ability slot is consumed whether the roll succeeds or fails.
+    gs.markAbilityUsed(this.cardId)
+
+    // Open frame + modifier window. ModifierWindow owns settlement:
+    // rollback on finalRoll < rollReq, RollSuccess + FrameResolved on success.
     const frameId = this.reactionManager.openFrame()
     this.reactionManager.openWindow(frameId, ReactionWindowType.Modifier, this.playerId, {
       rollerId: this.playerId,

@@ -16,9 +16,6 @@ import type { AbilityContext } from './ability-context'
 export type GameFrame = {
   snapshot: GameState
   windows: IReactionWindow[]
-  /** Cards removed from hands during this frame. On rollback these are
-   *  discarded rather than being restored to hands by the snapshot. */
-  cardsSpent: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -83,11 +80,19 @@ export class GameState {
   // ---------------------------------------------------------------------------
 
   /**
-   * Record a card as spent during a frame. On rollback, the snapshot restores
-   * it to the player's hand, so we track it separately to discard it after.
+   * Permanently spend a card during a frame — removes it from the current
+   * player's hand AND from the snapshot's hand, so rollback doesn't restore it.
+   * Also adds it to both discard piles so the card survives either path.
    */
-  trackCardSpent(frameId: string, cardId: string): void {
-    this.frames.get(frameId)?.cardsSpent.push(cardId)
+  burnCard(frameId: string, playerId: string, cardId: string): void {
+    this.getPlayer(playerId)?.removeFromHand(cardId)
+    this.discardPile.add(cardId)
+
+    const snapshot = this.frames.get(frameId)?.snapshot
+    if (snapshot) {
+      snapshot.getPlayer(playerId)?.removeFromHand(cardId)
+      snapshot.getDiscardPile().add(cardId)
+    }
   }
 
   getFrameByWindowId(

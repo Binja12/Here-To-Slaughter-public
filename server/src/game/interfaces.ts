@@ -30,7 +30,7 @@ export interface IReaction {
   getType(): ReactionType
   getPlayerId(): string
   canExecute(gs: GameState): boolean
-  execute(gs: GameState): void
+  execute(gs: GameState, em: IGameEventEmitter): void
 }
 
 // ---------------------------------------------------------------------------

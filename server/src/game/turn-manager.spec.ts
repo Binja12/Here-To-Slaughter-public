@@ -211,7 +211,7 @@ describe('TurnManager', () => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
           const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
-          g.addFrame('f1', { snapshot: g.clone(), windows: [stub], cardsSpent: [] })
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
       }
@@ -243,7 +243,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
-          g.addFrame('f1', { snapshot: g.clone(), windows: [stub], cardsSpent: [] })
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           executed.push('window-action')
           return []
         },
@@ -315,7 +315,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
-          g.addFrame('f1', { snapshot: g.clone(), windows: [stub], cardsSpent: [] })
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
       }

@@ -1,12 +1,13 @@
 import {
   Audience,
   GameEventType,
-  IGameEvent,
   IGameEventEmitter,
   ReactionWindowType,
 } from 'shared'
 import { IReactionWindow } from '../interfaces'
+import { GameState } from '../game-state'
 import { GameEvent } from '../events/game-event'
+import { GameEventFactory } from '../events/game-event-factory'
 
 export class ModifierWindow implements IReactionWindow {
   private bonuses: number[] = []
@@ -20,11 +21,9 @@ export class ModifierWindow implements IReactionWindow {
     private readonly rollReq: number,
     private readonly heroId: string,
     private readonly timeoutMs: number,
+    private readonly gs: GameState,
+    private readonly frameId: string,
     private readonly emitter: IGameEventEmitter,
-    /** Called when the window resolves; receives the final roll; returns events to emit. */
-    private readonly onSuccess: (finalRoll: number) => IGameEvent[],
-    /** Called after full resolution — typically unregisters this window + resumes drain. */
-    private readonly onClose: () => void,
   ) {
     this.emitter.emit(
       new GameEvent(
@@ -71,27 +70,16 @@ export class ModifierWindow implements IReactionWindow {
     this.resetTimer()
   }
 
-  // --- Public helpers ---
-
   getFinalRoll(): number {
     return this.baseRoll + this.bonuses.reduce((sum, b) => sum + b, 0)
-  }
-
-  // --- Internal ---
-
-  private resetTimer(): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => {
-      this.resolve()
-    }, this.timeoutMs)
   }
 
   resolve(): void {
     if (this._resolved) return
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
+
     const finalRoll = this.getFinalRoll()
-    const successEvents = this.onSuccess(finalRoll)
 
     this.emitter.emit(
       new GameEvent(
@@ -102,17 +90,20 @@ export class ModifierWindow implements IReactionWindow {
       ),
     )
 
-    for (const event of successEvents) this.emitter.emit(event)
+    if (finalRoll < this.rollReq) {
+      this.gs.restoreFrame(this.frameId)
+    } else {
+      this.gs.releaseFrame(this.frameId)
+      this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
+    }
 
-    this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierResolved,
-        this.rollerId,
-        { finalRoll, rollReq: this.rollReq, heroId: this.heroId },
-        Audience.All,
-      ),
-    )
+    this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [finalRoll]))
+  }
 
-    this.onClose()
+  // --- Internal ---
+
+  private resetTimer(): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
   }
 }
