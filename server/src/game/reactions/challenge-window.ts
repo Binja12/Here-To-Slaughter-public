@@ -1,5 +1,6 @@
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { IReactionWindow } from '../interfaces'
+import { GameState } from '../game-state'
 import { GameEventFactory } from '../events/game-event-factory'
 
 export class ChallengeWindow implements IReactionWindow {
@@ -17,9 +18,9 @@ export class ChallengeWindow implements IReactionWindow {
     private readonly challengedId: string,
     private readonly cardId: string,
     private readonly timeoutMs: number,
+    private readonly gs: GameState,
+    private readonly frameId: string,
     private readonly emitter: IGameEventEmitter,
-    private readonly onResolve: (challengedWins: boolean) => void,
-    private readonly onClose: () => void,
   ) {
     this.emitter.emit(
       GameEventFactory.cardPlayAttempted(this.challengedId, this.cardId),
@@ -77,6 +78,45 @@ export class ChallengeWindow implements IReactionWindow {
     }
   }
 
+  resolve(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+
+    if (!this.challenged) {
+      // No challenger — card plays uncontested.
+      this.emitter.emit(
+        GameEventFactory.challengeWindowClosed(this.challengedId, this.cardId),
+      )
+      this.gs.releaseFrame(this.frameId)
+      this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [true]))
+      return
+    }
+
+    const challengerFinal = this.challengerRoll + this.challengerBonus
+    const challengedFinal = this.challengedRoll + this.challengedBonus
+    const challengedWins = challengedFinal > challengerFinal
+
+    this.emitter.emit(
+      GameEventFactory.challengeResolved(
+        this.challengedId,
+        this.challengerId!,
+        this.cardId,
+        challengerFinal,
+        challengedFinal,
+        challengedWins,
+      ),
+    )
+
+    if (challengedWins) {
+      this.gs.releaseFrame(this.frameId)
+    } else {
+      this.gs.restoreFrame(this.frameId)
+    }
+
+    this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [challengedWins]))
+  }
+
   // --- Internal ---
 
   private startChallenge(challengerId: string): void {
@@ -100,37 +140,5 @@ export class ChallengeWindow implements IReactionWindow {
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
-  }
-
-  resolve(): void {
-    if (this._resolved) return
-    this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
-    if (!this.challenged) {
-      this.emitter.emit(
-        GameEventFactory.challengeWindowClosed(this.challengedId, this.cardId),
-      )
-      this.onResolve(true)
-      this.onClose()
-      return
-    }
-
-    const challengerFinal = this.challengerRoll + this.challengerBonus
-    const challengedFinal = this.challengedRoll + this.challengedBonus
-    const challengedWins = challengedFinal > challengerFinal
-
-    this.emitter.emit(
-      GameEventFactory.challengeResolved(
-        this.challengedId,
-        this.challengerId!,
-        this.cardId,
-        challengerFinal,
-        challengedFinal,
-        challengedWins,
-      ),
-    )
-
-    this.onResolve(challengedWins)
-    this.onClose()
   }
 }

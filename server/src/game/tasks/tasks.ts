@@ -138,6 +138,10 @@ export class RollOnHeroTask implements ITask {
 
     em.emit(GameEventFactory.diceRolled(ctx.ownerId, heroId, baseRoll))
 
+    // Mark ability used before the snapshot so rollback doesn't undo it —
+    // the hero's ability slot is consumed whether the roll succeeds or fails.
+    gs.markAbilityUsed(heroId)
+
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.Modifier, ctx.ownerId, {
       rollerId: ctx.ownerId,
