@@ -23,7 +23,7 @@ export class PlayModifierReaction implements IReaction {
   }
 
   canExecute(gs: GameState): boolean {
-    if (!!gs.getFrameByWindowType(ReactionWindowType.Modifier)) return false
+    if (!gs.getFrameByWindowType(ReactionWindowType.Modifier)) return false
     if (!gs.getPlayer(this.playerId)?.getHand().includes(this.cardId))
       return false
     return true
