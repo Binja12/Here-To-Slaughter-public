@@ -1,4 +1,4 @@
-import { CardType, HeroClass, EffectDuration } from 'shared'
+import { CardType, HeroClass, EffectDuration, ReactionWindowType } from 'shared'
 import { GameState } from './game-state'
 import { Player } from './player'
 import { Party } from './party'
@@ -138,6 +138,109 @@ describe('GameState', () => {
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', 'leader-1'))
     expect(gs.getCardOwner('ghost')).toBeUndefined()
+  })
+
+  // --- Frames ---
+
+  describe('frames', () => {
+    const stubWindow = (isOpen = true) => ({
+      getId: () => 'w1',
+      getType: () => ReactionWindowType.Modifier,
+      isOpen: () => isOpen,
+      submitReaction: () => {},
+      resolve: () => {},
+    })
+
+    it('frame is present after addFrame', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      expect(gs.frames.has('f1')).toBe(true)
+    })
+
+    it('frame is absent after releaseFrame', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      gs.releaseFrame('f1')
+      expect(gs.frames.has('f1')).toBe(false)
+    })
+
+    it('restoreFrame reverts mutations made after the snapshot', () => {
+      const snapshot = gs.clone()
+      gs.addFrame('f1', { snapshot, windows: [] })
+      gs.markAbilityUsed('hero-x')
+      gs.restoreFrame('f1')
+      expect(gs.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
+    })
+
+    it('frame is absent after restoreFrame', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      gs.restoreFrame('f1')
+      expect(gs.frames.has('f1')).toBe(false)
+    })
+
+    it('hasOpenFrames returns false with no frames', () => {
+      expect(gs.hasOpenFrames()).toBe(false)
+    })
+
+    it('hasOpenFrames returns true when a frame has an open window', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(true)] })
+      expect(gs.hasOpenFrames()).toBe(true)
+    })
+
+    it('hasOpenFrames returns false when all windows are closed', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(false)] })
+      expect(gs.hasOpenFrames()).toBe(false)
+    })
+
+    it('getFrameByWindowType finds a frame by window type', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      expect(gs.getFrameByWindowType(ReactionWindowType.Modifier)).toBeDefined()
+    })
+
+    it('getFrameByWindowType returns undefined for a non-matching type', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      expect(gs.getFrameByWindowType(ReactionWindowType.Challenge)).toBeUndefined()
+    })
+
+    it('getFrameByWindowId finds a frame by window id', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      expect(gs.getFrameByWindowId('w1')).toBeDefined()
+    })
+
+    it('getFrameByWindowId returns undefined for an unknown window id', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      expect(gs.getFrameByWindowId('no-such-window')).toBeUndefined()
+    })
+
+    describe('burnCard', () => {
+      beforeEach(() => {
+        const player = makePlayer('p1')
+        player.addToHand('mod-1')
+        gs.registerPlayer(player)
+        gs.registerParty(makeParty('p1', 'leader-1'))
+        gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      })
+
+      it('removes the card from the current player hand', () => {
+        gs.burnCard('f1', 'p1', 'mod-1')
+        expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
+      })
+
+      it('adds the card to the current discard pile', () => {
+        gs.burnCard('f1', 'p1', 'mod-1')
+        expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+      })
+
+      it('removes the card from the snapshot player hand', () => {
+        gs.burnCard('f1', 'p1', 'mod-1')
+        const snap = gs.frames.get('f1')!.snapshot
+        expect(snap.getPlayer('p1')!.getHand()).not.toContain('mod-1')
+      })
+
+      it('adds the card to the snapshot discard pile', () => {
+        gs.burnCard('f1', 'p1', 'mod-1')
+        const snap = gs.frames.get('f1')!.snapshot
+        expect(snap.getDiscardPile().getAll()).toContain('mod-1')
+      })
+    })
   })
 
   // --- getAllActiveCards ---

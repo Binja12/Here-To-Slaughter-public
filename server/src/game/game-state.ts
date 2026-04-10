@@ -33,6 +33,7 @@ export class GameState {
   private cards: Map<string, ICard> = new Map()
   private currentPlayerId?: string
   private abilitiesUsedThisTurn: string[] = []
+  private cardsChallengedThisTurn: string[] = []
   /** Actions queued for draining this turn — GS is source of truth. */
   actionQueue: IAction[] = []
 
@@ -138,6 +139,7 @@ export class GameState {
     copy.cards = this.cards
     copy.currentPlayerId = this.currentPlayerId
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
+    copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     copy.actionQueue = [...this.actionQueue]
     copy.abilityPipelines = new Map(this.abilityPipelines)
     // Frames: shallow-copy entries. The snapshot inside each frame is already a
@@ -152,6 +154,7 @@ export class GameState {
     this.cards = src.cards
     this.currentPlayerId = src.currentPlayerId
     this.abilitiesUsedThisTurn = src.abilitiesUsedThisTurn
+    this.cardsChallengedThisTurn = src.cardsChallengedThisTurn
     this.mainDeck = src.mainDeck
     this.discardPile = src.discardPile
     this.monsterDeck = src.monsterDeck
@@ -275,6 +278,16 @@ export class GameState {
   }
   clearUsedAbilities(): void {
     this.abilitiesUsedThisTurn = []
+  }
+
+  getCardsChallengedThisTurn(): string[] {
+    return [...this.cardsChallengedThisTurn]
+  }
+  markCardChallenged(cardId: string): void {
+    this.cardsChallengedThisTurn.push(cardId)
+  }
+  clearChallengedCards(): void {
+    this.cardsChallengedThisTurn = []
   }
 }
 
