@@ -31,6 +31,7 @@ export class PlayMagicAction implements IAction {
   getCost(): number {
     return COST
   }
+  isReactable(): boolean { return true }
 
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)

@@ -46,6 +46,7 @@ const makeAction = (
   getType: () => ActionType.DrawCard,
   getPlayerId: () => 'p1',
   getCost: () => cost,
+  isReactable: () => false,
   canExecute: (gs: GameState) => {
     if (!canExecBase) return false
     const player = gs.getPlayer('p1')

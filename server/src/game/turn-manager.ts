@@ -25,6 +25,7 @@ export class TurnManager {
 
   enqueue(action: IAction): void {
     if (this.phase !== TurnPhase.ActionWindow) return
+    if (action.isReactable() && this.hasOpenWindow()) return
     this.gs.actionQueue.push(action)
     this.drain()
   }
