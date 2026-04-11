@@ -1,6 +1,12 @@
-import { IGameEventEmitter, ReactionWindowType } from 'shared'
+import {
+  Audience,
+  GameEventType,
+  IGameEventEmitter,
+  ReactionWindowType,
+} from 'shared'
 import { IReactionWindow } from '../interfaces'
 import { GameState } from '../game-state'
+import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 
 export class ChallengeWindow implements IReactionWindow {
@@ -23,7 +29,12 @@ export class ChallengeWindow implements IReactionWindow {
     private readonly emitter: IGameEventEmitter,
   ) {
     this.emitter.emit(
-      GameEventFactory.cardPlayAttempted(this.challengedId, this.cardId),
+      new GameEvent(
+        GameEventType.ChallengeWindowOpened,
+        this.challengedId,
+        { defenderId: this.challengedId, cardId: this.cardId },
+        Audience.All,
+      ),
     )
     this.resetTimer()
   }
@@ -114,7 +125,9 @@ export class ChallengeWindow implements IReactionWindow {
       this.gs.restoreFrame(this.frameId)
     }
 
-    this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [challengedWins]))
+    this.emitter.emit(
+      GameEventFactory.frameResolved(this.frameId, [challengedWins]),
+    )
   }
 
   // --- Internal ---
@@ -122,8 +135,8 @@ export class ChallengeWindow implements IReactionWindow {
   private startChallenge(challengerId: string): void {
     this.challenged = true
     this.challengerId = challengerId
-    this.challengerRoll = Math.ceil(Math.random() * 6)
-    this.challengedRoll = Math.ceil(Math.random() * 6)
+    this.challengerRoll = Math.floor(Math.random() * 11) + 1
+    this.challengedRoll = Math.floor(Math.random() * 11) + 1
 
     this.emitter.emit(
       GameEventFactory.challengeStarted(

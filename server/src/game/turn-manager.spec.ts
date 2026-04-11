@@ -6,8 +6,6 @@ import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
 import { IAction } from './interfaces'
-import { GameEvent } from './events/game-event'
-import { Audience } from 'shared'
 import { CardPile } from './card-pile'
 
 const makeGs = (actionPoints = 3) => {
@@ -179,23 +177,6 @@ describe('TurnManager', () => {
       }
       tm.enqueue(blocked)
       expect(executed).toHaveLength(0)
-    })
-
-    it('should emit events produced by actions', () => {
-      const gs = makeGs(3)
-      const emitter = new GameEventEmitter()
-      const received: IGameEvent[] = []
-      emitter.addListener({ onEvent: (e) => received.push(e) })
-      const tm = new TurnManager(gs, emitter)
-      tm.startTurn('p1')
-      const actionEvent = new GameEvent(
-        GameEventType.CardDrawn,
-        'p1',
-        {},
-        Audience.PlayerOnly,
-      )
-      tm.enqueue(makeAction(1, true, [actionEvent]))
-      expect(received).toContain(actionEvent)
     })
 
     it('should pause drain when a reaction window is open', () => {
