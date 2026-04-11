@@ -21,6 +21,7 @@ export interface IAction {
   getType(): ActionType
   getPlayerId(): string
   getCost(): number
+  isReactable(): boolean
   canExecute(gs: GameState): boolean
   execute(gs: GameState): void
 }

@@ -19,6 +19,7 @@ export class RollOnHeroAction implements IAction {
   getPlayerId(): string { return this.playerId }
   getType(): ActionType { return ActionType.RollOnHero }
   getCost(): number { return 1 }
+  isReactable(): boolean { return true }
 
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)

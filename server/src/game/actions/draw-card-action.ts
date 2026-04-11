@@ -30,6 +30,7 @@ export class DrawCardAction implements IAction {
   getCost(): number {
     return COST
   }
+  isReactable(): boolean { return false }
 
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
