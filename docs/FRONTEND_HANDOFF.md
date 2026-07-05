@@ -40,30 +40,22 @@ npm run client        # CRA dev server on :3001 (client/.env sets PORT=3001)
     event). `game:sync` re-sends catalog+state (client emits it on hook mount
     because the socket survives CRA hot reloads while React state does not).
 - **Client (CRA, React 19, TS):**
-  - `client/src/game/GameView.tsx` + `GameView.css` — Hearthstone-style board
-    (user-specified layout, keep it): monster row + monster deck center;
-    the monster ROW is the exact horizontal center of the board (middle
-    monster on the screen's center axis; the monster deck hangs off its right
-    and must NOT shift the centering); heroes are OVAL portrait frames
-    (`.portrait-hero`, wide crop); leaders use a GATE/ARCH frame (HS-style,
-    arched top + flat bottom, `.portrait-leader`/`.portrait-opp`) and sit on
-    the layer BEHIND all cards (slain cards + hand paint over them); the local
-    leader sits between heroes and hand, bottom ~10% behind the hand; slain
-    monsters flank the leader ALTERNATING left, right, left… (newest closest),
-    card-shaped, fanned like the OWNER's hand fan (top player's fan is
-    mirrored/reversed to match his hand); hand is a fanned ARC bottom
-    center dipping exactly 15% of card height off-screen (`dipPct = 0.15`);
-    hover/select inspect straightens + enlarges 1.6x IN PLACE (lift = dip +
-    10px only, no big jump — user matched this to HS); playable glow is a
-    crisp green outline + drop shadow (`.card-glowing`), NOT a fuzzy halo;
-    main deck + AP orbs bottom-RIGHT; discard bottom-LEFT; End Turn on right
-    edge. Interactions: hand cards enlarge on hover anchored to their
-    slot (`.hand-slot` keeps the original footprint = hover region, inner card
-    is pointer-events:none, so it shrinks when the cursor exits the original
-    size — user explicitly wants this); tap-to-play (click hand card to select
-    → valid zones glow → click zone/hero) AND drag & drop both work; hover on
-    any IN-PLAY card shows an enlarged side-preview panel next to it; click
-    hero=roll, click monster=attack, click main deck=draw.
+  - `client/src/game/GameView.tsx` + `GameView.css` — board follows the
+    user's REFERENCE IMAGE composition (final target, commit 7d3ce9d — keep
+    it): four framed color-coded territories (p1 red bottom / p2 purple top /
+    p3 blue left / p4 gold right), each an inset tray with a Party Leader
+    slot, a hero-card row (equipped items tuck beneath their hero,
+    `.equipped-tuck`), and opponent hands as face-down STACKS with count;
+    center = "Monster Cards" encounter tray (3 lg cards, even pitch, middle
+    monster on the exact screen center axis) with Monster Deck / Main Deck /
+    Discard / dice tile / Slayed Monsters tray as ONE horizontal row beneath
+    it; local hand is a fanned ARC bottom center dipping 15% off-screen
+    (`dipPct = 0.15`); hover/select inspect straightens + enlarges 1.6x IN
+    PLACE (lift = dip + 10px, hover region = original slot footprint);
+    tap-to-play AND drag & drop; hover on in-play cards shows a side preview;
+    click hero=roll, monster=attack, main deck=draw; HUD top-right (AP gems,
+    turn banner, End Turn), Game Info win-condition panel bottom-right;
+    playable glow = crisp green outline (`.card-glowing`).
   - `client/src/components/board/` — premium-table components (HTSR-5 polish
     pass, branch `HTSR-5-Frontend`): `BoardFrame` (carved-wood frame + brass
     pinstripe + corner medallions + felt surface — all CSS gradients, no image
