@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Card, { cardTemplate } from '../components/Card'
+import BoardFrame from '../components/board/BoardFrame'
+import DiceRoller from '../components/board/DiceRoller'
+import DeckPile from '../components/board/DeckPile'
+import ActionPointDisplay from '../components/board/ActionPointDisplay'
 import { useGameState } from '../state/useGameState'
 import {
   CardData,
   GameEventDto,
-  ModifierWindowDto,
   PartyDto,
   PlayerDto,
   SOLO_PLAYER_ID,
@@ -27,10 +30,18 @@ export default function GameView() {
   )
 
   if (!game.connected) {
-    return <div className="board board-message">Connecting to server…</div>
+    return (
+      <BoardFrame>
+        <div className="board board-message">Connecting to server…</div>
+      </BoardFrame>
+    )
   }
   if (!game.snapshot || !me || !party) {
-    return <div className="board board-message">Waiting for game state…</div>
+    return (
+      <BoardFrame>
+        <div className="board board-message">Waiting for game state…</div>
+      </BoardFrame>
+    )
   }
 
   const snapshot = game.snapshot
@@ -123,7 +134,11 @@ export default function GameView() {
   const oppPositions: OppPosition[] = ['top', 'left', 'right']
 
   return (
-    <div className="board" onClick={() => setSelectedId(null)}>
+    <BoardFrame>
+    <div
+      className={`board ${isMyTurn ? 'board-my-turn' : 'board-waiting'}`}
+      onClick={() => setSelectedId(null)}
+    >
       <button className="restart" onClick={game.startGame}>
         ↻ New game
       </button>
@@ -163,8 +178,7 @@ export default function GameView() {
             ))}
           </div>
           <div className="monster-deck">
-            <Card faceDown size="sm" />
-            <div className="pile-count">{snapshot.monsterDeckSize}</div>
+            <DeckPile label="Monsters" count={snapshot.monsterDeckSize} />
           </div>
         </div>
 
@@ -236,17 +250,16 @@ export default function GameView() {
 
       {/* Bottom band: discard | leader + slain ("portrait") | hand arc | deck */}
       <div className="discard-corner">
-        <div className="pile-label">Discard</div>
-        {snapshot.discardPile.length > 0 ? (
-          <Card
-            card={cardOf(snapshot.discardPile[0])}
-            size="sm"
-            onHoverChange={hoverInPlay}
-          />
-        ) : (
-          <div className="empty-slot empty-sm" />
-        )}
-        <div className="pile-count">{snapshot.discardPile.length}</div>
+        <DeckPile
+          label="Discard"
+          count={snapshot.discardPile.length}
+          topCard={
+            snapshot.discardPile.length > 0
+              ? cardOf(snapshot.discardPile[0])
+              : undefined
+          }
+          onHoverChange={hoverInPlay}
+        />
       </div>
 
       <div className="portrait-zone">
@@ -334,21 +347,16 @@ export default function GameView() {
       </div>
 
       <div className="deck-corner">
-        <div className="ap-orbs" title="Action points">
-          {Array.from({ length: me.actionPointsPerTurn }).map((_, i) => (
-            <span
-              key={i}
-              className={`ap-orb ${i < me.actionPoints ? 'ap-full' : ''}`}
-            />
-          ))}
-        </div>
-        <Card
-          faceDown
-          size="sm"
+        <ActionPointDisplay
+          current={me.actionPoints}
+          max={me.actionPointsPerTurn}
+        />
+        <DeckPile
+          label="Deck"
+          count={snapshot.mainDeckSize}
           onClick={canAct ? game.drawCard : undefined}
           title="Draw a card (1 AP)"
         />
-        <div className="pile-count">{snapshot.mainDeckSize}</div>
       </div>
 
       <div className="turn-corner">
@@ -378,7 +386,7 @@ export default function GameView() {
       )}
 
       {snapshot.modifierWindow && (
-        <ModifierOverlay
+        <DiceRoller
           window={snapshot.modifierWindow}
           hand={me.hand}
           cardOf={cardOf}
@@ -387,8 +395,10 @@ export default function GameView() {
         />
       )}
 
+      <BoardToast log={game.log} cardOf={cardOf} />
       <EventLog log={game.log} cardOf={cardOf} />
     </div>
+    </BoardFrame>
   )
 }
 
@@ -511,79 +521,42 @@ function OpponentZone(props: {
   )
 }
 
-function ModifierOverlay(props: {
-  window: ModifierWindowDto
-  hand: string[]
+/** Brief center-screen banner for dramatic moments (slain, fight back, abilities). */
+function BoardToast(props: {
+  log: GameEventDto[]
   cardOf: (id: string) => CardData | undefined
-  onPlay: (dto: { cardId: string; value: number }) => void
-  onSkip: () => void
 }) {
-  const { window: win } = props
-  const [remainingMs, setRemainingMs] = useState(win.timeoutMs)
-  const receivedAtRef = useRef(Date.now())
+  const [toast, setToast] = useState<{ text: string; bad: boolean; key: number } | null>(null)
+  const seenRef = useRef(0)
 
   useEffect(() => {
-    receivedAtRef.current = Date.now()
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - receivedAtRef.current
-      setRemainingMs(Math.max(0, win.timeoutMs - elapsed))
-    }, 100)
-    return () => clearInterval(interval)
-    // openedAt changes every time the server timer resets (new modifier played)
-  }, [win.openedAt, win.timeoutMs])
+    for (let i = seenRef.current; i < props.log.length; i++) {
+      const e = props.log[i]
+      const cardId = e.payload?.cardId as string | undefined
+      const name = cardId ? props.cardOf(cardId)?.name ?? '' : ''
+      let text: string | null = null
+      let bad = false
+      if (e.type === 'MonsterSlain') text = `🏆 ${name} slain!`
+      if (e.type === 'MonsterAttackFail') {
+        text = `💥 ${name} fights back!`
+        bad = true
+      }
+      if (e.type === 'RollSuccess') text = `✨ ${name}'s ability triggers!`
+      if (text) setToast({ text, bad, key: Date.now() + i })
+    }
+    seenRef.current = props.log.length
+  }, [props.log, props.cardOf])
 
-  const modifiers = props.hand
-    .map((id) => props.cardOf(id))
-    .filter((c): c is CardData => !!c && c.type === 'Modifier')
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 1800)
+    return () => clearTimeout(t)
+  }, [toast])
 
-  const success = win.rollReq === undefined || win.finalRoll >= win.rollReq
-
+  if (!toast) return null
   return (
-    <div className="modifier-overlay">
-      <div className="modifier-panel">
-        <div className="modifier-title">🎲 Roll in progress</div>
-        <div className="modifier-rolls">
-          <span className="roll-chip">Base {win.baseRoll}</span>
-          <span className="roll-arrow">→</span>
-          <span
-            className={`roll-chip roll-final ${success ? 'roll-ok' : 'roll-bad'}`}
-          >
-            {win.finalRoll}
-          </span>
-          {win.rollReq !== undefined && (
-            <span className="roll-req">needs {win.rollReq}+</span>
-          )}
-        </div>
-        <div className="modifier-timer">
-          <div
-            className="modifier-timer-fill"
-            style={{ width: `${(remainingMs / win.timeoutMs) * 100}%` }}
-          />
-        </div>
-        <div className="modifier-cards">
-          {modifiers.length === 0 && (
-            <span className="modifier-none">No modifier cards in hand</span>
-          )}
-          {modifiers.map((card) => (
-            <div key={card.id} className="modifier-choice">
-              <Card card={card} size="sm" />
-              <div className="modifier-values">
-                {card.values?.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => props.onPlay({ cardId: card.id, value: v })}
-                  >
-                    {v > 0 ? `+${v}` : v}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <button className="modifier-skip" onClick={props.onSkip}>
-          Resolve now
-        </button>
-      </div>
+    <div key={toast.key} className={`board-toast ${toast.bad ? 'board-toast-bad' : ''}`}>
+      {toast.text}
     </div>
   )
 }
