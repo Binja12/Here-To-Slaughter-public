@@ -1,0 +1,74 @@
+.card {
+  position: relative;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.card-md {
+  width: 108px;
+  height: 151px;
+}
+
+.card-sm {
+  width: 86px;
+  height: 120px;
+}
+
+.card-xs {
+  width: 58px;
+  height: 81px;
+  border-radius: 5px;
+}
+
+.card-xs.card-back .card-back-logo {
+  font-size: 12px;
+}
+
+.card-interactive {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-6px) scale(1.04);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.65);
+  z-index: 5;
+}
+
+.card-exhausted {
+  filter: grayscale(0.9) brightness(0.7);
+}
+
+/* Hearthstone-style playable highlight: a shiny green outline hugging the card
+   edge plus a drop shadow under the card — not a fuzzy backlight. */
+.card-glowing {
+  box-shadow:
+    0 0 0 2.5px #8dffa0,
+    0 0 7px 1px rgba(96, 255, 130, 0.9),
+    0 8px 16px rgba(0, 0, 0, 0.55);
+}
+
+.card-back {
+  background: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.04) 0 8px,
+      transparent 8px 16px
+    ),
+    radial-gradient(circle at 50% 40%, #5a2330, #2b1016 75%);
+  border: 2px solid #7a4a2a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-back-logo {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #caa66a;
+  text-shadow: 0 2px 4px #000;
+}
