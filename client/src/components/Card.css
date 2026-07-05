@@ -33,6 +33,12 @@
 .card-type-monster { --type-tint: rgba(60, 110, 74, 0.9); }
 .card-type-leader { --type-tint: rgba(214, 172, 96, 0.95); }
 
+.card-lg {
+  width: 130px;
+  height: 182px;
+  border-radius: 10px;
+}
+
 .card-md {
   width: 108px;
   height: 151px;

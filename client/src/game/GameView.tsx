@@ -15,9 +15,17 @@ import {
 import './GameView.css'
 
 const DRAG_KEY = 'text/plain'
+const ALL_CLASSES = ['Fighter', 'Guardian', 'Ranger', 'Thief', 'Wizard', 'Bard']
+/** Restrained per-seat color coding (reference: red / purple / blue / gold). */
+const SEAT_ACCENTS: Record<string, string> = {
+  p1: '#a34038',
+  p2: '#6d4a92',
+  p3: '#3f6fae',
+  p4: '#b98a2e',
+}
 
-/** Floating enlarged preview shown beside a hovered in-play card. */
 type SidePreview = { card: CardData; x: number; y: number }
+type OppSide = 'top' | 'left' | 'right'
 
 export default function GameView() {
   const game = useGameState()
@@ -62,14 +70,11 @@ export default function GameView() {
     const width = 250
     const onLeftHalf = rect.left + rect.width / 2 < window.innerWidth / 2
     const x = onLeftHalf ? rect.right + 14 : rect.left - width - 14
-    const y = Math.max(
-      10,
-      Math.min(window.innerHeight - 370, rect.top - 60),
-    )
+    const y = Math.max(10, Math.min(window.innerHeight - 370, rect.top - 60))
     setPreview({ card, x, y })
   }
 
-  // --- play helpers (shared by drag-drop and tap-to-play) ---------------------
+  // --- play helpers (drag-drop + tap-to-play) ---------------------------------
 
   const playToParty = (cardId: string) => {
     const card = cardOf(cardId)
@@ -91,7 +96,6 @@ export default function GameView() {
     canAct &&
     (card.type === 'Hero' || card.type === 'Magic' || card.type === 'Item')
 
-  // Zones glow when the selected/tapped card can be played there.
   const partyIsTarget =
     selectedCard &&
     (selectedCard.type === 'Hero' || selectedCard.type === 'Magic')
@@ -116,57 +120,66 @@ export default function GameView() {
     playItemOnHero(e.dataTransfer.getData(DRAG_KEY), heroId)
   }
 
-  // --- hand arc ----------------------------------------------------------------
+  // --- derived display data ----------------------------------------------------
 
   const handCount = me.hand.length
   const handMid = (handCount - 1) / 2
-  // Cards sit low, partly outside the screen, so the player "holds" them in
-  // hand — 15% of the card below the screen edge (user-tuned).
   const dipPct = 0.15
   const handDip = Math.round(151 * dipPct)
 
-  // Slain monsters flank the leader alternating left, right, left, right…
-  // Newest sits closest to the leader and pushes older ones outward.
-  const slainLeft = party.monsterIds.filter((_, i) => i % 2 === 0)
-  const slainRight = party.monsterIds.filter((_, i) => i % 2 === 1)
-
   const opponents = snapshot.players.filter((p) => p.id !== SOLO_PLAYER_ID)
-  const oppPositions: OppPosition[] = ['top', 'left', 'right']
+  const oppSides: OppSide[] = ['top', 'left', 'right']
+
+  const lastRollEvent = [...game.log]
+    .reverse()
+    .find((e) => e.type === 'DiceRolled')
+  const lastRoll = (lastRollEvent?.payload?.baseRoll as number) ?? null
+
+  const slainCount = party.monsterIds.length
+  const partyClasses = new Set(
+    [party.leaderId, ...party.heroIds]
+      .map((id) => cardOf(id)?.heroClass)
+      .filter((c): c is string => !!c),
+  )
+
+  const currentName =
+    snapshot.players.find((p) => p.id === snapshot.currentPlayerId)?.name ?? '…'
 
   return (
     <BoardFrame>
-    <div
-      className={`board ${isMyTurn ? 'board-my-turn' : 'board-waiting'}`}
-      onClick={() => setSelectedId(null)}
-    >
-      <button className="restart" onClick={game.startGame}>
-        ↻ New game
-      </button>
+      <div
+        className={`board ${isMyTurn ? 'board-my-turn' : 'board-waiting'}`}
+        onClick={() => setSelectedId(null)}
+      >
+        {/* Opponent territories */}
+        {opponents.slice(0, 3).map((opp, i) => {
+          const oppParty = snapshot.parties.find(
+            (pt) => pt.playerId === opp.id,
+          )
+          if (!oppParty) return null
+          return (
+            <OpponentTerritory
+              key={opp.id}
+              player={opp}
+              party={oppParty}
+              side={oppSides[i]}
+              accent={SEAT_ACCENTS[opp.id] ?? '#777'}
+              active={snapshot.currentPlayerId === opp.id}
+              cardOf={cardOf}
+              onHover={hoverInPlay}
+            />
+          )
+        })}
 
-      {opponents.slice(0, 3).map((opp, i) => {
-        const oppParty = snapshot.parties.find((pt) => pt.playerId === opp.id)
-        if (!oppParty) return null
-        return (
-          <OpponentZone
-            key={opp.id}
-            player={opp}
-            party={oppParty}
-            position={oppPositions[i]}
-            active={snapshot.currentPlayerId === opp.id}
-            cardOf={cardOf}
-            onHover={hoverInPlay}
-          />
-        )
-      })}
-
-      {/* Battlefield: monsters (with monster deck beside them), then heroes */}
-      <div className="battlefield">
-        <div className="monster-line">
+        {/* Center encounter: three monsters, evenly spaced, dead center */}
+        <div className="encounter">
+          <div className="tray-label">Monster Cards</div>
           <div className="monster-row">
             {snapshot.monsterPile.map((id) => (
               <Card
                 key={id}
                 card={cardOf(id)}
+                size="lg"
                 onClick={
                   canAct && me.actionPoints >= 2
                     ? () => game.attackMonster(id)
@@ -177,356 +190,318 @@ export default function GameView() {
               />
             ))}
           </div>
-          <div className="monster-deck">
-            <DeckPile label="Monsters" count={snapshot.monsterDeckSize} />
+        </div>
+
+        {/* Center systems: decks, discard, dice, slain tray — one clean row */}
+        <div className="center-row">
+          <DeckPile label="Monster Deck" count={snapshot.monsterDeckSize} />
+          <DeckPile
+            label="Main Deck"
+            count={snapshot.mainDeckSize}
+            onClick={canAct ? game.drawCard : undefined}
+            title="Draw a card (1 AP)"
+          />
+          <DeckPile
+            label="Discard Pile"
+            count={snapshot.discardPile.length}
+            topCard={
+              snapshot.discardPile.length > 0
+                ? cardOf(snapshot.discardPile[0])
+                : undefined
+            }
+            onHoverChange={hoverInPlay}
+          />
+          <div className="dice-tile">
+            <div className="dice-tile-die">{lastRoll ?? '–'}</div>
+            <div className="dice-tile-caption">
+              Roll dice to use hero effects
+            </div>
+          </div>
+          <div className="slain-tray">
+            <div className="tray-label">Slayed Monsters</div>
+            <div className="slain-tray-row">
+              {party.monsterIds.length === 0 && (
+                <span className="slain-tray-empty">☠</span>
+              )}
+              {party.monsterIds.map((id) => (
+                <Card
+                  key={id}
+                  card={cardOf(id)}
+                  size="sm"
+                  onHoverChange={hoverInPlay}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
+        {/* Local territory */}
         <div
-          className={`hero-line ${partyIsTarget ? 'zone-target' : ''}`}
-          onDragOver={allowDrop}
-          onDrop={onPartyDrop}
-          onClick={(e) => {
-            if (selectedId && partyIsTarget) {
-              e.stopPropagation()
-              playToParty(selectedId)
-            }
-          }}
+          className={`territory t-bottom ${isMyTurn ? 'territory-active' : ''}`}
+          style={{ '--accent': SEAT_ACCENTS.p1 } as React.CSSProperties}
         >
+          <div className="leader-slot">
+            <div className="tray-label">Party Leader</div>
+            <Card
+              card={cardOf(party.leaderId)}
+              size="md"
+              onHoverChange={hoverInPlay}
+            />
+          </div>
+          <div
+            className={`tray hero-tray ${partyIsTarget ? 'zone-target' : ''}`}
+            onDragOver={allowDrop}
+            onDrop={onPartyDrop}
+            onClick={(e) => {
+              if (selectedId && partyIsTarget) {
+                e.stopPropagation()
+                playToParty(selectedId)
+              }
+            }}
+          >
+            <div className="tray-label">Heros in Party</div>
+            <div className="hero-row">
+              {party.heroIds.length === 0 && (
+                <div className="hero-hint">Play a hero from your hand</div>
+              )}
+              {party.heroIds.map((id) => {
+                const used = snapshot.abilitiesUsedThisTurn.includes(id)
+                const equipped = party.equipped[id]
+                return (
+                  <div className="hero-slot" key={id}>
+                    <Card
+                      card={cardOf(id)}
+                      size="sm"
+                      exhausted={used}
+                      glowing={heroesAreTargets}
+                      onClick={
+                        heroesAreTargets && selectedId
+                          ? () => playItemOnHero(selectedId, id)
+                          : canAct && !used
+                            ? () => game.rollOnHero(id)
+                            : undefined
+                      }
+                      onDragOver={allowDrop}
+                      onDrop={(e) => onHeroDrop(e, id)}
+                      onHoverChange={hoverInPlay}
+                      title={
+                        heroesAreTargets
+                          ? 'Equip item here'
+                          : used
+                            ? 'Ability already used this turn'
+                            : 'Roll (1 AP)'
+                      }
+                    />
+                    {equipped && (
+                      <div className="equipped-tuck">
+                        <Card
+                          card={cardOf(equipped)}
+                          size="xs"
+                          onHoverChange={hoverInPlay}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Local hand fan along the bottom edge */}
+        <div
+          className="hand-arc"
+          style={
+            { bottom: -handDip, '--dip': `${handDip}px` } as React.CSSProperties
+          }
+        >
+          {me.hand.map((id, i) => {
+            const card = cardOf(id)
+            const off = i - handMid
+            const rot = off * Math.min(42 / Math.max(handCount, 1), 6)
+            const sink = Math.pow(Math.abs(off), 1.6) * 7
+            const playable = isPlayable(card)
+            const style = {
+              zIndex: 10 + i,
+              '--rot': `${rot}deg`,
+              '--sink': `${sink}px`,
+            } as React.CSSProperties
+            return (
+              <div
+                key={id}
+                className={`hand-slot ${selectedId === id ? 'selected' : ''}`}
+                style={style}
+                draggable={playable}
+                onDragStart={(e) => onHandDragStart(e, id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!playable) return
+                  setSelectedId(selectedId === id ? null : id)
+                }}
+              >
+                <div className="hand-card">
+                  <Card card={card} glowing={playable} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Top-right HUD: action points, turn banner, end turn */}
+        <div className="hud-corner">
+          <ActionPointDisplay
+            current={me.actionPoints}
+            max={me.actionPointsPerTurn}
+          />
+          <div className={`turn-banner ${isMyTurn ? 'turn-banner-mine' : ''}`}>
+            {isMyTurn ? 'Your Turn' : `${currentName}'s Turn`}
+          </div>
+          <button className="end-turn" disabled={!canAct} onClick={game.endTurn}>
+            End Turn
+          </button>
+          <button className="restart" onClick={game.startGame}>
+            ↻ New game
+          </button>
+        </div>
+
+        {/* Bottom-right: win-condition progress */}
+        <div className="game-info">
+          <div className="game-info-title">Game Info</div>
+          <div className={`gi-row ${slainCount >= 3 ? 'gi-done' : ''}`}>
+            <span className="gi-check">{slainCount >= 3 ? '☑' : '☐'}</span>
+            Slay 3 monsters
+            <span className="gi-progress">{Math.min(slainCount, 3)} / 3</span>
+          </div>
+          <div className="gi-or">or</div>
+          <div className={`gi-row ${partyClasses.size >= 6 ? 'gi-done' : ''}`}>
+            <span className="gi-check">{partyClasses.size >= 6 ? '☑' : '☐'}</span>
+            Assemble 6 classes
+            <span className="gi-progress">{partyClasses.size} / 6</span>
+          </div>
+          <div className="gi-classes">
+            {ALL_CLASSES.map((c) => (
+              <span
+                key={c}
+                title={c}
+                className={`gi-class ${partyClasses.has(c) ? 'gi-class-have' : ''}`}
+              >
+                {c[0]}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {preview && (
+          <div
+            className="side-preview"
+            style={{
+              left: preview.x,
+              top: preview.y,
+              backgroundImage: `url(${cardTemplate(preview.card.type)})`,
+            }}
+          />
+        )}
+
+        {snapshot.modifierWindow && (
+          <DiceRoller
+            window={snapshot.modifierWindow}
+            hand={me.hand}
+            cardOf={cardOf}
+            onPlay={game.playModifier}
+            onSkip={game.skipWindow}
+          />
+        )}
+
+        <BoardToast log={game.log} cardOf={cardOf} />
+        <EventLog log={game.log} cardOf={cardOf} />
+      </div>
+    </BoardFrame>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Opponent territory: leader slot + hero row tray + hand stack, framed and
+// color-coded, arranged per board side (reference composition).
+// ---------------------------------------------------------------------------
+
+function OpponentTerritory(props: {
+  player: PlayerDto
+  party: PartyDto
+  side: OppSide
+  accent: string
+  active: boolean
+  cardOf: (id: string) => CardData | undefined
+  onHover: (card: CardData | null, e?: React.MouseEvent) => void
+}) {
+  const { player, party, side } = props
+  return (
+    <div
+      className={`territory t-${side} ${props.active ? 'territory-active' : ''}`}
+      style={{ '--accent': props.accent } as React.CSSProperties}
+    >
+      <div className="territory-banner">{player.name}</div>
+      <div className="leader-slot">
+        <div className="tray-label">Party Leader</div>
+        <Card
+          card={props.cardOf(party.leaderId)}
+          size="sm"
+          onHoverChange={props.onHover}
+        />
+      </div>
+      <div className="tray hero-tray">
+        <div className="tray-label">
+          Heros in Party
+          {party.monsterIds.length > 0 && (
+            <span className="slain-chip">🏆 {party.monsterIds.length}</span>
+          )}
+        </div>
+        <div className="hero-row">
+          {party.heroIds.length === 0 && <div className="hero-hint">—</div>}
           {party.heroIds.map((id) => {
-            const used = snapshot.abilitiesUsedThisTurn.includes(id)
-            const equippedItem = party.equipped[id]
+            const equipped = party.equipped[id]
             return (
               <div className="hero-slot" key={id}>
-                <div
-                  className={[
-                    'portrait',
-                    'portrait-hero',
-                    used ? 'portrait-exhausted' : '',
-                    heroesAreTargets ? 'portrait-target' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={{ backgroundImage: `url(${cardTemplate('Hero')})` }}
-                  onClick={
-                    heroesAreTargets && selectedId
-                      ? () => playItemOnHero(selectedId, id)
-                      : canAct && !used
-                        ? () => game.rollOnHero(id)
-                        : undefined
-                  }
-                  onDragOver={allowDrop}
-                  onDrop={(e) => onHeroDrop(e, id)}
-                  onMouseEnter={(e) => {
-                    const hero = cardOf(id)
-                    if (hero) hoverInPlay(hero, e)
-                  }}
-                  onMouseLeave={() => hoverInPlay(null)}
-                  title={
-                    heroesAreTargets
-                      ? 'Equip item here'
-                      : used
-                        ? 'Ability already used this turn'
-                        : 'Roll (1 AP)'
-                  }
+                <Card
+                  card={props.cardOf(id)}
+                  size="xs"
+                  onHoverChange={props.onHover}
                 />
-                {equippedItem && (
-                  <div className="equipped-item">
+                {equipped && (
+                  <div className="equipped-tuck">
                     <Card
-                      card={cardOf(equippedItem)}
-                      size="sm"
-                      onHoverChange={hoverInPlay}
+                      card={props.cardOf(equipped)}
+                      size="xs"
+                      onHoverChange={props.onHover}
                     />
                   </div>
                 )}
               </div>
             )
           })}
-          {party.heroIds.length === 0 && (
-            <div className="hero-hint">Play a Hero from your hand</div>
-          )}
         </div>
       </div>
-
-      {/* Bottom band: discard | leader + slain ("portrait") | hand arc | deck */}
-      <div className="discard-corner">
-        <DeckPile
-          label="Discard"
-          count={snapshot.discardPile.length}
-          topCard={
-            snapshot.discardPile.length > 0
-              ? cardOf(snapshot.discardPile[0])
-              : undefined
-          }
-          onHoverChange={hoverInPlay}
-        />
-      </div>
-
-      <div className="portrait-zone">
-        <div className="slain-side slain-left" title="Slain monsters">
-          {slainLeft.map((id, i, arr) => {
-            // Oldest first (outermost); later siblings paint on top → newest
-            // (nearest the leader) covers the older ones. Fanned like the hand
-            // arc: tilting and sinking the further out they sit.
-            const dist = arr.length - 1 - i
-            return (
-              <div
-                key={id}
-                className="slain-card"
-                style={{
-                  transform: `rotate(${-(6 + dist * 8)}deg) translateY(${6 + dist * 10}px)`,
-                }}
-              >
-                <Card card={cardOf(id)} size="sm" onHoverChange={hoverInPlay} />
-              </div>
-            )
-          })}
-        </div>
-        <div
-          className="portrait portrait-leader"
-          style={{ backgroundImage: `url(${cardTemplate('Leader')})` }}
-          title="Party leader"
-          onMouseEnter={(e) => {
-            const leader = cardOf(party.leaderId)
-            if (leader) hoverInPlay(leader, e)
-          }}
-          onMouseLeave={() => hoverInPlay(null)}
-        />
-        <div className="slain-side slain-right" title="Slain monsters">
-          {[...slainRight].reverse().map((id, i, arr) => (
-            // Newest renders first (adjacent to the leader); explicit z-index
-            // keeps it on top because painting order runs outward on this side.
-            <div
-              key={id}
-              className="slain-card"
-              style={{
-                zIndex: arr.length - i,
-                transform: `rotate(${6 + i * 8}deg) translateY(${6 + i * 10}px)`,
-              }}
-            >
-              <Card card={cardOf(id)} size="sm" onHoverChange={hoverInPlay} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div
-        className="hand-arc"
-        style={{ bottom: -handDip, '--dip': `${handDip}px` } as React.CSSProperties}
-      >
-        {me.hand.map((id, i) => {
-          const card = cardOf(id)
-          const off = i - handMid
-          const rot = off * Math.min(42 / Math.max(handCount, 1), 6)
-          const sink = Math.pow(Math.abs(off), 1.6) * 7
-          const playable = isPlayable(card)
-          const style = {
-            zIndex: 10 + i,
-            '--rot': `${rot}deg`,
-            '--sink': `${sink}px`,
-          } as React.CSSProperties
-          return (
-            <div
-              key={id}
-              className={`hand-slot ${selectedId === id ? 'selected' : ''}`}
-              style={style}
-              draggable={playable}
-              onDragStart={(e) => onHandDragStart(e, id)}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (!playable) return
-                setSelectedId(selectedId === id ? null : id)
-              }}
-            >
-              <div className="hand-card">
-                <Card card={card} glowing={playable} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="deck-corner">
-        <ActionPointDisplay
-          current={me.actionPoints}
-          max={me.actionPointsPerTurn}
-        />
-        <DeckPile
-          label="Deck"
-          count={snapshot.mainDeckSize}
-          onClick={canAct ? game.drawCard : undefined}
-          title="Draw a card (1 AP)"
-        />
-      </div>
-
-      <div className="turn-corner">
-        <div className={`turn-pill ${isMyTurn ? 'turn-active' : ''}`}>
-          {isMyTurn
-            ? 'Your turn'
-            : `${
-                snapshot.players.find(
-                  (p) => p.id === snapshot.currentPlayerId,
-                )?.name ?? '…'
-              }'s turn`}
-        </div>
-        <button className="end-turn" disabled={!canAct} onClick={game.endTurn}>
-          End Turn
-        </button>
-      </div>
-
-      {preview && (
-        <div
-          className="side-preview"
-          style={{
-            left: preview.x,
-            top: preview.y,
-            backgroundImage: `url(${cardTemplate(preview.card.type)})`,
-          }}
-        />
-      )}
-
-      {snapshot.modifierWindow && (
-        <DiceRoller
-          window={snapshot.modifierWindow}
-          hand={me.hand}
-          cardOf={cardOf}
-          onPlay={game.playModifier}
-          onSkip={game.skipWindow}
-        />
-      )}
-
-      <BoardToast log={game.log} cardOf={cardOf} />
-      <EventLog log={game.log} cardOf={cardOf} />
-    </div>
-    </BoardFrame>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Pieces
-// ---------------------------------------------------------------------------
-
-type OppPosition = 'top' | 'left' | 'right'
-
-/**
- * One opponent seat: card-back hand fan anchored to their screen edge,
- * leader portrait (biggest piece), slain-monster fans flanking it and hero
- * portraits — all oriented toward the board center.
- */
-function OpponentZone(props: {
-  player: PlayerDto
-  party: PartyDto
-  position: OppPosition
-  active: boolean
-  cardOf: (id: string) => CardData | undefined
-  onHover: (card: CardData | null, e?: React.MouseEvent) => void
-}) {
-  const { player, party, position } = props
-  const n = player.hand.length
-  const mid = (n - 1) / 2
-  const slainA = party.monsterIds.filter((_, i) => i % 2 === 0)
-  const slainB = party.monsterIds.filter((_, i) => i % 2 === 1)
-
-  // Fan math mirrors the local hand, re-oriented per edge: top hangs down
-  // (reversed arc), sides point their cards toward the board.
-  const handTransform = (off: number, sink: number): string => {
-    if (position === 'top') return `rotate(${-off * 5}deg) translateY(${-sink}px)`
-    if (position === 'left') return `rotate(${90 + off * 5}deg) translateY(${-sink}px)`
-    return `rotate(${-90 - off * 5}deg) translateY(${-sink}px)`
-  }
-
-  const hoverCard = (id: string) => (e: React.MouseEvent) => {
-    const card = props.cardOf(id)
-    if (card) props.onHover(card, e)
-  }
-
-  // The slain fan mirrors the owner's hand fan: the top player's opens
-  // downward (reversed), side players' open toward the bottom like the local one.
-  const vFlip = position === 'top' ? -1 : 1
-
-  return (
-    <div className={`opp-zone opp-${position}`}>
-      <div className="opp-hand">
-        {player.hand.map((_, i) => {
-          const off = i - mid
-          const sink = Math.pow(Math.abs(off), 1.6) * 5
-          return (
-            <div
-              key={i}
-              className="opp-hand-slot"
-              style={{ zIndex: i, transform: handTransform(off, sink) }}
-            >
-              <Card faceDown size="xs" />
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="opp-inner">
-        <div className="opp-board">
-          <div className="opp-slain">
-            {slainA.map((id, i, arr) => {
-              const d = arr.length - 1 - i
-              return (
-                <div
-                  key={id}
-                  className="opp-slain-card"
-                  style={{
-                    transform: `rotate(${vFlip * -(6 + d * 8)}deg) translateY(${vFlip * (4 + d * 8)}px)`,
-                  }}
-                >
-                  <Card card={props.cardOf(id)} size="xs" onHoverChange={props.onHover} />
-                </div>
-              )
-            })}
-          </div>
-          <div
-            className={`portrait portrait-opp ${props.active ? 'portrait-active' : ''}`}
-            style={{ backgroundImage: `url(${cardTemplate('Leader')})` }}
-            onMouseEnter={hoverCard(party.leaderId)}
-            onMouseLeave={() => props.onHover(null)}
-            title={player.name}
-          />
-          <div className="opp-slain">
-            {[...slainB].reverse().map((id, i, arr) => (
-              <div
-                key={id}
-                className="opp-slain-card"
-                style={{
-                  zIndex: arr.length - i,
-                  transform: `rotate(${vFlip * (6 + i * 8)}deg) translateY(${vFlip * (4 + i * 8)}px)`,
-                }}
-              >
-                <Card card={props.cardOf(id)} size="xs" onHoverChange={props.onHover} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="opp-heroes">
-          {party.heroIds.map((id) => (
-            <div
-              key={id}
-              className="portrait portrait-hero portrait-hero-sm"
-              style={{ backgroundImage: `url(${cardTemplate('Hero')})` }}
-              onMouseEnter={hoverCard(id)}
-              onMouseLeave={() => props.onHover(null)}
-            />
-          ))}
-        </div>
-
-        <div className="opp-name">{player.name}</div>
+      <div className="hand-stack">
+        <div className="tray-label">Hand</div>
+        <Card faceDown size="sm" />
+        <div className="pile-badge">{player.hand.length}</div>
       </div>
     </div>
   )
 }
 
-/** Brief center-screen banner for dramatic moments (slain, fight back, abilities). */
+// ---------------------------------------------------------------------------
+// Toast + event log
+// ---------------------------------------------------------------------------
+
 function BoardToast(props: {
   log: GameEventDto[]
   cardOf: (id: string) => CardData | undefined
 }) {
-  const [toast, setToast] = useState<{ text: string; bad: boolean; key: number } | null>(null)
+  const [toast, setToast] = useState<{
+    text: string
+    bad: boolean
+    key: number
+  } | null>(null)
   const seenRef = useRef(0)
 
   useEffect(() => {
@@ -555,7 +530,10 @@ function BoardToast(props: {
 
   if (!toast) return null
   return (
-    <div key={toast.key} className={`board-toast ${toast.bad ? 'board-toast-bad' : ''}`}>
+    <div
+      key={toast.key}
+      className={`board-toast ${toast.bad ? 'board-toast-bad' : ''}`}
+    >
       {toast.text}
     </div>
   )
@@ -570,7 +548,7 @@ function EventLog(props: {
       props.log
         .map((e, i) => ({ key: i, text: describeEvent(e, props.cardOf) }))
         .filter((e) => e.text)
-        .slice(-8),
+        .slice(-7),
     [props.log, props.cardOf],
   )
   const endRef = useRef<HTMLDivElement>(null)
