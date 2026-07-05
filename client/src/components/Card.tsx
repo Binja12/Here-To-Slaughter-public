@@ -7,8 +7,8 @@ import './Card.css'
 
 type CardProps = {
   card?: CardData
-  /** xs = opponent zones, sm = compact piles, md = board/hand */
-  size?: 'xs' | 'sm' | 'md'
+  /** xs = opponent rows, sm = piles/rows, md = board/hand, lg = monsters/leaders */
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   faceDown?: boolean
   /** grayed out (e.g. hero ability already used this turn) */
   exhausted?: boolean

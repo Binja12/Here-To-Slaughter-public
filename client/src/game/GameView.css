@@ -1,32 +1,25 @@
-/* The play surface — materials/frame come from BoardFrame. */
+/* =============================================================================
+   Board composition (reference-driven): centered monster encounter, one
+   horizontal deck/discard/dice/slain system beneath it, four framed player
+   territories around the edges, local hand fanned along the bottom.
+   Materials/frame come from BoardFrame; this file is layout + trays.
+   ============================================================================= */
+
 .board {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: #e8dcc0;
 }
 
-/* Local territory: a subtle darker band so "your side" reads as owned space. */
-.board::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 240px;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.28) 55%);
-  border-top: 1px solid rgba(214, 172, 96, 0.14);
-  pointer-events: none;
-  transition: border-color 0.4s, box-shadow 0.4s;
-}
-
-.board-my-turn::before {
-  border-top-color: rgba(232, 200, 119, 0.45);
-  box-shadow: inset 0 6px 24px -12px rgba(232, 200, 119, 0.35);
+.board-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  letter-spacing: 1px;
 }
 
 /* When it's not your turn, your hand visibly rests. */
@@ -34,441 +27,314 @@
   filter: saturate(0.75) brightness(0.85);
 }
 
-.board-message {
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  letter-spacing: 1px;
-}
+/* =============================================================================
+   Territories — inset trays built into the table, color-coded per seat.
+   ============================================================================= */
 
-/* --- floating chrome --------------------------------------------------------- */
-
-.turn-pill {
-  padding: 3px 12px;
+.territory {
+  position: absolute;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 12px;
-  font-size: 12px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(6, 10, 18, 0.34);
+  border: 1px solid rgba(214, 172, 96, 0.16);
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.turn-active {
-  background: #3f7a46;
-  color: #fff;
-}
-
-.restart {
-  position: absolute;
-  top: 10px;
-  right: 14px;
-  z-index: 30;
-  background: rgba(0, 0, 0, 0.35);
-  color: #c9b789;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
-  padding: 4px 12px;
-  cursor: pointer;
-}
-
-.restart:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* --- opponent zones ----------------------------------------------------------- */
-
-.opp-zone {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  z-index: 18;
-  pointer-events: none; /* let board clicks through the zone box… */
-}
-
-.opp-zone .portrait,
-.opp-zone .card {
-  pointer-events: auto; /* …but keep hover on the pieces themselves */
-}
-
-.opp-top {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  flex-direction: column;
-}
-
-.opp-left {
-  left: 0;
-  top: 42%;
-  transform: translateY(-50%);
-  flex-direction: row;
-}
-
-.opp-right {
-  right: 0;
-  top: 42%;
-  transform: translateY(-50%);
-  flex-direction: row-reverse;
-}
-
-/* Card-back hand fans, anchored off their screen edge. */
-.opp-hand {
-  display: flex;
-}
-
-.opp-hand-slot {
-  position: relative;
-}
-
-.opp-top .opp-hand {
-  margin-top: -14px; /* ~15% of the backs off the top edge */
-}
-
-.opp-top .opp-hand-slot + .opp-hand-slot {
-  margin-left: -36px;
-}
-
-.opp-left .opp-hand,
-.opp-right .opp-hand {
-  flex-direction: column;
-}
-
-.opp-left .opp-hand {
-  margin-left: -26px;
-}
-
-.opp-right .opp-hand {
-  margin-right: -26px;
-}
-
-.opp-left .opp-hand-slot + .opp-hand-slot,
-.opp-right .opp-hand-slot + .opp-hand-slot {
-  margin-top: -58px;
-}
-
-.opp-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Top player reads top-down: hand, name, leader, heroes — compressed like the
-   HS opponent side: the leader overlaps the hand backs. */
-.opp-top .opp-inner {
-  margin-top: -38px;
-}
-
-.opp-top .opp-heroes {
-  margin-top: -8px;
-}
-
-.opp-top .opp-name {
-  order: -1;
-  position: relative;
-  z-index: 14;
-  margin-bottom: -6px;
-}
-
-/* Side players: keep the pieces clear of the rotated hand fan. */
-.opp-left .opp-inner {
-  margin-left: 24px;
-}
-
-.opp-right .opp-inner {
-  margin-right: 24px;
-}
-
-.opp-board {
-  display: flex;
-  align-items: center;
-}
-
-.opp-slain {
-  display: flex;
-  align-items: center;
-}
-
-.opp-slain-card {
-  position: relative;
-  transform-origin: top center;
-}
-
-.opp-slain:first-child {
-  margin-right: -20px;
-}
-
-.opp-slain:last-child {
-  margin-left: -20px;
-}
-
-.opp-slain .opp-slain-card + .opp-slain-card {
-  margin-left: -20px;
-}
-
-/* Opponent leader — biggest piece of the zone, gate frame, behind the cards. */
-.portrait-opp {
-  z-index: 0;
-  width: 78px;
-  height: 92px;
-  border-radius: 48% 48% 8px 8px / 58% 58% 8px 8px;
-}
-
-.opp-slain-card {
-  z-index: 2;
-}
-
-/* Doubled class beats the later .portrait-hero size rules. */
-.portrait.portrait-hero-sm {
-  width: 54px;
-  height: 64px;
-  border-width: 3px;
-}
-
-.portrait-active {
-  border-color: #8dffa0;
-  box-shadow: 0 0 0 2px #2f6b38, 0 0 12px 2px rgba(96, 255, 130, 0.8);
-}
-
-.opp-heroes {
-  display: flex;
-  gap: 4px;
-  max-width: 240px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.opp-name {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #b7a77e;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 1px 8px;
-  border-radius: 4px;
-}
-
-/* --- battlefield ------------------------------------------------------------ */
-
-.battlefield {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding-top: 195px; /* room for the top opponent zone */
-  padding-bottom: 165px; /* room for portrait zone + hand arc */
-}
-
-/* The monster row is the true center of the board (middle monster on the
-   screen's vertical axis); the deck hangs off to the right of it. The
-   encounter area gets a soft shared spotlight — the board's focal point. */
-.monster-line {
-  position: relative;
-  display: flex;
-  justify-content: center;
-}
-
-.monster-line::before {
+.territory::before {
   content: '';
   position: absolute;
-  inset: -34px -60px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(226, 214, 170, 0.10), transparent 68%);
-  border: 1px solid rgba(214, 172, 96, 0.12);
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  opacity: 0.35;
   pointer-events: none;
+  transition: opacity 0.3s;
 }
 
-.monster-row {
-  display: flex;
-  gap: 16px;
+.territory-active::before {
+  opacity: 1;
+  box-shadow: 0 0 14px -2px var(--accent);
 }
 
-.monster-deck {
+.territory-banner {
   position: absolute;
-  left: calc(100% + 26px);
-  top: 50%;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 22px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #f0e2bd;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #000), color-mix(in srgb, var(--accent) 45%, #000));
+  border: 1px solid rgba(214, 172, 96, 0.5);
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+/* territory grids per side */
+.t-top {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  grid-template-areas: 'leader heroes hand';
+  grid-template-columns: auto auto auto;
+  align-items: start;
+}
+
+.t-left {
+  left: 14px;
+  top: 47%;
   transform: translateY(-50%);
+  grid-template-areas:
+    'hand leader'
+    'heroes heroes';
+  grid-template-columns: auto auto;
+}
+
+.t-right {
+  right: 14px;
+  top: 47%;
+  transform: translateY(-50%);
+  grid-template-areas:
+    'leader hand'
+    'heroes heroes';
+  grid-template-columns: auto auto;
+}
+
+.t-bottom {
+  bottom: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  grid-template-areas: 'leader heroes';
+  grid-template-columns: auto auto;
+  align-items: start;
+  z-index: 12;
+}
+
+.leader-slot {
+  grid-area: leader;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
-/* Own battlefield row — heroes, like Hearthstone minions. */
+.leader-slot .card {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 5px 12px rgba(0, 0, 0, 0.5);
+}
 
-.hero-line {
-  min-height: 140px;
-  min-width: 460px;
+.hero-tray {
+  grid-area: heroes;
+}
+
+.tray {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 4px 24px;
-  border-radius: 80px / 40px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(214, 172, 96, 0.12);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.45);
   transition: background 0.15s, box-shadow 0.15s;
 }
 
-.hero-line.zone-target {
-  background: rgba(96, 220, 120, 0.08);
-  box-shadow: inset 0 0 26px rgba(96, 220, 120, 0.5);
+.tray.zone-target {
+  background: rgba(96, 220, 120, 0.1);
+  box-shadow: inset 0 0 22px rgba(96, 220, 120, 0.45);
   cursor: pointer;
 }
 
+.tray-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #b7a77e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slain-chip {
+  font-size: 10px;
+  color: #f0e2bd;
+}
+
+.hero-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 81px;
+  padding-bottom: 14px; /* room for equipped items to peek out */
+}
+
+.t-bottom .hero-row {
+  min-height: 120px;
+}
+
 .hero-hint {
-  font-size: 12px;
+  align-self: center;
+  font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: rgba(232, 220, 192, 0.4);
-  pointer-events: none;
+  color: rgba(232, 220, 192, 0.35);
+  padding: 0 18px;
 }
 
 .hero-slot {
   position: relative;
 }
 
-.equipped-item {
-  position: absolute;
-  bottom: -12px;
-  right: -12px;
-  transform: scale(0.55);
-  transform-origin: bottom right;
+.hero-slot > .card {
+  position: relative;
+  z-index: 1;
 }
 
-/* --- bottom corners ----------------------------------------------------------- */
-
-.discard-corner,
-.deck-corner {
+/* Equipped item tucks beneath its hero, partially visible. */
+.equipped-tuck {
   position: absolute;
-  bottom: 14px;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.82);
+  z-index: 0;
+}
+
+/* Opponent hand: a neat face-down stack with a count. */
+.hand-stack {
+  grid-area: hand;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  z-index: 15;
+  gap: 5px;
 }
 
-.discard-corner {
-  left: 18px;
-}
+/* =============================================================================
+   Center encounter + deck system
+   ============================================================================= */
 
-.deck-corner {
-  right: 18px;
-}
-
-.pile-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #b7a77e;
-}
-
-.pile-count {
-  font-size: 12px;
-  color: #cbbd97;
-}
-
-.empty-slot {
-  width: 108px;
-  height: 151px;
-  border: 2px dashed rgba(255, 255, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.empty-sm {
-  width: 86px;
-  height: 120px;
-}
-
-/* --- portrait zone (leader + slain monsters), like the HS hero portrait ------- */
-
-.portrait-zone {
+.encounter {
   position: absolute;
-  /* Low enough that the hand cards cover the portrait's bottom ~10%. */
-  bottom: 112px;
+  top: 158px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  z-index: 12;
+  gap: 8px;
+  padding: 10px 26px 16px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(214, 172, 96, 0.18);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* Oval frame cropped to the character's center, like the HS hero portrait. */
-.portrait {
-  position: relative;
-  border-radius: 50%;
-  border: 4px solid #c9a34f;
-  box-shadow: 0 0 0 2px #6a4c1e, 0 6px 18px rgba(0, 0, 0, 0.65),
-    inset 0 0 14px rgba(0, 0, 0, 0.55);
-  background-size: 230%;
-  background-position: 50% 22%;
-  cursor: pointer;
+.encounter::before {
+  content: '';
+  position: absolute;
+  inset: -26px -70px;
+  background: radial-gradient(ellipse at center, rgba(226, 214, 170, 0.08), transparent 70%);
+  pointer-events: none;
 }
 
-/* Leaders sit in a "gate" arch frame (HS-style) BEHIND the card layer. */
-.portrait-leader {
-  z-index: 0;
-  width: 112px;
-  height: 132px;
-  border-radius: 48% 48% 12px 12px / 58% 58% 12px 12px;
+.monster-row {
+  display: flex;
+  gap: 26px;
 }
 
-/* Heroes on the battlefield — same frame, wider crop so more of them shows. */
-.portrait-hero {
-  width: 100px;
-  height: 118px;
-  background-size: 165%;
-  background-position: 50% 28%;
+.center-row {
+  position: absolute;
+  top: 408px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
 }
 
-.portrait-exhausted {
-  filter: grayscale(0.9) brightness(0.7);
+.dice-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 96px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(214, 172, 96, 0.12);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
-.portrait-target {
-  box-shadow:
-    0 0 0 2.5px #8dffa0,
-    0 0 7px 1px rgba(96, 255, 130, 0.9),
-    0 8px 16px rgba(0, 0, 0, 0.55);
-}
-
-/* Slain monsters keep card shape, fanned like the hand arc behind the leader. */
-.slain-side {
+.dice-tile-die {
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
-  transform: translateY(12px) scale(0.92);
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #3a2c10;
+  background: linear-gradient(145deg, #f5ecd8, #cdbb92);
+  border: 2px solid #8a6a2a;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.7), 0 3px 7px rgba(0, 0, 0, 0.5);
 }
 
-.slain-card {
-  position: relative;
-  transform-origin: bottom center;
-  z-index: 2; /* cards paint in front of the leader's gate frame */
+.dice-tile-caption {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  text-align: center;
+  color: #b7a77e;
+  line-height: 1.5;
 }
 
-/* ~30% of each card hides behind the portrait / its newer neighbour. */
-.slain-left {
-  margin-right: -28px;
+.slain-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+  padding: 6px 12px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(214, 172, 96, 0.12);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
-.slain-left .slain-card + .slain-card {
-  margin-left: -28px;
+.slain-tray-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
 }
 
-.slain-right {
-  margin-left: -28px;
+.slain-tray-row .card + .card {
+  margin-left: -58px;
 }
 
-.slain-right .slain-card + .slain-card {
-  margin-left: -28px;
+.slain-tray-empty {
+  font-size: 44px;
+  color: rgba(232, 220, 192, 0.14);
 }
 
-/* --- hand arc ------------------------------------------------------------------ */
+/* =============================================================================
+   Hand fan (local player) — unchanged interaction spec.
+   ============================================================================= */
 
 .hand-arc {
   position: absolute;
-  /* bottom offset (5–15% dip) is set inline based on hand density */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -476,8 +342,8 @@
   z-index: 25;
 }
 
-/* The slot keeps the ORIGINAL footprint: hover/click/drag live here only, so the
-   enlarged card shrinks back as soon as the cursor leaves this area. */
+/* The slot keeps the ORIGINAL footprint: hover/click/drag live here only, so
+   the enlarged card shrinks back once the cursor leaves this area. */
 .hand-slot {
   position: relative;
   width: 74px;
@@ -486,21 +352,20 @@
 }
 
 .hand-slot .card {
-  pointer-events: none; /* the slot handles all input */
+  pointer-events: none;
 }
 
 .hand-card {
   position: absolute;
   bottom: 0;
   left: 50%;
-  margin-left: -54px; /* half of md card width */
+  margin-left: -54px;
   transform: rotate(var(--rot)) translateY(var(--sink));
   transform-origin: bottom center;
   transition: transform 0.14s ease-out;
 }
 
-/* Hearthstone-style inspect: straighten and enlarge in place — lift only far
-   enough that the whole card clears the screen edge, no big jump. */
+/* HS-style inspect: straighten + enlarge in place, lift = dip + 10px only. */
 .hand-slot:hover .hand-card,
 .hand-slot.selected .hand-card {
   transform: rotate(0deg) translateY(calc(-1 * var(--dip, 40px) - 10px)) scale(1.6);
@@ -516,30 +381,51 @@
   box-shadow: 0 0 14px 4px rgba(120, 200, 255, 0.9);
 }
 
-/* --- AP + end turn --------------------------------------------------------------- */
+/* =============================================================================
+   HUD: action points + turn banner + controls (top right), game info (bottom
+   right), event log (top left).
+   ============================================================================= */
 
-.turn-corner {
+.hud-corner {
   position: absolute;
-  right: 22px;
-  top: 64%;
+  top: 14px;
+  right: 16px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
-  z-index: 20;
+  z-index: 30;
+}
+
+.turn-banner {
+  padding: 5px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #cbbd97;
+  background: linear-gradient(180deg, #241a0e, #17100a);
+  border: 1px solid rgba(214, 172, 96, 0.4);
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+.turn-banner-mine {
+  color: #ffe9b0;
+  border-color: rgba(232, 200, 119, 0.8);
+  box-shadow: 0 0 12px rgba(232, 200, 119, 0.35), 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 
 .end-turn {
-  padding: 10px 22px;
+  padding: 8px 20px;
   font-weight: 800;
   letter-spacing: 1px;
   color: #3a2c10;
   background: linear-gradient(#e8c877, #c19540);
   border: 2px solid #8a6a2a;
-  border-radius: 10px;
+  border-radius: 9px;
   cursor: pointer;
-  z-index: 20;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
 }
 
 .end-turn:disabled {
@@ -547,7 +433,144 @@
   cursor: default;
 }
 
-/* --- side preview (hover on in-play cards) ----------------------------------------- */
+.restart {
+  background: rgba(0, 0, 0, 0.35);
+  color: #c9b789;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.restart:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.game-info {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 250px;
+  padding: 10px 14px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(214, 172, 96, 0.2);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.45);
+  z-index: 12;
+}
+
+.game-info-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #b7a77e;
+  text-align: center;
+  margin-bottom: 7px;
+  border-bottom: 1px solid rgba(214, 172, 96, 0.2);
+  padding-bottom: 5px;
+}
+
+.gi-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #d9cba9;
+}
+
+.gi-done {
+  color: #9fd4a4;
+}
+
+.gi-check {
+  font-size: 13px;
+}
+
+.gi-progress {
+  margin-left: auto;
+  font-weight: 800;
+  color: #f0e2bd;
+}
+
+.gi-or {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #8d8163;
+  text-align: center;
+  margin: 3px 0;
+}
+
+.gi-classes {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.gi-class {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(232, 220, 192, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+}
+
+.gi-class-have {
+  color: #1d150a;
+  background: linear-gradient(#e8c877, #c19540);
+  border-color: #8a6a2a;
+}
+
+.event-log {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  width: 170px;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 10px;
+  font-size: 10px;
+  color: #cbbd97;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.event-line {
+  line-height: 1.4;
+}
+
+/* =============================================================================
+   Shared bits
+   ============================================================================= */
+
+.empty-slot {
+  width: 108px;
+  height: 151px;
+  border: 2px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.empty-sm {
+  width: 86px;
+  height: 120px;
+}
 
 /* Pure enlarged card image — all info is in the card art itself. */
 .side-preview {
@@ -560,30 +583,4 @@
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.75);
   z-index: 70;
   pointer-events: none;
-}
-
-/* --- event log ------------------------------------------------------------------ */
-
-.event-log {
-  position: absolute;
-  left: 14px;
-  top: 12px;
-  width: 180px;
-  opacity: 0.85;
-  max-height: 160px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
-  font-size: 11px;
-  color: #cbbd97;
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.event-line {
-  line-height: 1.4;
 }
