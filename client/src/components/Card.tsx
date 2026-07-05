@@ -51,6 +51,7 @@ export default function Card({
   const classes = [
     'card',
     `card-${size}`,
+    `card-type-${card.type.toLowerCase()}`,
     exhausted ? 'card-exhausted' : '',
     glowing ? 'card-glowing' : '',
     onClick || draggable ? 'card-interactive' : '',

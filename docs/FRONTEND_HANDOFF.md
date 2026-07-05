@@ -64,6 +64,19 @@ npm run client        # CRA dev server on :3001 (client/.env sets PORT=3001)
     → valid zones glow → click zone/hero) AND drag & drop both work; hover on
     any IN-PLAY card shows an enlarged side-preview panel next to it; click
     hero=roll, click monster=attack, click main deck=draw.
+  - `client/src/components/board/` — premium-table components (HTSR-5 polish
+    pass, branch `HTSR-5-Frontend`): `BoardFrame` (carved-wood frame + brass
+    pinstripe + corner medallions + felt surface — all CSS gradients, no image
+    assets), `DiceRoller` (modifier window with tumbling-die animation,
+    countdown, modifier buttons), `DeckPile` (label plate + stacked depth +
+    count badge, used for main deck / discard / monster deck), and
+    `ActionPointDisplay` (faceted AP gems + numeric readout); shared styles in
+    `board.css`. GameView also has `BoardToast` (brief center banner on
+    MonsterSlain / MonsterAttackFail / RollSuccess). Cards have bevel/depth
+    shadows, a per-type edge tint (`card-type-*`), an ornate back, and a
+    weighty `card-enter` placement animation on board zones. Turn state:
+    `.board-my-turn` warms the local territory band; `.board-waiting` dims the
+    hand.
   - `client/src/components/Card.tsx` + `Card.css` — template card by type
     (`client/public/cards/{hero,item,magic,modifier,challenge,monster,leader}.png`
     copied from `shared/cards image/`), face-down back. **NO text overlays on
