@@ -1,18 +1,9 @@
-import {
-  ActionType,
-  Audience,
-  CardType,
-  GameEventType,
-  IGameEvent,
-  RollResult,
-} from 'shared'
+import { ActionType, ReactionWindowType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { GameEvent } from '../events/game-event'
 import { ReactionManager } from '../reactions/reaction-manager'
-import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
-import { MonsterCard } from '../cards/monster-card'
+import { AbilityContext } from '../ability-context'
+import { MonsterAttackOutcomeTask } from '../tasks/tasks'
 
 const COST = 2
 
@@ -22,7 +13,6 @@ export class AttackMonsterAction implements IAction {
     private readonly playerId: string,
     private readonly cardId: string,
     private readonly reactionManager: ReactionManager,
-    private readonly emmiter: GameEventEmitter,
   ) {}
 
   getId(): string {
@@ -52,21 +42,22 @@ export class AttackMonsterAction implements IAction {
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
-    const baseRoll = Math.ceil(Math.random() * 11) + 1
-    const rollResult = (gs.getCard(this.cardId) as MonsterCard).trySlay(
+    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    const baseRoll = Math.floor(Math.random() * 11) + 1
+    const frameId = this.reactionManager.openFrame()
+
+    gs.abilityPipelines.set(frameId, {
+      steps: [new MonsterAttackOutcomeTask(this.cardId, this.playerId)],
+      ctx: new AbilityContext(this.cardId, this.playerId),
+    })
+
+    // No rollReq — monster attacks always release the frame; outcome is handled
+    // by MonsterAttackOutcomeTask (Slay / Miss / FightBack).
+    this.reactionManager.openWindow(frameId, ReactionWindowType.Modifier, this.playerId, {
       baseRoll,
-    )
-    if (rollResult == RollResult.Slay) {
-      gs.getMonsterPile().pick(this.cardId)
-      gs.getParty(this.playerId).addMonster(this.cardId)
-      this.emmiter.emit(
-        GameEventFactory.monsterSlain(this.playerId, this.cardId),
-      )
-    }
-    if (rollResult == RollResult.FightBack) {
-      //later implement
-    }
+      heroId: this.cardId,
+    })
+
+    this.reactionManager.takeLastFrameId()
   }
 }

@@ -216,6 +216,15 @@ export class GameState {
     return undefined
   }
 
+  getCardFightBack(cardId: string): IAbility | undefined {
+    const card = this.cards.get(cardId)
+    if (!card) return undefined
+    if ('getFightBack' in card && typeof card.getFightBack === 'function') {
+      return (card as { getFightBack(): IAbility | undefined }).getFightBack()
+    }
+    return undefined
+  }
+
   getEquippedItem(heroId: string): string | undefined {
     const card = this.cards.get(heroId)
     if (card instanceof HeroCard) return card.getEquippedItem() ?? undefined
@@ -254,6 +263,9 @@ export class GameState {
   }
   getDiscardPile(): CardPile {
     return this.discardPile
+  }
+  getMonsterDeck(): CardStack {
+    return this.monsterDeck
   }
   getMonsterPile(): CardPile {
     return this.monsterPile

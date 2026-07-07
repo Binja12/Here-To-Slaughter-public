@@ -73,6 +73,7 @@ export enum GameEventType {
   // Monster events
   MonsterSlain = "MonsterSlain",
   MonsterFlipped = "MonsterFlipped",
+  MonsterAttackFail = "MonsterAttackFail",
 
   // Turn events
   TurnStarted = "TurnStarted",

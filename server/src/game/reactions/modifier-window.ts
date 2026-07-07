@@ -18,8 +18,9 @@ export class ModifierWindow implements IReactionWindow {
     private readonly id: string,
     private readonly rollerId: string,
     private readonly baseRoll: number,
-    private readonly rollReq: number,
-    private readonly heroId: string,
+    /** undefined = always release (e.g. monster attack); defined = release/restore based on comparison */
+    private readonly rollReq: number | undefined,
+    private readonly heroId: string | undefined,
     private readonly timeoutMs: number,
     private readonly gs: GameState,
     private readonly frameId: string,
@@ -90,11 +91,10 @@ export class ModifierWindow implements IReactionWindow {
       ),
     )
 
-    if (finalRoll < this.rollReq) {
+    if (this.rollReq !== undefined && finalRoll < this.rollReq) {
       this.gs.restoreFrame(this.frameId)
     } else {
       this.gs.releaseFrame(this.frameId)
-      this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
     }
 
     this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [finalRoll]))

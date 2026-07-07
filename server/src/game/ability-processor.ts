@@ -33,6 +33,17 @@ export class AbilityProcessor implements IGameEventListener {
       return
     }
 
+    // MonsterAttackFail — trigger the monster's fightback ability.
+    if (event.getType() === GameEventType.MonsterAttackFail) {
+      const { cardId: monsterId } = event.getPayload() as { cardId: string }
+      const attackerId = event.getPlayerId()
+      const fightBack = this.gs.getCardFightBack(monsterId)
+      if (fightBack?.steps?.length) {
+        this.runSteps(fightBack.steps, new AbilityContext(monsterId, attackerId))
+      }
+      return
+    }
+
     const payload = event.getPayload() as Record<string, unknown> | undefined
 
     // Passive sources — leaders, monsters, equipped items.
