@@ -1,6 +1,6 @@
 import { GameEventType } from 'shared'
 import { IAbility } from '../interfaces'
-import { RollOnHeroTask, StealHeroTask } from '../tasks/tasks'
+import { HeroRollOutcomeTask, RollOnHeroTask, StealHeroTask } from '../tasks/tasks'
 
 // Wiggles (hero-036): "STEAL a Hero card and roll to use its effect immediately"
 //
@@ -19,5 +19,6 @@ export const WigglesAbility: IAbility = {
   steps: [
     new StealHeroTask(),
     new RollOnHeroTask(),
+    new HeroRollOutcomeTask(),
   ],
 }

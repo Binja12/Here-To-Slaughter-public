@@ -247,6 +247,15 @@ export class GameEventFactory {
     )
   }
 
+  static monsterAttackFail(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.MonsterAttackFail,
+      playerId,
+      { cardId },
+      Audience.All,
+    )
+  }
+
   // --- Reaction Frame ---
 
   static frameResolved(frameId: string, results: unknown[]): IGameEvent {

@@ -1,0 +1,557 @@
+/* ==========================================================================
+   Tabletop layout — wooden table, felt play surface, player zones, center.
+   The board is a fixed 1720×1040 canvas scaled to the viewport (pans when
+   clamped at the minimum scale) so the spatial model never collapses.
+   ========================================================================== */
+
+:root {
+  --wood-dark: #241708;
+  --wood: #3a2410;
+  --wood-light: #58381a;
+  --felt: #1b2333;
+  --felt-deep: #121826;
+  --gold: #c9a24b;
+  --gold-bright: #f0c75e;
+  --parchment: #ece0c8;
+  --ink: #241b10;
+  --text-warm: #d8c9a8;
+  --text-dim: #8d8375;
+  --good: #6fae6f;
+  --bad: #c05046;
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', system-ui, sans-serif;
+}
+
+.table-viewport {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 40%, #171009, #0a0603 75%);
+}
+
+.table-scaler {
+  position: relative;
+  flex: none;
+}
+
+.table-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   The table itself: wood frame, inset felt, warm candle glows, vignette
+   -------------------------------------------------------------------------- */
+
+.board {
+  position: absolute;
+  inset: 0;
+  border-radius: 26px;
+  font-family: var(--font-body);
+  color: var(--text-warm);
+  background:
+    /* candle glows in the corners */
+    radial-gradient(circle 340px at 2% 2%, rgba(255, 166, 66, 0.14), transparent 70%),
+    radial-gradient(circle 300px at 99% 3%, rgba(255, 166, 66, 0.12), transparent 70%),
+    radial-gradient(circle 300px at 1% 98%, rgba(255, 146, 46, 0.1), transparent 70%),
+    radial-gradient(circle 340px at 98% 97%, rgba(255, 166, 66, 0.13), transparent 70%),
+    /* wood grain */
+    repeating-linear-gradient(
+      88deg,
+      rgba(0, 0, 0, 0.16) 0 3px,
+      transparent 3px 11px,
+      rgba(255, 210, 140, 0.05) 11px 13px,
+      transparent 13px 26px
+    ),
+    linear-gradient(150deg, var(--wood-light), var(--wood) 40%, var(--wood-dark));
+  box-shadow:
+    inset 0 0 0 2px #120b04,
+    inset 0 0 0 5px #6b4a24,
+    inset 0 0 0 7px #1a0f05,
+    0 30px 80px rgba(0, 0, 0, 0.8);
+}
+
+/* inset felt play surface */
+.board::before {
+  content: '';
+  position: absolute;
+  inset: 30px;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse 75% 65% at 50% 42%, #232e45, var(--felt) 55%, var(--felt-deep)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px);
+  box-shadow:
+    inset 0 4px 26px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px rgba(201, 162, 75, 0.35),
+    inset 0 0 0 4px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 214, 140, 0.18);
+}
+
+/* vignette above everything decorative, below nothing interactive */
+.board::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 26px;
+  pointer-events: none;
+  background: radial-gradient(ellipse 72% 66% at 50% 46%, transparent 62%, rgba(0, 0, 0, 0.5));
+  z-index: 5;
+}
+
+.board > * {
+  z-index: 10;
+}
+
+/* --------------------------------------------------------------------------
+   Shared small bits
+   -------------------------------------------------------------------------- */
+
+.zone-caption {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Player zones
+   -------------------------------------------------------------------------- */
+
+.zone {
+  position: absolute;
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.18));
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 162, 75, 0.22),
+    inset 0 0 22px rgba(0, 0, 0, 0.55);
+  transition: box-shadow 0.35s ease, filter 0.35s ease;
+}
+
+.zone-idle {
+  filter: saturate(0.82) brightness(0.88);
+}
+
+.zone-active {
+  filter: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent, #c9a24b) 75%, #f0c75e),
+    inset 0 0 26px rgba(0, 0, 0, 0.5),
+    0 0 26px -4px var(--accent, #c9a24b),
+    0 0 8px rgba(240, 199, 94, 0.35);
+}
+
+.zone-top {
+  left: 372px;
+  width: 976px;
+  top: 14px;
+  height: 236px;
+}
+.zone-left {
+  left: 16px;
+  width: 348px;
+  top: 260px;
+  height: 476px;
+}
+.zone-right {
+  right: 16px;
+  width: 348px;
+  top: 260px;
+  height: 476px;
+}
+.zone-bottom {
+  left: 372px;
+  width: 976px;
+  bottom: 14px;
+  height: 282px;
+}
+
+/* name plaque */
+.zone-plaque {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 22px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #46351c, #241708);
+  box-shadow:
+    inset 0 0 0 1px var(--gold),
+    0 3px 8px rgba(0, 0, 0, 0.7);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  white-space: nowrap;
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
+  padding-left: 26px;
+  padding-right: 26px;
+}
+
+.zone-left .zone-plaque {
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+.zone-right .zone-plaque {
+  left: auto;
+  right: 0;
+  top: 50%;
+  transform: translate(50%, -50%) rotate(90deg);
+}
+.zone-bottom .zone-plaque {
+  top: auto;
+  bottom: -1px;
+  transform: translate(-50%, 50%);
+}
+
+.zone-plaque-turn {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--gold-bright);
+}
+
+/* zone interior flow */
+.zone-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  height: 100%;
+  padding-top: 12px;
+}
+
+.zone-left .zone-body,
+.zone-right .zone-body {
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.leader-slot {
+  flex: none;
+}
+
+.party-tray {
+  flex: 1;
+  min-width: 0;
+  border-radius: 10px;
+  padding: 6px 10px 8px;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition: box-shadow 0.25s ease;
+}
+
+.tray-target {
+  box-shadow:
+    inset 0 0 0 2px var(--good),
+    0 0 18px -4px var(--good);
+}
+
+.party-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  min-height: 90px;
+}
+
+.zone-left .party-row,
+.zone-right .party-row {
+  gap: 4px;
+}
+
+/* etched empty party slot */
+.party-empty-slot {
+  width: 88px;
+  height: 122px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(201, 162, 75, 0.28);
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(201, 162, 75, 0.05), transparent 70%);
+}
+
+.hero-slot {
+  position: relative;
+  flex: none;
+}
+
+.hero-equip-tuck {
+  position: absolute;
+  bottom: -16px;
+  right: -8px;
+  transform: rotate(7deg);
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.6));
+}
+
+.hero-used-chip {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-6deg);
+  padding: 1px 7px;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #d9d2c0;
+  background: rgba(20, 14, 8, 0.85);
+  border: 1px solid rgba(201, 162, 75, 0.5);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.slain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 9px;
+  font-size: 10px;
+  color: #e8c56a;
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(232, 197, 106, 0.4);
+}
+
+/* opponent hand stack */
+.hand-stack {
+  flex: none;
+}
+
+/* empty seat */
+.zone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  filter: none;
+  background: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 75, 0.1);
+}
+
+.zone-empty-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(141, 131, 117, 0.55);
+}
+
+.zone-empty-outline {
+  width: 90px;
+  height: 126px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(141, 131, 117, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Local hand fan
+   -------------------------------------------------------------------------- */
+
+.local-hand {
+  flex: none;
+  max-width: 330px;
+}
+
+.hand-count {
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 1px var(--gold);
+  color: var(--gold-bright);
+  font-size: 10px;
+}
+
+.local-hand-fan {
+  display: flex;
+  align-items: flex-end;
+  padding-top: 10px;
+}
+
+.hand-slot {
+  position: relative;
+  transform: rotate(var(--rot, 0deg));
+  transform-origin: 50% 120%;
+  transition: transform 0.18s ease;
+}
+
+.hand-slot + .hand-slot {
+  margin-left: -46px;
+}
+
+.hand-slot:hover,
+.hand-slot:focus-within {
+  transform: rotate(var(--rot, 0deg)) translateY(-14px);
+  z-index: 60 !important;
+}
+
+.hand-slot-selected {
+  transform: rotate(0deg) translateY(-18px);
+  z-index: 61 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Shared center: encounter row + deck row
+   -------------------------------------------------------------------------- */
+
+.encounter {
+  position: absolute;
+  top: 262px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.encounter-caption {
+  margin-bottom: 6px;
+}
+
+.encounter-row {
+  display: flex;
+  gap: 26px;
+}
+
+.monster-slot {
+  position: relative;
+}
+
+.monster-under-attack {
+  animation: monster-hit 0.9s ease;
+}
+
+@keyframes monster-hit {
+  0% { transform: none; filter: none; }
+  25% { transform: translateX(-4px) rotate(-1.5deg); filter: brightness(1.6) saturate(1.4); }
+  50% { transform: translateX(4px) rotate(1.5deg); filter: brightness(1.3); }
+  100% { transform: none; filter: none; }
+}
+
+.center-row {
+  position: absolute;
+  top: 548px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  gap: 30px;
+}
+
+/* slain trophies */
+.slain-tray {
+  min-width: 150px;
+}
+
+.slain-tray-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 90px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1.5px dashed rgba(201, 162, 75, 0.2);
+}
+
+.slain-tray-empty {
+  margin: auto;
+  opacity: 0.8;
+}
+
+/* --------------------------------------------------------------------------
+   Loading skeleton
+   -------------------------------------------------------------------------- */
+
+.board-skeleton .skel-zone,
+.board-skeleton .skel-card {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 60%);
+  background-size: 240% 100%;
+  animation: skel-sheen 1.6s infinite linear;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 75, 0.12);
+}
+
+@keyframes skel-sheen {
+  to { background-position: -140% 0; }
+}
+
+.skel-top { position: absolute; left: 372px; width: 976px; top: 14px; height: 236px; }
+.skel-left { position: absolute; left: 16px; width: 348px; top: 260px; height: 476px; }
+.skel-right { position: absolute; right: 16px; width: 348px; top: 260px; height: 476px; }
+.skel-bottom { position: absolute; left: 372px; width: 976px; bottom: 14px; height: 282px; }
+
+.skel-monsters,
+.skel-decks {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 26px;
+}
+.skel-monsters { top: 290px; }
+.skel-decks { top: 570px; }
+
+.skel-card {
+  display: block;
+  width: 150px;
+  height: 222px;
+}
+.skel-card-sm { width: 92px; height: 130px; }
+
+.board-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 30px;
+  border-radius: 10px;
+  background: rgba(10, 7, 3, 0.85);
+  box-shadow: inset 0 0 0 1px var(--gold);
+  font-family: var(--font-display);
+  letter-spacing: 0.14em;
+  color: var(--text-warm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--bad);
+  box-shadow: 0 0 8px var(--bad);
+  animation: status-pulse 1.4s infinite ease-in-out;
+}
+
+@keyframes status-pulse {
+  50% { opacity: 0.35; }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .board *,
+  .board *::before,
+  .board *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

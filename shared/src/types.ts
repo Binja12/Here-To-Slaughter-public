@@ -42,7 +42,9 @@ export type CardBase = {
   image: string;
   description: string;
   set: string;
-  ability: AbilityData;
+  ability?: AbilityData;
+  effect?: EffectData;
+  skill?: SkillData;
 };
 
 export type HeroCardData = CardBase & {
@@ -69,6 +71,7 @@ export type MonsterCardData = CardBase & {
   higherReq: number;
   rollCompareMode: RollCompareMode;
   partyReq: PartyReq;
+  fightBack?: AbilityData;
 };
 
 export type PartyLeaderData = CardBase & {

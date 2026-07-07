@@ -169,10 +169,10 @@ describe('ModifierWindow', () => {
     expect(gs.frames.has('f-success')).toBe(false)
   })
 
-  it('success: emits RollSuccess', () => {
+  it('success: does NOT emit RollSuccess (outcome task handles that)', () => {
     const win = makeWindow({ gs, em, baseRoll: 6, rollReq: 5 })
     win.resolve()
-    expect(events.some((e) => e.getType() === GameEventType.RollSuccess)).toBe(true)
+    expect(events.some((e) => e.getType() === GameEventType.RollSuccess)).toBe(false)
   })
 
   it('success: does NOT call markAbilityUsed (that happens before openFrame)', () => {
@@ -202,12 +202,6 @@ describe('ModifierWindow', () => {
     expect(gs.frames.has('f-fail')).toBe(false)
   })
 
-  it('fail: does NOT emit RollSuccess', () => {
-    const win = makeWindow({ gs, em, baseRoll: 3, rollReq: 5 })
-    win.resolve()
-    expect(events.some((e) => e.getType() === GameEventType.RollSuccess)).toBe(false)
-  })
-
   // ---------------------------------------------------------------------------
   // Timeout + double-resolve
   // ---------------------------------------------------------------------------
@@ -226,6 +220,12 @@ describe('ModifierWindow', () => {
     const count = (type: GameEventType) => events.filter((e) => e.getType() === type).length
     expect(count(GameEventType.ModifierWindowClosed)).toBe(1)
     expect(count(GameEventType.FrameResolved)).toBe(1)
-    expect(count(GameEventType.RollSuccess)).toBe(1)
+  })
+
+  it('no rollReq: always releases frame regardless of finalRoll', () => {
+    const win = makeWindow({ gs, em, baseRoll: 1, rollReq: undefined, frameId: 'f-norollreq' })
+    win.resolve()
+    expect(gs.frames.has('f-norollreq')).toBe(false)
+    expect(gs.getAbilitiesUsedThisTurn()).toHaveLength(0) // not restored
   })
 })

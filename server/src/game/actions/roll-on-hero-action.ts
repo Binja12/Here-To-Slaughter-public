@@ -5,6 +5,8 @@ import { ReactionManager } from '../reactions/reaction-manager'
 import { HeroCard } from '../cards/hero-card'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
+import { AbilityContext, CTX_LAST_AFFECTED_CARD_ID } from '../ability-context'
+import { HeroRollOutcomeTask } from '../tasks/tasks'
 
 export class RollOnHeroAction implements IAction {
   constructor(
@@ -37,7 +39,7 @@ export class RollOnHeroAction implements IAction {
 
     const card = gs.getCard(this.cardId) as HeroCard
     const rollReq = card.getRollReq()
-    const baseRoll = Math.ceil(Math.random() * 11) + 1
+    const baseRoll = Math.floor(Math.random() * 11) + 1
 
     this.emmiter.emit(GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll))
 
@@ -45,9 +47,21 @@ export class RollOnHeroAction implements IAction {
     // the hero's ability slot is consumed whether the roll succeeds or fails.
     gs.markAbilityUsed(this.cardId)
 
-    // Open frame + modifier window. ModifierWindow owns settlement:
-    // rollback on finalRoll < rollReq, RollSuccess + FrameResolved on success.
+    // Open frame + modifier window. ModifierWindow settles the frame:
+    // restores on finalRoll < rollReq, releases on success. HeroRollOutcomeTask
+    // emits RollSuccess (only reached when frame was released — success path).
     const frameId = this.reactionManager.openFrame()
+
+    // Register outcome pipeline before opening the window (which starts the timer).
+    // On restoreFrame the pipeline entry is wiped from the snapshot, so the task
+    // only runs on the success path.
+    const pipelineCtx = new AbilityContext(this.cardId, this.playerId)
+    pipelineCtx.set(CTX_LAST_AFFECTED_CARD_ID, this.cardId)
+    gs.abilityPipelines.set(frameId, {
+      steps: [new HeroRollOutcomeTask()],
+      ctx: pipelineCtx,
+    })
+
     this.reactionManager.openWindow(frameId, ReactionWindowType.Modifier, this.playerId, {
       rollerId: this.playerId,
       baseRoll,
@@ -55,10 +69,7 @@ export class RollOnHeroAction implements IAction {
       heroId: this.cardId,
     })
 
-    // RollSuccess is emitted by GameEngine on FrameResolved when finalRoll >= rollReq.
-    // The frameId is consumed by AbilityProcessor (via takeLastFrameId) only if this
-    // were inside a task pipeline; for actions, GameEngine handles FrameResolved.
-    // We clear lastFrameId here so AbilityProcessor doesn't try to suspend a pipeline.
+    // Clear lastFrameId so AbilityProcessor doesn't try to suspend an enclosing pipeline.
     this.reactionManager.takeLastFrameId()
   }
 }
