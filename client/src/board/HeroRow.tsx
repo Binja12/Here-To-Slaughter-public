@@ -1,6 +1,7 @@
-import React from 'react';
-import FramedCard from './FramedCard';
-import { boardHeroCardUrl, BOARD_CARD_ASPECT } from './assets';
+import React from "react";
+import FramedCard from "./FramedCard";
+import { boardHeroCardUrl, boardItemUrl, BOARD_CARD_ASPECT } from "./assets";
+import { useHoverZoom } from "./useHoverZoom";
 
 /**
  * Hero widget: the played hero/item cards of one seat, laid over the
@@ -14,27 +15,33 @@ import { boardHeroCardUrl, BOARD_CARD_ASPECT } from './assets';
  * grid `repeat(n-1, 1fr) max-content` — each card at an equal share of the
  * width, last card fully visible, zIndex = index (right covers left).
  *
- * Hover ZOOM: like the hand fan, the hovered card scales up a lot. The scale
- * origin is edge-aware per seat so the enlarged card never leaves the screen:
- * bottom grows up, top grows down, sides grow up-and-inward.
+ * Hover ZOOM: the hovered card scales up (managed by useHoverZoom, which keeps
+ * it open within 90% of the scaled box and cancels on right-click). bottom/top
+ * grow from their edge's centre (never leaves the top/bottom edge). left/right
+ * grow mostly inward but only HALFWAY toward centre (25%/75%, not a full
+ * 0%/100% edge-pin) — a full edge-pin made the zoom feel like it was
+ * ballooning entirely toward the board centre.
  */
 
 export interface HeroInPlay {
   slug: string;
   /** shared HeroClass enum value, e.g. "Ranger" — picks the class frame. */
   heroClass: string;
+  /** display name of an item card attached to this hero (e.g. "Thief Mask"),
+   *  tucked behind the hero and revealed to the side on hover. */
+  item?: string;
 }
 
-export type Seat = 'bottom' | 'top' | 'left' | 'right';
+export type Seat = "bottom" | "top" | "left" | "right";
 
 const SEAT_CONFIG: Record<
   Seat,
-  { variant: 'main' | 'side'; origin: string; fanFrom: number }
+  { variant: "main" | "side"; origin: string; fanFrom: number }
 > = {
-  bottom: { variant: 'main', origin: 'origin-bottom', fanFrom: 5 },
-  top: { variant: 'main', origin: 'origin-top', fanFrom: 5 },
-  left: { variant: 'side', origin: 'origin-bottom-left', fanFrom: 4 },
-  right: { variant: 'side', origin: 'origin-bottom-right', fanFrom: 4 },
+  bottom: { variant: "main", origin: "50% 100%", fanFrom: 5 },
+  top: { variant: "main", origin: "50% 0%", fanFrom: 5 },
+  left: { variant: "side", origin: "25% 50%", fanFrom: 4 },
+  right: { variant: "side", origin: "75% 50%", fanFrom: 4 },
 };
 
 /** How big the hovered card grows. Sides are smaller at rest (narrow
@@ -47,62 +54,113 @@ export function HeroCardWidget({
   overlapped = false,
   origin,
   zoom,
-  className = '',
+  className = "",
+  chainGroup,
+  item,
+  itemSide = "right",
 }: {
   slug: string;
   heroClass?: string;
   /** true when this card partially covers the one to its left */
   overlapped?: boolean;
-  /** tailwind transform-origin class for the hover zoom */
+  /** CSS transform-origin ("x% y%") for the hover zoom — points toward centre */
   origin: string;
   zoom: number;
   className?: string;
+  /** shared id (e.g. per-seat hero row) enabling zero-delay chaining between
+   *  cards in the same group; omit to keep this card's delay unconditional. */
+  chainGroup?: string;
+  /** display name of an attached item card, tucked behind the hero. */
+  item?: string;
+  /** which side the item slides out to on hover — counter to the hero's own
+   *  x on the board, so it reveals toward open space, never off the edge. */
+  itemSide?: "left" | "right";
 }) {
   // Overlapped cards throw their shadow LEFT, onto the card they cover.
   const shadow = overlapped
-    ? 'shadow-[-0.45cqw_0.25cqw_0.9cqw_rgba(0,0,0,0.65)]'
-    : 'shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]';
+    ? "shadow-[-0.45cqw_0.25cqw_0.9cqw_rgba(0,0,0,0.65)]"
+    : "shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]";
 
   const boardUrl = boardHeroCardUrl(slug);
+  const hz = useHoverZoom<HTMLDivElement>(chainGroup);
+  const itemUrl = item ? boardItemUrl(item) : null;
 
-  // One wrapper owns sizing + the edge-aware hover zoom; either the board
-  // scan (frame baked in) or the FramedCard fallback fills it. Zoom is an
-  // inline transform so the scale value can vary per seat without needing
-  // build-time Tailwind arbitrary values.
+  // Revealed item is 80% of the hero's zoomed size, sitting flush BESIDE the
+  // zoomed hero: both grow from the same `origin`, so with x-origin at 50% the
+  // gap between their centres to make their inner edges touch is
+  // (heroScale + itemScale) / 2 card-widths (minus a hair for a slight, glued
+  // overlap). translateX %s are relative to the item's own (unscaled) width.
+  const itemScale = zoom * 0.8;
+  const itemShiftPct = ((zoom + itemScale) / 2 - 0.12) * 100;
+
+  // The zooming hero lives in its OWN inner layer (hz.ref) so it can scale
+  // freely; the attached item is a SIBLING that must not inherit that scale,
+  // so both sit inside a plain sizing box. At rest the item is tucked behind
+  // the hero (painted first, DOM order) and dropped 10% so a tenth of it peeks
+  // out below. On hover it lifts above the hero (z) and slides out to
+  // `itemSide`, enlarged to 80% of the zoomed hero at the hero's own y.
   return (
     <div
-      className={`relative h-[92%] ${origin} ${shadow} rounded-[0.5cqw] transition-transform duration-150 ${className}`}
+      className={`relative h-[92%] ${className}`}
       style={{ aspectRatio: String(BOARD_CARD_ASPECT) }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = `scale(${zoom})`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = '';
-      }}
     >
-      {boardUrl ? (
-        // absolute so the intrinsic image width doesn't inflate the grid's
-        // max-content column (that made the last fan card render huge)
-        <img
-          src={boardUrl}
-          alt={slug}
-          draggable={false}
-          className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill"
-        />
-      ) : (
-        <FramedCard
-          slug={slug}
-          heroClass={heroClass}
-          className="absolute inset-0 h-full w-full"
-        />
+      {itemUrl && (
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[0.5cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out"
+          style={{
+            zIndex: hz.active ? 40 : undefined,
+            transformOrigin: origin,
+            transform: hz.active
+              ? `translateX(${
+                  itemSide === "left" ? "-" : ""
+                }${itemShiftPct}%) scale(${itemScale})`
+              : "translateY(10%)",
+          }}
+        >
+          <img
+            src={itemUrl}
+            alt={item}
+            draggable={false}
+            className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill"
+          />
+        </div>
       )}
+
+      <div
+        ref={hz.ref}
+        className={`absolute inset-0 ${shadow} rounded-[0.5cqw] transition-transform duration-150`}
+        style={{
+          transformOrigin: origin,
+          transform: hz.active ? `scale(${zoom})` : undefined,
+        }}
+        onMouseEnter={hz.onMouseEnter}
+        onMouseLeave={hz.onMouseLeave}
+        onContextMenu={hz.onContextMenu}
+      >
+        {boardUrl ? (
+          // absolute so the intrinsic image width doesn't inflate the grid's
+          // max-content column (that made the last fan card render huge)
+          <img
+            src={boardUrl}
+            alt={slug}
+            draggable={false}
+            className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill"
+          />
+        ) : (
+          <FramedCard
+            slug={slug}
+            heroClass={heroClass}
+            className="absolute inset-0 h-full w-full"
+          />
+        )}
+      </div>
     </div>
   );
 }
 
 export default function HeroRow({
   heroes,
-  seat = 'bottom',
+  seat = "bottom",
 }: {
   heroes: HeroInPlay[];
   seat?: Seat;
@@ -119,7 +177,7 @@ export default function HeroRow({
           <div
             key={`${hero.slug}-${i}`}
             className={`relative flex h-full shrink-0 items-center justify-center hover:z-[60] ${
-              i > 0 ? 'ml-[0.4cqw]' : ''
+              i > 0 ? "ml-[0.4cqw]" : ""
             }`}
           >
             <HeroCardWidget
@@ -127,6 +185,9 @@ export default function HeroRow({
               heroClass={hero.heroClass}
               origin={origin}
               zoom={zoom}
+              chainGroup={`hero-row-${seat}`}
+              item={hero.item}
+              itemSide={i <= (n - 1) / 2 ? "right" : "left"}
             />
           </div>
         ))}
@@ -151,7 +212,7 @@ export default function HeroRow({
           // inline base z, which is why hovered cards were still obstructed).
           style={{ zIndex: i }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.zIndex = '999';
+            e.currentTarget.style.zIndex = "999";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.zIndex = String(i);
@@ -163,6 +224,9 @@ export default function HeroRow({
             overlapped={i > 0}
             origin={origin}
             zoom={zoom}
+            chainGroup={`hero-row-${seat}`}
+            item={hero.item}
+            itemSide={i <= (n - 1) / 2 ? "right" : "left"}
           />
         </div>
       ))}

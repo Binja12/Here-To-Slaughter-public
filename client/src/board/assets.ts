@@ -126,6 +126,51 @@ export const boardMonsterUrl = (name: string) =>
     ? '/board/Monsters/Warworn Owlbear.png'
     : `/board/Monsters/Monster ${name}.png`;
 
+/* ------------------------------------------------------------------ */
+/* Non-hero board cards: items, magics, modifiers, challenge. These have  */
+/* only a BOARD-design scan (no separate hand scan), all 1086×1448 (0.75  */
+/* aspect, same as the board heroes). Each folder's files are exactly     */
+/* "<Kind> <Display Name>.png", so we build the url straight from a        */
+/* display name. The arrays double as demo decks / draw pools.             */
+/* ------------------------------------------------------------------ */
+
+export const NONHERO_CARD_ASPECT = 1086 / 1448; // 0.75
+
+export const ITEMS = [
+  'Bad Mask',
+  "Curse Of The Snake's Eyes",
+  'Decoy Doll',
+  'Fighter Mask',
+  'Guardian Mask',
+  'Particularly Rusty Coin',
+  'Ranger Mask',
+  'Really Big Ring',
+  'Sealing Key',
+  'Suspiciously Shiny Coin',
+  'Thief Mask',
+  'Wizard Mask',
+] as const;
+export type ItemName = (typeof ITEMS)[number];
+export const boardItemUrl = (name: string) => `/board/Items/Item ${name}.png`;
+
+export const MAGICS = [
+  'Critical Boost',
+  'Destructive Spell',
+  'Enchanted Spell',
+  'Entangling Trap',
+  'Forced Exchange',
+  'Forceful Winds',
+  'Winds Of Change',
+] as const;
+export const boardMagicUrl = (name: string) => `/board/Magics/Magic ${name}.png`;
+
+export const MODIFIERS = ['+1-3', '+2-2', '+3-1', '+4', '-4'] as const;
+export const boardModifierUrl = (name: string) =>
+  `/board/Modifiers/Modifier ${name}.png`;
+
+export const boardChallengeUrl = (name = 'Basic') =>
+  `/board/challenge/Challenge ${name}.png`;
+
 export const LEADER_CARD_ASPECT = 1024 / 1536;
 
 /** name like "The Divine Arrow" → /board/Leaders/Leader The Divine Arrow.png */
