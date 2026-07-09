@@ -4,96 +4,117 @@ Goal: Hearthstone-style UI for the card game, single-player board first, to be
 interview-portfolio quality. **Do not modify the game engine**
 (`server/src/game/**`) — build UI + thin API glue around it.
 
-## Current status (session 3 — board rebuild restarted FROM SCRATCH)
+**Never change a widget/object's POSITION or SIZE (dx/dy/h in layout.ts, or any
+`CENTER_*`/`DECK_SLOTS`/`CENTER_SLOTS` geometry) unless the user specifically
+asks for that.** The user tunes these by hand; touching them as a side effect
+of an unrelated request (e.g. a hover/zoom fix) is a repeated mistake — confirm
+first if a fix seems to require moving something.
 
-The previous board implementations (`client/src/game/GameView.*` — deleted;
-`client/src/tabletop/**` — still on disk but **no longer imported**) grew too
-large to iterate on reliably. The board is now being rebuilt **modularly** from
-the user's reference image (a 4-player physical table layout), skeleton-first
-to keep each step small and layout-accurate.
+## Current status — board layout & scale (session 6: 16:9 stage + centre widgets)
 
-### Design pivot (session 4): modular frame widgets over a plain table
-
-The baked-in painted background was replaced by a PLAIN felt
-`Table Background.png` + separate frame WIDGETS in
+The board is a PLAIN felt `Table Background.png` + separate frame WIDGETS in
 `client/public/board/Border Widgets/` (Heroes Frame 3:1, Leader Card Frame,
-Small Card Back Frame, Big Card Frame, Center Border Frame square). Layout in
-`client/src/board/layout.ts`, rendered by `Board.tsx` (table → frames → cards
-in each frame's inner window).
+Small Card Back Frame, Big Card Frame, Center Border Frame square). Layout
+lives in `client/src/board/layout.ts`, rendered by `Board.tsx` (frame → card
+in each frame's inner window). The previous board attempts
+(`client/src/game/GameView.*` — deleted; `client/src/tabletop/**` — on disk,
+**not imported**) are dead; do not import from them.
 
-**RESPONSIVE MODEL (important, per user):** widgets do NOT rescale when the
-window changes WIDTH — they keep their size and only REPOSITION. Achieved by
-sizing every widget in `cqh` (1% of the game container HEIGHT, via
-`container-type: size` on the full-viewport root) so size depends on height
-only, and ANCHORING each player to their screen edge (bottom/top/left/right)
-with fixed cqh offsets. So a player's three widgets keep constant distances
-from each other while the gaps BETWEEN players flex with the window. Verified:
-card back is 139x194px at both 1280- and 1680-wide (same height) — no rescale,
-just reposition. (Height IS the scale axis — a taller window = bigger board.)
+### Four-layer architecture (Board.tsx)
 
-Per the mockup: bottom (P1) frames are BIG (`BIG` sizes), the other three
-share `SML`; top⇄bottom & left⇄right mirror; leader > cardback; centre square
-(`CENTER_H`) exactly centred. `PLAYERS` in layout.ts holds each widget's
-`{kind, h(cqh), dx, dy}`; `dx/dy` are the widget-centre offset in cqh
-(bottom/top: dx from H-centre, dy from that edge; left/right: dx from that
-edge, dy from V-centre). `positionStyle()` turns anchor+dx+dy into CSS
-left/top (note: 'right' anchor uses `left:calc(100%-dx)` NOT `right:` so the
-shared `-translate-x-1/2` still centres correctly — that was a bug). `INSET`
-= each frame's inner card-window fraction. Tune density by editing sizes /
-dx,dy / CENTER_H. Verified dense, no visual overlaps at 16:9 (transparent
-frame corners absorb the few tight bounding-box touches).
+The board renders as four explicit layers, bottom → top:
 
-### Density pass (session 5): bigger widgets, zero-overlap at 1920x1080, cardback fit fix
+1. **Background** — a full-viewport `<div>` with `TABLE_BG`,
+   `background-size: cover`, `pointer-events-none`. Decorative only, owns no
+   layout. On ultrawide/tall viewports the extra area is just more felt
+   (letterboxing), never extra spacing between board objects.
+2. **Board stage** — a centred, locked **16:9 box** that IS the 1920×1080
+   reference coordinate space. Sized `width: min(100vw, 100vh·16/9)` /
+   `height: min(100vh, 100vw·9/16)` and translated to viewport centre, so it
+   scales UNIFORMLY to fit any viewport. It declares `[container-type:size]`,
+   so every `cqh`/`cqw` length inside resolves against the STAGE (not the
+   viewport). Because the stage is always 16:9, `1cqh = 0.5625cqw` always, so
+   widget sizes AND the gaps between players scale together — the composition
+   is pixel-for-pixel identical (as a fraction of the stage) at every
+   resolution. Verified at 1920×1080, 2560×1440, 3440×1440 (21:9, 440px
+   letterbox each side), 1366×900 (66px letterbox top/bottom) — no scroll, no
+   clipping. `overflow` is `visible` on the stage and every widget, so
+   hover-zoomed cards are only ever bounded by the viewport edge, never by an
+   intermediate parent.
+3. **Centre wooden board** — the `center` frame, offset from stage centre by
+   `CENTER_DX`/`CENTER_DY` (cqh) and sized by `CENTER_H` (cqh). Its children
+   are the centre widgets (below).
+4. **Player widgets** — hero rows, leader slots, hand-count slots + the hand,
+   positioned in stage-relative cqh via `PLAYERS` in layout.ts.
 
-User complaint: too much dead space vs. their reference mock, and the
-`cardback` (hand-count) frame's card art was oversized for its window,
-bleeding past the gold trim. Fixes, in `layout.ts` / `Board.tsx`:
+### Positioning model (layout.ts)
 
-- **`INSET` fractions were wrong, not eyeballed close enough.** Measured the
-  real dark card-window of each frame PNG by scanning pixel alpha/color in
-  the browser (`isWindow = a>200 && r<85 && |r-b|<25`, widest run near the
-  mid row/column) instead of guessing — `cardback`'s old inset (`0.86/0.9`)
-  was BIGGER than the frame's actual window (`0.777/0.834` measured), so the
-  card overflowed onto the border. Corrected all three in-use kinds:
-  `heroes {0.94,0.72}`, `leader {0.8,0.86}`, `cardback {0.76,0.82}` (`big` is
-  unused dead code, left alone).
-- **`HandCount`'s card div was sized by `h-full`**, but the cardback window's
-  real aspect (~0.666) is narrower than the card art's own aspect (0.714) —
-  sizing by height forced the width past the window edge. Changed to
-  `w-full` (width fills the window exactly; height auto-shrinks under the
-  aspect-ratio, small letterbox top/bottom) — general rule: when a frame's
-  window aspect could differ from its card's aspect, size by whichever axis
-  is smaller. Verified via `getBoundingClientRect`: card box now `<=` window
-  box on both axes, no overflow.
-- **Bigger + denser**: `CENTER_H` 49→42 (traded a bit of centre-square size
-  for headroom — it was the binding constraint stopping `BIG.heroes` from
-  growing) and `BIG {leader:34→38, heroes:24→26, cardback:30→33}`,
-  `SML {leader:26→27, heroes:18→20, cardback:23→24}`. Every `PLAYERS` dx/dy
-  was recomputed by hand for touching (~1cqh gap) intra-player spacing.
-- **No-overlap check is real, not eyeballed**: corner crowding between P2
-  (top) and P3/P4 (left/right) — P2's leader sitting just left of P2's
-  heroes bar collided with P3/P4's leader+cardback stack reaching for the
-  top-left/right corners — isn't obvious from a screenshot at this card
-  count; verified via a `getBoundingClientRect`-based pairwise overlap
-  scan run through `preview_eval` (all 13 widgets × all 13, reporting any
-  positive-area intersection) and a standalone Node reimplementation of the
-  same anchor math for fast iteration before touching the browser. Both now
-  report zero overlaps and zero edge-clipping at 16:9. Confirmed the
-  no-rescale contract still holds: card-back widget is pixel-identical
-  (170x238 at height 720) at both 1280- and 1600-wide viewports.
-- **Tooling gotcha**: `preview_screenshot` in this environment is unreliable
-  above ~1366px wide or after `document.documentElement.style.zoom` /
-  `transform` hacks — it can return a stale or cropped frame that doesn't
-  match the live DOM (confirmed by cross-checking against
-  `getBoundingClientRect` data, which was always correct). Do layout
-  verification via `preview_eval` bounding-box math; only use
-  `preview_screenshot` for a final sanity look at <=1280x720.
+Every geometry length is `cqh`/`cqw` relative to the 16:9 stage. Each widget
+is a `WidgetDef {kind, h(cqh), dx, dy}` sized in `cqh` and placed by
+`positionStyle(anchor, dx, dy)`:
 
-**Pending in this layout**: HUD (action points / win conditions / turn
-banner) has no home yet — `ActionPointsBar.tsx` + `WinConditionsPanel.tsx`
-still exist but are NOT rendered; needs its own widget/spot. Decks (main/
-discard/monster) live in the centre square's lower band. Table BG uses
-`background-size: cover` (crops slightly on non-16:9 windows).
+- **bottom/top** (P1/P2): `dx` from horizontal centre (+right); `dy` from that
+  edge. **left/right** (P3/P4): `dx` from that edge; `dy` from vertical centre
+  (+down). **center** (centre widgets): `dx`/`dy` from the parent's centre
+  (+right/+down). ('right' uses `left:calc(100%-dx)` NOT `right:` so the shared
+  `-translate-x-1/2` still centres — that was a bug once.)
+- `widthCqh(def) = def.h * ASPECT[def.kind]` — width is derived from height ×
+  the frame's native aspect (keeps frame art undistorted). To decouple you'd
+  add a `w?` to `WidgetDef`.
+
+**Current scale constants (layout.ts):**
+
+- `CENTER_H = 64`, `CENTER_DX = 0`, `CENTER_DY = -4` (centre board size +
+  offset).
+- `BIG = {leader:45, heroes:35, cardback:36}` — P1 (bottom, big).
+- `SML = {leader:33, heroes:24, cardback:20}` — P2/P3/P4 (share a size).
+- `PLAYERS` holds each seat's three widget dx/dy; top⇄bottom & left⇄right
+  mirror. Tune density by editing `BIG`/`SML`/`CENTER_H`/dx,dy.
+- `INSET` = each frame's inner card-window fraction (measured from the PNGs so
+  the card doesn't bleed over the gold trim): `heroes {0.94,0.72}`,
+  `leader {0.8,0.8}`, `cardback {0.76,0.82}`, `big {0.84,0.86}`,
+  `center {0.82,0.82}`. Values differ because each frame's border thickness
+  differs — they are NOT a cap; you can raise a value toward 1.0 and the card
+  starts drawing over the border.
+
+### Centre widgets (CENTER_SLOTS in layout.ts)
+
+The centre-board contents are now **frame widgets too**, children of the centre
+box, so moving/scaling the centre (`CENTER_DX/DY/CENTER_H`) carries them along.
+Each is a `center`-anchored `<Widget>` and therefore has the SAME knobs as the
+player widgets (position `dx/dy`, scale `h`, inner window `INSET[kind]`, content
+stretch). `CENTER_SLOTS` defines:
+
+- `monsters` — three `big`-frame slots (the flipped monsters), a row across the
+  top band.
+- `mainDeck` + `discard` — two `cardback` (small) frame slots in the lower band.
+- `monsterDeck` — one `big`-frame slot in the lower band.
+
+Placement is intentionally ROUGH (user tunes dx/dy/h exactly). `dx/dy` are the
+widget-centre offset in cqh from the centre board's centre (+right/+down).
+
+### Content sizing inside a frame (two levels)
+
+1. **Window** — `INSET[kind]` (w×h fraction of the frame that is the card
+   window). Bigger = card sits bigger inside the gold trim, affects every card
+   of that kind.
+2. **Fill within the window** — per component:
+   - `SlotCard` (leaders, monsters, discard): `fit`% (default 80) with
+     `object-contain`, OR pass `stretch` to fill both axes with `object-fill`
+     (distorts aspect but lets INSET w/h stretch independently — used by the
+     leader).
+   - `HeroRow`/`HeroCardWidget`: `h-[92%]` scales every hero card in the strip.
+   - `HandCount`: card-back box is `h-full w-full object-fill`, so both
+     `INSET.cardback.w` and `.h` drive it independently.
+
+**Tooling gotcha**: `preview_screenshot` in this environment is flaky above
+~1280px wide (times out or returns a stale/cropped frame). Verify layout via
+`preview_eval` `getBoundingClientRect` math against the stage/centre box; use
+screenshots only as a final sanity look at ≤1280×720.
+
+**Pending in this layout**: HUD (action points / win conditions / turn banner)
+has no home yet — `ActionPointsBar.tsx` + `WinConditionsPanel.tsx` exist but
+are NOT rendered; needs its own widget/spot.
 
 ### Earlier (session 3): painted background + zone overlay
 
@@ -154,12 +175,11 @@ applied on TurnBanner, win-condition labels/progress, and zone dev labels.
 - `WinConditionsPanel.tsx` — overlays the ledger rows: diamond socket glows
   when done, label between sockets, progress count centered on the right
   circle socket. Takes `WinCondition[]` (max 7).
-- `HandCount` (in Board.tsx) — the card-back art
-  (`client/public/board/card-back.png`, cream "HERE TO SLAY" back supplied by
-  the user) sits INSIDE the painted hand frame (h-76% so the gold border
-  stays visible); the count alone (no caption) sits in the empty cream band
-  above the centered logo (top ~26%, never obstructing it) in the back's own
-  warm gray `#6D6765` and the "Alfa Slab One" webfont (Google Fonts link in
+- `HandCount` (in Board.tsx) — the `SMALL_BACK` card-back art fills the
+  cardback frame's inner window on BOTH axes (`h-full w-full object-fill`), so
+  both `INSET.cardback.w` and `.h` scale it independently; the count alone (no
+  caption) sits above the centered logo (top ~30%) in the back's own warm gray
+  `#5a4a33` and the "Alfa Slab One" webfont (Google Fonts link in
   `client/public/index.html` — matches the logo's slab lettering).
 - `TurnBanner` (in Board.tsx) — scroll text.
 - `GameCard.tsx` (kept from earlier) — Tailwind-drawn card blueprint with
@@ -220,13 +240,14 @@ applied on TurnBanner, win-condition labels/progress, and zone dev labels.
   keeps the enlarged card on-screen at every edge. HeroRow takes `seat`
   ('bottom'|'top'|'left'|'right'). Verified: 10 heroes fit both side strips.
 - `SlotCard` + `DeckPile` (in Board.tsx) — `SlotCard` centers one card scan
-  in its slot (`object-contain`, `fit` %, optional `rotate`, optional
-  edge-aware `zoom`+`origin`): party leaders (BOARD design, zoom 2.4,
-  seat origin), the 3 arena monsters (BOARD design, zoom 3.8,
-  `origin-center` — monsters are tall + near the top, center keeps title
-  AND rules on screen), and the discard pile (HAND design
-  `/cards/magic.png`, rotated 7°, no zoom). `DeckPile` stacks 3 offset backs
-  and takes a `back` prop (main deck→SMALL_BACK, monster deck→BIG_BACK).
+  in its slot (`fit` % + `object-contain` by default, OR `stretch` to fill both
+  axes with `object-fill`, optional edge-aware `zoom`+`origin`): party leaders
+  (BOARD design, `stretch`, zoom 2.3, seat origin), the 3 arena monsters (BOARD
+  design, zoom 3.2, `origin-center`), and the discard pile (HAND design
+  `/cards/magic.png`, `fit=90`, no zoom). `DeckPile` stacks 3 offset backs and
+  takes a `back` prop (main deck→SMALL_BACK, monster deck→BIG_BACK). The centre
+  monsters/decks are each wrapped in a `center`-anchored `<Widget>` (frame +
+  inner window) placed by `CENTER_SLOTS` — see the centre-widgets section above.
 - **Top-layer on zoom**: every in-play `<Zone>` (heroes, leaders, monsters)
   AND the p1Hand zone carry `has-[:hover]:z-[100]` (Tailwind 3.4 `has`
   variant) so the zone CONTAINING a hovered card jumps above ALL sibling
@@ -245,8 +266,103 @@ applied on TurnBanner, win-condition labels/progress, and zone dev labels.
   (18%..80%, truncates), and the progress count centred in the right circle
   socket at x=90% (`CIRCLE_X`).
 
-**Still placeholder**: dice slot (faint label). DEMO data drives
-everything — next: wire `useGameState`.
+### Targeting mode (targeting.tsx) — click-to-target for interactive actions
+
+Generic system for any action that needs a target pick (steal, challenge,
+attack, item attach…). `client/src/board/targeting.tsx`:
+
+- **TargetKey**: every board element has a stable string identity via the
+  `tkey` builders (`leader:p1`, `hero:p2:3`, `handStack:p3`, `handCard:2`,
+  `monster:1`, `mainDeck`, `monsterDeck`, `discard`). The server should
+  eventually speak this same vocabulary when it lists valid targets.
+- **TargetingProvider** (wraps the board in Board.tsx) holds the active
+  `TargetingRequest {source, targets, onPick, onCancel}`. `begin(request)`
+  enters targeting mode; clicking a target calls `onPick(target, source)`;
+  Escape, click-away (board-root onClick), or clicking the source cancels.
+- **useTargetable(key, onActivate?)** — called by every card-ish component
+  (SlotCard, HeroCardWidget, HandCount, DeckPile, DiscardPile, PlayerHand's
+  FanCard). Returns `{mode, className, onClick, targeting}`; spread
+  `className` + `onClick` on the element that should dim/glow. `onActivate`
+  is the element's own normal-mode click (e.g. leader starting its steal) —
+  never fires while a request is active. Dimmed elements don't swallow
+  clicks, so they bubble to the root → cancel. Dimmed cards also suppress
+  their hover zoom.
+- **Visuals are pure CSS** (index.css): root carries `.targeting`; every
+  visual element has `.dimmable` (decorative art — frames, felt, HUD — has
+  it hardcoded); source/targets get `.dim-exempt` (+ `.target-aura` on
+  targets, same green glow as card-aura). Rules: (1) all `card-aura`s go
+  out except target auras, (2) `.dimmable:not(.dim-exempt)` gets
+  `brightness(.35) saturate(.6) blur(.12cqw)`. RULE ORDER MATTERS — the
+  aura-kill rule must precede the dim rule (equal specificity; a dimmed
+  playable card must end up dimmed, not bright-aura-less). Whole-pile
+  components (DeckPile/DiscardPile/HandCount, HeroCardWidget) put the
+  classes on their CONTAINER so the unit dims/glows as one; then children
+  must NOT also carry `dimmable` (double-dim). The hand-focus rule is
+  scoped to `.board-root:not(.targeting)` so it can't fight target auras.
+- **Glowing = pressable**: EVERY playable (green-aura) card is a pressable
+  source — leaders (SlotCard `onActivate`), heroes (HeroRow
+  `onActivateFor(i)`), hand cards (PlayerHand `onActivateCard(i)`), arena
+  monsters and the main deck (CenterArena `onActivate`). Each is gated by
+  its own `playable` flag, so ONLY glowing cards react (and only they get
+  `cursor-pointer`, straight out of useTargetable — non-glowing cards stay
+  `cursor:auto` and inert). All call Board's `activate(key)`.
+- **activate(key)**: looks up `DEMO_ACTIONS[key]`. If the action has targets
+  → `begin()` targeting mode to pick one. Otherwise (no entry, or an entry
+  with an empty target list) it's a DIRECT play and resolves immediately
+  (currently a console.log; later the `game:action` send). So a glowing card
+  with no targeting action still does something when pressed.
+- **Hand involvement**: when the active request's source OR targets include
+  `handCard:` keys, PlayerHand FORCES the fan open (bypasses group-hover)
+  so the cards are visible/pickable; it snaps back to hover-driven when the
+  request ends. Dimmed fan cards lose their hover-grow.
+- **Adding an action** = one `begin()` call with the source key, target
+  keys, and an onPick — no component changes needed. Demos in
+  `DEMO_ACTIONS` (Board.tsx), onPick console.logs until the server drives
+  it (that's also where `game:action` will be sent):
+  leader:p1 (Shadow Claw) → steal → 3 opponent handStacks;
+  hero:p1:0 (Fuzzy Cheeks) → play-a-hero → only the HERO cards in hand
+  (fan force-opens); handCard:2 (Critical Boost) → boost → own 10 heroes
+  (hand card as source, fan stays open while aiming at the board).
+
+### Dice roll (DiceRoll.tsx) — 2×3D tumbling d6, per-seat throws
+
+`client/src/board/DiceRoll.tsx` shows a roll as TWO CSS-cube dice thrown
+FROM the roller's seat onto that seat's patch of open felt beside the centre
+board. Flow: hero pressed → server replies with the result → Board sets
+`diceRoll {seat, values:[a,b], nonce}` → `<DiceRoll roll={...}>` plays it.
+DEMO wiring (until useGameState): pressing ANY hero on p1's board throws
+p1's dice via `activate()` (350ms fake latency; targeting demos like
+hero:p1:0 still win); pressing an opponent's hero throws THAT seat's dice
+directly — so all four directions are previewable. HeroRow's `onActivateFor`
+is therefore no longer gated by `playable` (every hero is pressable).
+
+- **Placement**: `DICE_SPOTS` in layout.ts, per seat `{dx, dy, fromDx,
+  fromDy, pairDx, pairDy}` + shared `DICE_SIZE` (7.95cqh — the original 11
+  shrunk 15% twice, both per user request). dx/dy = landing-spot centre from the STAGE centre;
+  fromDx/fromDy = throw START relative to the spot (points back toward the
+  thrower); pairDx/pairDy = half the dice separation (die A at −pair, die B
+  at +pair). Seat → spot: p1(bottom)→bottom-LEFT space (user-marked red
+  rect), p2(top)→top-RIGHT column, p3(left)→top-LEFT column,
+  p4(right)→bottom-RIGHT space. The bottom spaces are wide → horizontal
+  pairs; the side columns are narrow → near-vertical pairs. All hand-tunable.
+- **Cube**: six face PNGs `client/public/board/Dice/dice_face_N.png` on a
+  `preserve-3d` box, laid out like a REAL die (opposites sum to 7): 1↔6
+  front/back, 2↔5 right/left, 3↔4 top/bottom — mid-tumble adjacencies are
+  physically correct. `translateZ`/`perspective` use cqh (resolve fine inside
+  the size container).
+- **Animation** (WAAPI per die, `fill:'both'` so the 120ms stagger of the
+  second die holds keyframe 0; dice remount per throw via `key={nonce}`):
+  FLIGHT wrapper slides in from fromDx/fromDy decelerating; TOSS wrapper
+  drops from above with landing bounce + hop; the CUBE does 2-3 random full
+  X+Y turns decelerating into the EXACT orientation for the rolled face
+  (`SHOW` map); a contact SHADOW (outside the flight) fades in on impact.
+  The settled dice STAY on the felt (component is fully prop-controlled):
+  the next throw remounts them, `roll=null` clears the table (that's the
+  turn-end hook once live wiring lands). `nonce` replays identical values.
+- Verified all 4 seats: dice land at spot±pair exactly, every die's shown
+  face matches its value dead-on (cube matrix → normal check).
+
+DEMO data drives everything — next: wire `useGameState`.
 3. Fill zones with static placeholder cards; check proportions vs reference.
 4. Wire to live state (`useGameState`) zone by zone.
 5. Interactions (draw / play / roll / attack), then polish (animations, HUD).

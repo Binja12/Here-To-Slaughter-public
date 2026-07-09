@@ -97,7 +97,9 @@ export interface PlayerDef {
   cardback: WidgetDef;
 }
 
-export const PLAYERS: Record<"p1" | "p2" | "p3" | "p4", PlayerDef> = {
+export type PlayerId = "p1" | "p2" | "p3" | "p4";
+
+export const PLAYERS: Record<PlayerId, PlayerDef> = {
   // BOTTOM (big) — leader | heroes | cardback along the bottom edge
   p1: {
     anchor: "bottom",
@@ -203,6 +205,43 @@ export const DECK_SLOTS: {
 
 /** width (cqh) of a deck slot from its height + art aspect */
 export const deckWidthCqh = (d: DeckDef) => d.h * d.aspect;
+
+/**
+ * Dice throws — every seat throws TWO dice onto its own patch of open felt
+ * beside the centre board, arriving FROM the thrower's side of the table.
+ * Rendered by DiceRoll.tsx; all values are cqh, hand-tunable like every
+ * other widget:
+ *  - dx/dy    — the landing spot's centre, offset from the STAGE centre
+ *               (+right/+down).
+ *  - fromDx/fromDy — where the dice COME FROM, relative to the landing spot
+ *               (the throw direction is from → spot); points back toward the
+ *               thrower's seat.
+ *  - pairDx/pairDy — half the separation between the two dice: die A lands at
+ *               spot −(pair), die B at spot +(pair). Horizontal pairs in the
+ *               wide bottom spaces, near-vertical pairs in the narrow side
+ *               columns beside the board.
+ */
+export const DICE_SIZE = 7.95; // each die (h × h cqh) — the original 11 shrunk 15% twice
+
+export interface DiceSpotDef {
+  dx: number;
+  dy: number;
+  fromDx: number;
+  fromDy: number;
+  pairDx: number;
+  pairDy: number;
+}
+
+export const DICE_SPOTS: Record<PlayerId, DiceSpotDef> = {
+  // bottom seat → bottom-LEFT space, thrown up-left from the bottom edge
+  p1: { dx: -39, dy: 16.5, fromDx: 16, fromDy: 14, pairDx: 5.4, pairDy: -0.8 },
+  // top seat → top-RIGHT column, thrown down-right from the top edge
+  p2: { dx: 37.5, dy: -22, fromDx: -14, fromDy: -12, pairDx: 1.5, pairDy: 5 },
+  // left seat → top-LEFT column, thrown up-right from the left table
+  p3: { dx: -38.5, dy: -22, fromDx: -14, fromDy: 10, pairDx: -1.5, pairDy: 5 },
+  // right seat → bottom-RIGHT space, thrown down-left from the right table
+  p4: { dx: 39, dy: 16.5, fromDx: 16, fromDy: -10, pairDx: 5.4, pairDy: 0.8 },
+};
 
 /**
  * `transform-origin` (as "x% y%") for a card's hover zoom, chosen so the card

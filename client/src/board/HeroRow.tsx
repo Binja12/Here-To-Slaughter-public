@@ -2,6 +2,7 @@ import React from "react";
 import FramedCard from "./FramedCard";
 import { boardHeroCardUrl, boardItemUrl, BOARD_CARD_ASPECT } from "./assets";
 import { useHoverZoom } from "./useHoverZoom";
+import { useTargetable, TargetKey } from "./targeting";
 
 /**
  * Hero widget: the played hero/item cards of one seat, laid over the
@@ -58,6 +59,9 @@ export function HeroCardWidget({
   chainGroup,
   item,
   itemSide = "right",
+  playable = false,
+  targetKey,
+  onActivate,
 }: {
   slug: string;
   heroClass?: string;
@@ -75,6 +79,13 @@ export function HeroCardWidget({
   /** which side the item slides out to on hover — counter to the hero's own
    *  x on the board, so it reveals toward open space, never off the edge. */
   itemSide?: "left" | "right";
+  /** true → this hero has an available action; shows the green playable aura */
+  playable?: boolean;
+  /** this hero's identity for targeting mode — the container (hero + tucked
+   *  item) dims/glows as one unit */
+  targetKey?: TargetKey;
+  /** clicked in normal mode (e.g. hero starting its own ability) */
+  onActivate?: () => void;
 }) {
   // Overlapped cards throw their shadow LEFT, onto the card they cover.
   const shadow = overlapped
@@ -83,6 +94,10 @@ export function HeroCardWidget({
 
   const boardUrl = boardHeroCardUrl(slug);
   const hz = useHoverZoom<HTMLDivElement>(chainGroup);
+  const t = useTargetable(targetKey, onActivate);
+  // dimmed heroes are background while an action is aiming — no hover zoom
+  const dimmed = t.targeting && t.mode === "dimmed";
+  const zoomed = hz.active && !dimmed;
   const itemUrl = item ? boardItemUrl(item) : null;
 
   // Revealed item is 80% of the hero's zoomed size, sitting flush BESIDE the
@@ -101,16 +116,17 @@ export function HeroCardWidget({
   // `itemSide`, enlarged to 80% of the zoomed hero at the hero's own y.
   return (
     <div
-      className={`relative h-[92%] ${className}`}
+      className={`relative h-[92%] ${className} ${t.className}`}
       style={{ aspectRatio: String(BOARD_CARD_ASPECT) }}
+      onClick={t.onClick}
     >
       {itemUrl && (
         <div
           className="pointer-events-none absolute inset-0 rounded-[0.5cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out"
           style={{
-            zIndex: hz.active ? 40 : undefined,
+            zIndex: zoomed ? 40 : undefined,
             transformOrigin: origin,
-            transform: hz.active
+            transform: zoomed
               ? `translateX(${
                   itemSide === "left" ? "-" : ""
                 }${itemShiftPct}%) scale(${itemScale})`
@@ -131,9 +147,9 @@ export function HeroCardWidget({
         className={`absolute inset-0 ${shadow} rounded-[0.5cqw] transition-transform duration-150`}
         style={{
           transformOrigin: origin,
-          transform: hz.active ? `scale(${zoom})` : undefined,
+          transform: zoomed ? `scale(${zoom})` : undefined,
         }}
-        onMouseEnter={hz.onMouseEnter}
+        onMouseEnter={dimmed ? undefined : hz.onMouseEnter}
         onMouseLeave={hz.onMouseLeave}
         onContextMenu={hz.onContextMenu}
       >
@@ -144,13 +160,17 @@ export function HeroCardWidget({
             src={boardUrl}
             alt={slug}
             draggable={false}
-            className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill"
+            className={`absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill${
+              playable ? " card-aura" : ""
+            }`}
           />
         ) : (
           <FramedCard
             slug={slug}
             heroClass={heroClass}
-            className="absolute inset-0 h-full w-full"
+            className={`absolute inset-0 h-full w-full${
+              playable ? " card-aura" : ""
+            }`}
           />
         )}
       </div>
@@ -161,9 +181,21 @@ export function HeroCardWidget({
 export default function HeroRow({
   heroes,
   seat = "bottom",
+  playable,
+  targetKeyFor,
+  onActivateFor,
 }: {
   heroes: HeroInPlay[];
   seat?: Seat;
+  /** per-hero playable flags, index-aligned with `heroes` (local seat only —
+   *  omit for opponents, nothing glows) */
+  playable?: boolean[];
+  /** targeting identity per hero index (e.g. i => tkey.hero("p2", i)) so
+   *  individual heroes can be picked as action targets */
+  targetKeyFor?: (index: number) => TargetKey;
+  /** normal-mode click per hero index (starting that hero's ability / dice
+   *  throw) — wired on EVERY hero when provided, regardless of `playable` */
+  onActivateFor?: (index: number) => void;
 }) {
   const { variant, origin, fanFrom } = SEAT_CONFIG[seat];
   const zoom = ZOOM[variant];
@@ -188,6 +220,9 @@ export default function HeroRow({
               chainGroup={`hero-row-${seat}`}
               item={hero.item}
               itemSide={i <= (n - 1) / 2 ? "right" : "left"}
+              playable={playable?.[i]}
+              targetKey={targetKeyFor?.(i)}
+              onActivate={onActivateFor ? () => onActivateFor(i) : undefined}
             />
           </div>
         ))}
@@ -227,6 +262,9 @@ export default function HeroRow({
             chainGroup={`hero-row-${seat}`}
             item={hero.item}
             itemSide={i <= (n - 1) / 2 ? "right" : "left"}
+            playable={playable?.[i]}
+            targetKey={targetKeyFor?.(i)}
+            onActivate={onActivateFor ? () => onActivateFor(i) : undefined}
           />
         </div>
       ))}
