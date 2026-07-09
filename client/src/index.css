@@ -20,3 +20,84 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Hearthstone-style "playable" aura: a bright green glow hugging the card's
+   rendered shape (drop-shadow follows the image alpha + border-radius, so it
+   works on object-contain scans and rounded corners alike) with a slow
+   breathing pulse. All lengths are cqw so the glow scales with the board
+   stage exactly like every other widget length. Applied via the `card-aura`
+   class on the card image (or its immediate wrapper).
+
+   ONE GLOBAL CLOCK: the pulse is a single animation on :root driving the
+   registered custom property --aura (0 → 1 → 0). Every .card-aura only READS
+   --aura in its filter, so all glows on the board are in perfect sync by
+   construction — a glow appearing later (fan opening, state update, hover
+   re-render) joins mid-phase instead of restarting its own animation. */
+@property --aura {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+@keyframes aura-clock {
+  from {
+    --aura: 0;
+  }
+  to {
+    --aura: 1;
+  }
+}
+
+:root {
+  animation: aura-clock 0.85s ease-in-out infinite alternate;
+}
+
+/* `target-aura` = the SAME glow, but driven by targeting mode (targeting.tsx)
+   instead of playability — valid targets wear it while an action is aiming. */
+.card-aura,
+.target-aura {
+  filter: drop-shadow(0 0 calc((0.07 + 0.03 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(150, 255, 100, 0.95))
+    drop-shadow(0 0 calc((0.2 + 0.08 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(90, 245, 50, 0.85))
+    drop-shadow(0 0 calc((0.42 + 0.22 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(60, 230, 35, 0.6));
+}
+
+/* tighter spread for the BIG cards (leader, monsters, hand stack) — their
+   larger area makes the default glow read too fat, so they scale it down. */
+.card-aura-sm {
+  --aura-scale: 0.5;
+}
+
+/* FOCUS MODE: while the hand fan is open (the hand stack/fan is hovered),
+   the glows on the rest of the board switch off so only the hand's own
+   playable cards draw the eye; they return the moment the hand closes.
+   (Suspended during targeting mode — there the target auras rule.) */
+.board-root:not(.targeting) .board-stage:has(.hand-group:hover) .card-aura:not(.hand-group *) {
+  filter: none;
+}
+
+/* ---------------------------------------------------------------------------
+   TARGETING MODE (targeting.tsx): while an action is picking its target the
+   board root carries `.targeting`. Every visual element is tagged `dimmable`
+   (via useTargetable, or hardcoded on decorative art); the action's SOURCE
+   and its valid TARGETS additionally get `dim-exempt` (+ `target-aura` on
+   targets). Net effect: the whole table goes dark and slightly blurred,
+   the source stays bright, and only the pickable targets glow green. */
+
+/* 1. every playable aura goes out — only target auras may glow while aiming.
+      MUST come before the dim rule: both are (0,3,0) specific, and a dimmed
+      playable card has to end up dimmed (later rule), not aura-less-bright. */
+.targeting .card-aura:not(.target-aura) {
+  filter: none;
+}
+
+/* 2. everything not exempt goes dark + slightly blurred (cqw so the blur
+      scales with the stage like every other length) */
+.targeting .dimmable:not(.dim-exempt) {
+  filter: brightness(0.35) saturate(0.6) blur(0.12cqw);
+}
+
+/* smooth the mode change — but never on aura'd elements, whose filter is
+   already re-evaluated every frame by the global --aura clock */
+.dimmable:not(.card-aura):not(.target-aura) {
+  transition: filter 0.25s ease;
+}

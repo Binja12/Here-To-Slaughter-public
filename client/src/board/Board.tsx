@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import {
   TABLE_BG,
   FRAMES,
@@ -16,6 +16,7 @@ import {
   DeckDef,
   deckWidthCqh,
   PLAYERS,
+  PlayerId,
   WidgetDef,
   Anchor,
   widthCqh,
@@ -38,6 +39,15 @@ import {
 } from "./assets";
 import HeroRow, { Seat as HeroSeat } from "./HeroRow";
 import PlayerHand from "./PlayerHand";
+import DiceRoll, { DiceRollState } from "./DiceRoll";
+import { PlayableFlags } from "./playable";
+import {
+  TargetingProvider,
+  useTargeting,
+  useTargetable,
+  tkey,
+  TargetKey,
+} from "./targeting";
 
 /**
  * The board is composed as four explicit layers (bottom → top):
@@ -90,7 +100,7 @@ function Widget({
         alt=""
         aria-hidden
         draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+        className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill"
       />
       {/* inner card window */}
       <div
@@ -117,6 +127,9 @@ function SlotCard({
   stretch = false,
   zoom,
   origin = "50% 50%",
+  playable = false,
+  targetKey,
+  onActivate,
 }: {
   src: string;
   alt: string;
@@ -131,9 +144,17 @@ function SlotCard({
   zoom?: number;
   /** CSS transform-origin ("x% y%") for the hover zoom — points toward centre */
   origin?: string;
+  /** true → this card can be acted on now; shows the green playable aura */
+  playable?: boolean;
+  /** this slot's identity for targeting mode (dim / glow / pick) */
+  targetKey?: TargetKey;
+  /** clicked in normal mode (e.g. leader starting its steal action) */
+  onActivate?: () => void;
 }) {
   const hz = useHoverZoom<HTMLImageElement>();
-  const zoomable = zoom !== undefined;
+  const t = useTargetable(targetKey, onActivate);
+  // dimmed cards don't hover-zoom — they're background while aiming
+  const zoomable = zoom !== undefined && !(t.targeting && t.mode === "dimmed");
   return (
     <div className="flex h-full w-full items-center justify-center">
       <img
@@ -143,12 +164,13 @@ function SlotCard({
         draggable={false}
         className={`select-none rounded-[0.3cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-150 ${
           stretch ? "h-full w-full object-fill" : "object-contain"
-        }`}
+        }${playable ? " card-aura card-aura-sm" : ""} ${t.className}`}
         style={{
           ...(stretch ? {} : { maxHeight: `${fit}%`, maxWidth: `${fit}%` }),
           transformOrigin: origin,
           transform: zoomable && hz.active ? `scale(${zoom})` : undefined,
         }}
+        onClick={t.onClick}
         onMouseEnter={zoomable ? hz.onMouseEnter : undefined}
         onMouseLeave={zoomable ? hz.onMouseLeave : undefined}
         onContextMenu={zoomable ? hz.onContextMenu : undefined}
@@ -157,11 +179,19 @@ function SlotCard({
   );
 }
 
-/** discard pile: a few face-up cards offset for depth, newest (zoomable) on top */
-function DiscardPile({ cards }: { cards: string[] }) {
+/** discard pile: a few face-up cards offset for depth, newest (zoomable) on top.
+ *  Targetable as ONE unit — the container dims/glows, covering every card. */
+function DiscardPile({
+  cards,
+  targetKey,
+}: {
+  cards: string[];
+  targetKey?: TargetKey;
+}) {
   const hz = useHoverZoom<HTMLImageElement>();
+  const t = useTargetable(targetKey);
   return (
-    <div className="relative h-full w-full">
+    <div className={`relative h-full w-full ${t.className}`} onClick={t.onClick}>
       {cards.map((src, i) => {
         const top = i === cards.length - 1;
         return (
@@ -201,10 +231,24 @@ function DiscardPile({ cards }: { cards: string[] }) {
   );
 }
 
-/** face-down deck: a few offset backs stacked for depth */
-function DeckPile({ back = SMALL_BACK }: { back?: string }) {
+/** face-down deck: a few offset backs stacked for depth. `playable` puts the
+ *  green aura on the TOP back only (drawing is available). */
+function DeckPile({
+  back = SMALL_BACK,
+  playable = false,
+  targetKey,
+  onActivate,
+}: {
+  back?: string;
+  playable?: boolean;
+  /** the pile's identity for targeting mode — the whole stack dims/glows */
+  targetKey?: TargetKey;
+  /** clicked in normal mode (e.g. drawing from the main deck) */
+  onActivate?: () => void;
+}) {
+  const t = useTargetable(targetKey, onActivate);
   return (
-    <div className="relative h-full w-full">
+    <div className={`relative h-full w-full ${t.className}`} onClick={t.onClick}>
       {[0, 1, 2].map((i) => (
         <div
           key={i}
@@ -217,7 +261,9 @@ function DeckPile({ back = SMALL_BACK }: { back?: string }) {
             src={back}
             alt="deck"
             draggable={false}
-            className="max-h-full max-w-full select-none rounded-[0.3cqw] object-contain shadow-[0.1cqw_0.2cqw_0.5cqw_rgba(0,0,0,0.6)]"
+            className={`max-h-full max-w-full select-none rounded-[0.3cqw] object-contain shadow-[0.1cqw_0.2cqw_0.5cqw_rgba(0,0,0,0.6)]${
+              playable && i === 2 ? " card-aura" : ""
+            }`}
           />
         </div>
       ))}
@@ -225,11 +271,28 @@ function DeckPile({ back = SMALL_BACK }: { back?: string }) {
   );
 }
 
-/** hand-count widget: small card back with the count above its logo */
-function HandCount({ count }: { count: number }) {
+/** hand-count widget: small card back with the count above its logo.
+ *  `playable` = at least one card in the hand behind this stack is playable
+ *  right now, so the closed stack itself glows as the cue to open the fan. */
+function HandCount({
+  count,
+  playable = false,
+  targetKey,
+}: {
+  count: number;
+  playable?: boolean;
+  /** the stack's identity for targeting mode (e.g. steal-a-card target) */
+  targetKey?: TargetKey;
+}) {
+  const t = useTargetable(targetKey);
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <div className="relative h-full w-full shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]">
+      <div
+        className={`relative h-full w-full shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]${
+          playable ? " card-aura card-aura-sm" : ""
+        } ${t.className}`}
+        onClick={t.onClick}
+      >
         <img
           src={SMALL_BACK}
           alt="card back"
@@ -285,7 +348,7 @@ function ActionPoints({ current, max = 3 }: { current: number; max?: number }) {
         alt=""
         aria-hidden
         draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+        className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill"
       />
       {/* gems sit in the frame's inner recess */}
       <div className="absolute inset-x-[10%] inset-y-[22%] flex items-center justify-center gap-[0.5cqw]">
@@ -295,7 +358,7 @@ function ActionPoints({ current, max = 3 }: { current: number; max?: number }) {
             src={HUD.actionGem}
             alt={i < current ? "action point" : "spent action point"}
             draggable={false}
-            className="aspect-square h-full select-none object-contain transition-opacity"
+            className="dimmable aspect-square h-full select-none object-contain transition-opacity"
             style={{ opacity: i < current ? 1 : 0.25 }}
           />
         ))}
@@ -322,7 +385,7 @@ const DEMO = {
       h("snowball"),
       hItem("kit-napper", "Suspiciously Shiny Coin"),
     ],
-    leader: LEADERS.Ranger,
+    leader: LEADERS.Thief,
     handCards: [
       boardHeroCardUrl("lucky-bucky") ?? heroCardUrl("lucky-bucky"),
       boardItemUrl("Really Big Ring"),
@@ -334,6 +397,15 @@ const DEMO = {
       boardMagicUrl("Forceful Winds"),
     ],
     actionPoints: 2,
+    /* demo playable flags — later computed from the live server snapshot on
+       every game:state update and passed down exactly like this. */
+    playable: {
+      monsters: [true, false, true],
+      mainDeck: true,
+      leader: true,
+      heroes: [true, false, false, true, false, false, false, true, false, false],
+      hand: [true, false, true, true, false, true, false, false],
+    } as PlayableFlags,
   },
   p2: {
     heroes: [
@@ -376,12 +448,109 @@ const HERO_SEAT: Record<string, HeroSeat> = {
   p3: "left",
   p4: "right",
 };
+
+/**
+ * Demo action table until the server drives this: clicking a SOURCE card
+ * begins targeting over its valid TARGETS (targeting.tsx). Later the live
+ * snapshot supplies {source → targets} per playable card and `onPick` sends
+ * the real `game:action`; adding an interaction (challenge, attack, hero
+ * steal…) is just another entry — no component changes.
+ *
+ * Current demos:
+ *  - The Shadow Claw (p1's thief leader) steals a card — targets are the
+ *    other players' hand stacks.
+ *  - Fuzzy Cheeks (p1's hero 0): "draw a card, then play a hero from your
+ *    hand" — the pick-a-hero step: targets are ONLY the hero cards in the
+ *    hand (the fan force-opens because the targets live in it).
+ *  - Critical Boost (hand card 2, a magic): a hand card as the SOURCE —
+ *    targets are p1's own heroes on the board.
+ */
+const DEMO_ACTIONS: Record<TargetKey, { name: string; targets: TargetKey[] }> =
+  {
+    [tkey.leader("p1")]: {
+      name: "steal a card",
+      targets: [
+        tkey.handStack("p2"),
+        tkey.handStack("p3"),
+        tkey.handStack("p4"),
+      ],
+    },
+    [tkey.hero("p1", 0)]: {
+      name: "play a hero from your hand",
+      // only the HERO cards in the hand qualify (their art lives under a
+      // heroes/ folder — stand-in for the server's real target list)
+      targets: DEMO.p1.handCards.flatMap((url, i) =>
+        url.includes("/heroes/") ? [tkey.handCard(i)] : []
+      ),
+    },
+    [tkey.handCard(2)]: {
+      name: "boost one of your heroes",
+      targets: DEMO.p1.heroes.map((_, i) => tkey.hero("p1", i)),
+    },
+  };
+
 export default function Board() {
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-zinc-950">
+    <TargetingProvider>
+      <BoardInner />
+    </TargetingProvider>
+  );
+}
+
+function BoardInner() {
+  const { active, begin, cancel } = useTargeting();
+
+  /** the 2d6 throw (DiceRoll) — a new state replays the animation from the
+   *  given seat's side of the table; the settled dice then STAY on the felt
+   *  until the next throw. Once the board is wired to useGameState the values
+   *  come from the server's roll game:event instead of the demo, and the
+   *  turn-end event clears the table via setDiceRoll(null). */
+  const [diceRoll, setDiceRoll] = useState<DiceRollState | null>(null);
+  const rollSeq = useRef(0);
+  const showDiceRoll = (seat: PlayerId) => {
+    const d6 = () => 1 + Math.floor(Math.random() * 6);
+    setDiceRoll({ seat, values: [d6(), d6()], nonce: ++rollSeq.current });
+  };
+
+  /** clicked a glowing (playable) card in normal mode. If its action needs a
+   *  target, enter targeting mode to pick one; otherwise it's a direct play
+   *  and resolves immediately. Every glowing card is pressable — cards with no
+   *  entry in DEMO_ACTIONS are treated as a plain "play this card". */
+  const activate = (source: TargetKey) => {
+    const action = DEMO_ACTIONS[source];
+    if (action && action.targets.length > 0) {
+      begin({
+        source,
+        targets: action.targets,
+        onPick: (target) => {
+          // TODO: send the real action to the server here (useGameState)
+          console.log(`[action] ${action.name}: ${source} → ${target}`);
+        },
+      });
+      return;
+    }
+    // no target step → play it directly (TODO: send game:action)
+    console.log(`[action] play: ${source}${action ? ` (${action.name})` : ""}`);
+    // DEMO: a pressed hero is a RollOnHero — the server answers the action
+    // with the roll result; simulate that round-trip (latency + 2d6) until
+    // the board is wired to useGameState.
+    if (source.startsWith("hero:")) {
+      const seat = source.split(":")[1] as PlayerId;
+      window.setTimeout(() => showDiceRoll(seat), 350);
+    }
+  };
+
+  return (
+    <div
+      className={`board-root relative h-screen w-screen overflow-hidden bg-zinc-950${
+        active ? " targeting" : ""
+      }`}
+      // any click that no target/source swallowed backs out of targeting
+      onClick={active ? cancel : undefined}
+    >
       {/* ---------- layer 1: full-viewport decorative felt (no layout role) ---------- */}
       <div
-        className="pointer-events-none absolute inset-0"
+        className="dimmable pointer-events-none absolute inset-0"
         style={{
           backgroundImage: `url("${TABLE_BG}")`,
           backgroundSize: "cover",
@@ -395,7 +564,7 @@ export default function Board() {
           inside resolve against THIS stage — so the whole composition scales
           uniformly and never stretches on ultrawide/other aspect ratios. */}
       <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 [container-type:size]"
+        className="board-stage absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 [container-type:size]"
         style={{
           width: "min(100vw, calc(100vh * 16 / 9))",
           height: "min(100vh, calc(100vw * 9 / 16))",
@@ -416,9 +585,9 @@ export default function Board() {
             alt=""
             aria-hidden
             draggable={false}
-            className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+            className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill"
           />
-          <CenterArena />
+          <CenterArena playable={DEMO.p1.playable} onActivate={activate} />
         </div>
 
         {/* ---------- layer 4: per-player frames + cards ---------- */}
@@ -428,7 +597,23 @@ export default function Board() {
           return (
             <React.Fragment key={seat}>
               <Widget def={p.heroes} anchor={p.anchor}>
-                <HeroRow heroes={d.heroes} seat={HERO_SEAT[seat]} />
+                <HeroRow
+                  heroes={d.heroes}
+                  seat={HERO_SEAT[seat]}
+                  // only the local (active) seat ever glows
+                  playable={
+                    seat === "p1" ? DEMO.p1.playable.heroes : undefined
+                  }
+                  targetKeyFor={(i) => tkey.hero(seat, i)}
+                  // EVERY hero press throws that seat's dice (user spec):
+                  // p1 goes through activate() (targeting demos still win);
+                  // opponents throw directly so all 4 directions demo.
+                  onActivateFor={
+                    seat === "p1"
+                      ? (i) => activate(tkey.hero(seat, i))
+                      : () => showDiceRoll(seat)
+                  }
+                />
               </Widget>
               <Widget def={p.leader} anchor={p.anchor}>
                 <SlotCard
@@ -436,6 +621,13 @@ export default function Board() {
                   alt="party leader"
                   stretch
                   zoom={2.1}
+                  playable={seat === "p1" && DEMO.p1.playable.leader}
+                  targetKey={tkey.leader(seat)}
+                  onActivate={
+                    seat === "p1" && DEMO.p1.playable.leader
+                      ? () => activate(tkey.leader(seat))
+                      : undefined
+                  }
                   // left/right leaders zoom from their own centre. top/bottom
                   // leaders always grow from their edge's horizontal centre
                   // (NOT dx-biased) — this was the original, correct behaviour.
@@ -450,11 +642,23 @@ export default function Board() {
               </Widget>
               <Widget def={p.cardback} anchor={p.anchor} zClass="z-40">
                 {seat === "p1" ? (
-                  <PlayerHand cards={DEMO.p1.handCards} anchorCenterCqw={82}>
-                    <HandCount count={DEMO.p1.handCards.length} />
+                  <PlayerHand
+                    cards={DEMO.p1.handCards}
+                    anchorCenterCqw={82}
+                    playable={DEMO.p1.playable.hand}
+                    onActivateCard={(i) => activate(tkey.handCard(i))}
+                  >
+                    <HandCount
+                      count={DEMO.p1.handCards.length}
+                      playable={DEMO.p1.playable.hand.some(Boolean)}
+                      targetKey={tkey.handStack(seat)}
+                    />
                   </PlayerHand>
                 ) : (
-                  <HandCount count={(d as { hand: number }).hand} />
+                  <HandCount
+                    count={(d as { hand: number }).hand}
+                    targetKey={tkey.handStack(seat)}
+                  />
                 )}
               </Widget>
             </React.Fragment>
@@ -467,7 +671,7 @@ export default function Board() {
             src={HUD.yourTurn}
             alt="your turn"
             draggable={false}
-            className="pointer-events-none h-full w-full select-none object-fill"
+            className="dimmable pointer-events-none h-full w-full select-none object-fill"
           />
         </HudWidget>
         <HudWidget
@@ -476,6 +680,9 @@ export default function Board() {
         >
           <ActionPoints current={DEMO.p1.actionPoints} max={3} />
         </HudWidget>
+
+        {/* ---------- dice roll (appears on the felt left of the centre board) ---------- */}
+        <DiceRoll roll={diceRoll} />
       </div>
     </div>
   );
@@ -523,7 +730,14 @@ const DISCARD = [
   boardMagicUrl("Destructive Spell"),
 ];
 
-function CenterArena() {
+function CenterArena({
+  playable,
+  onActivate,
+}: {
+  playable: PlayableFlags;
+  /** press a glowing centre card (attackable monster / drawable deck) */
+  onActivate: (key: TargetKey) => void;
+}) {
   const { monsters } = CENTER_SLOTS;
   const { mainDeck, discard, monsterDeck } = DECK_SLOTS;
   return (
@@ -536,18 +750,32 @@ function CenterArena() {
             stretch
             zoom={3}
             origin="50% 50%"
+            playable={playable.monsters[i]}
+            targetKey={tkey.monster(i)}
+            onActivate={
+              playable.monsters[i]
+                ? () => onActivate(tkey.monster(i))
+                : undefined
+            }
           />
         </Widget>
       ))}
 
       <DeckSlot def={mainDeck} anchor="center">
-        <DeckPile back={SMALL_BACK} />
+        <DeckPile
+          back={SMALL_BACK}
+          playable={playable.mainDeck}
+          targetKey={tkey.mainDeck()}
+          onActivate={
+            playable.mainDeck ? () => onActivate(tkey.mainDeck()) : undefined
+          }
+        />
       </DeckSlot>
       <DeckSlot def={discard} anchor="center">
-        <DiscardPile cards={DISCARD} />
+        <DiscardPile cards={DISCARD} targetKey={tkey.discard()} />
       </DeckSlot>
       <DeckSlot def={monsterDeck} anchor="center">
-        <DeckPile back={BIG_BACK} />
+        <DeckPile back={BIG_BACK} targetKey={tkey.monsterDeck()} />
       </DeckSlot>
     </>
   );
