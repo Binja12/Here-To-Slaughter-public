@@ -362,6 +362,31 @@ is therefore no longer gated by `playable` (every hero is pressable).
 - Verified all 4 seats: dice land at spot±pair exactly, every die's shown
   face matches its value dead-on (cube matrix → normal check).
 
+### Turn banner (TurnBanner in Board.tsx) — two modes
+
+The "your turn" scroll (HUD_WIDGETS.yourTurn, top-right) is now `TurnBanner
+{seat, roll}` with two modes:
+
+1. **Turn mode** (`roll === null`): "your turn" for p1, "player N's turn"
+   otherwise.
+2. **Roll mode** (`roll: RollInfo {value, modifier}`): "current roll:
+   {value}" — the "+ {modifier}" suffix renders ONLY when `modifier` is
+   non-null (i.e. a modifier card has been played on the roll).
+
+Text = Alfa Slab One (same treatment as the hand-count numeral) in
+orangish-yellow `#f5b03e`, centred on the scroll art, 0.95cqw.
+
+**TEST-ONLY wiring (NOT the real game mechanic — replace with useGameState):**
+an un-styled "end turn (test)" button (top-left corner of the viewport)
+cycles `turnSeat` p1→p2→p3→p4, resets the banner to turn mode and clears the
+dice (that's the "turn end" clear). Any dice throw sets the banner's roll to
+the SUM of the two thrown dice; every throw by the **TOP player (p2)** —
+i.e. pressing any of p2's heroes, any turn — gets a random **−2..+4**
+modifier (0 excluded so "± 0" never shows) rendered with its sign:
+"current roll: 7 - 2" / "current roll: 7 + 4". Purely so the signed
+"± {mod}" variant is checkable by hand. Live wiring later: turn seat + roll
++ modifier totals all come from game:state / game:event.
+
 DEMO data drives everything — next: wire `useGameState`.
 3. Fill zones with static placeholder cards; check proportions vs reference.
 4. Wire to live state (`useGameState`) zone by zone.
