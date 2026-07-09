@@ -310,6 +310,46 @@ function HandCount({
   );
 }
 
+/** what the turn banner shows in roll mode: the current roll and, ONLY once
+ *  a modifier card has been played on it, the modifier total. */
+interface RollInfo {
+  value: number;
+  /** null = no modifier played yet → the "+ {mod}" part is hidden */
+  modifier: number | null;
+}
+
+/** The "your turn" scroll (top-right HUD): shows whose turn it is, or — while
+ *  a roll is live — the current roll (+ modifiers once one has been played).
+ *  Text styled like the hand-count numeral (Alfa Slab One) in orangish-yellow. */
+function TurnBanner({ seat, roll }: { seat: PlayerId; roll: RollInfo | null }) {
+  const label = roll
+    ? `current roll: ${roll.value}${
+        roll.modifier !== null
+          ? ` ${roll.modifier < 0 ? "-" : "+"} ${Math.abs(roll.modifier)}`
+          : ""
+      }`
+    : seat === "p1"
+      ? "your turn"
+      : `player ${seat.slice(1)}'s turn`;
+  return (
+    <div className="relative h-full w-full">
+      <img
+        src={HUD.yourTurn}
+        alt=""
+        aria-hidden
+        draggable={false}
+        className="dimmable pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+      />
+      <span
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[0.95cqw] leading-none text-[#f5b03e] drop-shadow-[0_0.08cqw_0.15cqw_rgba(0,0,0,0.9)]"
+        style={{ fontFamily: "'Alfa Slab One', serif" }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 /** A HUD widget (turn banner / action bar): placed in stage cqh by a HudDef
  *  (anchor + dx/dy), height in cqh, width from its art aspect. Same position
  *  knobs as the player widgets. */
@@ -507,9 +547,32 @@ function BoardInner() {
    *  turn-end event clears the table via setDiceRoll(null). */
   const [diceRoll, setDiceRoll] = useState<DiceRollState | null>(null);
   const rollSeq = useRef(0);
+
+  /** whose turn it is + the live roll the banner shows. TEST-ONLY wiring
+   *  until useGameState: the un-styled "end turn" button cycles the seat,
+   *  and any dice throw becomes the "current roll" (sum of the two dice);
+   *  every throw by the TOP player (p2) gets a random −2..+4 modifier
+   *  (0 excluded — a "± 0" would read as a bug) purely to demo the signed
+   *  "± {mod}" banner variant — NOT the real modifier mechanic. */
+  const [turnSeat, setTurnSeat] = useState<PlayerId>("p1");
+  const [rollInfo, setRollInfo] = useState<RollInfo | null>(null);
+  const endTurnTest = () => {
+    const order: PlayerId[] = ["p1", "p2", "p3", "p4"];
+    setTurnSeat(order[(order.indexOf(turnSeat) + 1) % order.length]);
+    setRollInfo(null); // banner back to "{player}'s turn"
+    setDiceRoll(null); // turn end clears the dice off the table
+  };
+
   const showDiceRoll = (seat: PlayerId) => {
     const d6 = () => 1 + Math.floor(Math.random() * 6);
-    setDiceRoll({ seat, values: [d6(), d6()], nonce: ++rollSeq.current });
+    const values: [number, number] = [d6(), d6()];
+    setDiceRoll({ seat, values, nonce: ++rollSeq.current });
+    const mods = [-2, -1, 1, 2, 3, 4];
+    setRollInfo({
+      value: values[0] + values[1],
+      modifier:
+        seat === "p2" ? mods[Math.floor(Math.random() * mods.length)] : null,
+    });
   };
 
   /** clicked a glowing (playable) card in normal mode. If its action needs a
@@ -667,12 +730,7 @@ function BoardInner() {
 
         {/* ---------- HUD: turn banner + action points (top-right) ---------- */}
         <HudWidget def={HUD_WIDGETS.yourTurn} aspect={HUD_ASPECT.yourTurn}>
-          <img
-            src={HUD.yourTurn}
-            alt="your turn"
-            draggable={false}
-            className="dimmable pointer-events-none h-full w-full select-none object-fill"
-          />
+          <TurnBanner seat={turnSeat} roll={rollInfo} />
         </HudWidget>
         <HudWidget
           def={HUD_WIDGETS.actionPoints}
@@ -684,6 +742,18 @@ function BoardInner() {
         {/* ---------- dice roll (appears on the felt left of the centre board) ---------- */}
         <DiceRoll roll={diceRoll} />
       </div>
+
+      {/* TEST ONLY (no design): cycles the turn seat so the banner modes can
+          be checked by hand. Remove when useGameState drives the turn. */}
+      <button
+        className="absolute left-2 top-2 z-[200] rounded bg-zinc-800/90 px-2 py-1 text-xs text-white"
+        onClick={(e) => {
+          e.stopPropagation();
+          endTurnTest();
+        }}
+      >
+        end turn (test) — now: {turnSeat}
+      </button>
     </div>
   );
 }
