@@ -93,7 +93,12 @@ export function HeroCardWidget({
     : "shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]";
 
   const boardUrl = boardHeroCardUrl(slug);
-  const hz = useHoverZoom<HTMLDivElement>(chainGroup);
+  const itemRef = React.useRef<HTMLDivElement>(null);
+  const getItemElement = React.useCallback(
+    () => (itemRef.current ? [itemRef.current] : []),
+    [],
+  );
+  const hz = useHoverZoom<HTMLDivElement>(chainGroup, getItemElement);
   const t = useTargetable(targetKey, onActivate);
   // dimmed heroes are background while an action is aiming — no hover zoom
   const dimmed = t.targeting && t.mode === "dimmed";
@@ -122,6 +127,7 @@ export function HeroCardWidget({
     >
       {itemUrl && (
         <div
+          ref={itemRef}
           className="pointer-events-none absolute inset-0 rounded-[0.5cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out"
           style={{
             zIndex: zoomed ? 40 : undefined,

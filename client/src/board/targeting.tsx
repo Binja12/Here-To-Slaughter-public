@@ -40,6 +40,9 @@ export type TargetKey = string;
 export const tkey = {
   /** a seat's party leader */
   leader: (player: string): TargetKey => `leader:${player}`,
+  /** a monster slain by a seat's party, displayed behind its leader */
+  slainMonster: (player: string, index: number): TargetKey =>
+    `slainMonster:${player}:${index}`,
   /** a hero on a seat's board, index-aligned with its hero row */
   hero: (player: string, index: number): TargetKey => `hero:${player}:${index}`,
   /** a seat's face-down hand stack (steal/discard-at-random targets) */

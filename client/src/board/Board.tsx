@@ -139,7 +139,7 @@ function Widget({
 }
 
 /** a single card scan centred in a slot, with optional hover zoom (managed by
- *  useHoverZoom: sticky within 60% of the scaled box, cancels on right-click). */
+ *  useHoverZoom: sticky across its full scaled bounds, cancels on right-click). */
 function SlotCard({
   src,
   alt,
@@ -197,6 +197,159 @@ function SlotCard({
       />
     </div>
   );
+}
+
+/** A monster trophy tucked behind a leader and revealed beside it on hover.
+ * It remains its own targeting surface so reaction cards can select one
+ * specific monster without lighting the leader or its other trophies. */
+function SlainMonsterAttachment({
+  name,
+  targetKey,
+  revealed,
+  index,
+  count,
+  revealSide,
+  origin,
+  zoom,
+}: {
+  name: string;
+  targetKey: TargetKey;
+  revealed: boolean;
+  index: number;
+  count: number;
+  revealSide: "left" | "right";
+  origin: string;
+  zoom: number;
+}) {
+  const t = useTargetable(targetKey);
+  const slot = slainMonsterSlot(index, count);
+  const direction = revealSide === "left" ? -1 : 1;
+  return (
+    <div
+      data-hover-companion
+      className={`absolute inset-0 rounded-[0.3cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out ${t.className}`}
+      style={{
+        zIndex: revealed ? 40 + index : 0,
+        pointerEvents: revealed ? "auto" : "none",
+        transformOrigin: origin,
+        transform: revealed
+          ? `translateX(${direction * slot * zoom * 100}%) scale(${zoom})`
+          : "translateY(10%)",
+      }}
+      onClick={t.onClick}
+    >
+      <img
+        src={boardMonsterUrl(name)}
+        alt={`${name}, slain monster`}
+        draggable={false}
+        className="absolute inset-0 h-full w-full select-none rounded-[0.3cqw] object-fill"
+      />
+    </div>
+  );
+}
+
+/** Horizontal slot beside the leader. Slots 1..3 are full-card positions;
+ * larger collections are evenly overlapped across that same fixed span. */
+export function slainMonsterSlot(index: number, count: number): number {
+  return count <= 3
+    ? index + 1
+    : 1 + (index * 2) / Math.max(1, count - 1);
+}
+
+/** Leader card with its party's slain monsters attached using the same
+ * tuck-and-reveal interaction as hero items. Trophies use the leader's exact
+ * box and zoom, so they appear at the same displayed size as the leader. */
+function LeaderWithMonsters({
+  seat,
+  leader,
+  monsters,
+  zoom = 2.1,
+  origin,
+  revealSide,
+  playable = false,
+  onActivate,
+}: {
+  seat: PlayerId;
+  leader: string;
+  monsters: string[];
+  zoom?: number;
+  origin: string;
+  revealSide: "left" | "right";
+  playable?: boolean;
+  onActivate?: () => void;
+}) {
+  const groupRef = React.useRef<HTMLDivElement>(null);
+  const getMonsterElements = React.useCallback(
+    () =>
+      groupRef.current
+        ? Array.from(
+            groupRef.current.querySelectorAll<HTMLElement>(
+              "[data-hover-companion]",
+            ),
+          )
+        : [],
+    [],
+  );
+  const hz = useHoverZoom<HTMLDivElement>(
+    `leader-${seat}`,
+    getMonsterElements,
+  );
+  const leaderKey = tkey.leader(seat);
+  const leaderTarget = useTargetable(leaderKey, onActivate);
+  const monsterKeys = monsters.map((_, i) => tkey.slainMonster(seat, i));
+  const monsterIsTarget = !!activeTargetAmong(monsterKeys, useTargeting().active);
+  const dimmed = leaderTarget.targeting && leaderTarget.mode === "dimmed";
+  const zoomed = hz.active && !dimmed;
+  const revealed = zoomed || monsterIsTarget;
+
+  return (
+    <div ref={groupRef} className="relative h-full w-full">
+      {monsters.map((monster, i) => {
+        return (
+          <SlainMonsterAttachment
+            key={`${monster}-${i}`}
+            name={monster}
+            targetKey={monsterKeys[i]}
+            revealed={revealed}
+            index={i}
+            count={monsters.length}
+            revealSide={revealSide}
+            origin={origin}
+            zoom={zoom}
+          />
+        );
+      })}
+      <div
+        ref={hz.ref}
+        className={`absolute inset-0 rounded-[0.3cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-150 ${leaderTarget.className}`}
+        style={{
+          zIndex: 20,
+          transformOrigin: origin,
+          transform: zoomed ? `scale(${zoom})` : undefined,
+        }}
+        onClick={leaderTarget.onClick}
+        onMouseEnter={dimmed ? undefined : hz.onMouseEnter}
+        onMouseLeave={hz.onMouseLeave}
+        onContextMenu={hz.onContextMenu}
+      >
+        <img
+          src={boardLeaderUrl(leader)}
+          alt="party leader"
+          draggable={false}
+          className={`absolute inset-0 h-full w-full select-none rounded-[0.3cqw] object-fill${
+            playable ? " card-aura card-aura-sm" : ""
+          }`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function activeTargetAmong(
+  keys: readonly TargetKey[],
+  active: { targets: readonly TargetKey[] } | null,
+): boolean {
+  return !!active && keys.some((key) => active.targets.includes(key));
 }
 
 /** discard pile: a few face-up cards offset for depth, newest (zoomable) on top.
@@ -438,7 +591,7 @@ const DEMO = {
       leader: true,
       heroes: [true, false, false, true, false, false, false, true, false, false],
       // index 4 = the challenge card — playable so the challenge-window demo
-      // can be started by hand (see CHALLENGE_CARD_KEY below)
+      // can be started by hand
       hand: [true, false, true, true, true, true, false, false],
     } as PlayableFlags,
   },
@@ -475,6 +628,15 @@ const DEMO = {
     leader: LEADERS.Guardian,
     hand: 2,
   },
+};
+
+/** Demo trophies already owned when the board opens. This collection is
+ * presentation-only; the UI never mutates party ownership after an attack. */
+const INITIAL_SLAIN_MONSTERS: Record<PlayerId, string[]> = {
+  p1: ["Dark Dragon King", "Crowned Serpent"],
+  p2: ["Arctic Aries", "Bloodwing"],
+  p3: [],
+  p4: [],
 };
 
 const HERO_SEAT: Record<string, HeroSeat> = {
@@ -527,13 +689,19 @@ const DEMO_ACTIONS: Record<TargetKey, { name: string; targets: TargetKey[] }> =
 /** the challenge card in the demo hand — pressing it targets the OPEN
  *  CHALLENGE WINDOWS (DEMO_WINDOWS.challengeable); picking one opens the
  *  challenge window over that card (see demoChallenge in BoardInner). */
-const CHALLENGE_CARD_KEY = tkey.handCard(4);
+const CHALLENGE_DEMO_URL = boardChallengeUrl();
 
 /** the modifier card in the demo hand (index 3, the "+4") — during a
  *  challenge it targets the two ROLL PANELS; otherwise it targets the OPEN
  *  MODIFIER WINDOWS (DEMO_WINDOWS.modifiable). See activate below. */
-const MODIFIER_CARD_KEY = tkey.handCard(3);
 const MODIFIER_DEMO = { amount: 4, url: boardModifierUrl("+4") };
+
+/** Bind special actions to the actual card art, not a fragile fan index. */
+const handCardIs = (source: TargetKey, url: string): boolean => {
+  if (!source.startsWith("handCard:")) return false;
+  const index = Number(source.split(":")[1]);
+  return DEMO.p1.handCards[index] === url;
+};
 
 /**
  * DEMO stand-in for the server's open reaction windows (ReactionWindows in
@@ -549,12 +717,9 @@ const DEMO_WINDOWS: ReactionWindows = {
     tkey.hero("p2", 2),
     tkey.discard(),
   ],
-  modifiable: [
-    tkey.monster(1),
-    tkey.hero("p1", 2),
-    tkey.hero("p2", 2),
-    tkey.discard(),
-  ],
+  // Pressing +4 reveals p2's trophies and puts the green target aura on the
+  // last monster only, demonstrating that attached monsters are addressable.
+  modifiable: [tkey.slainMonster("p2", 1)],
 };
 
 /** owner seat encoded in a target key ("hero:p2:2" → p2), or null for the
@@ -700,7 +865,7 @@ function BoardInner() {
     // the ROLL PANELS are the targets (gold pick glow), and picking one
     // applies the modifier to that side's score. Only rolled sides qualify.
     // Live wiring: the server lists the valid rolls; here it's the demo +4.
-    if (challengeOpen && source === MODIFIER_CARD_KEY) {
+    if (challengeOpen && handCardIs(source, MODIFIER_DEMO.url)) {
       const targets = (["challenged", "challenger"] as const)
         .filter((role) => challenge.active?.[role].roll)
         .map((role) => tkey.challengeRoll(role));
@@ -719,7 +884,7 @@ function BoardInner() {
     // A CHALLENGE card aims at the server's OPEN CHALLENGE WINDOWS: only the
     // currently challengeable cards glow (DEMO_WINDOWS until game:state
     // supplies them); picking one opens the challenge window over that card.
-    if (!challengeOpen && source === CHALLENGE_CARD_KEY) {
+    if (!challengeOpen && handCardIs(source, CHALLENGE_DEMO_URL)) {
       if (DEMO_WINDOWS.challengeable.length === 0) return; // nothing open
       begin({
         source,
@@ -732,7 +897,7 @@ function BoardInner() {
     // A MODIFIER outside a challenge aims at the OPEN MODIFIER WINDOWS the
     // same way: only the modifiable cards glow, pick one to modify its roll.
     // DEMO: +4 onto the live board roll (banner + card beside the scroll).
-    if (!challengeOpen && source === MODIFIER_CARD_KEY) {
+    if (!challengeOpen && handCardIs(source, MODIFIER_DEMO.url)) {
       if (DEMO_WINDOWS.modifiable.length === 0) return; // nothing open
       begin({
         source,
@@ -753,6 +918,13 @@ function BoardInner() {
           }
         },
       });
+      return;
+    }
+
+    // The UI owns only the attack animation. A future MonsterSlain event and
+    // server snapshot decide whether arena/party collections change.
+    if (source.startsWith("monster:")) {
+      window.setTimeout(() => showDiceRoll("p1"), 350);
       return;
     }
 
@@ -855,13 +1027,12 @@ function BoardInner() {
                 />
               </Widget>
               <Widget def={p.leader} anchor={p.anchor}>
-                <SlotCard
-                  src={boardLeaderUrl(d.leader)}
-                  alt="party leader"
-                  stretch
-                  zoom={2.1}
+                <LeaderWithMonsters
+                  seat={seat}
+                  leader={d.leader}
+                  monsters={INITIAL_SLAIN_MONSTERS[seat]}
+                  revealSide={p.anchor === "right" ? "left" : "right"}
                   playable={seat === "p1" && DEMO.p1.playable.leader}
-                  targetKey={tkey.leader(seat)}
                   onActivate={
                     seat === "p1" && DEMO.p1.playable.leader
                       ? () => activate(tkey.leader(seat))
