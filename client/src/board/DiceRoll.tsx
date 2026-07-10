@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import {
   DICE_SIZE,
   DICE_SPOTS,
+  DiceSpotDef,
   PlayerId,
   positionStyle,
 } from "./layout";
@@ -29,14 +30,27 @@ import {
  * the roll is cleared (roll=null — e.g. when the turn ends).
  */
 
-export interface DiceRollState {
-  /** who threw — picks the landing spot + throw direction (DICE_SPOTS) */
-  seat: PlayerId;
+/** one thrown 2d6 pair — the reusable payload (board roll, challenge roll…) */
+export interface DiceThrow {
   /** the two rolled faces (1-6) — later straight from the server's roll event */
   values: [number, number];
   /** bump per roll so the same values rolled twice still replay */
   nonce: number;
 }
+
+export interface DiceRollState extends DiceThrow {
+  /** who threw — picks the landing spot + throw direction (DICE_SPOTS) */
+  seat: PlayerId;
+}
+
+/** throw geometry of a pair, relative to the landing spot's centre
+ *  (fromDx/fromDy = where the dice come from; ±pairDx/pairDy = each die's
+ *  landing offset) — the placement (dx/dy) stays with the caller. */
+export type DiceThrowSpot = Pick<
+  DiceSpotDef,
+  "fromDx" | "fromDy" | "pairDx" | "pairDy"
+>;
+
 
 const faceUrl = (n: number) => `/board/Dice/dice_face_${n}.png`;
 
@@ -63,6 +77,44 @@ const SHOW: Record<number, { x: number; y: number }> = {
 const ROLL_MS = 1500; // flight + tumble of one die
 const STAGGER_MS = 120; // the second die leaves the hand a beat later
 
+/** when (ms after mount) both dice of a pair have visibly settled — callers
+ *  use it to reveal results (e.g. the challenge panels' totals) in sync */
+export const DICE_SETTLE_MS = ROLL_MS + STAGGER_MS;
+
+/**
+ * TWO thrown dice rendered around the parent's LOCAL ORIGIN (a 0×0 point):
+ * die A lands at −(pairDx,pairDy), die B at +. The caller owns the placement
+ * of that point — the board-level <DiceRoll> puts it on the felt via
+ * DICE_SPOTS, the challenge window puts one inside each roll panel.
+ */
+export function DicePair({
+  dice,
+  spot,
+  size = DICE_SIZE,
+}: {
+  dice: DiceThrow;
+  spot: DiceThrowSpot;
+  size?: number;
+}) {
+  return (
+    <>
+      {dice.values.map((value, i) => (
+        <Die
+          // remount per throw so each Die's animations start fresh
+          key={`${dice.nonce}-${i}`}
+          value={value}
+          offX={(i === 0 ? -1 : 1) * spot.pairDx}
+          offY={(i === 0 ? -1 : 1) * spot.pairDy}
+          fromX={spot.fromDx}
+          fromY={spot.fromDy}
+          delay={i * STAGGER_MS}
+          size={size}
+        />
+      ))}
+    </>
+  );
+}
+
 export default function DiceRoll({ roll }: { roll: DiceRollState | null }) {
   // fully controlled: the dice sit on the table for as long as `roll` is set —
   // the next throw (new nonce) remounts them, roll=null clears the table
@@ -75,18 +127,7 @@ export default function DiceRoll({ roll }: { roll: DiceRollState | null }) {
       className="pointer-events-none absolute z-[95]"
       style={positionStyle("center", spot.dx, spot.dy)}
     >
-      {roll.values.map((value, i) => (
-        <Die
-          // remount per throw so each Die's animations start fresh
-          key={`${roll.nonce}-${i}`}
-          value={value}
-          offX={(i === 0 ? -1 : 1) * spot.pairDx}
-          offY={(i === 0 ? -1 : 1) * spot.pairDy}
-          fromX={spot.fromDx}
-          fromY={spot.fromDy}
-          delay={i * STAGGER_MS}
-        />
-      ))}
+      <DicePair dice={roll} spot={spot} />
     </div>
   );
 }
@@ -98,6 +139,7 @@ function Die({
   fromX,
   fromY,
   delay,
+  size = DICE_SIZE,
 }: {
   value: number;
   /** this die's landing centre, cqh from the spot centre (±pairDx/pairDy) */
@@ -107,6 +149,8 @@ function Die({
   fromX: number;
   fromY: number;
   delay: number;
+  /** die edge length in cqh — DICE_SIZE on the felt, smaller in panels */
+  size?: number;
 }) {
   const flightRef = useRef<HTMLDivElement>(null);
   const tossRef = useRef<HTMLDivElement>(null);
@@ -209,7 +253,6 @@ function Die({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const size = DICE_SIZE;
   return (
     <div
       className="absolute -translate-x-1/2 -translate-y-1/2"

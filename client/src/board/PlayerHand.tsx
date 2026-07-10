@@ -1,9 +1,8 @@
 import React from 'react';
 import { useTargetable, useTargeting, tkey } from './targeting';
+import { useChallenge } from './challenge';
 
-/** does this targeting request involve the local hand (a hand card as the
- *  action's source, or hand cards among its targets)? Then the fan must be
- *  OPEN so the player can see/pick them — hover alone can't be relied on. */
+/** are any of these keys cards in the local hand fan? */
 const involvesHand = (keys: readonly string[]) =>
   keys.some((k) => k.startsWith('handCard:'));
 
@@ -55,11 +54,22 @@ export default function PlayerHand({
   /** the closed-stack widget the fan is anchored to (e.g. <HandCount/>) */
   children: React.ReactNode;
 }) {
-  // While a targeting request points INTO the hand (source or targets are
-  // hand cards) the fan is forced open — otherwise it's hover-driven.
+  // Fan-open control while a request / challenge runs:
+  //  - forced OPEN when the challenge window is up (the hand is part of its
+  //    bright layer — modifiers get played from it, so it also marks itself
+  //    `dim-exempt` for the challenge dim rules), or when the request's
+  //    TARGETS live in the hand (you pick FROM the fan — it must be visible).
+  //  - forced CLOSED (folds + ignores hover) when a HAND card is aiming at
+  //    the BOARD (challenge/modifier/magic picking its target): the open fan
+  //    would cover the targets. It re-opens on the next hover once the
+  //    request ends (pick or cancel), or force-opens with the challenge
+  //    window.
   const { active } = useTargeting();
+  const challengeOpen = !!useChallenge().active;
   const forcedOpen =
-    !!active && involvesHand([active.source, ...active.targets]);
+    challengeOpen || (!!active && involvesHand(active.targets));
+  const forcedClosed =
+    !forcedOpen && !!active && active.source.startsWith('handCard:');
 
   // When a hand-involving request ENDS (you picked a card in the fan, or an
   // action sourced from the hand resolved), the cursor is still sitting over
@@ -99,9 +109,11 @@ export default function PlayerHand({
       {/* fan anchor: low on the slot, overlapping the stack */}
       <div
         className={`absolute bottom-[12%] left-1/2 transition-all duration-200 ease-out ${
+          challengeOpen ? 'dim-exempt ' : ''
+        }${
           forcedOpen
             ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
-            : suppressed
+            : suppressed || forcedClosed
               ? 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0'
               : 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100'
         }`}

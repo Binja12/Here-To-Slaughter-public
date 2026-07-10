@@ -70,8 +70,11 @@ code {
 /* FOCUS MODE: while the hand fan is open (the hand stack/fan is hovered),
    the glows on the rest of the board switch off so only the hand's own
    playable cards draw the eye; they return the moment the hand closes.
-   (Suspended during targeting mode — there the target auras rule.) */
-.board-root:not(.targeting) .board-stage:has(.hand-group:hover) .card-aura:not(.hand-group *) {
+   (Suspended during targeting mode — there the target auras rule — AND
+   during a challenge: this rule's `filter: none` outranks the challenge dim,
+   so without the :not() hovering the open fan popped every aura'd
+   hero/monster BRIGHT above the dark layer.) */
+.board-root:not(.targeting):not(.challenge-open) .board-stage:has(.hand-group:hover) .card-aura:not(.hand-group *) {
   filter: none;
 }
 
@@ -91,8 +94,12 @@ code {
 }
 
 /* 2. everything not exempt goes dark + slightly blurred (cqw so the blur
-      scales with the stage like every other length) */
-.targeting .dimmable:not(.dim-exempt) {
+      scales with the stage like every other length). Subtree exemption
+      (`:not(.dim-exempt *)`) matters when targeting runs INSIDE a challenge
+      (aiming a modifier at a roll panel): the challenge overlay + open fan
+      mark their roots dim-exempt and must stay bright. No normal-board
+      element has a dim-exempt ancestor, so plain targeting is unchanged. */
+.targeting .dimmable:not(.dim-exempt):not(.dim-exempt *) {
   filter: brightness(0.35) saturate(0.6) blur(0.12cqw);
 }
 
@@ -100,4 +107,60 @@ code {
    already re-evaluated every frame by the global --aura clock */
 .dimmable:not(.card-aura):not(.target-aura) {
   transition: filter 0.25s ease;
+}
+
+/* ---------------------------------------------------------------------------
+   CHALLENGE WINDOW (challenge.tsx / ChallengeWindow.tsx): while a challenge
+   is resolving the board root carries `.challenge-open`. Same dark treatment
+   as targeting mode, but the bright layer is a whole SUBTREE — the challenge
+   overlay and the force-opened hand fan mark their ROOT `dim-exempt` and
+   everything inside stays bright (`:not(.dim-exempt *)`). Rule order matters
+   exactly like targeting: auras die first, the dim rule wins on dimmed cards. */
+.challenge-open .card-aura:not(.dim-exempt):not(.dim-exempt *) {
+  filter: none;
+}
+
+.challenge-open .dimmable:not(.dim-exempt):not(.dim-exempt *) {
+  filter: brightness(0.35) saturate(0.6) blur(0.12cqw);
+}
+
+/* The two roll panels' side auras — box-shadow (NOT drop-shadow: a filter on
+   an ancestor would flatten the 3D dice cubes inside) breathing on the same
+   global --aura clock as every card glow. Green = challenged, red = challenger. */
+.challenge-glow-green {
+  box-shadow:
+    0 0 calc((0.35 + 0.25 * var(--aura)) * 1cqw) rgba(120, 255, 90, 0.75),
+    0 0 calc((0.9 + 0.5 * var(--aura)) * 1cqw) rgba(60, 230, 35, 0.45);
+}
+
+.challenge-glow-red {
+  box-shadow:
+    0 0 calc((0.35 + 0.25 * var(--aura)) * 1cqw) rgba(255, 110, 90, 0.75),
+    0 0 calc((0.9 + 0.5 * var(--aura)) * 1cqw) rgba(235, 45, 35, 0.45);
+}
+
+/* a roll panel that is a valid MODIFIER target right now — a gold pick glow
+   replaces its side colour while the player is aiming. Box-shadow for the
+   same reason as above (a filter would flatten the settled 3D dice). */
+.challenge-glow-pick {
+  box-shadow:
+    0 0 calc((0.4 + 0.3 * var(--aura)) * 1cqw) rgba(255, 230, 120, 0.9),
+    0 0 calc((1 + 0.6 * var(--aura)) * 1cqw) rgba(255, 200, 60, 0.55);
+}
+
+/* entrance of the challenge window's pieces — on an INNER wrapper so it can
+   never fight the outer positioning translate */
+@keyframes challenge-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.challenge-pop {
+  animation: challenge-pop 0.25s ease-out both;
 }

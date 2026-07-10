@@ -35,3 +35,25 @@ export const NOTHING_PLAYABLE: PlayableFlags = {
   heroes: [],
   hand: [],
 };
+
+/**
+ * The server's OPEN REACTION WINDOWS: which board cards' actions can be
+ * challenged / modified RIGHT NOW. Same contract as PlayableFlags — computed
+ * outside the board (eventually straight off game:state, the engine's
+ * reaction manager keeps exactly this) and re-passed on every update; the
+ * board only renders it. Keys use the tkey vocabulary (targeting.tsx), so
+ * pressing a challenge/modifier card in hand is ONE targeting request over
+ * the matching list — the listed cards glow green, everything else dims.
+ */
+export interface ReactionWindows {
+  /** cards whose action can be challenged (a challenge card's targets) */
+  challengeable: string[];
+  /** cards whose roll can be modified (a modifier card's targets) */
+  modifiable: string[];
+}
+
+/** no window open — challenge/modifier cards have nothing to aim at */
+export const NO_WINDOWS: ReactionWindows = {
+  challengeable: [],
+  modifiable: [],
+};
