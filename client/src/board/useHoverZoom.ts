@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const HOVER_DELAY_MS = 100; // a fresh hover must sit this long before it zooms
-const STICKY_HALF_EXTENT = 0.3; // 60% of the scaled box, centre-anchored
 
 // CHAINING (Hearthstone-style browse): once you've zoomed a card and then LEAVE
 // it, moving straight onto another card in the SAME group should zoom that one
@@ -37,10 +36,9 @@ let leftZoomedGroup: string | undefined;
  *    zooms it instantly — the delay filters incidental brushes, it shouldn't
  *    interrupt a deliberate sweep across the row. Cards with no `chainGroup`
  *    (or a different one) never chain, so this never leaks to other board cards.
- *  - **Sticky within 60% of the SCALED card** (anchored at the card centre):
- *    once zoomed, the zoom only drops when the cursor leaves 60% of the enlarged
- *    card's box — so you don't have to chase a growing card, but a clear move
- *    away closes it (and, if you were zoomed, opens the chain window).
+ *  - **Sticky within 100% of the transformed card group**: once zoomed, it
+ *    stays open while the cursor is anywhere over the main card or one of the
+ *    supplied companion cards (an item or slain monster).
  *  - **Right-click cancels** the zoom and keeps it cancelled until the pointer
  *    leaves and re-enters this card.
  *
@@ -48,7 +46,10 @@ let leftZoomedGroup: string | undefined;
  * `transform: scale(zoom)` while `active` is true. Attach `ref` to the element
  * that scales and spread the returned handlers onto it.
  */
-export function useHoverZoom<T extends HTMLElement>(chainGroup?: string) {
+export function useHoverZoom<T extends HTMLElement>(
+  chainGroup?: string,
+  getCompanions?: () => Array<HTMLElement | null>,
+) {
   const ref = useRef<T>(null);
   const [active, setActive] = useState(false);
   // Mirror of `active` we can read synchronously inside event handlers (state is
@@ -84,30 +85,30 @@ export function useHoverZoom<T extends HTMLElement>(chainGroup?: string) {
     setActive(false);
   }, [chainGroup]);
 
-  // While zoomed, watch the pointer at the document level: the scaled card's
-  // 60% region is larger than the element's resting hit-area, so the element's
-  // own mouse events can't measure it.
+  // Track the full transformed bounds of the main card plus attached elements.
+  // The companions are transformed siblings, so the main card's mouseleave
+  // event alone cannot represent the combined visible hover region.
   useEffect(() => {
     if (!active) return;
     const onMove = (e: MouseEvent) => {
-      const el = ref.current;
-      if (!el) return;
-      // getBoundingClientRect already includes the applied scale.
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      // STICKY_HALF_EXTENT * scaled size = 60% of the scaled half-extent,
-      // centre-anchored.
-      if (
-        Math.abs(e.clientX - cx) > r.width * STICKY_HALF_EXTENT ||
-        Math.abs(e.clientY - cy) > r.height * STICKY_HALF_EXTENT
-      ) {
-        deactivate();
-      }
+      const elements = [ref.current, ...(getCompanions?.() ?? [])].filter(
+        (el): el is HTMLElement => el !== null,
+      );
+      const insideAny = elements.some((el) => {
+        // getBoundingClientRect includes the element's current transform.
+        const r = el.getBoundingClientRect();
+        return (
+          e.clientX >= r.left &&
+          e.clientX <= r.right &&
+          e.clientY >= r.top &&
+          e.clientY <= r.bottom
+        );
+      });
+      if (!insideAny) deactivate();
     };
     document.addEventListener("mousemove", onMove);
     return () => document.removeEventListener("mousemove", onMove);
-  }, [active, deactivate]);
+  }, [active, deactivate, getCompanions]);
 
   const onMouseEnter = useCallback(() => {
     if (suppressed.current) return;
@@ -138,7 +139,9 @@ export function useHoverZoom<T extends HTMLElement>(chainGroup?: string) {
   const onMouseLeave = useCallback(() => {
     suppressed.current = false;
     clearTimer();
-    deactivate();
+    // Once zoomed, the document tracker decides when the cursor has left the
+    // whole card group. This keeps the zoom alive while entering a companion.
+    if (!activeRef.current) deactivate();
   }, [deactivate]);
 
   const onContextMenu = useCallback((e: React.MouseEvent) => {
