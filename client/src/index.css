@@ -67,6 +67,14 @@ code {
   --aura-scale: 0.5;
 }
 
+/* action-point gems: warm amber halo. A CLASS (not an inline style) so the
+   higher-specificity targeting/challenge dim rules below still win and the
+   gems go dark with the rest of the board instead of shining above it. */
+.ap-gem {
+  filter: drop-shadow(0 0 0.45cqw rgba(255, 180, 40, 0.85))
+    drop-shadow(0 0 0.12cqw rgba(255, 225, 130, 0.9));
+}
+
 /* FOCUS MODE: while the hand fan is open (the hand stack/fan is hovered),
    the glows on the rest of the board switch off so only the hand's own
    playable cards draw the eye; they return the moment the hand closes.

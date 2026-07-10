@@ -524,9 +524,16 @@ function HudWidget({
   );
 }
 
-/** action-points bar: the Action Pointer Border frame with a row of gems, one
- *  lit per available action point. */
-function ActionPoints({ current, max = 3 }: { current: number; max?: number }) {
+/** action-points bar: the Action Pointer Border frame has FIVE painted oval
+ *  slots; one glowing amber gem sits in each slot per AVAILABLE action point
+ *  (max 3/4/5 per the game state), and spending a point removes its gem,
+ *  leaving the painted recess empty. Slot centres are measured against the
+ *  full frame PNG (transparent margins included, since it's object-fill);
+ *  the gem PNG has transparent padding, so its box is oversized (68% height)
+ *  for the visible stone to fill the oval. */
+const AP_SLOT_X = [25.5, 37.5, 50, 62.4, 74.5]; // slot centres, % of frame width
+
+function ActionPoints({ current }: { current: number }) {
   return (
     <div className="relative h-full w-full">
       <img
@@ -536,19 +543,20 @@ function ActionPoints({ current, max = 3 }: { current: number; max?: number }) {
         draggable={false}
         className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill"
       />
-      {/* gems sit in the frame's inner recess */}
-      <div className="absolute inset-x-[10%] inset-y-[22%] flex items-center justify-center gap-[0.5cqw]">
-        {Array.from({ length: max }, (_, i) => (
-          <img
-            key={i}
-            src={HUD.actionGem}
-            alt={i < current ? "action point" : "spent action point"}
-            draggable={false}
-            className="dimmable aspect-square h-full select-none object-contain transition-opacity"
-            style={{ opacity: i < current ? 1 : 0.25 }}
-          />
-        ))}
-      </div>
+      {AP_SLOT_X.map((x, i) => (
+        <img
+          key={i}
+          src={HUD.actionGem}
+          alt="action point"
+          draggable={false}
+          className="dimmable ap-gem absolute aspect-square h-[68%] -translate-x-1/2 -translate-y-1/2 select-none object-contain transition-all duration-300"
+          style={{
+            left: `${x}%`,
+            top: "51%",
+            opacity: i < current ? 1 : 0,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -582,7 +590,8 @@ const DEMO = {
       boardItemUrl("Suspiciously Shiny Coin"),
       boardMagicUrl("Forceful Winds"),
     ],
-    actionPoints: 2,
+    /* per-turn AP budget — later game:state's actionPointsPerTurn (3/4/5) */
+    actionPointsPerTurn: 3,
     /* demo playable flags — later computed from the live server snapshot on
        every game:state update and passed down exactly like this. */
     playable: {
@@ -797,12 +806,22 @@ function BoardInner() {
   /** art of every modifier card played onto the CURRENT board roll — shown
    *  fanned beside the turn banner; lives and dies with the roll. */
   const [rollModCards, setRollModCards] = useState<string[]>([]);
+  /** local seat's available action points — starts at the per-turn budget,
+   *  each played ACTION spends one (reactions — challenges/modifiers — are
+   *  free), and a turn end refills it. Later driven by game:state's
+   *  actionPoints / actionPointsPerTurn. */
+  const [actionPoints, setActionPoints] = useState(
+    DEMO.p1.actionPointsPerTurn,
+  );
+  const spendActionPoint = () =>
+    setActionPoints((ap) => Math.max(0, ap - 1));
   const endTurnTest = () => {
     const order: PlayerId[] = ["p1", "p2", "p3", "p4"];
     setTurnSeat(order[(order.indexOf(turnSeat) + 1) % order.length]);
     setRollInfo(null); // banner back to "{player}'s turn"
     setDiceRoll(null); // turn end clears the dice off the table
     setRollModCards([]); // …and the roll's modifier cards with them
+    setActionPoints(DEMO.p1.actionPointsPerTurn); // fresh turn, full budget
   };
 
   const showDiceRoll = (seat: PlayerId) => {
@@ -924,6 +943,7 @@ function BoardInner() {
     // The UI owns only the attack animation. A future MonsterSlain event and
     // server snapshot decide whether arena/party collections change.
     if (source.startsWith("monster:")) {
+      spendActionPoint();
       window.setTimeout(() => showDiceRoll("p1"), 350);
       return;
     }
@@ -936,12 +956,14 @@ function BoardInner() {
         onPick: (target) => {
           // TODO: send the real action to the server here (useGameState)
           console.log(`[action] ${action.name}: ${source} → ${target}`);
+          spendActionPoint();
         },
       });
       return;
     }
     // no target step → play it directly (TODO: send game:action)
     console.log(`[action] play: ${source}${action ? ` (${action.name})` : ""}`);
+    spendActionPoint();
     // DEMO: a pressed hero is a RollOnHero — the server answers the action
     // with the roll result; simulate that round-trip (latency + 2d6) until
     // the board is wired to useGameState.
@@ -950,6 +972,14 @@ function BoardInner() {
       window.setTimeout(() => showDiceRoll(seat), 350);
     }
   };
+
+  /** hand playability shown to the player: during a challenge ONLY modifier
+   *  cards can be played from hand, so only they keep their aura — the
+   *  magic/challenge cards' normal glow would falsely read as playable.
+   *  Live wiring: the server's reaction window will list the legal cards. */
+  const handPlayable = challengeOpen
+    ? DEMO.p1.handCards.map((url) => url === MODIFIER_DEMO.url)
+    : DEMO.p1.playable.hand;
 
   return (
     <div
@@ -1065,12 +1095,12 @@ function BoardInner() {
                   <PlayerHand
                     cards={DEMO.p1.handCards}
                     anchorCenterCqw={82}
-                    playable={DEMO.p1.playable.hand}
+                    playable={handPlayable}
                     onActivateCard={(i) => activate(tkey.handCard(i))}
                   >
                     <HandCount
                       count={DEMO.p1.handCards.length}
-                      playable={DEMO.p1.playable.hand.some(Boolean)}
+                      playable={handPlayable.some(Boolean)}
                       targetKey={tkey.handStack(seat)}
                     />
                   </PlayerHand>
@@ -1120,7 +1150,7 @@ function BoardInner() {
           def={HUD_WIDGETS.actionPoints}
           aspect={HUD_ASPECT.actionFrame}
         >
-          <ActionPoints current={DEMO.p1.actionPoints} max={3} />
+          <ActionPoints current={actionPoints} />
         </HudWidget>
 
         {/* ---------- dice roll (appears on the felt left of the centre board) ---------- */}
