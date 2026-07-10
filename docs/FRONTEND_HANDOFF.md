@@ -311,10 +311,13 @@ attack, item attach…). `client/src/board/targeting.tsx`:
   with an empty target list) it's a DIRECT play and resolves immediately
   (currently a console.log; later the `game:action` send). So a glowing card
   with no targeting action still does something when pressed.
-- **Hand involvement**: when the active request's source OR targets include
-  `handCard:` keys, PlayerHand FORCES the fan open (bypasses group-hover)
-  so the cards are visible/pickable; it snaps back to hover-driven when the
-  request ends. Dimmed fan cards lose their hover-grow.
+- **Hand involvement**: PlayerHand FORCES the fan open when the active
+  request's TARGETS include `handCard:` keys (you pick FROM the fan) or the
+  challenge window is up; it FORCES it CLOSED (folds + ignores hover) when a
+  hand card is the SOURCE aiming at the board (challenge/modifier/magic
+  picking its target — the open fan would cover the targets). It snaps back
+  to hover-driven when the request ends, so the next hover after a pick or
+  cancel re-opens it. Dimmed fan cards lose their hover-grow.
 - **Adding an action** = one `begin()` call with the source key, target
   keys, and an onPick — no component changes needed. Demos in
   `DEMO_ACTIONS` (Board.tsx), onPick console.logs until the server drives
@@ -361,6 +364,110 @@ is therefore no longer gated by `playable` (every hero is pressable).
   turn-end hook once live wiring lands). `nonce` replays identical values.
 - Verified all 4 seats: dice land at spot±pair exactly, every die's shown
   face matches its value dead-on (cube matrix → normal check).
+
+### Challenge window (challenge.tsx + ChallengeWindow.tsx) — paused-game overlay
+
+A challenge (challenge card played on another player's action) PAUSES the
+game and opens a Hearthstone-style resolution window. Three pieces, all new:
+
+- **challenge.tsx — pure state, mirrors targeting.tsx.** `ChallengeProvider`
+  (wraps the board next to TargetingProvider) + `useChallenge()`. API is
+  exactly the engine events: `open({challengedCardUrl,
+  challengedCardAspect?, challengeCardUrl, challengedSeat, challengerSeat})`,
+  `setRoll('challenged'|'challenger', [d1,d2], modifier?)` (re-callable —
+  each call replays that side's dice via an internal nonce),
+  `addModifier(role, amount, cardUrl)` (bumps that roll's modifier total +
+  records the card art; nonce untouched so the dice STAY settled), `close()`.
+  Live wiring = ChallengeStarted→open, ChallengeRolled→setRoll,
+  ModifierPlayed→addModifier, ChallengeResolved→close. No geometry/rendering
+  in this module.
+- **ChallengeWindow.tsx — pure presentation** (self-hides when no challenge).
+  Renders inside the stage: a full-stage CLICK SHIELD (game paused; z-140),
+  the CHALLENGED card centre-stage with the challenge card tucked BEHIND it
+  at an angle ~30% peeking (item-behind-hero pattern), and one ROLL PANEL per
+  side — challenged LEFT/green aura, challenger RIGHT/red aura — each showing:
+  that player's 2d6 with the SAME dice widget as the board (`DicePair`);
+  the settled total inside the board's "your turn" SCROLL art (score only,
+  "± {mod}" suffix only once a modifier landed — exactly the TurnBanner roll
+  treatment, revealed after DICE_SETTLE_MS); and every modifier card played
+  onto that roll fanned at the panel's OUTER edge. Hand sizes are NOT in the
+  window — instead EVERY seat's cardback widget on the board is dim-exempted
+  (Widget's `dimExempt` prop → whole frame+count subtree bright) while a
+  challenge is open, and the board's TurnBanner is `muted` (label hidden —
+  the panels' scrolls are the only roll text on the dimmed screen). ALL
+  geometry in `CHALLENGE_LAYOUT` (layout.ts): card h/dx/dy, tuck {peek,
+  angle, scale}, panel w/h/±dx/dy, scroll h/dx/dy, modCard h/dx/dy/step/
+  angle (dx values on panel children are MIRRORED toward each side's outer
+  edge), dice size + per-role throw spots — hand-tunable like every widget.
+  (HandCount itself was extracted from Board.tsx into HandCount.tsx along
+  the way — same component, no behaviour change.)
+- **Modifier targeting** (playing a modifier onto a roll): each panel is a
+  targetable element via `tkey.challengeRoll('challenged'|'challenger')` —
+  pressing a modifier card in the hand begins a NORMAL targeting request
+  whose targets are the (already-rolled) panels; picking one calls
+  `addModifier`. The panel consumes only useTargetable's mode+onClick and
+  styles its own glow (`.challenge-glow-pick`, gold box-shadow) because the
+  standard `target-aura` filter on the panel would flatten the 3D dice
+  inside. Targeting's dim rules gained `:not(.dim-exempt *)` (subtree
+  exemption, same as the challenge rules) so the overlay + open fan stay
+  bright while aiming; plain-board targeting is unaffected (no element there
+  has a dim-exempt ancestor). Escape while aiming cancels only the aim (the
+  demo's window-closing Escape checks targeting first).
+- **DiceRoll.tsx refactor**: the 3D-dice pair is now exported as
+  `DicePair {dice: DiceThrow{values,nonce}, spot, size?}` rendered around the
+  parent's local origin; board-level `DiceRoll` (DICE_SPOTS placement) is a
+  thin wrapper — behaviour unchanged. `Die` takes an optional `size`.
+
+**Dim/bright layers**: board root gets `.challenge-open` — same dark+blur as
+targeting, but exemption is by SUBTREE: anything inside a `.dim-exempt` root
+stays bright (`:not(.dim-exempt *)` in index.css; targeting's per-element
+rules untouched). The overlay marks its root dim-exempt; the local HAND
+force-opens (PlayerHand reads useChallenge) with `dim-exempt` on the fan and
+keeps its playable auras, and Board raises the p1 hand widget to inline
+z-160 (INLINE because the widget's `has-[:hover]:z-[100]` class would beat a
+z class and drop it under the z-140 shield). Panel auras are `box-shadow`
+(`.challenge-glow-green/red`, breathing on the shared --aura clock) — NOT
+drop-shadow, a filter on an ancestor would flatten the 3D dice cubes.
+
+**Modifiers on a BOARD roll** (no challenge): pressing a modifier card while
+`rollInfo` is live applies it STRAIGHT to the current roll — no targeting,
+no window (there is only one roll it can mean). The banner updates to
+"current roll: X + 4" and the card fans in beside the banner scroll
+(`ROLL_MOD_CARDS` in layout.ts: anchor/h/dx/dy/step/angle, dx steps LEFT per
+extra card; the imgs are `dimmable` like the rest of the HUD). The card list
+lives in Board's `rollModCards` state and clears with the roll (new throw /
+turn end).
+
+**Reaction windows (playable.ts `ReactionWindows`)** — how challenge/modifier
+cards pick their targets. The server keeps a set of OPEN reaction windows
+(which board cards' actions can be challenged / whose rolls can be modified
+RIGHT NOW — its reaction manager tracks exactly this); the client receives
+it in tkey vocabulary ({challengeable: TargetKey[], modifiable:
+TargetKey[]}) the same way it receives PlayableFlags. Pressing a challenge/
+modifier card in hand = ONE targeting request over the matching list: ONLY
+those cards glow green, everything else dims. Picking a challengeable card
+opens the challenge window OVER THAT CARD — its art is fetched from the key
+(`demoArtFor` in Board.tsx, the stand-in for "the server names the card")
+and the challenged seat is the key's owner (`seatOfKey`; unowned centre
+cards fall back to p2). Picking a modifiable card applies the modifier to
+that card's roll. `DEMO_WINDOWS` (Board.tsx) stands in for the live state:
+middle monster, hero:p1:2 (wildshot), hero:p2:2 (calming-voice), and the
+discard pile (its TOP card is the open action).
+
+**DEMO wiring (until useGameState)**: the challenge card (hand index 4) and
+the +4 modifier (index 3) both target DEMO_WINDOWS as above. The modifier
+DURING a challenge still targets the two roll panels instead; outside one,
+its pick applies +4 to the live board roll (banner "X + 4" + card beside the
+banner scroll) and just logs when no roll is live. Cards stay in the demo
+hand — no hand state yet. ESCAPE closes the window (demo-only — live, the
+server's resolution event closes). Verified end-to-end: dim (incl. fan-hover
+— the focus-mode CSS rule is scoped `:not(.challenge-open)`, it used to pop
+aura'd cards bright), fan force-open, exactly the 4 window targets glow,
+challenge pick → window over the picked card's art ("Hero Calming Voice",
+challenged = player 2), modifier pick → banner "12 + 4" + card beside the
+banner, panel modifier pick → "6 + 4" at the panel with dice untouched, all
+four hand counts bright during the dim, banner label muted in-challenge,
+Escape restores.
 
 ### Turn banner (TurnBanner in Board.tsx) — two modes
 

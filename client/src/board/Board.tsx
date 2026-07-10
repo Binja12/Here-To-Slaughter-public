@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   TABLE_BG,
   FRAMES,
@@ -17,6 +17,7 @@ import {
   deckWidthCqh,
   PLAYERS,
   PlayerId,
+  ROLL_MOD_CARDS,
   WidgetDef,
   Anchor,
   widthCqh,
@@ -34,13 +35,20 @@ import {
   boardModifierUrl,
   boardChallengeUrl,
   LEADERS,
+  BOARD_CARD_ASPECT,
+  LEADER_CARD_ASPECT,
+  MONSTER_CARD_ASPECT,
+  NONHERO_CARD_ASPECT,
   SMALL_BACK,
   BIG_BACK,
 } from "./assets";
 import HeroRow, { Seat as HeroSeat } from "./HeroRow";
 import PlayerHand from "./PlayerHand";
+import HandCount from "./HandCount";
 import DiceRoll, { DiceRollState } from "./DiceRoll";
-import { PlayableFlags } from "./playable";
+import ChallengeWindow from "./ChallengeWindow";
+import { ChallengeProvider, ChallengeRole, useChallenge } from "./challenge";
+import { PlayableFlags, ReactionWindows } from "./playable";
 import {
   TargetingProvider,
   useTargeting,
@@ -77,21 +85,33 @@ function Widget({
   def,
   anchor,
   zClass = "z-20",
+  zIndex,
+  dimExempt = false,
   children,
 }: {
   def: WidgetDef;
   anchor: Anchor;
   zClass?: string;
+  /** INLINE z override — beats zClass AND the has-hover lift (classes can't
+   *  outrank inline). Used to raise the hand above the challenge shield. */
+  zIndex?: number;
+  /** true → this widget's whole SUBTREE (frame + contents) stays bright
+   *  under the challenge/targeting dim rules (`:not(.dim-exempt *)`) —
+   *  e.g. every hand-count widget while a challenge is open. */
+  dimExempt?: boolean;
   children?: React.ReactNode;
 }) {
   const w = widthCqh(def);
   const ins = INSET[def.kind];
   return (
     <div
-      className={`absolute -translate-x-1/2 -translate-y-1/2 ${zClass} has-[:hover]:z-[100]`}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 ${zClass} has-[:hover]:z-[100]${
+        dimExempt ? " dim-exempt" : ""
+      }`}
       style={{
         height: `${def.h}cqh`,
         width: `${w}cqh`,
+        ...(zIndex !== undefined ? { zIndex } : {}),
         ...positionStyle(anchor, def.dx, def.dy),
       }}
     >
@@ -271,45 +291,6 @@ function DeckPile({
   );
 }
 
-/** hand-count widget: small card back with the count above its logo.
- *  `playable` = at least one card in the hand behind this stack is playable
- *  right now, so the closed stack itself glows as the cue to open the fan. */
-function HandCount({
-  count,
-  playable = false,
-  targetKey,
-}: {
-  count: number;
-  playable?: boolean;
-  /** the stack's identity for targeting mode (e.g. steal-a-card target) */
-  targetKey?: TargetKey;
-}) {
-  const t = useTargetable(targetKey);
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      <div
-        className={`relative h-full w-full shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]${
-          playable ? " card-aura card-aura-sm" : ""
-        } ${t.className}`}
-        onClick={t.onClick}
-      >
-        <img
-          src={SMALL_BACK}
-          alt="card back"
-          draggable={false}
-          className="absolute inset-0 h-full w-full select-none rounded-[0.4cqw] object-fill"
-        />
-        <span
-          className="absolute left-1/2 top-[30%] -translate-x-1/2 -translate-y-1/2 text-[1.15cqw] leading-none text-[#5a4a33] drop-shadow-[0_0.05cqw_0.05cqw_rgba(255,240,200,0.6)]"
-          style={{ fontFamily: "'Alfa Slab One', serif" }}
-        >
-          {count}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /** what the turn banner shows in roll mode: the current roll and, ONLY once
  *  a modifier card has been played on it, the modifier total. */
 interface RollInfo {
@@ -320,8 +301,18 @@ interface RollInfo {
 
 /** The "your turn" scroll (top-right HUD): shows whose turn it is, or — while
  *  a roll is live — the current roll (+ modifiers once one has been played).
- *  Text styled like the hand-count numeral (Alfa Slab One) in orangish-yellow. */
-function TurnBanner({ seat, roll }: { seat: PlayerId; roll: RollInfo | null }) {
+ *  Text styled like the hand-count numeral (Alfa Slab One) in orangish-yellow.
+ *  `muted` (challenge window open) hides the label — the only roll text on a
+ *  dimmed screen belongs to the challenge panels' scrolls. */
+function TurnBanner({
+  seat,
+  roll,
+  muted = false,
+}: {
+  seat: PlayerId;
+  roll: RollInfo | null;
+  muted?: boolean;
+}) {
   const label = roll
     ? `current roll: ${roll.value}${
         roll.modifier !== null
@@ -340,12 +331,14 @@ function TurnBanner({ seat, roll }: { seat: PlayerId; roll: RollInfo | null }) {
         draggable={false}
         className="dimmable pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
       />
-      <span
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[0.95cqw] leading-none text-[#f5b03e] drop-shadow-[0_0.08cqw_0.15cqw_rgba(0,0,0,0.9)]"
-        style={{ fontFamily: "'Alfa Slab One', serif" }}
-      >
-        {label}
-      </span>
+      {!muted && (
+        <span
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[0.95cqw] leading-none text-[#f5b03e] drop-shadow-[0_0.08cqw_0.15cqw_rgba(0,0,0,0.9)]"
+          style={{ fontFamily: "'Alfa Slab One', serif" }}
+        >
+          {label}
+        </span>
+      )}
     </div>
   );
 }
@@ -444,7 +437,9 @@ const DEMO = {
       mainDeck: true,
       leader: true,
       heroes: [true, false, false, true, false, false, false, true, false, false],
-      hand: [true, false, true, true, false, true, false, false],
+      // index 4 = the challenge card — playable so the challenge-window demo
+      // can be started by hand (see CHALLENGE_CARD_KEY below)
+      hand: [true, false, true, true, true, true, false, false],
     } as PlayableFlags,
   },
   p2: {
@@ -529,16 +524,94 @@ const DEMO_ACTIONS: Record<TargetKey, { name: string; targets: TargetKey[] }> =
     },
   };
 
+/** the challenge card in the demo hand — pressing it targets the OPEN
+ *  CHALLENGE WINDOWS (DEMO_WINDOWS.challengeable); picking one opens the
+ *  challenge window over that card (see demoChallenge in BoardInner). */
+const CHALLENGE_CARD_KEY = tkey.handCard(4);
+
+/** the modifier card in the demo hand (index 3, the "+4") — during a
+ *  challenge it targets the two ROLL PANELS; otherwise it targets the OPEN
+ *  MODIFIER WINDOWS (DEMO_WINDOWS.modifiable). See activate below. */
+const MODIFIER_CARD_KEY = tkey.handCard(3);
+const MODIFIER_DEMO = { amount: 4, url: boardModifierUrl("+4") };
+
+/**
+ * DEMO stand-in for the server's open reaction windows (ReactionWindows in
+ * playable.ts — later straight off game:state, where the engine's reaction
+ * manager tracks exactly this). Pressing a challenge/modifier card glows
+ * ONLY these cards: per the user's example, the middle monster, one hero of
+ * our party, one of p2's party, and the top of the discard pile.
+ */
+const DEMO_WINDOWS: ReactionWindows = {
+  challengeable: [
+    tkey.monster(1),
+    tkey.hero("p1", 2),
+    tkey.hero("p2", 2),
+    tkey.discard(),
+  ],
+  modifiable: [
+    tkey.monster(1),
+    tkey.hero("p1", 2),
+    tkey.hero("p2", 2),
+    tkey.discard(),
+  ],
+};
+
+/** owner seat encoded in a target key ("hero:p2:2" → p2), or null for the
+ *  unowned centre cards (monster / discard / decks). */
+const seatOfKey = (key: TargetKey): PlayerId | null => {
+  const part = key.split(":")[1];
+  return part && /^p[1-4]$/.test(part) ? (part as PlayerId) : null;
+};
+
+/** DEMO: resolve a picked window key to its card art + aspect — the
+ *  stand-in for "the layout fetches the card the server says opened this
+ *  window" (live, game:state names the card and assets.ts resolves it). */
+function demoArtFor(key: TargetKey): { url: string; aspect: number } {
+  const [kind, a, b] = key.split(":");
+  switch (kind) {
+    case "monster":
+      return {
+        url: boardMonsterUrl(MONSTER_NAMES[Number(a)]),
+        aspect: MONSTER_CARD_ASPECT,
+      };
+    case "hero": {
+      const slug = DEMO[a as PlayerId].heroes[Number(b)].slug;
+      return {
+        url: boardHeroCardUrl(slug) ?? heroCardUrl(slug),
+        aspect: BOARD_CARD_ASPECT,
+      };
+    }
+    case "leader":
+      return {
+        url: boardLeaderUrl(DEMO[a as PlayerId].leader),
+        aspect: LEADER_CARD_ASPECT,
+      };
+    case "discard":
+      // the pile's TOP (newest) card is the one whose action is open
+      return { url: DISCARD[DISCARD.length - 1], aspect: NONHERO_CARD_ASPECT };
+    default:
+      return {
+        url: boardMagicUrl("Destructive Spell"),
+        aspect: NONHERO_CARD_ASPECT,
+      };
+  }
+}
+
 export default function Board() {
   return (
     <TargetingProvider>
-      <BoardInner />
+      <ChallengeProvider>
+        <BoardInner />
+      </ChallengeProvider>
     </TargetingProvider>
   );
 }
 
 function BoardInner() {
   const { active, begin, cancel } = useTargeting();
+  const challenge = useChallenge();
+  const challengeOpen = !!challenge.active;
 
   /** the 2d6 throw (DiceRoll) — a new state replays the animation from the
    *  given seat's side of the table; the settled dice then STAY on the felt
@@ -556,11 +629,15 @@ function BoardInner() {
    *  "± {mod}" banner variant — NOT the real modifier mechanic. */
   const [turnSeat, setTurnSeat] = useState<PlayerId>("p1");
   const [rollInfo, setRollInfo] = useState<RollInfo | null>(null);
+  /** art of every modifier card played onto the CURRENT board roll — shown
+   *  fanned beside the turn banner; lives and dies with the roll. */
+  const [rollModCards, setRollModCards] = useState<string[]>([]);
   const endTurnTest = () => {
     const order: PlayerId[] = ["p1", "p2", "p3", "p4"];
     setTurnSeat(order[(order.indexOf(turnSeat) + 1) % order.length]);
     setRollInfo(null); // banner back to "{player}'s turn"
     setDiceRoll(null); // turn end clears the dice off the table
+    setRollModCards([]); // …and the roll's modifier cards with them
   };
 
   const showDiceRoll = (seat: PlayerId) => {
@@ -573,13 +650,112 @@ function BoardInner() {
       modifier:
         seat === "p2" ? mods[Math.floor(Math.random() * mods.length)] : null,
     });
+    setRollModCards([]); // a fresh roll starts with no modifiers played
   };
+
+  /** DEMO: a challengeable card was PICKED from the open windows — the
+   *  challenge window opens over that exact card: its art is fetched
+   *  (demoArtFor, standing in for the server naming the card) and the
+   *  challenged seat is the card's owner (unowned centre cards fall back to
+   *  the demo's p2). p1 played the challenge, so p1 is the CHALLENGER; the
+   *  two server roll events are faked. Live wiring: game:event drives the
+   *  same context calls (ChallengeStarted → open, ChallengeRolled → setRoll,
+   *  ChallengeResolved → close). */
+  const demoChallenge = (target: TargetKey) => {
+    const art = demoArtFor(target);
+    challenge.open({
+      challengedSeat: seatOfKey(target) ?? "p2",
+      challengerSeat: "p1",
+      challengedCardUrl: art.url,
+      challengedCardAspect: art.aspect,
+      challengeCardUrl: boardChallengeUrl(),
+    });
+    const d6 = () => 1 + Math.floor(Math.random() * 6);
+    window.setTimeout(() => challenge.setRoll("challenged", [d6(), d6()]), 900);
+    window.setTimeout(
+      () => challenge.setRoll("challenger", [d6(), d6()]),
+      2600,
+    );
+  };
+
+  // DEMO-ONLY escape hatch: a real challenge closes on the server's
+  // resolution event; Escape stands in for it while tuning the window.
+  // While a targeting request is aiming (e.g. a modifier picking its roll),
+  // Escape belongs to targeting — only a second press closes the window.
+  useEffect(() => {
+    if (!challengeOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !active) challenge.close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [challengeOpen, challenge, active]);
 
   /** clicked a glowing (playable) card in normal mode. If its action needs a
    *  target, enter targeting mode to pick one; otherwise it's a direct play
    *  and resolves immediately. Every glowing card is pressable — cards with no
    *  entry in DEMO_ACTIONS are treated as a plain "play this card". */
   const activate = (source: TargetKey) => {
+    // During a challenge, a MODIFIER card aims at one of the two live rolls:
+    // the ROLL PANELS are the targets (gold pick glow), and picking one
+    // applies the modifier to that side's score. Only rolled sides qualify.
+    // Live wiring: the server lists the valid rolls; here it's the demo +4.
+    if (challengeOpen && source === MODIFIER_CARD_KEY) {
+      const targets = (["challenged", "challenger"] as const)
+        .filter((role) => challenge.active?.[role].roll)
+        .map((role) => tkey.challengeRoll(role));
+      if (targets.length === 0) return; // nothing rolled to modify yet
+      begin({
+        source,
+        targets,
+        onPick: (target) => {
+          const role = target.split(":")[1] as ChallengeRole;
+          challenge.addModifier(role, MODIFIER_DEMO.amount, MODIFIER_DEMO.url);
+        },
+      });
+      return;
+    }
+
+    // A CHALLENGE card aims at the server's OPEN CHALLENGE WINDOWS: only the
+    // currently challengeable cards glow (DEMO_WINDOWS until game:state
+    // supplies them); picking one opens the challenge window over that card.
+    if (!challengeOpen && source === CHALLENGE_CARD_KEY) {
+      if (DEMO_WINDOWS.challengeable.length === 0) return; // nothing open
+      begin({
+        source,
+        targets: DEMO_WINDOWS.challengeable,
+        onPick: demoChallenge,
+      });
+      return;
+    }
+
+    // A MODIFIER outside a challenge aims at the OPEN MODIFIER WINDOWS the
+    // same way: only the modifiable cards glow, pick one to modify its roll.
+    // DEMO: +4 onto the live board roll (banner + card beside the scroll).
+    if (!challengeOpen && source === MODIFIER_CARD_KEY) {
+      if (DEMO_WINDOWS.modifiable.length === 0) return; // nothing open
+      begin({
+        source,
+        targets: DEMO_WINDOWS.modifiable,
+        onPick: (target) => {
+          // TODO: send the real game:reaction to the server (useGameState)
+          console.log(`[modifier] +4 → ${target}`);
+          if (rollInfo) {
+            setRollInfo((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    modifier: (prev.modifier ?? 0) + MODIFIER_DEMO.amount,
+                  }
+                : prev,
+            );
+            setRollModCards((prev) => [...prev, MODIFIER_DEMO.url]);
+          }
+        },
+      });
+      return;
+    }
+
     const action = DEMO_ACTIONS[source];
     if (action && action.targets.length > 0) {
       begin({
@@ -607,7 +783,7 @@ function BoardInner() {
     <div
       className={`board-root relative h-screen w-screen overflow-hidden bg-zinc-950${
         active ? " targeting" : ""
-      }`}
+      }${challengeOpen ? " challenge-open" : ""}`}
       // any click that no target/source swallowed backs out of targeting
       onClick={active ? cancel : undefined}
     >
@@ -703,7 +879,17 @@ function BoardInner() {
                   }
                 />
               </Widget>
-              <Widget def={p.cardback} anchor={p.anchor} zClass="z-40">
+              <Widget
+                def={p.cardback}
+                anchor={p.anchor}
+                zClass="z-40"
+                // during a challenge the local hand is part of the bright
+                // layer — raise it above the window's click shield (z-140)
+                zIndex={challengeOpen && seat === "p1" ? 160 : undefined}
+                // …and EVERY seat's hand count stays readable above the dim
+                // (each side's remaining cards = their modifier fuel)
+                dimExempt={challengeOpen}
+              >
                 {seat === "p1" ? (
                   <PlayerHand
                     cards={DEMO.p1.handCards}
@@ -730,8 +916,35 @@ function BoardInner() {
 
         {/* ---------- HUD: turn banner + action points (top-right) ---------- */}
         <HudWidget def={HUD_WIDGETS.yourTurn} aspect={HUD_ASPECT.yourTurn}>
-          <TurnBanner seat={turnSeat} roll={rollInfo} />
+          <TurnBanner seat={turnSeat} roll={rollInfo} muted={challengeOpen} />
         </HudWidget>
+
+        {/* modifier cards played onto the current BOARD roll, fanned beside
+            the banner scroll — dimmable like the rest of the HUD */}
+        {rollModCards.map((url, i) => (
+          <div
+            key={`${url}-${i}`}
+            className="absolute"
+            style={{
+              height: `${ROLL_MOD_CARDS.h}cqh`,
+              width: `${ROLL_MOD_CARDS.h * NONHERO_CARD_ASPECT}cqh`,
+              ...positionStyle(
+                ROLL_MOD_CARDS.anchor,
+                ROLL_MOD_CARDS.dx - i * ROLL_MOD_CARDS.step,
+                ROLL_MOD_CARDS.dy,
+              ),
+              transform: `translate(-50%, -50%) rotate(${ROLL_MOD_CARDS.angle}deg)`,
+              zIndex: 40 + i,
+            }}
+          >
+            <img
+              src={url}
+              alt="modifier card"
+              draggable={false}
+              className="dimmable h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
+            />
+          </div>
+        ))}
         <HudWidget
           def={HUD_WIDGETS.actionPoints}
           aspect={HUD_ASPECT.actionFrame}
@@ -741,6 +954,9 @@ function BoardInner() {
 
         {/* ---------- dice roll (appears on the felt left of the centre board) ---------- */}
         <DiceRoll roll={diceRoll} />
+
+        {/* ---------- challenge window (paused-game overlay, self-hiding) ---------- */}
+        <ChallengeWindow />
       </div>
 
       {/* TEST ONLY (no design): cycles the turn seat so the banner modes can

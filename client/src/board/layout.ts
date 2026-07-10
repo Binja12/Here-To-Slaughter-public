@@ -243,6 +243,47 @@ export const DICE_SPOTS: Record<PlayerId, DiceSpotDef> = {
   p4: { dx: 39, dy: 16.5, fromDx: 16, fromDy: -10, pairDx: 5.4, pairDy: 0.8 },
 };
 
+/* ------------------------------------------------------------------ */
+/* Challenge window (ChallengeWindow.tsx) — geometry of the paused-game  */
+/* overlay: the challenged card centre-stage with the challenge card     */
+/* tucked behind it at an angle, plus one roll panel per side            */
+/* (challenged LEFT/green, challenger RIGHT/red). All cqh relative to    */
+/* the stage, hand-tunable like every other widget.                      */
+/* ------------------------------------------------------------------ */
+
+export const CHALLENGE_LAYOUT = {
+  /** the challenged card (the play being contested) — centre offset from
+   *  the STAGE centre (+right/+down), height in cqh */
+  card: { h: 42, dx: 0, dy: -6 },
+  /** the challenge card tucked BEHIND it (like an item behind its hero):
+   *  `peek` = fraction of its width showing past the right edge,
+   *  `angle` = its tilt in degrees, `scale` = its height relative to the
+   *  challenged card's. */
+  tuck: { peek: 0.3, angle: 14, scale: 0.94 },
+  /** the two roll panels — centres at ±dx from the stage centre
+   *  (challenged at −dx, challenger at +dx), w/h in cqh */
+  panel: { w: 30, h: 26, dx: 43, dy: -6 },
+  /** the roll-total scroll (the board's "your turn" art) inside a panel —
+   *  centre offset in cqh from the PANEL centre */
+  scroll: { h: 6, dx: 0, dy: 10.5 },
+  /** modifier cards played onto a roll, by the panel's outer edge — dx is
+   *  mirrored toward that side's OUTER edge (challenged left, challenger
+   *  right); each next card steps `step` further out and tilts `angle`°
+   *  (also mirrored) */
+  modCard: { h: 13, dx: 20, dy: 6.5, step: 2.2, angle: 9 },
+  /** the dice throw inside a panel: dx/dy = the pair's landing centre from
+   *  the PANEL centre; fromDx/fromDy/pairDx/pairDy have the exact same
+   *  semantics as DICE_SPOTS. Each side's throw arrives from its own outer
+   *  edge of the screen. */
+  dice: {
+    size: 6.5,
+    spots: {
+      challenged: { dx: 0, dy: 4, fromDx: -20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
+      challenger: { dx: 0, dy: 4, fromDx: 20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
+    },
+  },
+} as const;
+
 /**
  * `transform-origin` (as "x% y%") for a card's hover zoom, chosen so the card
  * grows TOWARD the board centre and never off-screen. The origin is pinned to
@@ -298,4 +339,20 @@ export interface HudDef {
 export const HUD_WIDGETS: { yourTurn: HudDef; actionPoints: HudDef } = {
   yourTurn: { anchor: "top", h: 6, dx: 62, dy: 6 },
   actionPoints: { anchor: "top", h: 6, dx: 62, dy: 14 },
+};
+
+/**
+ * Modifier cards played onto the CURRENT BOARD ROLL (no challenge window —
+ * they apply straight to the roll) — fanned beside the turn banner (the
+ * board's "roll scroll", HUD_WIDGETS.yourTurn). Same anchor+dx/dy semantics
+ * as the HUD widgets; each next card steps `step` further left and tilts
+ * `angle`°. Cleared with the roll (new throw / turn end).
+ */
+export const ROLL_MOD_CARDS = {
+  anchor: "top" as Anchor,
+  h: 11,
+  dx: 46,
+  dy: 9,
+  step: 2,
+  angle: -8,
 };

@@ -51,6 +51,10 @@ export const tkey = {
   mainDeck: (): TargetKey => "mainDeck",
   monsterDeck: (): TargetKey => "monsterDeck",
   discard: (): TargetKey => "discard",
+  /** one side's live roll in the challenge window — the roll PANEL is the
+   *  clickable target (e.g. aiming a modifier card at a roll) */
+  challengeRoll: (role: "challenged" | "challenger"): TargetKey =>
+    `challengeRoll:${role}`,
 };
 
 export interface TargetingRequest {
