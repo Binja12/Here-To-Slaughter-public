@@ -23,6 +23,13 @@ Thumbs.db
 # NestJS
 server/dist/
 
+# TS build output emitted in place next to the sources
+server/src/**/*.js
+server/src/**/*.d.ts
+
+# graphify report output
+graphify-out/
+
 # React
 client/build/
 

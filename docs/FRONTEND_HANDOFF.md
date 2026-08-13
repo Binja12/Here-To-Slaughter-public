@@ -10,6 +10,75 @@ asks for that.** The user tunes these by hand; touching them as a side effect
 of an unrelated request (e.g. a hover/zoom fix) is a repeated mistake — confirm
 first if a fix seems to require moving something.
 
+## Lobby (session 7, RESET session 8) — pre-game screen, demo-data now / socket API later
+
+App.tsx now shows `LobbyView` first and swaps to `Board` when the game starts
+(`?board` in the URL starts on the board; a small "lobby/board (test)"
+corner button toggles the two views any time — dev-only, like the end-turn
+test button). Three files under `client/src/lobby/` + the state hook.
+
+SESSION 8 RESET: the tilted-table lobby (perspective player frames, tilted
+settings board, 21:9 master background) was replaced at the user's request by
+a straight-on LAYERED art set using the BOARD's exact layer model. The new
+PNGs — `Background Empty.png`, `Side Bards Frames.png` (sic), `Center
+Frame.png` — all share ONE 1672×941 canvas (layered-PSD style exports). All
+tilted/21:9 art stays in the manifest marked legacy.
+
+- **lobbyAssets.ts** — manifest of `client/public/lobby/*.png`: canvas size +
+  opaque alpha bbox per entry; `artStyle()` renders exactly the bbox via a
+  background-crop (all flat widget art uses it). The three layer PNGs are
+  painted full-stage instead — their bboxes are informational. Quirk:
+  `Side Bards Frames.png` has a solid-teal matte visible in image viewers
+  between the bars; it's alpha-0 (transparent), not a defect.
+- **lobbyLayout.ts** — ALL geometry. THE 1672×941 ART CANVAS IS THE
+  REFERENCE FRAME: a `Rect {x,y,w,h}` is a painted SLOT in canvas px
+  (measured off the PNGs); a `Box {x,y,w}` is a widget ANCHOR (centre +
+  width, height follows the art's bbox aspect — board-widget style, per the
+  user's explicit direction: flat art ANCHORED on the painted slots).
+  Slots: `SEAT_PANELS` (the bars' 4 small panels, TL/TR/BL/BR fill order),
+  `MIDDLE_PANELS` (big middle panels, INTENTIONALLY EMPTY — future player
+  details), `WINDOW_RECT` (centre frame inner window), `START_RECT` (oval
+  plaque). Widgets: `SEAT_WIDGETS` (flat Player Frame per seat, centred on
+  its panel), `SETTINGS_WIDGET` (flat Settings board, centred in the
+  window), `START_WIDGET` (flat Start Game art on the plaque), `SEAT_BTN`
+  (+/- medallion straddling the TOP edge of the player widget, cy 0).
+  `FRAME` fracs = the flat Player Frame's painted interior (parchment name
+  plate, blue status strip, avatar ring left, dark panel), measured by
+  colour line-scans. `SETTINGS_GRID` = the flat art's 2-col × 10-ROW ledger
+  (rows differ from the old tilted art's 9 — DEMO_SETTINGS grew a 10th
+  entry, Bot Difficulty, to fill it). `px()` writes fonts/shadows in canvas px.
+- **LobbyView.tsx** — the board's four layers exactly: (1) `Background
+  Empty.png` full-viewport `cover`, decorative only; (2) centred locked 16:9
+  stage ([container-type:size]); (3) Side Bars + Center Frame `<img>`s
+  stretched full-stage (`object-fill`) — they share the background's canvas,
+  so every painted panel self-aligns with the lobbyLayout coords by
+  construction; (4) the FLAT art widgets on their slots — Player Frames
+  (name-plate rename for the local player, HOST/READY/WAITING in the blue
+  strip, avatar initial in the ring, +/- medallion swapping in place at the
+  frame's top edge: empty → plus/claim, occupied non-host → minus/leave),
+  the Settings board (title + ledger baked into the art; live text overlays
+  the 10 rows), and the Start Game art (text baked in; dims until
+  `canStart`). Hover transforms live on an INNER element — the outer has
+  the inline positioning translate (same Tailwind-vs-inline transform
+  pitfall as the board fan).
+- **state/useLobbyState.ts** — ONE hook, two sources behind the same
+  `LobbyApi`: mode 'demo' (default; pure local state, bots named from
+  BOT_NAMES, 9 demo settings matching the 9 painted rows) and mode 'api'
+  (same actions forwarded as `lobby:*` socket emits — server gateway doesn't
+  exist yet; `lobby:state` listener is the TODO). Switch via
+  REACT_APP_LOBBY_MODE=api or the hook's `mode` arg. `startGame()` in api
+  mode emits `game:start`; either way it fires the `onGameStart` callback
+  (App's phase swap).
+
+Verified in-browser (session 8): every widget's rendered centre maps back to
+its canvas anchor to the decimal (frames on the 4 panels, settings dead
+centre of the window at 450×580 inside the 906×600 window, start on the
+plaque, medallions exactly on the frames' top edges); add/setting-cycle
+work; no console errors. NOTE: the Browser pane's screenshot capture was
+broken both sessions (times out; JS/read_page fine), so verification was
+numeric — eyeball the lobby once when capture returns; expect to hand-tune
+FRAME fracs / widget widths / font sizes to taste.
+
 ## Current status — board layout & scale (session 6: 16:9 stage + centre widgets)
 
 The board is a PLAIN felt `Table Background.png` + separate frame WIDGETS in
