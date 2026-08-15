@@ -21,7 +21,12 @@ const makeGs = (deckCards: string[] = []) => {
   const deck = new CardStack('deck-1', 'main-deck')
   const discard = new CardPile('discard-1', 'discard-pile')
   for (const c of deckCards) deck.addToBottom(c)
-  return new GameState(deck, discard)
+  return new GameState(
+    deck,
+    discard,
+    new CardStack('mdeck-1', 'monster-deck'),
+    new CardPile('mpile-1', 'monster-pile'),
+  )
 }
 
 // --- Tests ---

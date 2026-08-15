@@ -23,6 +23,6 @@ export class ModifierCard implements ICard {
     return this.data.ability
   }
   getValues() {
-    this.data.values
+    return this.data.values
   }
 }

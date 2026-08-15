@@ -1,5 +1,5 @@
 import { PartyLeaderCard } from './party-leader-card'
-import { CardType, HeroClass } from 'shared'
+import { CardType, GameEventType, HeroClass } from 'shared'
 import { PartyLeaderData } from 'shared'
 
 const mockLeaderData: PartyLeaderData = {
@@ -10,10 +10,7 @@ const mockLeaderData: PartyLeaderData = {
   description: 'A mysterious leader',
   heroClass: HeroClass.Thief,
   set: 'base',
-  ability: {
-    trigger: [],
-    steps: [],
-  },
+  ability: { trigger: GameEventType.TurnStarted },
 }
 
 describe('PartyLeaderCard', () => {
