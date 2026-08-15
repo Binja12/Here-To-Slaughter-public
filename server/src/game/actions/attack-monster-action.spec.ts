@@ -1,4 +1,4 @@
-import { ActionType, CardType, RollCompareMode } from 'shared'
+import { ActionType, CardType, GameEventType, RollCompareMode } from 'shared'
 import { AttackMonsterAction } from './attack-monster-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -31,7 +31,7 @@ const makeMonsterCard = (id: string, higherReq = 8, lowerReq = 3) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: [], steps: [] },
+    ability: { trigger: GameEventType.MonsterSlain },
     lowerReq,
     higherReq,
     rollCompareMode: RollCompareMode.HighToWin,

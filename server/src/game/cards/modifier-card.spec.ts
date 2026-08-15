@@ -1,5 +1,5 @@
 import { ModifierCard } from './modifier-card'
-import { CardType } from 'shared'
+import { CardType, GameEventType } from 'shared'
 import { ModifierCardData } from 'shared'
 
 const mockModifierData: ModifierCardData = {
@@ -9,10 +9,8 @@ const mockModifierData: ModifierCardData = {
   image: 'lucky.png',
   description: 'Adds 2 to any roll',
   set: 'base',
-  ability: {
-    trigger: [],
-    steps: [],
-  },
+  ability: { trigger: GameEventType.DiceRolled },
+  values: [2],
 }
 
 const mockModifierWithCondition: ModifierCardData = {
@@ -49,5 +47,10 @@ describe('ModifierCard', () => {
   it('should return ability', () => {
     const card = new ModifierCard(mockModifierData)
     expect(card.getAbility()).toEqual(mockModifierData.ability)
+  })
+
+  it('should return values', () => {
+    const card = new ModifierCard(mockModifierData)
+    expect(card.getValues()).toEqual([2])
   })
 })

@@ -212,7 +212,7 @@ describe('RollOnHeroAction', () => {
           rollReq: 10,
           ability: {
             trigger: GameEventType.RollSuccess,
-            steps: [{ execute: (_gs, _ctx, _em, _rm) => taskSpy() }],
+            steps: [{ execute: () => taskSpy() }],
           } as any,
         }),
       )

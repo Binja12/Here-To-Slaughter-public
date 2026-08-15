@@ -268,9 +268,11 @@ describe('AbilityProcessor', () => {
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1'))
       gs.registerCard(
+        // Deliberately malformed: an ability with steps but no trigger. The type
+        // forbids it, so the cast is what lets us assert the runtime guard.
         makeFakeCard('leader-1', {
           steps: [makeTask([], () => fired.push(true))],
-        }),
+        } as unknown as IAbility),
       )
 
       const ap = makeAp(gs, new GameEventEmitter())

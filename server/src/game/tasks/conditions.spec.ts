@@ -11,6 +11,7 @@ import { MagicCard } from '../cards/magic-card'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
 import { ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -36,6 +37,9 @@ const makeGs = (deckCards: string[] = []) => {
 
 const makeCtx = () => new AbilityContext('src', 'p1')
 const makeEmitter = () => new GameEventEmitter()
+
+/** Stub ReactionManager — tasks under test don't open frames. */
+const stubRm = null as unknown as ReactionManager
 
 const makeMagicCard = (id: string) =>
   new MagicCard({
@@ -70,12 +74,17 @@ describe('CardTypeCondition', () => {
     const gs = makeGs(['magic-1'])
     gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
-    new DrawTask(1).execute(gs, ctx, makeEmitter())
+    new DrawTask(1).execute(gs, ctx, makeEmitter(), stubRm)
 
     const ran: string[] = []
     const ifTrue: ITask = { execute: () => ran.push('true') }
     const ifFalse: ITask = { execute: () => ran.push('false') }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, makeEmitter())
+    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
+      gs,
+      ctx,
+      makeEmitter(),
+      stubRm,
+    )
 
     expect(ran).toEqual(['true'])
   })
@@ -84,12 +93,17 @@ describe('CardTypeCondition', () => {
     const gs = makeGs(['hero-1'])
     gs.registerCard(makeHeroCard('hero-1'))
     const ctx = makeCtx()
-    new DrawTask(1).execute(gs, ctx, makeEmitter())
+    new DrawTask(1).execute(gs, ctx, makeEmitter(), stubRm)
 
     const ran: string[] = []
     const ifTrue: ITask = { execute: () => ran.push('true') }
     const ifFalse: ITask = { execute: () => ran.push('false') }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, makeEmitter())
+    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
+      gs,
+      ctx,
+      makeEmitter(),
+      stubRm,
+    )
 
     expect(ran).toEqual(['false'])
   })
@@ -98,10 +112,10 @@ describe('CardTypeCondition', () => {
     const gs = makeGs(['hero-1'])
     gs.registerCard(makeHeroCard('hero-1'))
     const ctx = makeCtx()
-    new DrawTask(1).execute(gs, ctx, makeEmitter())
+    new DrawTask(1).execute(gs, ctx, makeEmitter(), stubRm)
 
     expect(() =>
-      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, makeEmitter()),
+      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, makeEmitter(), stubRm),
     ).not.toThrow()
   })
 
@@ -111,7 +125,12 @@ describe('CardTypeCondition', () => {
 
     const ran: string[] = []
     const ifFalse: ITask = { execute: () => ran.push('false') }
-    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(gs, ctx, makeEmitter())
+    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(
+      gs,
+      ctx,
+      makeEmitter(),
+      stubRm,
+    )
 
     expect(ran).toEqual(['false'])
   })
