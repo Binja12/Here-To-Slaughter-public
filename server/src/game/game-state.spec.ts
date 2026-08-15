@@ -4,10 +4,11 @@ import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
 import { HeroCard } from './cards/hero-card'
-import { IAbility } from './interfaces'
+import { IAbility, IReactionWindow } from './interfaces'
 import { GameEventType } from 'shared'
 import { CardPile } from './card-pile'
 import { DiscardTask } from './tasks/tasks'
+import { NO_CONTEXT_RESULT } from './ability-context'
 
 const makePlayer = (id: string) =>
   new Player({
@@ -143,12 +144,13 @@ describe('GameState', () => {
   // --- Frames ---
 
   describe('frames', () => {
-    const stubWindow = (isOpen = true) => ({
+    const stubWindow = (isOpen = true): IReactionWindow => ({
       getId: () => 'w1',
       getType: () => ReactionWindowType.Modifier,
       isOpen: () => isOpen,
       submitReaction: () => {},
       resolve: () => {},
+      resultKey: () => NO_CONTEXT_RESULT,
     })
 
     it('frame is present after addFrame', () => {

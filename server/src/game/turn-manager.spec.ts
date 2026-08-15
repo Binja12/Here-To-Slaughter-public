@@ -5,8 +5,9 @@ import { GameEventEmitter } from './events/game-event-emitter'
 import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
-import { IAction } from './interfaces'
+import { IAction, IReactionWindow } from './interfaces'
 import { CardPile } from './card-pile'
+import { NO_CONTEXT_RESULT } from './ability-context'
 
 const makeGs = (actionPoints = 3) => {
   const deck = new CardStack('deck-1', 'main-deck')
@@ -192,7 +193,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
@@ -224,7 +225,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           executed.push('window-action')
           return []
@@ -296,7 +297,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {} }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },

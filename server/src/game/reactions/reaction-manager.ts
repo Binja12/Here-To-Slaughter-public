@@ -4,6 +4,9 @@ import { IReaction, IReactionWindow } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from './modifier-window'
 import { ChallengeWindow } from './challenge-window'
+import { PlayerChoiceWindow } from './player-choice-window'
+import { CardChoiceWindow } from './card-choice-window'
+import { TaskChoiceWindow } from './task-choice-window'
 
 export class ReactionManager {
   /** Set inside openFrame(); consumed by AbilityProcessor after each task step. */
@@ -86,8 +89,46 @@ export class ReactionManager {
       )
     }
 
-    // Stub for Choice and unimplemented types — resolves immediately.
-    return makeStubWindow(type)
+    if (type === ReactionWindowType.PlayerChoice) {
+      return new PlayerChoiceWindow(
+        crypto.randomUUID(),
+        respondent,
+        (config['options'] as string[]) ?? [],
+        5000,
+        this.gs,
+        frameId,
+        this.em,
+      )
+    }
+
+    if (type === ReactionWindowType.CardChoice) {
+      return new CardChoiceWindow(
+        crypto.randomUUID(),
+        respondent,
+        (config['options'] as string[]) ?? [],
+        5000,
+        this.gs,
+        frameId,
+        this.em,
+      )
+    }
+
+    if (type === ReactionWindowType.TaskChoice) {
+      return new TaskChoiceWindow(
+        crypto.randomUUID(),
+        respondent,
+        5000,
+        this.gs,
+        frameId,
+        this.em,
+      )
+    }
+
+    // Exhaustive: adding a ReactionWindowType without a branch above is a
+    // compile error here, rather than a window that never resolves and
+    // silently stalls the turn drain.
+    const unhandled: never = type
+    throw new Error(`No window implementation for reaction type ${unhandled}`)
   }
 
   // ---------------------------------------------------------------------------
@@ -97,21 +138,5 @@ export class ReactionManager {
   submitReaction(reaction: IReaction): void {
     if (!reaction.canExecute(this.gs)) return
     reaction.execute(this.gs, this.em)
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeStubWindow(type: ReactionWindowType): IReactionWindow {
-  const id = crypto.randomUUID()
-  let open = true
-  return {
-    getId: () => id,
-    getType: () => type,
-    isOpen: () => open,
-    submitReaction: () => {},
-    resolve: () => { open = false },
   }
 }

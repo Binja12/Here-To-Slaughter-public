@@ -85,10 +85,20 @@ describe('ChallengeWindow', () => {
   // Construction
   // ---------------------------------------------------------------------------
 
-  it('emits ChallengeWindowOpened immediately on construction', () => {
+  // There is ONE lifecycle event for every window kind; consumers tell them
+  // apart by payload windowType rather than by subscribing per window type.
+  it('emits ReactionWindowOpened tagged as a Challenge window', () => {
     makeWindow({ gs, em, challengedId: 'p1', cardId: 'hero-1' })
-    const e = events.find((e) => e.getType() === GameEventType.ChallengeWindowOpened)
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
     expect(e).toBeDefined()
+    expect((e!.getPayload() as any).windowType).toBe(ReactionWindowType.Challenge)
+  })
+
+  // The contested card rides in the same event, so collapsing the bespoke
+  // ChallengeWindowOpened lost the client nothing.
+  it('carries the contested card on ReactionWindowOpened', () => {
+    makeWindow({ gs, em, challengedId: 'p1', cardId: 'hero-1' })
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
     expect(e!.getPlayerId()).toBe('p1')
     expect((e!.getPayload() as any).cardId).toBe('hero-1')
     expect((e!.getPayload() as any).defenderId).toBe('p1')
@@ -117,10 +127,12 @@ describe('ChallengeWindow', () => {
   // ---------------------------------------------------------------------------
 
   describe('resolve() uncontested', () => {
-    it('emits ChallengeWindowClosed', () => {
+    it('emits ReactionWindowClosed with a winning outcome', () => {
       const win = makeWindow({ gs, em })
       win.resolve()
-      expect(events.some((e) => e.getType() === GameEventType.ChallengeWindowClosed)).toBe(true)
+      const e = events.find((e) => e.getType() === GameEventType.ReactionWindowClosed)
+      expect(e).toBeDefined()
+      expect((e!.getPayload() as any).outcome).toBe(true)
     })
 
     it('emits FrameResolved', () => {
@@ -349,7 +361,7 @@ describe('ChallengeWindow', () => {
     win.resolve()
     win.resolve()
     const count = (type: GameEventType) => events.filter((e) => e.getType() === type).length
-    expect(count(GameEventType.ChallengeWindowClosed)).toBe(1)
+    expect(count(GameEventType.ReactionWindowClosed)).toBe(1)
     expect(count(GameEventType.FrameResolved)).toBe(1)
   })
 
@@ -358,7 +370,7 @@ describe('ChallengeWindow', () => {
     win.resolve()
     // Advance past the original timeout — should not trigger a second resolve
     jest.runAllTimers()
-    const count = events.filter((e) => e.getType() === GameEventType.ChallengeWindowClosed).length
+    const count = events.filter((e) => e.getType() === GameEventType.ReactionWindowClosed).length
     expect(count).toBe(1)
   })
 })

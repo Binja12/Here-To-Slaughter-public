@@ -29,6 +29,9 @@ client/build/
 # Coverage
 coverage/
 
+# graphify report output
+graphify-out/
+
 
 #calude
 .claude/**

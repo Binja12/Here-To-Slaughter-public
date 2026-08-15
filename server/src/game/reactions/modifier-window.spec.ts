@@ -79,12 +79,32 @@ describe('ModifierWindow', () => {
   // Construction
   // ---------------------------------------------------------------------------
 
-  it('emits ModifierWindowOpened immediately on construction', () => {
+  // There is ONE lifecycle event for every window kind; consumers tell them
+  // apart by payload windowType rather than by subscribing per window type.
+  it('emits ReactionWindowOpened tagged as a Modifier window', () => {
+    makeWindow({ gs, em })
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
+    expect(e).toBeDefined()
+    expect((e!.getPayload() as { windowType: string }).windowType).toBe(
+      ReactionWindowType.Modifier,
+    )
+  })
+
+  // The roll detail rides in the same event, so collapsing the bespoke
+  // ModifierWindowOpened lost the client nothing.
+  it('carries the roll detail on ReactionWindowOpened', () => {
     makeWindow({ gs, em, rollerId: 'p1', baseRoll: 4, rollReq: 7, heroId: 'h1' })
-    const e = events.find((e) => e.getType() === GameEventType.ModifierWindowOpened)
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
     expect(e).toBeDefined()
     expect(e!.getPlayerId()).toBe('p1')
     expect(e!.getPayload()).toMatchObject({ rollerId: 'p1', baseRoll: 4, rollReq: 7, heroId: 'h1' })
+  })
+
+  it('reports the final roll as the ReactionWindowClosed outcome', () => {
+    const win = makeWindow({ gs, em, baseRoll: 6, rollReq: 5 })
+    win.resolve()
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowClosed)
+    expect((e!.getPayload() as { outcome: unknown }).outcome).toBe(6)
   })
 
   it('getType() returns Modifier', () => {
@@ -131,19 +151,19 @@ describe('ModifierWindow', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // resolve() — both paths emit ModifierWindowClosed and FrameResolved
+  // resolve() — both paths emit ReactionWindowClosed and FrameResolved
   // ---------------------------------------------------------------------------
 
-  it('emits ModifierWindowClosed on success path', () => {
+  it('emits ReactionWindowClosed on success path', () => {
     const win = makeWindow({ gs, em, baseRoll: 6, rollReq: 5 }) // 6 >= 5 → success
     win.resolve()
-    expect(events.some((e) => e.getType() === GameEventType.ModifierWindowClosed)).toBe(true)
+    expect(events.some((e) => e.getType() === GameEventType.ReactionWindowClosed)).toBe(true)
   })
 
-  it('emits ModifierWindowClosed on fail path', () => {
+  it('emits ReactionWindowClosed on fail path', () => {
     const win = makeWindow({ gs, em, baseRoll: 3, rollReq: 5 }) // 3 < 5 → fail
     win.resolve()
-    expect(events.some((e) => e.getType() === GameEventType.ModifierWindowClosed)).toBe(true)
+    expect(events.some((e) => e.getType() === GameEventType.ReactionWindowClosed)).toBe(true)
   })
 
   it('emits FrameResolved on success path', () => {
@@ -224,7 +244,7 @@ describe('ModifierWindow', () => {
     win.resolve()
     win.resolve()
     const count = (type: GameEventType) => events.filter((e) => e.getType() === type).length
-    expect(count(GameEventType.ModifierWindowClosed)).toBe(1)
+    expect(count(GameEventType.ReactionWindowClosed)).toBe(1)
     expect(count(GameEventType.FrameResolved)).toBe(1)
     expect(count(GameEventType.RollSuccess)).toBe(1)
   })

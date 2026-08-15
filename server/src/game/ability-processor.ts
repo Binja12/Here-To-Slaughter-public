@@ -2,7 +2,7 @@ import { GameEventType, IGameEvent, IGameEventEmitter, IGameEventListener } from
 import { ITask } from './interfaces'
 import { GameState } from './game-state'
 
-import { AbilityContext, CTX_FRAME_RESULTS } from './ability-context'
+import { AbilityContext } from './ability-context'
 import type { ReactionManager } from './reactions/reaction-manager'
 
 export class AbilityProcessor implements IGameEventListener {
@@ -21,14 +21,19 @@ export class AbilityProcessor implements IGameEventListener {
   onEvent(event: IGameEvent): void {
     // FrameResolved — resume a suspended pipeline.
     if (event.getType() === GameEventType.FrameResolved) {
-      const { frameId, results } = event.getPayload() as {
+      const { frameId, result } = event.getPayload() as {
         frameId: string
-        results: unknown[]
+        result?: { key: string; value: unknown }
       }
+      // A window that rolled its frame back (failed roll, lost challenge,
+      // dismissed prompt) has already discarded the entry with the snapshot —
+      // there is nothing left to resume.
       const entry = this.gs.abilityPipelines.get(frameId)
       if (!entry) return
       this.gs.abilityPipelines.delete(frameId)
-      entry.ctx.set(CTX_FRAME_RESULTS, results)
+      // The window named both the slot and the value; the processor never
+      // inspects or reshapes it.
+      if (result) entry.ctx.set(result.key, result.value)
       this.runSteps(entry.steps, entry.ctx)
       return
     }

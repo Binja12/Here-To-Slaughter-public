@@ -8,6 +8,7 @@ import {
 import { PlayChallengeReaction } from './play-challenge-reaction'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import { NO_CONTEXT_RESULT } from '../ability-context'
 import { Player } from '../player'
 import { Party } from '../party'
 import { CardStack } from '../card-stack'
@@ -62,6 +63,7 @@ const makeStubWindow = (): IReactionWindow & { submitReaction: jest.Mock } => ({
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
+  resultKey: () => NO_CONTEXT_RESULT,
 })
 
 /** Add a challenge frame to gs with a stub window. */

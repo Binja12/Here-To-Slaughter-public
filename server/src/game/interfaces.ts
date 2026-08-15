@@ -9,6 +9,7 @@ import {
 } from 'shared'
 import type { GameState } from './game-state'
 import type { AbilityContext } from './ability-context'
+import type { NO_CONTEXT_RESULT } from './ability-context'
 import type { Player } from './player'
 import type { ReactionManager } from './reactions/reaction-manager'
 
@@ -84,4 +85,18 @@ export interface IReactionWindow {
   submitReaction(playerId: string, payload: unknown): void
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
+  /**
+   * Context key this window's outcome belongs to. The window type owns it — a
+   * CardChoiceWindow always yields a chosen card — and also owns the value's
+   * SHAPE at the emit site: choices write arrays because they may be
+   * multi-select, a modifier writes a plain number because there is only ever
+   * one final roll.
+   *
+   * Return NO_CONTEXT_RESULT when the outcome is not an ability input: a
+   * confirm prompt says everything through release-vs-restore, and a challenge
+   * that resumes at all was necessarily won. Those still reach the event log
+   * via the window lifecycle events; they simply give ability steps nothing to
+   * branch on. Every window must state which case it is — there is no default.
+   */
+  resultKey(): string | typeof NO_CONTEXT_RESULT
 }

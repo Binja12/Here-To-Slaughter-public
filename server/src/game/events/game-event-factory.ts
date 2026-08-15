@@ -1,4 +1,9 @@
-import { Audience, GameEventType, IGameEvent } from 'shared'
+import {
+  Audience,
+  GameEventType,
+  IGameEvent,
+  ReactionWindowType,
+} from 'shared'
 import { GameEvent } from './game-event'
 
 export class GameEventFactory {
@@ -19,20 +24,6 @@ export class GameEventFactory {
 
   // --- Modifier Window ---
 
-  static modifierWindowOpened(
-    rollerId: string,
-    baseRoll: number,
-    rollReq: number,
-    heroId: string,
-  ): IGameEvent {
-    return new GameEvent(
-      GameEventType.ModifierWindowOpened,
-      rollerId,
-      { rollerId, baseRoll, rollReq, heroId },
-      Audience.All,
-    )
-  }
-
   static modifierApplied(
     playerId: string,
     value: number,
@@ -42,20 +33,6 @@ export class GameEventFactory {
       GameEventType.ModifierApplied,
       playerId,
       { value, finalRoll },
-      Audience.All,
-    )
-  }
-
-  static modifierWindowClosed(
-    rollerId: string,
-    finalRoll: number,
-    rollReq: number,
-    heroId: string,
-  ): IGameEvent {
-    return new GameEvent(
-      GameEventType.ModifierWindowClosed,
-      rollerId,
-      { finalRoll, rollReq, heroId },
       Audience.All,
     )
   }
@@ -111,15 +88,6 @@ export class GameEventFactory {
       GameEventType.ModifierApplied,
       playerId,
       { value, targetPlayerId, challengerTotal, defenderTotal },
-      Audience.All,
-    )
-  }
-
-  static challengeWindowClosed(defenderId: string, cardId: string): IGameEvent {
-    return new GameEvent(
-      GameEventType.ChallengeWindowClosed,
-      defenderId,
-      { cardId, challenged: false },
       Audience.All,
     )
   }
@@ -249,27 +217,79 @@ export class GameEventFactory {
 
   // --- Reaction Frame ---
 
-  static frameResolved(frameId: string, results: unknown[]): IGameEvent {
+  /**
+   * `results` is the uniform transport for the event log — always an array,
+   * whatever the window produced.
+   *
+   * `result` is the optional context write: the window names both the slot and
+   * the value, so it owns the SHAPE too. A choice reports an array (it may be
+   * multi-select); a roll reports a plain number, because there is only ever
+   * one final roll. Omitted when the outcome is not an ability input.
+   */
+  static frameResolved(
+    frameId: string,
+    results: unknown[],
+    result?: { key: string; value: unknown },
+  ): IGameEvent {
     return new GameEvent(
       GameEventType.FrameResolved,
       '',
-      { frameId, results },
+      { frameId, results, result },
       Audience.All,
     )
   }
 
-  // --- Challenge Action ---
+  // --- Reaction Windows (generic lifecycle) ---
 
-  static challengeWindowOpened(
-    challengerId: string,
-    cardId: string,
-    targetedCardId: string,
+  /**
+   * The ONE lifecycle event every reaction window emits. Consumers switch on
+   * payload windowType (or call window.getType()) instead of subscribing to a
+   * different event per window kind.
+   *
+   * `options` is the discrete candidate list, omitted by windows that offer
+   * none. `detail` carries whatever else that window kind needs to render —
+   * the roll and requirement for a modifier, the contested card for a
+   * challenge.
+   *
+   * Windows still emit true domain events (ModifierApplied, ChallengeStarted,
+   * ChallengeResolved) for things that are not window lifecycle.
+   *
+   * Carries every candidate. Deciding which of them a given client may see is
+   * the projection layer's job in front of the API; the engine states what is
+   * true and does not tailor events per recipient.
+   */
+  static reactionWindowOpened(
+    windowType: ReactionWindowType,
+    respondentId: string,
+    frameId: string,
+    options?: unknown[],
+    detail?: Record<string, unknown>,
   ): IGameEvent {
     return new GameEvent(
-      GameEventType.ChallengeWindowOpened,
-      challengerId,
-      { challengerId, cardId, targetedCardId },
+      GameEventType.ReactionWindowOpened,
+      respondentId,
+      { windowType, respondentId, frameId, options, ...detail },
       Audience.All,
     )
   }
+
+  /**
+   * `outcome` is whatever settled the window — the picked option(s), the final
+   * roll, whether the challenged player won.
+   */
+  static reactionWindowClosed(
+    windowType: ReactionWindowType,
+    respondentId: string,
+    frameId: string,
+    outcome?: unknown,
+    detail?: Record<string, unknown>,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.ReactionWindowClosed,
+      respondentId,
+      { windowType, respondentId, frameId, outcome, ...detail },
+      Audience.All,
+    )
+  }
+
 }

@@ -1,23 +1,39 @@
-import { GameEventType } from 'shared'
+import { GameEventType, Owner, Zone } from 'shared'
 import { IAbility } from '../interfaces'
-import { RollOnHeroTask, StealHeroTask } from '../tasks/tasks'
+import { RollOnHeroTask, StealFromPartyTask } from '../tasks/tasks'
+import { ChooseCardTask, ConfirmTask } from '../tasks/choose-tasks'
+import { CTX_STOLEN_HERO_ID } from '../ability-context'
 
 // Wiggles (hero-036): "STEAL a Hero card and roll to use its effect immediately"
 //
 // Steps:
-//   1. StealHeroTask  — moves the chosen hero to the owner's party.
-//   2. RollOnHeroTask — rolls dice, snapshots GS, opens a modifier-window frame
-//                       and suspends. On resolve: if finalRoll >= rollReq,
-//                       ReactionManager emits RollSuccess (which triggers the
-//                       stolen hero's ability). If finalRoll < rollReq, the
-//                       snapshot is restored (steal is undone).
+//   1. ConfirmTask    — opt in before anything happens. DISMISS restores the
+//                       frame, and the rollback discards this pipeline, so the
+//                       steal can never be cancelled after it has already run.
+//   2. ChooseCardTask — pick an enemy hero; the pick is reported through the
+//                       frame result, like every other window's outcome.
+//   3. StealFromPartyTask  — moves that hero into the owner's party and records it
+//                       as CTX_STOLEN_HERO_ID for the step after it.
+//   4. RollOnHeroTask — rolls on the stolen hero, snapshots GS, opens a
+//                       modifier window and suspends. On resolve: if
+//                       finalRoll >= rollReq, RollSuccess fires (triggering the
+//                       stolen hero's own ability).
 //
-// Trigger: RollSuccess on Wiggles herself (player rolled ≥ 10 on Wiggles).
+// NOTE: a failed roll does NOT undo the steal. This frame is opened by step 4,
+// so its snapshot already contains step 3's steal — only the roll is rolled
+// back. That matches the card text ("STEAL a Hero card AND roll to use its
+// effect"): the steal is unconditional, the effect is what you gamble for.
+//
+// Every step from 1, 2 and 4 suspends the pipeline on its own frame.
+//
+// Trigger: RollSuccess on Wiggles herself.
 
 export const WigglesAbility: IAbility = {
   trigger: GameEventType.RollSuccess,
   steps: [
-    new StealHeroTask(),
-    new RollOnHeroTask(),
+    new ConfirmTask(),
+    new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }),
+    new StealFromPartyTask(),
+    new RollOnHeroTask(CTX_STOLEN_HERO_ID),
   ],
 }
