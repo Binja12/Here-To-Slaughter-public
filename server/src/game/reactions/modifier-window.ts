@@ -6,6 +6,7 @@ import {
 } from 'shared'
 import { IReactionWindow } from '../interfaces'
 import { GameState } from '../game-state'
+import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../ability-context'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 
@@ -26,16 +27,17 @@ export class ModifierWindow implements IReactionWindow {
     private readonly emitter: IGameEventEmitter,
   ) {
     this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierWindowOpened,
+      GameEventFactory.reactionWindowOpened(
+        this.getType(),
         this.rollerId,
+        this.frameId,
+        undefined,
         {
           rollerId: this.rollerId,
           baseRoll: this.baseRoll,
           rollReq: this.rollReq,
           heroId: this.heroId,
         },
-        Audience.All,
       ),
     )
     this.resetTimer()
@@ -49,6 +51,11 @@ export class ModifierWindow implements IReactionWindow {
 
   getType(): ReactionWindowType {
     return ReactionWindowType.Modifier
+  }
+
+  /** Lets later steps branch on the roll — crit bonuses and the like. */
+  resultKey(): string | typeof NO_CONTEXT_RESULT {
+    return CTX_FINAL_ROLL
   }
 
   isOpen(): boolean {
@@ -82,11 +89,12 @@ export class ModifierWindow implements IReactionWindow {
     const finalRoll = this.getFinalRoll()
 
     this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierWindowClosed,
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
         this.rollerId,
+        this.frameId,
+        finalRoll,
         { finalRoll, rollReq: this.rollReq, heroId: this.heroId },
-        Audience.All,
       ),
     )
 
@@ -97,7 +105,14 @@ export class ModifierWindow implements IReactionWindow {
       this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
     }
 
-    this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [finalRoll]))
+    const key = this.resultKey()
+    this.emitter.emit(
+      GameEventFactory.frameResolved(
+        this.frameId,
+        [finalRoll],
+        key === NO_CONTEXT_RESULT ? undefined : { key, value: finalRoll },
+      ),
+    )
   }
 
   // --- Internal ---

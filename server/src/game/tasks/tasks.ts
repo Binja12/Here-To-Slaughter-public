@@ -3,9 +3,9 @@ import { ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import {
   AbilityContext,
-  CTX_LAST_AFFECTED_CARD_ID,
+  CTX_CHOSEN_CARD,
   CTX_LAST_DRAWN_CARD_ID,
-  CTX_STOLEN_FROM_PLAYER_ID,
+  CTX_STOLEN_HERO_ID,
 } from '../ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 import { HeroCard } from '../cards/hero-card'
@@ -85,18 +85,29 @@ export class DestroyTask implements ITask {
 }
 
 // ---------------------------------------------------------------------------
-// StealHeroTask — move a hero from another player's party to the owner's party
+// StealFromPartyTask — move a hero from another player's party to the owner's party
 // ---------------------------------------------------------------------------
 
-export class StealHeroTask implements ITask {
+export class StealFromPartyTask implements ITask {
+  /**
+   * Target hero. Defaults to the card a ChooseCardTask put on the context.
+   */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
     _rm: ReactionManager,
   ): void {
-    const heroId = ctx.get<string>(CTX_LAST_AFFECTED_CARD_ID)
-    if (!heroId) return
+    const [heroId] = ctx.get<string[]>(this.fromKey) ?? []
+
+    if (!heroId) {
+      throw new Error(
+        'StealFromPartyTask: no target hero — the ability is missing a ' +
+          'ChooseCardTask before this step.',
+      )
+    }
 
     const fromPlayerId = gs.getCardOwner(heroId)
     if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
@@ -106,7 +117,9 @@ export class StealHeroTask implements ITask {
 
     fromParty.removeHero(heroId)
     gs.getParty(ctx.ownerId).addHero(heroId)
-    ctx.set(CTX_STOLEN_FROM_PLAYER_ID, fromPlayerId)
+    // Recorded so later steps can still reach this hero after a second card
+    // choice has overwritten CTX_CHOSEN_CARD.
+    ctx.set(CTX_STOLEN_HERO_ID, [heroId])
     em.emit(GameEventFactory.heroStolen(ctx.ownerId, fromPlayerId, heroId))
   }
 }
@@ -116,19 +129,33 @@ export class StealHeroTask implements ITask {
 //
 // Emits DiceRolled then opens a modifier-window frame (which snapshots GS).
 // The pipeline suspends here; if finalRoll >= rollReq ReactionManager emits
-// RollSuccess and FrameResolved resumes remaining steps. If the roll fails,
-// the snapshot is restored (undoing the steal or any prior mutations).
+// RollSuccess and FrameResolved resumes remaining steps.
+//
+// The snapshot is taken HERE, so a failed roll only undoes what happens from
+// this step onward — earlier steps in the same ability (a steal, a discard)
+// have already been captured by it and survive the rollback.
 // ---------------------------------------------------------------------------
 
 export class RollOnHeroTask implements ITask {
+  /**
+   * Hero to roll on. Defaults to the card a ChooseCardTask put on the context.
+   */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
     rm: ReactionManager,
   ): void {
-    const heroId = ctx.get<string>(CTX_LAST_AFFECTED_CARD_ID)
-    if (!heroId) return
+    const [heroId] = ctx.get<string[]>(this.fromKey) ?? []
+
+    if (!heroId) {
+      throw new Error(
+        'RollOnHeroTask: no target hero — expected a preceding step to ' +
+          'supply one.',
+      )
+    }
 
     const hero = gs.getCard(heroId)
     if (!(hero instanceof HeroCard)) return

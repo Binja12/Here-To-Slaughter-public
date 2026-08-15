@@ -33,7 +33,9 @@ export enum TurnPhase {
 export enum ReactionWindowType {
   Challenge = "Challenge",
   Modifier = "Modifier",
-  Choice = "Choice",
+  PlayerChoice = "PlayerChoice",
+  CardChoice = "CardChoice",
+  TaskChoice = "TaskChoice",
 }
 
 export enum EffectDuration {
@@ -90,16 +92,17 @@ export enum GameEventType {
   // Reaction frame
   FrameResolved = "FrameResolved",
 
-  // Modifier window
-  ModifierWindowOpened = "ModifierWindowOpened",
+  // Reaction window lifecycle — EVERY window emits this pair. windowType is in
+  // the payload, so consumers subscribe once instead of once per window kind.
+  ReactionWindowOpened = "ReactionWindowOpened",
+  ReactionWindowClosed = "ReactionWindowClosed",
+
+  // Modifier window — domain events, not lifecycle
   ModifierApplied = "ModifierApplied",
-  ModifierWindowClosed = "ModifierWindowClosed",
   ModifierResolved = "ModifierResolved",
-  // Challenge window
+  // Challenge window — domain events, not lifecycle
   CardPlayAttempted = "CardPlayAttempted",
-  ChallengeWindowOpened = "ChallengeWindowOpened",
   ChallengeStarted = "ChallengeStarted",
-  ChallengeWindowClosed = "ChallengeWindowClosed",
   ChallengeResolved = "ChallengeResolved",
 }
 
@@ -143,31 +146,42 @@ export enum RollCompareMode {
   LowToWin = "LowToWin", // special: roll <= winReq → slay
 }
 
-export enum TargetPlayer {
-  Self = "Self",
-  Opponent = "Opponent",
-  Any = "Any",
-}
-
 export enum SelectionMode {
   PlayerChooses = "PlayerChooses",
   OpponentChooses = "OpponentChooses",
   Random = "Random",
 }
 
-export enum CardLocation {
-  Party = "Party",
+// ---------------------------------------------------------------------------
+// Card targeting — two independent axes, deliberately kept apart.
+//
+// Zone answers WHICH pile, Owner answers WHOSE. Fusing them (an
+// "OpponentHand" member, say) forces a new value for every combination and
+// still cannot express "the chosen player's hand", so they stay separate and
+// compose: { zone: Zone.Hand, owner: Owner.Chosen }.
+// ---------------------------------------------------------------------------
+
+/**
+ * Where cards live. Used to say which cards an ability may target — NOT which
+ * a given client may see. Visibility belongs to the projection layer in front
+ * of the API, since the client never receives the whole GameState anyway.
+ */
+export enum Zone {
   Hand = "Hand",
+  Party = "Party",
+  Discard = "Discard",
+  EquippedItem = "EquippedItem",
 }
 
-export enum SearchLocation {
-  DiscardPile = "DiscardPile",
-  OpponentHand = "OpponentHand",
-}
-
-export enum PeakTarget {
-  OwnDeck = "OwnDeck",
-  OpponentDeck = "OpponentDeck",
+/** Whose cards, resolved against the ability owner and the ability context. */
+export enum Owner {
+  /** The ability owner. */
+  Self = "Self",
+  /** Everyone except the ability owner. */
+  Others = "Others",
+  All = "All",
+  /** Whoever a preceding ChoosePlayerTask put on CTX_CHOSEN_PLAYER. */
+  Chosen = "Chosen",
 }
 
 export enum PassiveType {

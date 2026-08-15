@@ -248,7 +248,10 @@ describe('RollOnHeroAction', () => {
           image: '',
           description: '',
           set: '',
-          ability: { trigger: GameEventType.ModifierWindowOpened },
+          // No ability: a modifier is played by a player REQUEST gated on an
+          // open modifier frame (PlayModifierReaction.canExecute), never by a
+          // passive trigger.
+          ability: undefined as never,
           values: [3],
         }),
       )

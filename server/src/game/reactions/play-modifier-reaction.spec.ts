@@ -8,6 +8,7 @@ import {
 import { PlayModifierReaction } from './play-modifier-reaction'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import { NO_CONTEXT_RESULT } from '../ability-context'
 import { Player } from '../player'
 import { Party } from '../party'
 import { CardStack } from '../card-stack'
@@ -46,7 +47,9 @@ const makeModifierCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.ModifierWindowOpened },
+    // No ability: a modifier is played by a player REQUEST gated on an open
+    // modifier frame (canExecute below), never by a passive trigger.
+    ability: undefined as never,
     values: [2],
   })
 
@@ -63,6 +66,7 @@ const makeStubWindow = (): IReactionWindow & { submitReaction: jest.Mock } => ({
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
+  resultKey: () => NO_CONTEXT_RESULT,
 })
 
 /** Add a modifier frame to gs with a stub window. */

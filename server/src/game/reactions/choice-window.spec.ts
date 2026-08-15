@@ -1,0 +1,265 @@
+import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
+import { ChoiceWindow } from './choice-window'
+import { GameState } from '../game-state'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { CardStack } from '../card-stack'
+import { CardPile } from '../card-pile'
+import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../ability-context'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const makeGs = () =>
+  new GameState(
+    new CardStack('deck', 'main'),
+    new CardPile('discard', 'discard'),
+    new CardStack('mdeck', 'monster-deck'),
+    new CardPile('mpile', 'monster-pile'),
+  )
+
+const collect = (em: GameEventEmitter): IGameEvent[] => {
+  const events: IGameEvent[] = []
+  em.addListener({ onEvent: (e) => events.push(e) })
+  return events
+}
+
+/** Concrete subclass so the abstract base can be exercised directly. */
+class TestChoiceWindow extends ChoiceWindow {
+  getType(): ReactionWindowType {
+    return ReactionWindowType.CardChoice
+  }
+
+  override resultKey(): string | typeof NO_CONTEXT_RESULT {
+    return CTX_CHOSEN_CARD
+  }
+}
+
+function makeWindow({
+  gs,
+  em,
+  options = ['a', 'b', 'c'],
+  respondentId = 'p1',
+  timeoutMs = 5000,
+  frameId = 'frame-1',
+}: {
+  gs: GameState
+  em: GameEventEmitter
+  options?: unknown[]
+  respondentId?: string
+  timeoutMs?: number
+  frameId?: string
+}): TestChoiceWindow {
+  const win = new TestChoiceWindow('win-1', respondentId, options, timeoutMs, gs, frameId, em)
+  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  return win
+}
+
+const payloadOf = (e: IGameEvent) => e.getPayload() as Record<string, unknown>
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('ChoiceWindow', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  // -------------------------------------------------------------------------
+  // Opening
+  // -------------------------------------------------------------------------
+
+  it('emits ReactionWindowOpened with its type and options', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    makeWindow({ gs, em, options: ['a', 'b'] })
+
+    const opened = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
+    expect(opened).toBeDefined()
+    expect(payloadOf(opened!)['windowType']).toBe(ReactionWindowType.CardChoice)
+    expect(payloadOf(opened!)['options']).toEqual(['a', 'b'])
+  })
+
+  it('is open before anything is submitted', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter() })
+    expect(win.isOpen()).toBe(true)
+  })
+
+  it('resolves immediately when there are no options', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = new TestChoiceWindow('w', 'p1', [], 5000, gs, 'frame-1', em)
+
+    expect(win.isOpen()).toBe(false)
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual([])
+  })
+
+  // -------------------------------------------------------------------------
+  // Submitting
+  // -------------------------------------------------------------------------
+
+  it('resolves on the first valid submission — no timer extension', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter() })
+
+    win.submitReaction('p1', { choice: 'b' })
+
+    expect(win.isOpen()).toBe(false)
+  })
+
+  it('emits FrameResolved carrying the pick', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em })
+
+    win.submitReaction('p1', { choice: 'b' })
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual(['b'])
+  })
+
+  it('ignores a submission from anyone but the respondent', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter(), respondentId: 'p1' })
+
+    win.submitReaction('p2', { choice: 'b' })
+
+    expect(win.isOpen()).toBe(true)
+  })
+
+  it('ignores a choice that was not offered', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter(), options: ['a', 'b'] })
+
+    win.submitReaction('p1', { choice: 'zzz' })
+
+    expect(win.isOpen()).toBe(true)
+  })
+
+  it('ignores a second submission after resolving', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em })
+
+    win.submitReaction('p1', { choice: 'a' })
+    win.submitReaction('p1', { choice: 'b' })
+
+    const resolutions = events.filter((e) => e.getType() === GameEventType.FrameResolved)
+    expect(resolutions).toHaveLength(1)
+    expect(payloadOf(resolutions[0])['results']).toEqual(['a'])
+  })
+
+  // -------------------------------------------------------------------------
+  // Timeout
+  // -------------------------------------------------------------------------
+
+  it('picks one of the options at random on timeout', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    makeWindow({ gs, em, options: ['a', 'b', 'c'], timeoutMs: 5000 })
+
+    jest.advanceTimersByTime(5000)
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    const [picked] = payloadOf(resolved!)['results'] as unknown[]
+    expect(['a', 'b', 'c']).toContain(picked)
+  })
+
+  it('does not resolve before the timeout elapses', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter(), timeoutMs: 5000 })
+
+    jest.advanceTimersByTime(4999)
+
+    expect(win.isOpen()).toBe(true)
+  })
+
+  it('does not fire the timer after an explicit submission', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em, timeoutMs: 5000 })
+
+    win.submitReaction('p1', { choice: 'a' })
+    jest.advanceTimersByTime(10000)
+
+    expect(events.filter((e) => e.getType() === GameEventType.FrameResolved)).toHaveLength(1)
+  })
+
+  // -------------------------------------------------------------------------
+  // Frame handling
+  // -------------------------------------------------------------------------
+
+  // Card/player choices have no failure case, so they always release. Only
+  // TaskChoiceWindow overrides isSuccess() to roll back on DISMISS.
+  it('releases its frame when the pick is a success', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter(), frameId: 'frame-1' })
+
+    win.submitReaction('p1', { choice: 'a' })
+
+    expect(gs.frames.has('frame-1')).toBe(false)
+  })
+
+  // -------------------------------------------------------------------------
+  // Self-describing results — the window names its own context slot
+  // -------------------------------------------------------------------------
+
+  it('carries its context slot and value on FrameResolved', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em })
+
+    win.submitReaction('p1', { choice: 'a' })
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['result']).toEqual({
+      key: CTX_CHOSEN_CARD,
+      value: ['a'],
+    })
+  })
+
+  it('reports results as an array, so multi-select needs no migration', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em })
+
+    win.submitReaction('p1', { choice: 'a' })
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual(['a'])
+  })
+
+  it('reports an empty array when there was nothing to pick', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    new TestChoiceWindow('w', 'p1', [], 5000, gs, 'frame-1', em)
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual([])
+  })
+
+  it('emits ReactionWindowClosed before FrameResolved', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em })
+
+    win.submitReaction('p1', { choice: 'a' })
+
+    const closedAt = events.findIndex((e) => e.getType() === GameEventType.ReactionWindowClosed)
+    const resolvedAt = events.findIndex((e) => e.getType() === GameEventType.FrameResolved)
+    expect(closedAt).toBeGreaterThanOrEqual(0)
+    expect(closedAt).toBeLessThan(resolvedAt)
+  })
+})

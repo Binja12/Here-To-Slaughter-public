@@ -8,6 +8,7 @@ import { IReactionWindow } from '../interfaces'
 import { GameState } from '../game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
+import { NO_CONTEXT_RESULT } from '../ability-context'
 
 export class ChallengeWindow implements IReactionWindow {
   private timer?: ReturnType<typeof setTimeout>
@@ -29,11 +30,12 @@ export class ChallengeWindow implements IReactionWindow {
     private readonly emitter: IGameEventEmitter,
   ) {
     this.emitter.emit(
-      new GameEvent(
-        GameEventType.ChallengeWindowOpened,
+      GameEventFactory.reactionWindowOpened(
+        this.getType(),
         this.challengedId,
+        this.frameId,
+        undefined,
         { defenderId: this.challengedId, cardId: this.cardId },
-        Audience.All,
       ),
     )
     this.resetTimer()
@@ -47,6 +49,16 @@ export class ChallengeWindow implements IReactionWindow {
 
   getType(): ReactionWindowType {
     return ReactionWindowType.Challenge
+  }
+
+  /**
+   * Deliberately none. A lost challenge restores the frame and discards the
+   * pipeline, so any step that still runs was necessarily on the winning side —
+   * the value would be a constant `true`. The outcome reaches the log through
+   * ChallengeResolved and the window lifecycle events instead.
+   */
+  resultKey(): string | typeof NO_CONTEXT_RESULT {
+    return NO_CONTEXT_RESULT
   }
 
   isOpen(): boolean {
@@ -97,7 +109,13 @@ export class ChallengeWindow implements IReactionWindow {
     if (!this.challenged) {
       // No challenger — card plays uncontested.
       this.emitter.emit(
-        GameEventFactory.challengeWindowClosed(this.challengedId, this.cardId),
+        GameEventFactory.reactionWindowClosed(
+          this.getType(),
+          this.challengedId,
+          this.frameId,
+          true,
+          { cardId: this.cardId, contested: false },
+        ),
       )
       this.gs.releaseFrame(this.frameId)
       this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [true]))
@@ -107,6 +125,19 @@ export class ChallengeWindow implements IReactionWindow {
     const challengerFinal = this.challengerRoll + this.challengerBonus
     const challengedFinal = this.challengedRoll + this.challengedBonus
     const challengedWins = challengedFinal > challengerFinal
+
+    // Both resolve paths emit this. The old ChallengeWindowClosed only fired
+    // when the card went uncontested, so a client tracking open windows leaked
+    // state on a contested challenge.
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.challengedId,
+        this.frameId,
+        challengedWins,
+        { cardId: this.cardId, contested: true, challengerFinal, challengedFinal },
+      ),
+    )
 
     this.emitter.emit(
       GameEventFactory.challengeResolved(
