@@ -49,7 +49,6 @@ const makeModifierCard = (id: string) =>
     set: '',
     // No ability: a modifier is played by a player REQUEST gated on an open
     // modifier frame (canExecute below), never by a passive trigger.
-    ability: undefined as never,
     values: [2],
   })
 

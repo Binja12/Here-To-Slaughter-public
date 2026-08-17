@@ -71,7 +71,6 @@ const makeMagicCard = (id: string) =>
     image: '',
     description: '',
     set: 'base',
-    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeHeroCard = (id: string) =>
@@ -84,7 +83,6 @@ const makeHeroCard = (id: string) =>
     heroClass: HeroClass.Wizard,
     rollReq: 4,
     set: 'base',
-    ability: { trigger: GameEventType.RollSuccess },
   })
 
 // ---------------------------------------------------------------------------

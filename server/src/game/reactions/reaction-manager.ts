@@ -1,6 +1,6 @@
 import { ReactionWindowType } from 'shared'
 import { GameState } from '../game-state'
-import { IReaction, IReactionWindow } from '../interfaces'
+import { IReaction, IReactionManager, IReactionWindow } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from './modifier-window'
 import { ChallengeWindow } from './challenge-window'
@@ -8,7 +8,7 @@ import { PlayerChoiceWindow } from './player-choice-window'
 import { CardChoiceWindow } from './card-choice-window'
 import { TaskChoiceWindow } from './task-choice-window'
 
-export class ReactionManager {
+export class ReactionManager implements IReactionManager {
   /** Set inside openFrame(); consumed by AbilityProcessor after each task step. */
   private _lastFrameId: string | null = null
 

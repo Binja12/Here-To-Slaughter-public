@@ -1,5 +1,5 @@
 import { PartyLeaderCard } from './party-leader-card'
-import { CardType, GameEventType, HeroClass } from 'shared'
+import { CardType, HeroClass } from 'shared'
 import { PartyLeaderData } from 'shared'
 
 const mockLeaderData: PartyLeaderData = {
@@ -10,7 +10,6 @@ const mockLeaderData: PartyLeaderData = {
   description: 'A mysterious leader',
   heroClass: HeroClass.Thief,
   set: 'base',
-  ability: { trigger: GameEventType.TurnStarted },
 }
 
 describe('PartyLeaderCard', () => {
@@ -42,10 +41,5 @@ describe('PartyLeaderCard', () => {
   it('should return hero class', () => {
     const card = new PartyLeaderCard(mockLeaderData)
     expect(card.getHeroClass()).toBe(HeroClass.Thief)
-  })
-
-  it('should return ability', () => {
-    const card = new PartyLeaderCard(mockLeaderData)
-    expect(card.getAbility()).toEqual(mockLeaderData.ability)
   })
 })

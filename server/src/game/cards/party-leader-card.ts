@@ -1,5 +1,5 @@
 import { ICard } from 'shared'
-import { PartyLeaderData, CardType, HeroClass, SkillData } from 'shared'
+import { PartyLeaderData, CardType, HeroClass } from 'shared'
 
 export class PartyLeaderCard implements ICard {
   constructor(private data: PartyLeaderData) {}
@@ -21,8 +21,5 @@ export class PartyLeaderCard implements ICard {
   }
   getHeroClass(): HeroClass {
     return this.data.heroClass
-  }
-  getAbility() {
-    return this.data.ability
   }
 }

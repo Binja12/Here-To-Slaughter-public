@@ -1,5 +1,5 @@
 import { MonsterCard } from './monster-card'
-import { CardType, GameEventType, HeroClass, RollCompareMode, RollResult } from 'shared'
+import { CardType, HeroClass, RollCompareMode, RollResult } from 'shared'
 import { MonsterCardData } from 'shared'
 
 const mockMonsterData: MonsterCardData = {
@@ -9,7 +9,6 @@ const mockMonsterData: MonsterCardData = {
   image: 'dragon.png',
   description: 'A fearsome dragon',
   set: 'base',
-  ability: { trigger: GameEventType.MonsterSlain },
   higherReq: 8,
   lowerReq: 3,
   rollCompareMode: RollCompareMode.HighToWin,

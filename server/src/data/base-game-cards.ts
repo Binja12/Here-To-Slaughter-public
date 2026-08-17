@@ -8,7 +8,7 @@ import {
   PartyLeaderData,
   RollCompareMode,
 } from 'shared'
-import { CardType, HeroClass, EffectDuration } from 'shared'
+import { CardType, HeroClass } from 'shared'
 
 export const baseHeroes: HeroCardData[] = [
   {
@@ -19,8 +19,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DESTROY a Hero card.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-002',
@@ -31,8 +30,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull a card from another player's hand. If it is a Challenge card, pull a second card from that player's hand.",
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 5,
   },
   {
     id: 'hero-003',
@@ -43,8 +41,7 @@ export const baseHeroes: HeroCardData[] = [
       'Each other player must DISCARD a card. Choose one of the discarded cards and add it to your hand.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-004',
@@ -54,8 +51,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'Choose a player. That player must DISCARD 2 cards.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 5,
   },
   {
     id: 'hero-005',
@@ -66,8 +62,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull a card from another player's hand. If it is a Hero card, pull a second card from that player's hand.",
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-006',
@@ -78,8 +73,7 @@ export const baseHeroes: HeroCardData[] = [
       'Each other player with a Fighter in their Party must DISCARD a card.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 4,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 4,
   },
   {
     id: 'hero-007',
@@ -90,8 +84,7 @@ export const baseHeroes: HeroCardData[] = [
       'DISCARD up to 3 cards. For each card discarded, DESTROY a Hero card.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 10,
   },
   {
     id: 'hero-008',
@@ -102,8 +95,7 @@ export const baseHeroes: HeroCardData[] = [
       'DRAW 2 cards. If at least one of those cards is a Challenge card, you may reveal it, then DESTROY a Hero card.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-009',
@@ -113,8 +105,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DESTROY a Hero and DRAW a card.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 9,
   },
   {
     id: 'hero-010',
@@ -125,8 +116,7 @@ export const baseHeroes: HeroCardData[] = [
       'DRAW 2 cards. If at least one of those cards is an Item card, you may play one of them immediately.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-011',
@@ -137,8 +127,7 @@ export const baseHeroes: HeroCardData[] = [
       'Search the discard pile for an Item card and add it to your hand.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 5,
   },
   {
     id: 'hero-012',
@@ -148,8 +137,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DRAW 3 cards and DISCARD a card.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-013',
@@ -160,8 +148,7 @@ export const baseHeroes: HeroCardData[] = [
       'Play an Item card from your hand immediately and DRAW a card.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-014',
@@ -172,8 +159,7 @@ export const baseHeroes: HeroCardData[] = [
       'Look at the top 3 cards of the deck. Add one to your hand, then return the other two to the top of the deck in any order.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-015',
@@ -183,8 +169,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DRAW cards until you have 7 cards in your hand.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 10,
   },
   {
     id: 'hero-016',
@@ -194,8 +179,7 @@ export const baseHeroes: HeroCardData[] = [
     description: "Look at another player's hand.",
     set: 'base',
     heroClass: HeroClass.Ranger,
-    rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 5,
   },
   {
     id: 'hero-017',
@@ -205,8 +189,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'STEAL a Hero card.',
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 9,
   },
   {
     id: 'hero-018',
@@ -217,8 +200,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull a card from another player's hand. If that card is an Item card, you may play it immediately.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-019',
@@ -229,8 +211,7 @@ export const baseHeroes: HeroCardData[] = [
       "Choose a player. STEAL a Hero from that player and pull a card from that player's hand.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 10,
   },
   {
     id: 'hero-020',
@@ -241,8 +222,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull 2 cards from another player's hand. That player may DRAW a card.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-021',
@@ -253,8 +233,7 @@ export const baseHeroes: HeroCardData[] = [
       "Look at another player's hand. Choose a card and add it to your hand.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-022',
@@ -265,8 +244,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull 2 cards from another player's hand, then DISCARD one of those cards.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-023',
@@ -277,8 +255,7 @@ export const baseHeroes: HeroCardData[] = [
       'DESTROY a Hero card. If that Hero card had an Item card equipped to it, add that Item card to your hand instead of moving it to the discard pile.',
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 9,
   },
   {
     id: 'hero-024',
@@ -289,8 +266,7 @@ export const baseHeroes: HeroCardData[] = [
       'Pull a card from the hand of each other player with a Thief in their Party.',
     set: 'base',
     heroClass: HeroClass.Thief,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-025',
@@ -301,8 +277,7 @@ export const baseHeroes: HeroCardData[] = [
       'Search the discard pile for a Hero card and add it to your hand.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-026',
@@ -313,8 +288,7 @@ export const baseHeroes: HeroCardData[] = [
       'Return a Cursed Item card equipped to a Hero card in your Party to your hand.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 5,
   },
   {
     id: 'hero-027',
@@ -325,8 +299,7 @@ export const baseHeroes: HeroCardData[] = [
       'Search the discard pile for a Modifier card and add it to your hand.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-028',
@@ -336,8 +309,7 @@ export const baseHeroes: HeroCardData[] = [
     description: '+3 to all of your rolls until the end of your turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-029',
@@ -347,8 +319,7 @@ export const baseHeroes: HeroCardData[] = [
     description: '+5 to all of your rolls until the end of your turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 9,
   },
   {
     id: 'hero-030',
@@ -359,8 +330,7 @@ export const baseHeroes: HeroCardData[] = [
       'Cards you play cannot be challenged for the rest of your turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-031',
@@ -371,8 +341,7 @@ export const baseHeroes: HeroCardData[] = [
       'Hero cards in your Party cannot be destroyed until your next turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-032',
@@ -383,8 +352,7 @@ export const baseHeroes: HeroCardData[] = [
       'Hero cards in your Party cannot be stolen until your next turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 9,
   },
   {
     id: 'hero-033',
@@ -394,8 +362,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'Choose a player. That player must SACRIFICE a Hero card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-034',
@@ -406,8 +373,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull a card from another player's hand. If it is a Magic card, you may play it immediately.",
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-035',
@@ -417,8 +383,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'Each other player must SACRIFICE a Hero card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 10,
   },
   {
     id: 'hero-036',
@@ -428,8 +393,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'STEAL a Hero card and roll to use its effect immediately.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 10,
   },
   {
     id: 'hero-037',
@@ -439,8 +403,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'STEAL a Hero card and DESTROY a Hero card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 11,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 11,
   },
   {
     id: 'hero-038',
@@ -450,8 +413,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DESTROY 2 Hero cards.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 10,
   },
   {
     id: 'hero-039',
@@ -462,8 +424,7 @@ export const baseHeroes: HeroCardData[] = [
       'Search the discard pile for a Magic card and add it to your hand.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 5,
   },
   {
     id: 'hero-040',
@@ -474,8 +435,7 @@ export const baseHeroes: HeroCardData[] = [
       'DRAW a card. If it is a Magic card, you may play it immediately and DRAW a second card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-041',
@@ -486,8 +446,7 @@ export const baseHeroes: HeroCardData[] = [
       'DRAW a card. If that card is a Hero card, you may play it immediately.',
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-042',
@@ -498,8 +457,7 @@ export const baseHeroes: HeroCardData[] = [
       "Pull a card from another player's hand. If that card is a Hero card, you may play it immediately.",
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
   {
     id: 'hero-043',
@@ -509,8 +467,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DRAW a card and play a Hero card from your hand immediately.',
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-044',
@@ -520,8 +477,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'Do nothing.',
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 2,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 2,
   },
   {
     id: 'hero-045',
@@ -532,8 +488,7 @@ export const baseHeroes: HeroCardData[] = [
       "Choose a player. STEAL a Hero card from that player's Party and move Tipsy Tootie to that player's Party.",
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 6,
   },
   {
     id: 'hero-046',
@@ -543,8 +498,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'Trade hands with another player.',
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 9,
   },
   {
     id: 'hero-047',
@@ -554,8 +508,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'Each other player must give you a card from their hand.',
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 8,
   },
   {
     id: 'hero-048',
@@ -565,8 +518,7 @@ export const baseHeroes: HeroCardData[] = [
     description: 'DRAW 2 cards.',
     set: 'base',
     heroClass: HeroClass.Bard,
-    rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
+    rollReq: 7,
   },
 ]
 // add more heroes...
@@ -832,8 +784,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/particularly-rusty-coin.png',
     description:
       "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -844,8 +795,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/particularly-rusty-coin.png',
     description:
       "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -856,8 +806,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/really-big-ring.png',
     description:
       "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -868,8 +817,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/really-big-ring.png',
     description:
       "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -880,8 +828,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/decoy-doll.png',
     description:
       'If the equipped Hero card would be sacrificed or destroyed, move Decoy Doll to the discard pile instead.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -892,8 +839,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/fighter-mask.png',
     description:
       'The equipped Hero card is considered a Fighter instead of its original class.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -904,8 +850,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/ranger-mask.png',
     description:
       'The equipped Hero card is considered a Ranger instead of its original class.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -916,8 +861,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/thief-mask.png',
     description:
       'The equipped Hero card is considered a Thief instead of its original class.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -928,8 +872,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/guardian-mask.png',
     description:
       'The equipped Hero card is considered a Guardian instead of its original class.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -940,8 +883,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/wizard-mask.png',
     description:
       'The equipped Hero card is considered a Wizard instead of its original class.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -952,8 +894,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/bard-mask.png',
     description:
       'The equipped Hero card is considered a Bard instead of its original class.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: false,
   },
@@ -965,8 +906,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/suspiciously-shiny-coin.png',
     description:
       "If you successfully roll to use the equipped Hero card's effect, DISCARD a card.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: true,
   },
@@ -977,8 +917,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/curse-of-the-snakes-eyes.png',
     description:
       "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: true,
   },
@@ -989,8 +928,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/curse-of-the-snakes-eyes.png',
     description:
       "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: true,
   },
@@ -1000,8 +938,7 @@ export const baseItems: ItemCardData[] = [
     type: CardType.Item,
     image: 'items/sealing-key.png',
     description: "You cannot use the equipped Hero card's effect.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
     equippedHero: undefined,
     cursed: true,
   },
@@ -1016,10 +953,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/destructive-spell.png',
     description: 'DISCARD a card, then DESTROY a Hero card.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-050',
@@ -1027,10 +961,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/destructive-spell.png',
     description: 'DISCARD a card, then DESTROY a Hero card.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-051',
@@ -1038,10 +969,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/entangling-trap.png',
     description: 'DISCARD 2 cards, then STEAL a Hero card.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-052',
@@ -1049,10 +977,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/entangling-trap.png',
     description: 'DISCARD 2 cards, then STEAL a Hero card.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-053',
@@ -1060,10 +985,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/critical-boost.png',
     description: 'DRAW 3 cards and DISCARD a card.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-054',
@@ -1071,10 +993,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/critical-boost.png',
     description: 'DRAW 3 cards and DISCARD a card.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-055',
@@ -1082,10 +1001,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/enchanted-spell.png',
     description: '+2 to all of your rolls until the end of your turn.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-056',
@@ -1093,10 +1009,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/enchanted-spell.png',
     description: '+2 to all of your rolls until the end of your turn.',
-    set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
+    set: 'base',
   },
   {
     id: 'magic-057',
@@ -1105,8 +1018,7 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/forced-exchange.png',
     description:
       "Choose a player. STEAL a Hero card from that player's Party, then move a Hero card from your Party to that player's Party.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
   },
   {
     id: 'magic-058',
@@ -1115,8 +1027,7 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/winds-of-change.png',
     description:
       "Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
   },
   {
     id: 'magic-059',
@@ -1125,8 +1036,7 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/winds-of-change.png',
     description:
       "Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
   },
   {
     id: 'magic-060',
@@ -1135,8 +1045,7 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/forceful-winds.png',
     description:
       "Return every equipped Item card to its respective player's hand.",
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
   },
   {
     id: 'magic-061',
@@ -1145,8 +1054,7 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/call-to-the-fallen.png',
     description:
       'Search the discard pile for a Hero card and add it to your hand.',
-    set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
+    set: 'base',
   },
 
   // add magic cards...
@@ -1548,8 +1456,7 @@ export const baseLeaders: PartyLeaderData[] = [
     description:
       'Each time you roll to ATTACK a Monster card, +1 to your roll.',
     set: 'base',
-    heroClass: HeroClass.Ranger,
-    skill: { condition: '', description: '' },
+    heroClass: HeroClass.Ranger,
   },
   {
     id: 'leader-117',
@@ -1559,8 +1466,7 @@ export const baseLeaders: PartyLeaderData[] = [
     description:
       "Once per turn on your turn, you may spend an action point to pull a card from another player's hand.",
     set: 'base',
-    heroClass: HeroClass.Thief,
-    skill: { condition: '', description: '' },
+    heroClass: HeroClass.Thief,
   },
   {
     id: 'leader-118',
@@ -1569,8 +1475,7 @@ export const baseLeaders: PartyLeaderData[] = [
     image: 'leaders/the-fist-of-reason.png',
     description: 'Each time you roll to CHALLENGE, +2 to your roll.',
     set: 'base',
-    heroClass: HeroClass.Fighter,
-    skill: { condition: '', description: '' },
+    heroClass: HeroClass.Fighter,
   },
   {
     id: 'leader-119',
@@ -1580,8 +1485,7 @@ export const baseLeaders: PartyLeaderData[] = [
     description:
       "Each time you roll to use a Hero card's effect, +1 to your roll.",
     set: 'base',
-    heroClass: HeroClass.Bard,
-    skill: { condition: '', description: '' },
+    heroClass: HeroClass.Bard,
   },
   {
     id: 'leader-120',
@@ -1590,8 +1494,7 @@ export const baseLeaders: PartyLeaderData[] = [
     image: 'leaders/the-cloaked-sage.png',
     description: 'Each time you play a Magic card, DRAW a card.',
     set: 'base',
-    heroClass: HeroClass.Wizard,
-    skill: { condition: '', description: '' },
+    heroClass: HeroClass.Wizard,
   },
   {
     id: 'leader-121',
@@ -1601,8 +1504,7 @@ export const baseLeaders: PartyLeaderData[] = [
     description:
       'Each time you play a Modifier card on a roll, +1 or -1 to that roll.',
     set: 'base',
-    heroClass: HeroClass.Guardian,
-    skill: { condition: '', description: '' },
+    heroClass: HeroClass.Guardian,
   },
 
   // add more leaders...

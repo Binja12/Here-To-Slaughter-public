@@ -1,5 +1,5 @@
 import { ChallengeCard } from './challenge-card'
-import { CardType, GameEventType } from 'shared'
+import { CardType } from 'shared'
 import { ChallengeCardData } from 'shared'
 
 const mockChallengeData: ChallengeCardData = {
@@ -9,7 +9,6 @@ const mockChallengeData: ChallengeCardData = {
   image: 'challenge.png',
   description: 'Counter any card play',
   set: '',
-  ability: { trigger: GameEventType.CardPlayed },
 }
 
 describe('ChallengeCard', () => {

@@ -38,13 +38,6 @@ export enum ReactionWindowType {
   TaskChoice = "TaskChoice",
 }
 
-export enum EffectDuration {
-  OneTime = "OneTime",
-  TurnEnd = "TurnEnd",
-  NextTurn = "NextTurn",
-  Passive = "Passive",
-}
-
 export enum RollContext {
   Any = "Any",
   Challenge = "Challenge",
@@ -71,6 +64,14 @@ export enum GameEventType {
   HeroSacrificed = "HeroSacrificed",
   HeroDestroyed = "HeroDestroyed",
   HeroStolen = "HeroStolen",
+  /**
+   * Canonical "a hero left a party" — emitted by the one removal choke point
+   * (game/party-ops.ts) alongside the specific event above; payload carries a
+   * `reason`. Subscribe to THIS when you only care that a hero left at all —
+   * effect expiries do — so a future removal mechanic is one new reason at the
+   * choke point, not an update to every listener.
+   */
+  HeroRemovedFromParty = "HeroRemovedFromParty",
 
   // Monster events
   MonsterSlain = "MonsterSlain",
@@ -88,6 +89,10 @@ export enum GameEventType {
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
   RollSuccess = "RollSuccess",
+
+  // Ongoing effects — installed by an ability, removed when their lifetime ends
+  EffectApplied = "EffectApplied",
+  EffectExpired = "EffectExpired",
 
   // Reaction frame
   FrameResolved = "FrameResolved",
@@ -184,17 +189,29 @@ export enum Owner {
   Chosen = "Chosen",
 }
 
+/**
+ * WHOSE events an ability listens to. Replaces the processor's old hard-coded
+ * passive/active scan split, which could only express two of these and had no
+ * way to say "any player's roll" — the expansion's -1 modifier card.
+ *
+ * Checked in `triggerMatches()`; the switch is exhaustive.
+ */
+export enum TriggerScope {
+  /** The event is ABOUT this card (payload.cardId === source). A hero's own roll. */
+  SelfCard = "SelfCard",
+  /** The event belongs to my owner. "Each time YOU roll to CHALLENGE." */
+  OwnerEvent = "OwnerEvent",
+  /** Only while it is my owner's turn. */
+  OwnerTurn = "OwnerTurn",
+  /** Anyone's event — a table-wide passive. */
+  Anyone = "Anyone",
+}
+
 export enum PassiveType {
   RollBonus = "RollBonus",
   CantBeStolen = "CantBeStolen",
   CantChallenge = "CantChallenge",
   CantBeChallenged = "CantBeChallenged",
-}
-
-export enum ExpiryCondition {
-  EndOfTurn = "EndOfTurn",
-  StartOfNextTurn = "StartOfNextTurn",
-  Permanent = "Permanent",
 }
 
 export enum ChallengeResult {

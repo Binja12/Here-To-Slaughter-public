@@ -117,11 +117,20 @@ export class GameEventFactory {
 
   // --- Cards ---
 
-  static heroAddedToParty(playerId: string, cardId: string): IGameEvent {
+  /**
+   * Canonical "a hero entered a party" — emitted by Party.addHero, the only way
+   * in. `reason` discriminates the mechanic that put it there, so a listener
+   * that only cares that a hero entered play subscribes once.
+   */
+  static heroAddedToParty(
+    playerId: string,
+    cardId: string,
+    reason: string,
+  ): IGameEvent {
     return new GameEvent(
       GameEventType.HeroAddedToParty,
       playerId,
-      { cardId },
+      { cardId, playerId, reason },
       Audience.All,
     )
   }
@@ -206,11 +215,62 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * Canonical removal event — emitted by Party.removeHero, the only way out.
+   * `playerId` is the party the hero LEFT; `reason` discriminates the mechanic.
+   */
+  static heroRemovedFromParty(
+    playerId: string,
+    cardId: string,
+    reason: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroRemovedFromParty,
+      playerId,
+      { cardId, playerId, reason },
+      Audience.All,
+    )
+  }
+
   static monsterSlain(playerId: string, cardId: string): IGameEvent {
     return new GameEvent(
       GameEventType.MonsterSlain,
       playerId,
       { cardId },
+      Audience.All,
+    )
+  }
+
+  // --- Ongoing effects ---
+
+  /**
+   * An ability installed a standing effect. The client needs this to render
+   * state no card face shows ("your heroes are protected this round"), and it
+   * gives the sweep's removal something to pair with in the log.
+   */
+  static effectApplied(
+    ownerId: string,
+    effectId: string,
+    sourceCardId: string,
+    detail?: Record<string, unknown>,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.EffectApplied,
+      ownerId,
+      { effectId, sourceCardId, ...detail },
+      Audience.All,
+    )
+  }
+
+  static effectExpired(
+    ownerId: string,
+    effectId: string,
+    sourceCardId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.EffectExpired,
+      ownerId,
+      { effectId, sourceCardId },
       Audience.All,
     )
   }

@@ -1,4 +1,11 @@
-import { ICard, IGameEvent, GameEventType, Audience, CardType } from 'shared'
+import {
+  ICard,
+  IGameEvent,
+  GameEventType,
+  Audience,
+  CardType,
+  TriggerScope,
+} from 'shared'
 import { AbilityProcessor } from './ability-processor'
 import { GameState } from './game-state'
 import { CardStack } from './card-stack'
@@ -16,8 +23,18 @@ import { ReactionManager } from './reactions/reaction-manager'
 const makeRm = (gs: GameState, em: GameEventEmitter) =>
   new ReactionManager(gs, em)
 
+/**
+ * Stands in for the real ability registry: behaviour is bound to a card ID
+ * here, not carried on the card itself. The builders below write into it, so a
+ * test still declares a card and its ability in one place.
+ */
+let abilities = new Map<string, IAbility>()
+beforeEach(() => {
+  abilities = new Map()
+})
+
 const makeAp = (gs: GameState, em: GameEventEmitter) =>
-  new AbilityProcessor(gs, em, makeRm(gs, em))
+  new AbilityProcessor(gs, em, makeRm(gs, em), abilities)
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -38,26 +55,26 @@ const makeTask = (events: IGameEvent[] = [], spy?: () => void): ITask => ({
   },
 })
 
-/** Minimal ICard that also exposes getAbility() for duck-typing. */
-const makeFakeCard = (
-  id: string,
-  ability?: IAbility,
-): ICard & { getAbility(): IAbility | undefined } => ({
-  getId: () => id,
-  getName: () => id,
-  getType: () => CardType.Hero,
-  getImage: () => '',
-  getDescription: () => '',
-  getAbility: () => ability,
-})
+/** Minimal ICard. Any ability passed is registered against the card's id. */
+const makeFakeCard = (id: string, ability?: IAbility): ICard => {
+  if (ability) abilities.set(id, ability)
+  return {
+    getId: () => id,
+    getName: () => id,
+    getType: () => CardType.Hero,
+    getImage: () => '',
+    getDescription: () => '',
+  }
+}
 
 /** Real HeroCard — needed when getEquippedItem() is exercised. */
 const makeHeroCard = (
   id: string,
   ability?: IAbility,
   equippedItem?: string,
-): HeroCard =>
-  new HeroCard({
+): HeroCard => {
+  if (ability) abilities.set(id, ability)
+  return new HeroCard({
     id,
     name: id,
     type: CardType.Hero,
@@ -67,8 +84,8 @@ const makeHeroCard = (
     heroClass: HeroClass.Fighter,
     rollReq: 5,
     equippedItem,
-    ability: ability as any,
   })
+}
 
 const makePlayer = (id: string) =>
   new Player({
@@ -139,7 +156,7 @@ describe('AbilityProcessor', () => {
       gs.registerParty(makeParty('p1', 'leader-1'))
       gs.registerCard(
         makeFakeCard('leader-1', {
-          trigger: GameEventType.DiceRolled,
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
           steps: [makeTask([], () => fired.push(true))],
         }),
       )
@@ -158,7 +175,7 @@ describe('AbilityProcessor', () => {
       gs.registerParty(makeParty('p1', 'leader-1'))
       gs.registerCard(
         makeFakeCard('leader-1', {
-          trigger: GameEventType.DiceRolled,
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
           steps: [makeTask([], () => fired.push(true))],
         }),
       )
@@ -176,7 +193,7 @@ describe('AbilityProcessor', () => {
       const firedBy: string[] = []
 
       const makeAbility = (tag: string): IAbility => ({
-        trigger: GameEventType.DiceRolled,
+        trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
         steps: [makeTask([], () => firedBy.push(tag))],
       })
 
@@ -203,7 +220,7 @@ describe('AbilityProcessor', () => {
       gs.registerCard(makeFakeCard('leader-1'))
       gs.registerCard(
         makeFakeCard('monster-1', {
-          trigger: GameEventType.DiceRolled,
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
           steps: [makeTask([], () => fired.push(true))],
         }),
       )
@@ -225,7 +242,7 @@ describe('AbilityProcessor', () => {
       gs.registerCard(hero)
       gs.registerCard(
         makeFakeCard('item-1', {
-          trigger: GameEventType.DiceRolled,
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
           steps: [makeTask([], () => fired.push(true))],
         }),
       )
@@ -293,7 +310,7 @@ describe('AbilityProcessor', () => {
         {
           cardId: 'hero-1',
           ability: {
-            trigger: GameEventType.RollSuccess,
+            trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
             steps: [makeTask([], () => fired.push(true))],
           },
         },
@@ -312,7 +329,12 @@ describe('AbilityProcessor', () => {
         {
           cardId: 'hero-1',
           ability: {
-            trigger: GameEventType.DiceRolled,
+            // SelfCard needs the event to name this card; a payload-less event
+            // cannot satisfy it.
+            trigger: {
+              on: GameEventType.DiceRolled,
+              scope: TriggerScope.SelfCard,
+            },
             steps: [makeTask([], () => fired.push(true))],
           },
         },
@@ -329,7 +351,7 @@ describe('AbilityProcessor', () => {
       const firedBy: string[] = []
 
       const makeAbility = (tag: string): IAbility => ({
-        trigger: GameEventType.RollSuccess,
+        trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
         steps: [makeTask([], () => firedBy.push(tag))],
       })
 
@@ -365,7 +387,7 @@ describe('AbilityProcessor', () => {
       gs.registerParty(makeParty('p1', 'leader-1'))
       gs.registerCard(
         makeFakeCard('leader-1', {
-          trigger: GameEventType.DiceRolled,
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
           steps: [makeTask([taskEvent])],
         }),
       )
@@ -390,7 +412,7 @@ describe('AbilityProcessor', () => {
       gs.registerParty(makeParty('p1', 'leader-1'))
       gs.registerCard(
         makeFakeCard('leader-1', {
-          trigger: GameEventType.DiceRolled,
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
           steps: [step],
         }),
       )

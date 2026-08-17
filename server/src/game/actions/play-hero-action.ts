@@ -56,9 +56,7 @@ export class PlayHeroAction implements IAction {
     this.emmiter.emit(
       GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
     )
-    gs.getParty(this.playerId).addHero(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.heroAddedToParty(this.playerId, this.cardId),
-    )
+    // addHero announces the arrival itself — membership cannot change silently.
+    gs.getParty(this.playerId).addHero(this.cardId, this.emmiter, 'Played')
   }
 }

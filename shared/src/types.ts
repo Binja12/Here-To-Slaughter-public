@@ -1,8 +1,6 @@
 import {
-  EffectDuration,
   HeroClass,
   CardType,
-  GameEventType,
   ReactionWindowType,
   DecisionType,
   ActionFlow,
@@ -12,29 +10,24 @@ import {
   ChallengeResult,
 } from "./enums";
 
-import { IGameEvent } from "./interfaces";
-
 export type HeroClassReq = HeroClass | "Any";
 
 export type PartyReq = {
   classes: HeroClassReq[];
 };
 
-export type EffectData = {
-  rollBonus?: number;
-  attackBonus?: number;
-  duration: EffectDuration;
-};
-
+/** Secondary card text — a monster's face-up skill. Display data only. */
 export type SkillData = {
   condition: string;
   description: string;
 };
 
-export type AbilityData = {
-  trigger: GameEventType;
-};
-
+/**
+ * Card DATA is display + rule numbers only. Card BEHAVIOUR (trigger + task
+ * steps) lives server-side in the ability registry, keyed by card id — it is
+ * built from live ITask instances, which cannot survive a clone or reach the
+ * client, and the client has no business knowing a card's pipeline anyway.
+ */
 export type CardBase = {
   id: string;
   name: string;
@@ -42,7 +35,6 @@ export type CardBase = {
   image: string;
   description: string;
   set: string;
-  ability: AbilityData;
 };
 
 export type HeroCardData = CardBase & {
@@ -69,6 +61,8 @@ export type MonsterCardData = CardBase & {
   higherReq: number;
   rollCompareMode: RollCompareMode;
   partyReq: PartyReq;
+  /** Face-up skill text, e.g. "When face up — All rolls -1". */
+  skill?: SkillData;
 };
 
 export type PartyLeaderData = CardBase & {

@@ -1,5 +1,5 @@
 import { ICard, RollResult, RollCompareMode } from 'shared'
-import { MonsterCardData, CardType, SkillData, PartyReq } from 'shared'
+import { MonsterCardData, CardType, PartyReq } from 'shared'
 
 export class MonsterCard implements ICard {
   constructor(private data: MonsterCardData) {}

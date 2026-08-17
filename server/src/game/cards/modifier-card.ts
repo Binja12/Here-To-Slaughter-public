@@ -19,9 +19,6 @@ export class ModifierCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
-  getAbility() {
-    return this.data.ability
-  }
   getValues() {
     return this.data.values
   }
