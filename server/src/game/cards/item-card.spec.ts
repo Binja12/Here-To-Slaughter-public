@@ -1,5 +1,5 @@
 import { ItemCard } from './item-card'
-import { CardType, GameEventType } from 'shared'
+import { CardType } from 'shared'
 import { ItemCardData } from 'shared'
 
 const mockItemData: ItemCardData = {
@@ -10,9 +10,6 @@ const mockItemData: ItemCardData = {
   description: 'A powerful sword',
   cursed: false,
   set: 'base',
-  ability: {
-    trigger: GameEventType.HeroAddedToParty,
-  },
 }
 
 const mockCursedItemData: ItemCardData = {
@@ -46,11 +43,6 @@ describe('ItemCard', () => {
   it('should return description', () => {
     const card = new ItemCard(mockItemData)
     expect(card.getDescription()).toBe('A powerful sword')
-  })
-
-  it('should return ability', () => {
-    const card = new ItemCard(mockItemData)
-    expect(card.getAbility()).toEqual(mockItemData.ability)
   })
 
   it('should return cursed false', () => {

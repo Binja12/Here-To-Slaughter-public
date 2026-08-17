@@ -236,7 +236,7 @@ describe('DestroyTask', () => {
     expect(gs.getDiscardPile().getAll()).toContain('hero-1')
   })
 
-  it('emits HeroDestroyed (All) immediately', () => {
+  it('emits the canonical removal event, then HeroDestroyed (All)', () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', ['hero-1']))
@@ -244,10 +244,14 @@ describe('DestroyTask', () => {
 
     new DestroyTask('hero-1').execute(gs, makeCtx(), emitter, stubRm)
 
-    expect(emitted).toHaveLength(1)
-    expect(emitted[0].getType()).toBe(GameEventType.HeroDestroyed)
-    expect(emitted[0].getAudience()).toBe(Audience.All)
-    expect((emitted[0].getPayload() as any).cardId).toBe('hero-1')
+    // Canonical first (Party.removeHero announces the moment of removal),
+    // specific second (the completed operation, with its richer payload).
+    expect(emitted).toHaveLength(2)
+    expect(emitted[0].getType()).toBe(GameEventType.HeroRemovedFromParty)
+    expect((emitted[0].getPayload() as any).reason).toBe('Destroyed')
+    expect(emitted[1].getType()).toBe(GameEventType.HeroDestroyed)
+    expect(emitted[1].getAudience()).toBe(Audience.All)
+    expect((emitted[1].getPayload() as any).cardId).toBe('hero-1')
   })
 
   it('defaults to ctx.sourceCardId when no explicit heroId is given', () => {

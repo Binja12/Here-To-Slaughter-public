@@ -47,7 +47,6 @@ const makeChallengeCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.CardPlayAttempted },
   })
 
 const collect = (em: GameEventEmitter): IGameEvent[] => {

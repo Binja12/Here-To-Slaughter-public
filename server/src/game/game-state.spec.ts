@@ -1,11 +1,10 @@
-import { CardType, HeroClass, EffectDuration, ReactionWindowType } from 'shared'
+import { CardType, HeroClass, ReactionWindowType } from 'shared'
 import { GameState } from './game-state'
 import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
 import { HeroCard } from './cards/hero-card'
 import { IAbility, IReactionWindow } from './interfaces'
-import { GameEventType } from 'shared'
 import { CardPile } from './card-pile'
 import { DiscardTask } from './tasks/tasks'
 import { NO_CONTEXT_RESULT } from './ability-context'
@@ -35,7 +34,6 @@ const makeHeroCard = (id: string, ability?: IAbility) =>
     heroClass: HeroClass.Wizard,
     rollReq: 4,
     set: 'base',
-    ability: { trigger: GameEventType.CardPlayed },
   })
 
 describe('GameState', () => {

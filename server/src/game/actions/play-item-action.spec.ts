@@ -1,4 +1,4 @@
-import { ActionType, CardType, GameEventType, HeroClass } from 'shared'
+import { ActionType, CardType, HeroClass } from 'shared'
 import { PlayItemAction } from './play-item-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -40,7 +40,6 @@ const makeHeroCard = (id: string) =>
     heroClass: HeroClass.Wizard,
     rollReq: 4,
     set: '',
-    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeItemCard = (id: string, cursed = false) =>
@@ -51,7 +50,6 @@ const makeItemCard = (id: string, cursed = false) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.CardPlayed },
     cursed,
   })
 
@@ -63,7 +61,6 @@ const makeMagicCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeGs = () => {

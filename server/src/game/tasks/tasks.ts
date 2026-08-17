@@ -1,5 +1,16 @@
-import { IGameEventEmitter, ReactionWindowType } from 'shared'
-import { ITask } from '../interfaces'
+import {
+  GameEventType,
+  IGameEventEmitter,
+  PassiveType,
+  ReactionWindowType,
+} from 'shared'
+import {
+  AbilityTrigger,
+  ActiveEffect,
+  EffectExpiry,
+  IReactionManager,
+  ITask,
+} from '../interfaces'
 import { GameState } from '../game-state'
 import {
   AbilityContext,
@@ -9,7 +20,6 @@ import {
 } from '../ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 import { HeroCard } from '../cards/hero-card'
-import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // DrawTask — draw N cards from the main deck into the owner's hand
@@ -22,7 +32,7 @@ export class DrawTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
     const player = gs.getPlayer(ctx.ownerId)
     if (!player) return
@@ -48,7 +58,7 @@ export class DiscardTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
     const targetId = this.cardId ?? ctx.sourceCardId
     const player = gs.getPlayer(ctx.ownerId)
@@ -72,15 +82,78 @@ export class DestroyTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
     const targetId = this.heroId ?? ctx.sourceCardId
     const party = gs.getParty(ctx.ownerId)
     if (!party.getHeroIds().includes(targetId)) return
 
-    party.removeHero(targetId)
+    party.removeHero(targetId, em, 'Destroyed')
     gs.getDiscardPile().add(targetId)
     em.emit(GameEventFactory.heroDestroyed(ctx.ownerId, targetId))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ApplyEffectTask — install an ongoing effect
+//
+// The step that gives an ability a lifetime beyond its own run. The declaration
+// supplies only the RULE (what the effect does and how long it lasts); identity
+// — whose effect it is, which card installed it — is read from the context, so
+// one shared task instance serves every card that copies the wording.
+// ---------------------------------------------------------------------------
+
+export type EffectSpec = {
+  passive?: { type: PassiveType; value?: number }
+  /** Same shape a card ability uses — installed, they are the same record. */
+  trigger?: AbilityTrigger
+  steps?: ITask[]
+  /** Absent = permanent. One entry or several — first match ends the effect. */
+  expiry?: EffectExpiry | EffectExpiry[]
+}
+
+export class ApplyEffectTask implements ITask {
+  constructor(private readonly spec: EffectSpec) {
+    const triggered = spec.trigger !== undefined
+    if (triggered !== (spec.steps !== undefined)) {
+      throw new Error(
+        'ApplyEffectTask: `trigger` and `steps` go together — a trigger with ' +
+          'no steps fires nothing, and steps with no trigger never run.',
+      )
+    }
+    if (!spec.passive && !triggered) {
+      throw new Error(
+        'ApplyEffectTask: an effect needs a `passive` flag or a ' +
+          '`trigger`+`steps` pair, otherwise it does nothing at all.',
+      )
+    }
+  }
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const { expiry, ...rule } = this.spec
+    const effect: ActiveEffect = {
+      id: crypto.randomUUID(),
+      sourceCardId: ctx.sourceCardId,
+      ownerId: ctx.ownerId,
+      ...rule,
+      // Normalised to an array so the sweep has one shape to walk.
+      ...(expiry && { expiry: Array.isArray(expiry) ? expiry : [expiry] }),
+    }
+
+    gs.addEffect(effect)
+    em.emit(
+      GameEventFactory.effectApplied(ctx.ownerId, effect.id, ctx.sourceCardId, {
+        passive: effect.passive?.type,
+        // Event types only: shouldExpire is server code and has no business in
+        // a payload a client may render.
+        expiresOn: effect.expiry?.map((e) => e.on),
+      }),
+    )
   }
 }
 
@@ -98,7 +171,7 @@ export class StealFromPartyTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
     const [heroId] = ctx.get<string[]>(this.fromKey) ?? []
 
@@ -112,11 +185,19 @@ export class StealFromPartyTask implements ITask {
     const fromPlayerId = gs.getCardOwner(heroId)
     if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
 
+    // A standing CantBeStolen effect on the target's owner beats the steal.
+    // Checked here, at the mutation, rather than only when the choice window
+    // built its options: the protection may have been installed in between.
+    if (gs.hasEffect(PassiveType.CantBeStolen, fromPlayerId)) return
+
     const fromParty = gs.getParty(fromPlayerId)
     if (!fromParty.getHeroIds().includes(heroId)) return
 
-    fromParty.removeHero(heroId)
-    gs.getParty(ctx.ownerId).addHero(heroId)
+    // Both halves announce themselves, so effect expiries keyed to a hero
+    // leaving OR entering a party see the move. The hero's own ability needs no
+    // help: it is read from whichever party holds the card, so it follows here.
+    fromParty.removeHero(heroId, em, 'Stolen')
+    gs.getParty(ctx.ownerId).addHero(heroId, em, 'Stolen')
     // Recorded so later steps can still reach this hero after a second card
     // choice has overwritten CTX_CHOSEN_CARD.
     ctx.set(CTX_STOLEN_HERO_ID, [heroId])
@@ -146,7 +227,7 @@ export class RollOnHeroTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    rm: ReactionManager,
+    rm: IReactionManager,
   ): void {
     const [heroId] = ctx.get<string[]>(this.fromKey) ?? []
 

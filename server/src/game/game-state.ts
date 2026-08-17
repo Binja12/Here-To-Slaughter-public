@@ -1,5 +1,6 @@
 import { ICard } from 'shared'
-import type { IAbility, IAction, IReactionWindow, ITask } from './interfaces'
+import type { ActiveEffect, IAction, IReactionWindow, ITask } from './interfaces'
+import type { PassiveType } from 'shared'
 import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
@@ -142,6 +143,7 @@ export class GameState {
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     copy.actionQueue = [...this.actionQueue]
     copy.abilityPipelines = new Map(this.abilityPipelines)
+    // Installed abilities and effects ride along inside Player.clone() above.
     // Frames: shallow-copy entries. The snapshot inside each frame is already a
     // complete GameState root — we reference it without recursing into it.
     for (const [id, frame] of this.frames) copy.frames.set(id, frame)
@@ -207,15 +209,6 @@ export class GameState {
     return this.cards.get(cardId)
   }
 
-  getCardAbility(cardId: string): IAbility | undefined {
-    const card = this.cards.get(cardId)
-    if (!card) return undefined
-    if ('getAbility' in card && typeof card.getAbility === 'function') {
-      return (card as { getAbility(): IAbility | undefined }).getAbility()
-    }
-    return undefined
-  }
-
   getEquippedItem(heroId: string): string | undefined {
     const card = this.cards.get(heroId)
     if (card instanceof HeroCard) return card.getEquippedItem() ?? undefined
@@ -279,6 +272,32 @@ export class GameState {
   clearUsedAbilities(): void {
     this.abilitiesUsedThisTurn = []
   }
+
+  // ---------------------------------------------------------------------------
+  // Installed abilities & ongoing effects
+  //
+  // The records live on their owning Player — ownership is structural. These are
+  // the cross-player views. WHEN an entry dies is AbilityProcessor's call
+  // (effects.ts holds the rules); storage is the player's.
+  // ---------------------------------------------------------------------------
+
+  /** Routes to the owning player named by the effect itself. */
+  addEffect(effect: ActiveEffect): void {
+    const player = this.players.get(effect.ownerId)
+    if (!player) {
+      throw new Error(
+        `addEffect: no player ${effect.ownerId} — an effect must be installed ` +
+          'on a seated player, or nothing will ever sweep or fire it.',
+      )
+    }
+    player.addEffect(effect)
+  }
+
+  /** True while `playerId` is under an effect carrying the given passive flag. */
+  hasEffect(type: PassiveType, playerId: string): boolean {
+    return this.players.get(playerId)?.hasEffect(type) ?? false
+  }
+
 
   getCardsChallengedThisTurn(): string[] {
     return [...this.cardsChallengedThisTurn]

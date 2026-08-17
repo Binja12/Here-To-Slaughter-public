@@ -1,4 +1,10 @@
-import { ActionType, CardType, GameEventType, IGameEvent } from 'shared'
+import {
+  ActionType,
+  CardType,
+  GameEventType,
+  IGameEvent,
+  TriggerScope,
+} from 'shared'
 import { PlayMagicAction } from './play-magic-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -9,6 +15,7 @@ import { CardPile } from '../card-pile'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { MagicCard } from '../cards/magic-card'
 import { AbilityProcessor } from '../ability-processor'
+import { IAbility } from '../interfaces'
 
 // --- Helpers ---
 
@@ -29,7 +36,7 @@ const makeParty = (playerId: string) =>
     monsterIds: [],
   })
 
-const makeMagicCard = (id: string, taskSpy?: jest.Mock) =>
+const makeMagicCard = (id: string) =>
   new MagicCard({
     id,
     name: `Magic ${id}`,
@@ -37,18 +44,13 @@ const makeMagicCard = (id: string, taskSpy?: jest.Mock) =>
     image: '',
     description: '',
     set: '',
-    ability: {
-      trigger: GameEventType.MagicPlayed,
-      steps: taskSpy
-        ? [
-            {
-              execute: (_gs: GameState, _ctx: unknown, _em: unknown, _rm: unknown) =>
-                taskSpy(),
-            },
-          ]
-        : [],
-    } as any,
   })
+
+/** Behaviour is bound by card id in the registry, never on the card's data. */
+const spyAbility = (taskSpy: jest.Mock): IAbility => ({
+  trigger: { on: GameEventType.MagicPlayed, scope: TriggerScope.SelfCard },
+  steps: [{ execute: () => taskSpy() }],
+})
 
 const makeGs = () => {
   const deck = new CardStack('deck-1', 'main-deck')
@@ -195,8 +197,13 @@ describe('PlayMagicAction', () => {
 
     it('executes the magic card ability tasks via AbilityProcessor', () => {
       const taskSpy = jest.fn()
-      gs.registerCard(makeMagicCard('magic-1', taskSpy))
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      gs.registerCard(makeMagicCard('magic-1'))
+      new AbilityProcessor(
+        gs,
+        emitter,
+        new ReactionManager(gs, emitter),
+        new Map([['magic-1', spyAbility(taskSpy)]]),
+      )
       makeAction().execute(gs)
       expect(taskSpy).toHaveBeenCalledTimes(1)
     })

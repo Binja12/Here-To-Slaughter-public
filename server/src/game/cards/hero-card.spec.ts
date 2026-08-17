@@ -1,5 +1,5 @@
 import { HeroCard } from './hero-card'
-import { CardType, HeroClass, GameEventType } from 'shared'
+import { CardType, HeroClass } from 'shared'
 import { HeroCardData } from 'shared'
 
 const mockHeroData: HeroCardData = {
@@ -11,9 +11,6 @@ const mockHeroData: HeroCardData = {
   heroClass: HeroClass.Wizard,
   rollReq: 4,
   set: 'base',
-  ability: {
-    trigger: GameEventType.RollSuccess,
-  },
 }
 
 describe('HeroCard', () => {
@@ -50,11 +47,6 @@ describe('HeroCard', () => {
   it('should return roll requirement', () => {
     const card = new HeroCard(mockHeroData)
     expect(card.getRollReq()).toBe(4)
-  })
-
-  it('should return ability', () => {
-    const card = new HeroCard(mockHeroData)
-    expect(card.getAbility()).toEqual(mockHeroData.ability)
   })
 
   it('should return null when no item equipped', () => {

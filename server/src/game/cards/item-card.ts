@@ -1,5 +1,5 @@
 import { ICard } from 'shared'
-import { ItemCardData, CardType, EffectData } from 'shared'
+import { ItemCardData, CardType } from 'shared'
 
 export class ItemCard implements ICard {
   constructor(private data: ItemCardData) {}
@@ -27,9 +27,6 @@ export class ItemCard implements ICard {
   }
   equipTo(heroId: string): void {
     this.data.equippedHero = heroId
-  }
-  getAbility() {
-    return this.data.ability
   }
 
   clone(): ItemCard {

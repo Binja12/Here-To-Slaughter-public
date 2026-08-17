@@ -30,7 +30,7 @@ const makeGs = () =>
     new CardPile('mpile', 'monster-pile'),
   )
 
-const makeHeroCard = (id: string, ability?: unknown) =>
+const makeHeroCard = (id: string) =>
   new HeroCard({
     id,
     name: id,
@@ -40,7 +40,6 @@ const makeHeroCard = (id: string, ability?: unknown) =>
     set: 'test',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
-    ability: ability as never,
   })
 
 function seat(gs: GameState, playerId: string, heroIds: string[] = []) {
@@ -65,11 +64,13 @@ function setup() {
   const events: IGameEvent[] = []
   em.addListener({ onEvent: (e) => events.push(e) })
   const rm = new ReactionManager(gs, em)
-  new AbilityProcessor(gs, em, rm)
+  // Behaviour is bound by card id through the registry, not carried on the
+  // card's data — the same wiring production uses, with a test-local table.
+  new AbilityProcessor(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
 
   seat(gs, 'p1', ['wiggles'])
   seat(gs, 'p2', ['victim'])
-  gs.registerCard(makeHeroCard('wiggles', WigglesAbility))
+  gs.registerCard(makeHeroCard('wiggles'))
   gs.registerCard(makeHeroCard('victim'))
 
   return { gs, em, rm, events }
@@ -297,9 +298,9 @@ describe('WigglesAbility', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    new AbilityProcessor(gs, em, rm)
+    new AbilityProcessor(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
     seat(gs, 'p1', ['wiggles'])
-    gs.registerCard(makeHeroCard('wiggles', WigglesAbility))
+    gs.registerCard(makeHeroCard('wiggles'))
 
     fireTrigger(em)
     openWindows(gs)[0].submitReaction('p1', { choice: CONFIRM })

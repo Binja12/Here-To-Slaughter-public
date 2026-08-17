@@ -1,5 +1,5 @@
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
-import { ITask } from '../interfaces'
+import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import { AbilityContext } from '../ability-context'
 import {
@@ -8,7 +8,6 @@ import {
   filterCards,
   filterPlayers,
 } from '../reactions/choice-filters'
-import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // Choose tasks — resolve candidates from GameState, open a choice window and
@@ -26,7 +25,7 @@ export class ChoosePlayerTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     _em: IGameEventEmitter,
-    rm: ReactionManager,
+    rm: IReactionManager,
   ): void {
     const options = filterPlayers(gs, ctx, this.filter)
 
@@ -44,7 +43,7 @@ export class ChooseCardTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     _em: IGameEventEmitter,
-    rm: ReactionManager,
+    rm: IReactionManager,
   ): void {
     const options = filterCards(gs, ctx, this.filter)
 
@@ -68,7 +67,7 @@ export class ConfirmTask implements ITask {
     _gs: GameState,
     ctx: AbilityContext,
     _em: IGameEventEmitter,
-    rm: ReactionManager,
+    rm: IReactionManager,
   ): void {
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.TaskChoice, ctx.ownerId, {})

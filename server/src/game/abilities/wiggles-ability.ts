@@ -1,4 +1,4 @@
-import { GameEventType, Owner, Zone } from 'shared'
+import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
 import { IAbility } from '../interfaces'
 import { RollOnHeroTask, StealFromPartyTask } from '../tasks/tasks'
 import { ChooseCardTask, ConfirmTask } from '../tasks/choose-tasks'
@@ -29,7 +29,8 @@ import { CTX_STOLEN_HERO_ID } from '../ability-context'
 // Trigger: RollSuccess on Wiggles herself.
 
 export const WigglesAbility: IAbility = {
-  trigger: GameEventType.RollSuccess,
+  // SelfCard: Wiggles reacts to HER OWN successful roll, not the table's.
+  trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
   steps: [
     new ConfirmTask(),
     new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }),

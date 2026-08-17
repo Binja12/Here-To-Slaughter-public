@@ -1,4 +1,5 @@
 import { CardType, HeroClass, Owner, Zone } from 'shared'
+import { GameEventEmitter } from '../events/game-event-emitter'
 import { filterCards, filterPlayers } from './choice-filters'
 import { GameState } from '../game-state'
 import { CardStack } from '../card-stack'
@@ -8,6 +9,9 @@ import { Party } from '../party'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
 import { AbilityContext, CTX_CHOSEN_PLAYER } from '../ability-context'
+
+/** Party membership changes announce themselves; these tests ignore the events. */
+const silentEm = new GameEventEmitter()
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,7 +35,6 @@ const hero = (id: string, heroClass = HeroClass.Fighter) =>
     set: 'test',
     heroClass,
     rollReq: 5,
-    ability: undefined as never,
   })
 
 const magic = (id: string) =>
@@ -186,9 +189,9 @@ describe('filterCards', () => {
     gs.registerCard(hero('mine'))
     gs.registerCard(hero('theirs-a'))
     gs.registerCard(hero('theirs-b'))
-    gs.getParty('p1').addHero('mine')
-    gs.getParty('p2').addHero('theirs-a')
-    gs.getParty('p3').addHero('theirs-b')
+    gs.getParty('p1').addHero('mine', silentEm, 'Played')
+    gs.getParty('p2').addHero('theirs-a', silentEm, 'Played')
+    gs.getParty('p3').addHero('theirs-b', silentEm, 'Played')
 
     expect(
       filterCards(gs, ctxFor('p1'), { zone: Zone.Party, owner: Owner.Others }),
@@ -231,8 +234,8 @@ describe('filterCards', () => {
     seat(gs, 'p2')
     gs.registerCard(hero('fighter-1', HeroClass.Fighter))
     gs.registerCard(hero('wizard-1', HeroClass.Wizard))
-    gs.getParty('p2').addHero('fighter-1')
-    gs.getParty('p2').addHero('wizard-1')
+    gs.getParty('p2').addHero('fighter-1', silentEm, 'Played')
+    gs.getParty('p2').addHero('wizard-1', silentEm, 'Played')
 
     expect(
       filterCards(gs, ctxFor('p1'), {
@@ -280,7 +283,7 @@ describe('filterCards', () => {
     const gs = makeGs()
     seat(gs, 'p1')
     gs.registerCard(hero('mine'))
-    gs.getParty('p1').addHero('mine')
+    gs.getParty('p1').addHero('mine', silentEm, 'Played')
 
     expect(
       filterCards(gs, ctxFor('p1'), { zone: Zone.Party, owner: Owner.Others }),

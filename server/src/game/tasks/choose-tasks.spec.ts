@@ -21,6 +21,9 @@ import { AbilityContext, CTX_CHOSEN_PLAYER } from '../ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../reactions/reaction-manager'
 
+/** Party membership changes announce themselves; these tests ignore the events. */
+const silentEm = new GameEventEmitter()
+
 // ---------------------------------------------------------------------------
 // Builders
 // ---------------------------------------------------------------------------
@@ -43,7 +46,6 @@ const makeHeroCard = (id: string) =>
     set: 'test',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
-    ability: undefined as never,
   })
 
 const makeMagicCard = (id: string) =>
@@ -173,8 +175,8 @@ describe('ChooseCardTask', () => {
     seat(gs, 'p1')
     gs.registerCard(makeHeroCard('card-1'))
     gs.registerCard(makeHeroCard('card-2'))
-    gs.getParty('p1').addHero('card-1')
-    gs.getParty('p1').addHero('card-2')
+    gs.getParty('p1').addHero('card-1', silentEm, 'Played')
+    gs.getParty('p1').addHero('card-2', silentEm, 'Played')
     const em = new GameEventEmitter()
     const events = collect(em)
 
@@ -194,7 +196,7 @@ describe('ChooseCardTask', () => {
     const gs = makeGs()
     seat(gs, 'p1')
     gs.registerCard(makeHeroCard('card-1'))
-    gs.getParty('p1').addHero('card-1')
+    gs.getParty('p1').addHero('card-1', silentEm, 'Played')
     const em = new GameEventEmitter()
     const events = collect(em)
 

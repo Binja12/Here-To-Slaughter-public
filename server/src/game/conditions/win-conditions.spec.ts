@@ -1,4 +1,5 @@
 import { SlayMonsters } from './win-conditions'
+import { GameEventEmitter } from '../events/game-event-emitter'
 import { AllClassesInParty } from './win-conditions'
 import { InMemoryCardRepository } from '../repositories/in-memory-card-repository'
 import { baseGameCards } from '../../data/base-game-cards'
@@ -7,6 +8,9 @@ import { CardPile } from '../card-pile'
 import { GameState } from '../game-state'
 import { Player } from '../player'
 import { Party } from '../party'
+
+/** Party membership changes announce themselves; these tests ignore the events. */
+const silentEm = new GameEventEmitter()
 
 const makeGs = () => {
   const deck = new CardStack('deck-1', 'main-deck')
@@ -36,7 +40,7 @@ describe('win-condition', () => {
     expect(condition.check(gs)).toBe(null)
     p.addMonster('monster-1')
     expect(condition.check(gs)).toBe(null)
-    p.addHero('hero-1')
+    p.addHero('hero-1', silentEm, 'Played')
     expect(condition.check(gs)).toBe(null)
   })
 
@@ -71,12 +75,12 @@ describe('win-condition', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
-      party.addHero('hero-041') // bard
-      party.addHero('hero-040') // wizard
-      party.addHero('hero-025') // guardian
-      party.addHero('hero-024') // thief
-      party.addHero('hero-009') // ranger
-      party.addHero('hero-008') // fighter
+      party.addHero('hero-041', silentEm, 'Played') // bard
+      party.addHero('hero-040', silentEm, 'Played') // wizard
+      party.addHero('hero-025', silentEm, 'Played') // guardian
+      party.addHero('hero-024', silentEm, 'Played') // thief
+      party.addHero('hero-009', silentEm, 'Played') // ranger
+      party.addHero('hero-008', silentEm, 'Played') // fighter
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)?.getId()).toBe('player-1')
     })
@@ -85,11 +89,11 @@ describe('win-condition', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
-      party.addHero('hero-041') // bard
-      party.addHero('hero-040') // wizard
-      party.addHero('hero-025') // guardian
-      party.addHero('hero-024') // thief
-      party.addHero('hero-009') // ranger
+      party.addHero('hero-041', silentEm, 'Played') // bard
+      party.addHero('hero-040', silentEm, 'Played') // wizard
+      party.addHero('hero-025', silentEm, 'Played') // guardian
+      party.addHero('hero-024', silentEm, 'Played') // thief
+      party.addHero('hero-009', silentEm, 'Played') // ranger
       // missing fighter
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)).toBeNull()
@@ -99,12 +103,12 @@ describe('win-condition', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
-      party.addHero('hero-041') // bard
-      party.addHero('hero-040') // wizard
-      party.addHero('hero-025') // guardian
-      party.addHero('hero-024') // thief
-      party.addHero('hero-009') // ranger
-      party.addHero('hero-009') // ranger again — duplicate
+      party.addHero('hero-041', silentEm, 'Played') // bard
+      party.addHero('hero-040', silentEm, 'Played') // wizard
+      party.addHero('hero-025', silentEm, 'Played') // guardian
+      party.addHero('hero-024', silentEm, 'Played') // thief
+      party.addHero('hero-009', silentEm, 'Played') // ranger
+      party.addHero('hero-009', silentEm, 'Played') // ranger again — duplicate
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)).toBeNull()
     })

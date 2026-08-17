@@ -1,4 +1,4 @@
-import { CardType, GameEventType, HeroClass } from 'shared'
+import { CardType, HeroClass } from 'shared'
 import { CardTypeCondition } from './conditions'
 import { DrawTask } from './tasks'
 import { GameState } from '../game-state'
@@ -49,7 +49,6 @@ const makeMagicCard = (id: string) =>
     image: '',
     description: '',
     set: 'base',
-    ability: { trigger: GameEventType.CardPlayed },
   })
 
 const makeHeroCard = (id: string) =>
@@ -62,7 +61,6 @@ const makeHeroCard = (id: string) =>
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 4,
-    ability: { trigger: GameEventType.RollSuccess },
   })
 
 // ---------------------------------------------------------------------------

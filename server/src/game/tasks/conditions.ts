@@ -1,8 +1,7 @@
 import { CardType, IGameEventEmitter } from 'shared'
-import { IIfTask, ITask } from '../interfaces'
+import { IIfTask, IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../game-state'
 import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
-import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // CardTypeCondition — branches on the type of the last drawn card
@@ -27,7 +26,7 @@ export class CardTypeCondition implements IIfTask {
     this.ifFalse = ifFalse
   }
 
-  execute(gs: GameState, ctx: AbilityContext, em: IGameEventEmitter, rm: ReactionManager): void {
+  execute(gs: GameState, ctx: AbilityContext, em: IGameEventEmitter, rm: IReactionManager): void {
     const branch = this.condition(gs, ctx) ? this.ifTrue : (this.ifFalse ?? [])
     for (const task of branch) {
       task.execute(gs, ctx, em, rm)

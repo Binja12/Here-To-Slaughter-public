@@ -1,4 +1,11 @@
-import { ActionType, CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
+import {
+  ActionType,
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+  TriggerScope,
+} from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -42,7 +49,6 @@ const makeHeroCard = (id: string, rollReq = 10) =>
     heroClass: HeroClass.Wizard,
     rollReq,
     set: '',
-    ability: { trigger: GameEventType.DiceRolled },
   })
 
 const makeGs = () => {
@@ -200,23 +206,22 @@ describe('RollOnHeroAction', () => {
     it('fires hero ability tasks via AbilityProcessor when roll succeeds', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
       const taskSpy = jest.fn()
-      gs.registerCard(
-        new HeroCard({
-          id: 'hero-1',
-          name: 'Hero hero-1',
-          type: CardType.Hero,
-          image: '',
-          description: '',
-          set: '',
-          heroClass: HeroClass.Wizard,
-          rollReq: 10,
-          ability: {
-            trigger: GameEventType.RollSuccess,
-            steps: [{ execute: () => taskSpy() }],
-          } as any,
-        }),
+      gs.registerCard(makeHeroCard('hero-1'))
+      // Behaviour comes from the registry, keyed by card id.
+      new AbilityProcessor(
+        gs,
+        emitter,
+        new ReactionManager(gs, emitter),
+        new Map([
+          [
+            'hero-1',
+            {
+              trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
+              steps: [{ execute: () => taskSpy() }],
+            },
+          ],
+        ]),
       )
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       jest.runAllTimers() // modifier window closes → RollSuccess → ability fires
       expect(taskSpy).toHaveBeenCalledTimes(1)
@@ -251,7 +256,6 @@ describe('RollOnHeroAction', () => {
           // No ability: a modifier is played by a player REQUEST gated on an
           // open modifier frame (PlayModifierReaction.canExecute), never by a
           // passive trigger.
-          ability: undefined as never,
           values: [3],
         }),
       )
