@@ -44,6 +44,13 @@ export function triggerMatches(
 ): boolean {
   if (trigger.on !== event.getType()) return false
 
+  // "Which event", after scope has answered "whose event". Absent means the
+  // trigger takes every event of this type.
+  if (trigger.when !== undefined) {
+    const { label } = (event.getPayload() ?? {}) as { label?: string }
+    if (label !== trigger.when) return false
+  }
+
   switch (trigger.scope) {
     case TriggerScope.SelfCard:
       return (

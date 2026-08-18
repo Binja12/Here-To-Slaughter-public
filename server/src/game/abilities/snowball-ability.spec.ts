@@ -7,7 +7,6 @@ import {
 } from 'shared'
 import { SnowballAbility } from './snowball-ability'
 import { DrawTask } from '../tasks/tasks'
-import { CardTypeCondition } from '../tasks/conditions'
 import { GameState } from '../game-state'
 import { Player } from '../player'
 import { Party } from '../party'
@@ -15,10 +14,13 @@ import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
-import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
+import { AbilityContext, CTX_DRAWN_CARD_IDS } from '../ability-context'
 import { ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import type { ReactionManager } from '../reactions/reaction-manager'
+import { ReactionManager as ReactionManagerImpl } from '../reactions/reaction-manager'
+import { AbilityProcessor } from '../ability-processor'
+import { GameEventFactory } from '../events/game-event-factory'
+import { CONFIRM, DISMISS } from '../reactions/task-choice-window'
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -61,7 +63,7 @@ const makeEmitter = () => {
 }
 
 /** Stub ReactionManager — tasks under test don't open frames. */
-const stubRm = null as unknown as ReactionManager
+const stubRm = null as unknown as ReactionManagerImpl
 
 const makeMagicCard = (id: string) =>
   new MagicCard({
@@ -107,12 +109,12 @@ describe('DrawTask', () => {
     expect(emitted[0].getAudience()).toBe(Audience.PlayerOnly)
   })
 
-  it('stores last drawn cardId in context', () => {
+  it('stores every drawn cardId in context, as an array', () => {
     const { gs } = makeGs(['card-1', 'card-2'])
     const ctx = makeCtx()
     const { emitter } = makeEmitter()
     new DrawTask(2).execute(gs, ctx, emitter, stubRm)
-    expect(ctx.get(CTX_LAST_DRAWN_CARD_ID)).toBe('card-2')
+    expect(ctx.get(CTX_DRAWN_CARD_IDS)).toEqual(['card-1', 'card-2'])
   })
 
   it('stops drawing when deck is empty', () => {
@@ -144,89 +146,125 @@ describe('DrawTask', () => {
 })
 
 // ---------------------------------------------------------------------------
-// CardTypeCondition
+// SnowballAbility — end to end, through the real processor
+//
+// "DRAW a card. If it is a Magic card, you MAY play it immediately and DRAW a
+// second card." The may is the point: the second draw is its own entry,
+// unlocked by answering the prompt.
 // ---------------------------------------------------------------------------
 
-describe('CardTypeCondition', () => {
-  it('executes ifTrue branch when card type matches', () => {
-    const { gs } = makeGs(['magic-1'])
-    gs.registerCard(makeMagicCard('magic-1'))
-    const ctx = makeCtx()
-    const { emitter } = makeEmitter()
-    new DrawTask(1).execute(gs, ctx, emitter, stubRm) // draws magic-1 → sets CTX_LAST_DRAWN_CARD_ID
+function setup(deckCards: string[]) {
+  const { gs, player } = makeGs(deckCards)
+  const em = new GameEventEmitter()
+  const events: IGameEvent[] = []
+  em.addListener({ onEvent: (e) => events.push(e) })
+  const rm = new ReactionManagerImpl(gs, em)
+  new AbilityProcessor(gs, em, rm, new Map([['snowball', SnowballAbility]]))
+  gs.registerParty(
+    new Party({
+      playerId: 'p1',
+      leaderId: 'leader-1',
+      heroIds: ['snowball'],
+      monsterIds: [],
+    }),
+  )
+  return { gs, player, em, events }
+}
 
-    const ran: string[] = []
-    const ifTrue: ITask = { execute: () => { ran.push('true') } }
-    const ifFalse: ITask = { execute: () => { ran.push('false') } }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, emitter, stubRm)
-    expect(ran).toEqual(['true'])
-  })
+const fire = (em: GameEventEmitter) =>
+  em.emit(GameEventFactory.rollSuccess('p1', 'snowball'))
 
-  it('executes ifFalse branch when card type does not match', () => {
-    const { gs } = makeGs(['hero-1'])
-    gs.registerCard(makeHeroCard('hero-1'))
-    const ctx = makeCtx()
-    const { emitter } = makeEmitter()
-    new DrawTask(1).execute(gs, ctx, emitter, stubRm)
+const openPrompt = (gs: GameState) =>
+  [...gs.frames.values()]
+    .flatMap((f) => f.windows)
+    .find((w) => w.isOpen())
 
-    const ran: string[] = []
-    const ifTrue: ITask = { execute: () => { ran.push('true') } }
-    const ifFalse: ITask = { execute: () => { ran.push('false') } }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(gs, ctx, emitter, stubRm)
-    expect(ran).toEqual(['false'])
-  })
-
-  it('executes no branch when ifFalse not provided and type does not match', () => {
-    const { gs } = makeGs(['hero-1'])
-    gs.registerCard(makeHeroCard('hero-1'))
-    const ctx = makeCtx()
-    const { emitter } = makeEmitter()
-    new DrawTask(1).execute(gs, ctx, emitter, stubRm)
-    expect(() =>
-      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, emitter, stubRm),
-    ).not.toThrow()
-  })
-
-  it('takes ifFalse branch when no card drawn yet', () => {
-    const { gs } = makeGs([])
-    const ctx = makeCtx()
-    const { emitter } = makeEmitter()
-    const ran: string[] = []
-    const ifFalse: ITask = { execute: () => { ran.push('false') } }
-    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(gs, ctx, emitter, stubRm)
-    expect(ran).toEqual(['false'])
-  })
-})
-
-// ---------------------------------------------------------------------------
-// SnowballAbility
-// ---------------------------------------------------------------------------
+const drawnCount = (events: IGameEvent[]) =>
+  events.filter((e) => e.getType() === GameEventType.CardDrawn).length
 
 describe('SnowballAbility', () => {
-  it('has two steps', () => {
-    expect(SnowballAbility.steps).toHaveLength(2)
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  it('is declared as three entries — draw, ask, draw again', () => {
+    // It pauses twice: once on a test, once on a question. Neither the
+    // condition nor the confirm holds the steps it guards.
+    expect(SnowballAbility).toHaveLength(3)
+    expect(SnowballAbility[0].trigger.on).toBe(GameEventType.RollSuccess)
+    expect(SnowballAbility[1].trigger.on).toBe(GameEventType.ConditionMet)
+    expect(SnowballAbility[2].trigger.on).toBe(GameEventType.TaskConfirmed)
   })
 
-  it('draws a card and emits CardDrawn when deck has a non-magic card', () => {
-    const { gs, player } = makeGs(['hero-1'])
+  it('draws once and asks nothing when the card is not Magic', () => {
+    const { gs, player, em, events } = setup(['hero-1'])
     gs.registerCard(makeHeroCard('hero-1'))
-    const ctx = makeCtx()
-    const { emitter, emitted } = makeEmitter()
-    for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter, stubRm)
-    expect(emitted.some((e) => e.getType() === GameEventType.CardDrawn)).toBe(true)
+
+    fire(em)
+
     expect(player.getHand()).toContain('hero-1')
+    expect(drawnCount(events)).toBe(1)
+    expect(openPrompt(gs)).toBeUndefined()
   })
 
-  it('draws two cards when first drawn is Magic', () => {
-    const { gs, player } = makeGs(['magic-1', 'card-2'])
+  it('asks before the second draw when the card is Magic', () => {
+    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
     gs.registerCard(makeMagicCard('magic-1'))
-    const ctx = makeCtx()
-    const { emitter, emitted } = makeEmitter()
-    for (const step of SnowballAbility.steps) step.execute(gs, ctx, emitter, stubRm)
-    expect(player.getHand()).toContain('magic-1')
-    expect(player.getHand()).toContain('card-2')
+
+    fire(em)
+
+    // The card says "you MAY" — the old version drew again automatically.
+    expect(player.getHand()).toEqual(['magic-1'])
+    expect(drawnCount(events)).toBe(1)
+    expect(openPrompt(gs)).toBeDefined()
+  })
+
+  it('CONFIRM draws the second card', () => {
+    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+
+    expect(player.getHand()).toEqual(['magic-1', 'card-2'])
+    expect(drawnCount(events)).toBe(2)
+  })
+
+  it('DISMISS draws nothing more, and emits no TaskConfirmed to trigger it', () => {
+    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    openPrompt(gs)!.submitReaction('p1', { choice: DISMISS })
+
+    // "No" is the ABSENCE of the event — nothing is cancelled or rolled back,
+    // the continuation entry simply never matches.
+    expect(player.getHand()).toEqual(['magic-1'])
+    expect(drawnCount(events)).toBe(1)
     expect(
-      emitted.filter((e) => e.getType() === GameEventType.CardDrawn),
-    ).toHaveLength(2)
+      events.some((e) => e.getType() === GameEventType.TaskConfirmed),
+    ).toBe(false)
+    expect(gs.frames.size).toBe(0)
+  })
+
+  it('an idle player draws nothing more — timeout is a DISMISS', () => {
+    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    jest.advanceTimersByTime(5000)
+
+    expect(player.getHand()).toEqual(['magic-1'])
+    expect(drawnCount(events)).toBe(1)
+  })
+
+  it('keeps the first draw when the prompt is declined', () => {
+    const { gs, player, em } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    openPrompt(gs)!.submitReaction('p1', { choice: DISMISS })
+
+    // The window releases on either answer, so declining rewinds nothing.
+    expect(player.getHand()).toContain('magic-1')
   })
 })

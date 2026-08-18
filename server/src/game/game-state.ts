@@ -298,6 +298,15 @@ export class GameState {
     return this.players.get(playerId)?.hasEffect(type) ?? false
   }
 
+  /**
+   * Every effect on `playerId` carrying this passive. `PassiveType.RollBonus`
+   * had no reader at all until this: hasEffect answers "is there a bonus" and
+   * drops both the amount and the card it came from.
+   */
+  getEffectsWithPassive(type: PassiveType, playerId: string): ActiveEffect[] {
+    return this.players.get(playerId)?.getEffectsWithPassive(type) ?? []
+  }
+
 
   getCardsChallengedThisTurn(): string[] {
     return [...this.cardsChallengedThisTurn]
@@ -308,14 +317,4 @@ export class GameState {
   clearChallengedCards(): void {
     this.cardsChallengedThisTurn = []
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function cloneCard(card: ICard): ICard {
-  if (card instanceof HeroCard) return card.clone()
-  if (card instanceof ItemCard) return card.clone()
-  return card
 }

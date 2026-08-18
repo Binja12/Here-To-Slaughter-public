@@ -69,7 +69,7 @@ function seat(gs: GameState, playerId: string, heroIds: string[] = []): void {
   )
 }
 
-function setup(abilities: Map<string, IAbility> = new Map()) {
+function setup(abilities: Map<string, IAbility[]> = new Map()) {
   const gs = makeGs()
   const em = new GameEventEmitter()
   const events: IGameEvent[] = []
@@ -86,7 +86,9 @@ const spyAbility = (
   ranFor: string[],
 ): IAbility => ({
   trigger: { on, scope },
-  steps: [{ execute: (_gs, ctx) => ranFor.push(ctx.ownerId) }],
+  steps: [{ execute: (_gs, ctx) => {
+        ranFor.push(ctx.ownerId)
+      } }],
 })
 
 const rolled = (playerId: string, cardId?: string) =>
@@ -99,7 +101,7 @@ describe('trigger scope', () => {
       new Map([
         [
           'hero-1',
-          spyAbility(GameEventType.DiceRolled, TriggerScope.SelfCard, ranFor),
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.SelfCard, ranFor)],
         ],
       ]),
     )
@@ -121,7 +123,7 @@ describe('trigger scope', () => {
       new Map([
         [
           'hero-1',
-          spyAbility(GameEventType.DiceRolled, TriggerScope.Anyone, ranFor),
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.Anyone, ranFor)],
         ],
       ]),
     )
@@ -140,7 +142,7 @@ describe('trigger scope', () => {
       new Map([
         [
           'hero-1',
-          spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerEvent, ranFor),
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerEvent, ranFor)],
         ],
       ]),
     )
@@ -161,7 +163,7 @@ describe('trigger scope', () => {
       new Map([
         [
           'hero-1',
-          spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerTurn, ranFor),
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerTurn, ranFor)],
         ],
       ]),
     )
@@ -190,7 +192,7 @@ describe('a card ability is live because the card is in play', () => {
       new Map([
         [
           'hero-1',
-          spyAbility(GameEventType.DiceRolled, TriggerScope.Anyone, ranFor),
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.Anyone, ranFor)],
         ],
       ]),
     )
@@ -212,7 +214,7 @@ describe('a card ability is live because the card is in play', () => {
       new Map([
         [
           'victim',
-          spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerEvent, ranFor),
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerEvent, ranFor)],
         ],
       ]),
     )

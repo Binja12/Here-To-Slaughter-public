@@ -6,35 +6,47 @@ import { CTX_STOLEN_HERO_ID } from '../ability-context'
 
 // Wiggles (hero-036): "STEAL a Hero card and roll to use its effect immediately"
 //
-// Steps:
-//   1. ConfirmTask    — opt in before anything happens. DISMISS restores the
-//                       frame, and the rollback discards this pipeline, so the
-//                       steal can never be cancelled after it has already run.
-//   2. ChooseCardTask — pick an enemy hero; the pick is reported through the
-//                       frame result, like every other window's outcome.
-//   3. StealFromPartyTask  — moves that hero into the owner's party and records it
-//                       as CTX_STOLEN_HERO_ID for the step after it.
-//   4. RollOnHeroTask — rolls on the stolen hero, snapshots GS, opens a
-//                       modifier window and suspends. On resolve: if
-//                       finalRoll >= rollReq, RollSuccess fires (triggering the
-//                       stolen hero's own ability).
+// Two entries, because the ability pauses on a question and a confirm is always
+// the last step of its entry:
 //
-// NOTE: a failed roll does NOT undo the steal. This frame is opened by step 4,
-// so its snapshot already contains step 3's steal — only the roll is rolled
-// back. That matches the card text ("STEAL a Hero card AND roll to use its
-// effect"): the steal is unconditional, the effect is what you gamble for.
+//   [0] RollSuccess on Wiggles → choose a target, steal it, ask about rolling
+//   [1] TaskConfirmed 'RollOnHero' → roll on what was taken
 //
-// Every step from 1, 2 and 4 suspends the pipeline on its own frame.
+// The split is what makes "no" mean exactly "skip the roll" rather than "cancel
+// everything after the question". DISMISS emits no event, so entry [1] simply
+// never fires; the steal is already done and stays done, matching the card text
+// ("STEAL a Hero card AND roll to use its effect" — two clauses, only the
+// second optional). A failed roll leaves the hero for the same reason: the
+// modifier frame is opened after the steal, so its snapshot contains it.
 //
-// Trigger: RollSuccess on Wiggles herself.
+// There is deliberately no confirm at the FRONT. Rolling on Wiggles is itself
+// the opt-in — the action point was spent and her rollReq cleared to get here.
+//
+// SelfCard on both: Wiggles reacts to her OWN successful roll, and to her own
+// confirm. Two Wiggles in one party never answer for each other.
+const CONFIRMS_ROLL = 'RollOnHero'
 
-export const WigglesAbility: IAbility = {
-  // SelfCard: Wiggles reacts to HER OWN successful roll, not the table's.
-  trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
-  steps: [
-    new ConfirmTask(),
-    new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }),
-    new StealFromPartyTask(),
-    new RollOnHeroTask(CTX_STOLEN_HERO_ID),
-  ],
-}
+export const WigglesAbility: IAbility[] = [
+  {
+    trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
+    steps: [
+      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }),
+      new StealFromPartyTask(),
+      // subjectKey does double duty: it skips the prompt when nothing was
+      // stolen, and rides the stolen hero across to entry [1], which runs with
+      // a fresh context and cannot see this one's blackboard.
+      new ConfirmTask({
+        confirms: CONFIRMS_ROLL,
+        subjectKey: CTX_STOLEN_HERO_ID,
+      }),
+    ],
+  },
+  {
+    trigger: {
+      on: GameEventType.TaskConfirmed,
+      scope: TriggerScope.SelfCard,
+      when: CONFIRMS_ROLL,
+    },
+    steps: [new RollOnHeroTask(CTX_STOLEN_HERO_ID)],
+  },
+]

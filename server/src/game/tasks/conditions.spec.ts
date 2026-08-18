@@ -1,4 +1,4 @@
-import { CardType, HeroClass } from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
 import { CardTypeCondition } from './conditions'
 import { DrawTask } from './tasks'
 import { GameState } from '../game-state'
@@ -8,7 +8,11 @@ import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
-import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
+import {
+  AbilityContext,
+  CTX_CHOSEN_CARD,
+  CTX_DRAWN_CARD_IDS,
+} from '../ability-context'
 import { ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../reactions/reaction-manager'
@@ -67,86 +71,125 @@ const makeHeroCard = (id: string) =>
 // CardTypeCondition
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Tests
+//
+// The condition holds no steps: it announces ConditionMet and whatever it
+// guards lives in a separate registry entry triggered by that event.
+// ---------------------------------------------------------------------------
+
+const LABEL = 'DrewMagic'
+
+const collect = (em: GameEventEmitter) => {
+  const events: IGameEvent[] = []
+  em.addListener({ onEvent: (e) => events.push(e) })
+  return events
+}
+
+const metEvents = (events: IGameEvent[]) =>
+  events.filter((e) => e.getType() === GameEventType.ConditionMet)
+
 describe('CardTypeCondition', () => {
-  it('executes ifTrue branch when last drawn card matches type', () => {
-    const gs = makeGs(['magic-1'])
+  it('announces ConditionMet when a card in the slot has the type', () => {
+    const gs = makeGs()
     gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
-    new DrawTask(1).execute(gs, ctx, makeEmitter(), stubRm)
+    ctx.set(CTX_DRAWN_CARD_IDS, ['magic-1'])
+    const em = new GameEventEmitter()
+    const events = collect(em)
 
-    const ran: string[] = []
-    const ifTrue: ITask = { execute: () => ran.push('true') }
-    const ifFalse: ITask = { execute: () => ran.push('false') }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
-      gs,
-      ctx,
-      makeEmitter(),
-      stubRm,
+    new CardTypeCondition(CardType.Magic, CTX_DRAWN_CARD_IDS, LABEL).execute(
+      gs, ctx, em, stubRm,
     )
 
-    expect(ran).toEqual(['true'])
+    expect(metEvents(events)).toHaveLength(1)
+    expect(metEvents(events)[0].getPayload()).toMatchObject({
+      cardId: 'src',
+      label: LABEL,
+    })
   })
 
-  it('executes ifFalse branch when last drawn card does not match type', () => {
-    const gs = makeGs(['hero-1'])
+  it('announces NOTHING when the type does not match', () => {
+    const gs = makeGs()
     gs.registerCard(makeHeroCard('hero-1'))
     const ctx = makeCtx()
-    new DrawTask(1).execute(gs, ctx, makeEmitter(), stubRm)
+    ctx.set(CTX_DRAWN_CARD_IDS, ['hero-1'])
+    const em = new GameEventEmitter()
+    const events = collect(em)
 
-    const ran: string[] = []
-    const ifTrue: ITask = { execute: () => ran.push('true') }
-    const ifFalse: ITask = { execute: () => ran.push('false') }
-    new CardTypeCondition(CardType.Magic, [ifTrue], [ifFalse]).execute(
-      gs,
-      ctx,
-      makeEmitter(),
-      stubRm,
+    new CardTypeCondition(CardType.Magic, CTX_DRAWN_CARD_IDS, LABEL).execute(
+      gs, ctx, em, stubRm,
     )
 
-    expect(ran).toEqual(['false'])
+    // "False" is the absence of the event — the guarded entry never triggers,
+    // and there is no branch to skip past.
+    expect(metEvents(events)).toHaveLength(0)
   })
 
-  it('executes no branch when ifFalse not provided and type does not match', () => {
-    const gs = makeGs(['hero-1'])
+  it('is false for an absent or empty slot', () => {
+    const gs = makeGs()
+    const ctx = makeCtx()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const cond = new CardTypeCondition(CardType.Magic, CTX_DRAWN_CARD_IDS, LABEL)
+
+    cond.execute(gs, ctx, em, stubRm) // absent
+    ctx.set(CTX_DRAWN_CARD_IDS, [])
+    cond.execute(gs, ctx, em, stubRm) // empty
+
+    expect(metEvents(events)).toHaveLength(0)
+  })
+
+  it('reads whichever slot it was given, not just drawn cards', () => {
+    const gs = makeGs()
+    gs.registerCard(makeMagicCard('magic-1'))
+    const ctx = makeCtx()
+    // A CHOSEN card, not a drawn one — the condition has no opinion about
+    // where the id came from.
+    ctx.set(CTX_CHOSEN_CARD, ['magic-1'])
+    const em = new GameEventEmitter()
+    const events = collect(em)
+
+    new CardTypeCondition(CardType.Magic, CTX_CHOSEN_CARD, LABEL).execute(
+      gs, ctx, em, stubRm,
+    )
+
+    expect(metEvents(events)).toHaveLength(1)
+  })
+
+  it('holds when ANY card in the slot has the type', () => {
+    const gs = makeGs()
     gs.registerCard(makeHeroCard('hero-1'))
+    gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
-    new DrawTask(1).execute(gs, ctx, makeEmitter(), stubRm)
+    ctx.set(CTX_DRAWN_CARD_IDS, ['hero-1', 'magic-1'])
+    const em = new GameEventEmitter()
+    const events = collect(em)
 
-    expect(() =>
-      new CardTypeCondition(CardType.Magic, []).execute(gs, ctx, makeEmitter(), stubRm),
-    ).not.toThrow()
-  })
-
-  it('takes ifFalse branch when no card drawn yet (CTX_LAST_DRAWN_CARD_ID absent)', () => {
-    const gs = makeGs([])
-    const ctx = makeCtx()
-
-    const ran: string[] = []
-    const ifFalse: ITask = { execute: () => ran.push('false') }
-    new CardTypeCondition(CardType.Magic, [], [ifFalse]).execute(
-      gs,
-      ctx,
-      makeEmitter(),
-      stubRm,
+    new CardTypeCondition(CardType.Magic, CTX_DRAWN_CARD_IDS, LABEL).execute(
+      gs, ctx, em, stubRm,
     )
 
-    expect(ran).toEqual(['false'])
+    // "did this produce a Magic card", not "was the last one Magic"
+    expect(metEvents(events)).toHaveLength(1)
   })
 
-  it('exposes condition, ifTrue, ifFalse on the instance', () => {
-    const ifTrue: ITask = { execute: jest.fn() }
-    const ifFalse: ITask = { execute: jest.fn() }
-    const cond = new CardTypeCondition(CardType.Item, [ifTrue], [ifFalse])
-
-    expect(cond.ifTrue).toEqual([ifTrue])
-    expect(cond.ifFalse).toEqual([ifFalse])
-    expect(typeof cond.condition).toBe('function')
-  })
-
-  it('condition reads CTX_LAST_DRAWN_CARD_ID and returns false when card id missing', () => {
-    const gs = makeGs([])
+  it('seeds the tested slot onto the event for the entry it unlocks', () => {
+    const gs = makeGs()
+    gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
-    const cond = new CardTypeCondition(CardType.Magic, [])
-    expect(cond.condition(gs, ctx)).toBe(false)
+    ctx.set(CTX_DRAWN_CARD_IDS, ['magic-1'])
+    const em = new GameEventEmitter()
+    const events = collect(em)
+
+    new CardTypeCondition(CardType.Magic, CTX_DRAWN_CARD_IDS, LABEL).execute(
+      gs, ctx, em, stubRm,
+    )
+
+    // The continuation runs with a fresh context, so the cards it was asked
+    // about have to travel with the event.
+    expect(metEvents(events)[0].getPayload()).toMatchObject({
+      ctxSeed: { drawnCardIds: ['magic-1'] },
+    })
   })
 })

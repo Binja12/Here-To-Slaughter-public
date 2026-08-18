@@ -62,17 +62,66 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * Emitted by TaskChoiceWindow on CONFIRM only. The `cardId` is the ability's
+   * SOURCE card, so TriggerScope.SelfCard routes the continuation back to the
+   * card that asked — the same match a hero's own RollSuccess uses.
+   */
+  static taskConfirmed(
+    playerId: string,
+    sourceCardId: string,
+    label: string,
+    ctxSeed?: Record<string, unknown>,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.TaskConfirmed,
+      playerId,
+      { cardId: sourceCardId, label, ctxSeed },
+      Audience.All,
+    )
+  }
+
+  /**
+   * A condition held. `label` is what a continuation entry matches with
+   * `when`; `ctxSeed` carries the slots it will need, since it runs with a
+   * fresh context. Nothing is emitted when the condition fails.
+   */
+  static conditionMet(
+    playerId: string,
+    sourceCardId: string,
+    label: string,
+    ctxSeed?: Record<string, unknown>,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.ConditionMet,
+      playerId,
+      { cardId: sourceCardId, label, ctxSeed },
+      Audience.All,
+    )
+  }
+
   static challengeStarted(
     challengerId: string,
     defenderId: string,
     cardId: string,
     challengerRoll: number,
     defenderRoll: number,
+    /** Standing bonuses each side brings in, so the opening totals are real. */
+    challengerBonuses: unknown[] = [],
+    defenderBonuses: unknown[] = [],
   ): IGameEvent {
     return new GameEvent(
       GameEventType.ChallengeStarted,
       challengerId,
-      { challengerId, defenderId, cardId, challengerRoll, defenderRoll },
+      {
+        challengerId,
+        defenderId,
+        cardId,
+        challengerRoll,
+        defenderRoll,
+        challengerBonuses,
+        defenderBonuses,
+      },
       Audience.All,
     )
   }
@@ -157,9 +206,28 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * A modifier card was spent into an open window. `burnCard` moves it silently
+   * (hand and discard, in live state and in the snapshot), so without this the
+   * card's departure could only be inferred from the bonus that followed.
+   */
+  static modifierPlayed(
+    playerId: string,
+    cardId: string,
+    value: number,
+    targetPlayerId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.ModifierPlayed,
+      playerId,
+      { cardId, value, targetPlayerId },
+      Audience.All,
+    )
+  }
+
   static cardRemovedFromHand(playerId: string, cardId: string): IGameEvent {
     return new GameEvent(
-      GameEventType.HeroAddedToParty,
+      GameEventType.CardRemovedFromHand,
       playerId,
       { cardId },
       Audience.All,

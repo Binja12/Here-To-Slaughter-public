@@ -12,7 +12,7 @@ import { CardPile } from '../card-pile'
 import { Player } from '../player'
 import { Party } from '../party'
 import { HeroCard } from '../cards/hero-card'
-import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
+import { AbilityContext, CTX_DRAWN_CARD_IDS } from '../ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../reactions/reaction-manager'
 
@@ -115,7 +115,7 @@ describe('DrawTask', () => {
     expect(handSizeAtEmit).toEqual([1, 2, 3])
   })
 
-  it('stores the last drawn cardId in context', () => {
+  it('stores every drawn cardId in context, as an array', () => {
     const gs = makeGs(['card-1', 'card-2'])
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1'))
@@ -124,7 +124,7 @@ describe('DrawTask', () => {
 
     new DrawTask(2).execute(gs, ctx, emitter, stubRm)
 
-    expect(ctx.get(CTX_LAST_DRAWN_CARD_ID)).toBe('card-2')
+    expect(ctx.get(CTX_DRAWN_CARD_IDS)).toEqual(['card-1', 'card-2'])
   })
 
   it('stops early and emits only as many events as cards drawn', () => {

@@ -160,9 +160,17 @@ describe('ChoosePlayerTask', () => {
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
 
-    new ChoosePlayerTask().execute(gs, new AbilityContext('src', 'p1'), em, rm)
+    const frameId = new ChoosePlayerTask().execute(
+      gs,
+      new AbilityContext('src', 'p1'),
+      em,
+      rm,
+    )
 
-    expect(rm.takeLastFrameId()).toBeTruthy()
+    // The frameId comes back from execute() — that return value is what tells
+    // AbilityProcessor to suspend, so a task that opens a frame must yield it.
+    expect(frameId).toBeTruthy()
+    expect(gs.frames.has(frameId as string)).toBe(true)
   })
 })
 
@@ -266,7 +274,7 @@ describe('ConfirmTask', () => {
     const em = new GameEventEmitter()
     const events = collect(em)
 
-    new ConfirmTask().execute(
+    new ConfirmTask({ confirms: 'RollOnHero' }).execute(
       gs,
       new AbilityContext('src', 'p1'),
       em,
@@ -276,20 +284,102 @@ describe('ConfirmTask', () => {
     expect(openedPayload(events)['windowType']).toBe(ReactionWindowType.TaskChoice)
   })
 
-  // DISMISS is the window's failure case, so it rolls the frame back — that
-  // rollback is what discards any pipeline suspended on it.
-  it('rolls its frame back on DISMISS', () => {
+  // A confirm is TERMINAL, so nothing is ever parked behind it to cancel. The
+  // window releases on either answer; the difference is whether TaskConfirmed
+  // goes out, and a continuation entry triggers on that event or never runs.
+  it('releases its frame on DISMISS, announcing nothing', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    const em = new GameEventEmitter()
+    const events: IGameEvent[] = []
+    em.addListener({ onEvent: (e) => events.push(e) })
+    const rm = new ReactionManager(gs, em)
+
+    const frameId = new ConfirmTask({ confirms: 'RollOnHero' }).execute(
+      gs,
+      new AbilityContext('src', 'p1'),
+      em,
+      rm,
+    ) as string
+    openWindow(gs).submitReaction('p1', { choice: DISMISS })
+
+    expect(gs.frames.has(frameId)).toBe(false) // released, not restored
+    expect(
+      events.some((e) => e.getType() === GameEventType.TaskConfirmed),
+    ).toBe(false)
+  })
+
+  it('announces TaskConfirmed on CONFIRM, naming the question and its source', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    const em = new GameEventEmitter()
+    const events: IGameEvent[] = []
+    em.addListener({ onEvent: (e) => events.push(e) })
+    const rm = new ReactionManager(gs, em)
+
+    new ConfirmTask({ confirms: 'RollOnHero' }).execute(
+      gs,
+      new AbilityContext('src', 'p1'),
+      em,
+      rm,
+    )
+    openWindow(gs).submitReaction('p1', { choice: CONFIRM })
+
+    const confirmed = events.find(
+      (e) => e.getType() === GameEventType.TaskConfirmed,
+    )
+    expect(confirmed).toBeDefined()
+    // cardId is the SOURCE card, so TriggerScope.SelfCard routes the
+    // continuation back to whichever card asked.
+    expect(confirmed!.getPayload()).toMatchObject({
+      cardId: 'src',
+      label: 'RollOnHero',
+    })
+  })
+
+  it('carries its subject across to the continuation context', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    const em = new GameEventEmitter()
+    const events: IGameEvent[] = []
+    em.addListener({ onEvent: (e) => events.push(e) })
+    const rm = new ReactionManager(gs, em)
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set('stolenHeroId', ['victim'])
+
+    new ConfirmTask({ confirms: 'RollOnHero', subjectKey: 'stolenHeroId' }).execute(
+      gs,
+      ctx,
+      em,
+      rm,
+    )
+    openWindow(gs).submitReaction('p1', { choice: CONFIRM })
+
+    // The continuation runs with a FRESH context, so what it needs has to
+    // travel on the event.
+    const confirmed = events.find(
+      (e) => e.getType() === GameEventType.TaskConfirmed,
+    )
+    expect(confirmed!.getPayload()).toMatchObject({
+      ctxSeed: { stolenHeroId: ['victim'] },
+    })
+  })
+
+  it('skips itself entirely when its subject is empty', () => {
     const gs = makeGs()
     seat(gs, 'p1')
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set('stolenHeroId', [])
 
-    new ConfirmTask().execute(gs, new AbilityContext('src', 'p1'), em, rm)
-    const frameId = rm.takeLastFrameId()!
-    gs.abilityPipelines.set(frameId, { steps: [], ctx: new AbilityContext('src', 'p1') })
-    openWindow(gs).submitReaction('p1', { choice: DISMISS })
+    const frameId = new ConfirmTask({
+      confirms: 'RollOnHero',
+      subjectKey: 'stolenHeroId',
+    }).execute(gs, ctx, em, rm)
 
-    expect(gs.abilityPipelines.has(frameId)).toBe(false)
+    expect(frameId).toBeUndefined()
+    expect(gs.frames.size).toBe(0)
   })
 
   it('keeps the suspended pipeline on CONFIRM', () => {
@@ -298,8 +388,12 @@ describe('ConfirmTask', () => {
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
 
-    new ConfirmTask().execute(gs, new AbilityContext('src', 'p1'), em, rm)
-    const frameId = rm.takeLastFrameId()!
+    const frameId = new ConfirmTask({ confirms: 'RollOnHero' }).execute(
+      gs,
+      new AbilityContext('src', 'p1'),
+      em,
+      rm,
+    ) as string
     gs.abilityPipelines.set(frameId, { steps: [], ctx: new AbilityContext('src', 'p1') })
     openWindow(gs).submitReaction('p1', { choice: CONFIRM })
 
@@ -313,7 +407,7 @@ describe('ConfirmTask', () => {
     const em = new GameEventEmitter()
     const events = collect(em)
 
-    new ConfirmTask().execute(
+    new ConfirmTask({ confirms: 'RollOnHero' }).execute(
       gs,
       new AbilityContext('src', 'p1'),
       em,
@@ -329,7 +423,7 @@ describe('ConfirmTask', () => {
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
 
-    new ConfirmTask().execute(gs, new AbilityContext('src', 'p1'), em, rm)
+    new ConfirmTask({ confirms: 'RollOnHero' }).execute(gs, new AbilityContext('src', 'p1'), em, rm)
     const win = openWindow(gs)
     win.submitReaction('p1', { choice: CONFIRM })
 

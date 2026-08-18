@@ -84,6 +84,16 @@ describe('TurnManager', () => {
       expect(tm.getActionPoints()).toBe(3)
     })
 
+    it('should clear cards challenged in the previous turn', () => {
+      const gs = makeGs()
+      gs.markCardChallenged('hero-1')
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+      // Without this the once-per-turn challenge guard hardens into a permanent
+      // ban on every card that ever survived a challenge.
+      expect(gs.getCardsChallengedThisTurn()).toHaveLength(0)
+    })
+
     it('should clear abilities used from previous turn', () => {
       const gs = makeGs()
       gs.markAbilityUsed('hero-1')
@@ -248,6 +258,122 @@ describe('TurnManager', () => {
       gs.releaseFrame('f1')
       tm.resumeDrain()
       expect(executed).toEqual(['window-action', 'after-action'])
+    })
+  })
+
+  describe('enqueueFirst()', () => {
+    it('runs the inserted action before actions already waiting', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      const order: string[] = []
+      const record = (name: string, cost = 1): IAction => ({
+        ...makeAction(cost),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(cost)
+          order.push(name)
+        },
+      })
+
+      // 'spawner' queues a follow-up from inside its own execute, exactly as
+      // PlayHeroAction grants its roll, while 'later' is already waiting.
+      const later = record('later')
+      const spawner: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          order.push('spawner')
+          tm.enqueueFirst(record('granted', 0))
+        },
+      }
+
+      // Seed both directly so 'later' is genuinely waiting behind 'spawner'
+      // when it runs — tm.enqueue() would drain the first one before the second
+      // was ever added.
+      gs.actionQueue.push(spawner, later)
+      tm.resumeDrain()
+
+      expect(order).toEqual(['spawner', 'granted', 'later'])
+    })
+
+    it('does not drain on its own — the outer loop picks the action up', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      const executed: string[] = []
+      const granted: IAction = {
+        ...makeAction(0),
+        execute: () => {
+          executed.push('granted')
+        },
+      }
+
+      // Called with nothing draining: the action is queued, not run.
+      tm.enqueueFirst(granted)
+      expect(executed).toHaveLength(0)
+      expect(gs.actionQueue[0]).toBe(granted)
+    })
+
+    it('keeps a granted action queued while a window is open, then runs it', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      const executed: string[] = []
+      // Reactable, like the real granted roll — enqueue() would have dropped
+      // this while a window was open; enqueueFirst must only delay it.
+      const granted: IAction = {
+        ...makeAction(0),
+        isReactable: () => true,
+        execute: () => {
+          executed.push('granted')
+        },
+      }
+
+      const spawner: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
+          tm.enqueueFirst(granted)
+        },
+      }
+
+      tm.enqueue(spawner)
+      expect(executed).toHaveLength(0)
+      expect(gs.actionQueue).toContain(granted)
+
+      gs.releaseFrame('f1')
+      tm.resumeDrain()
+      expect(executed).toEqual(['granted'])
+    })
+
+    it('runs a granted zero-cost action before the turn auto-ends at 0 AP', () => {
+      const gs = makeGs(1)
+      const emitter = new GameEventEmitter()
+      const tm = new TurnManager(gs, emitter)
+      tm.startTurn('p1')
+
+      const executed: string[] = []
+      const spawner: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          tm.enqueueFirst({
+            ...makeAction(0),
+            execute: () => {
+              executed.push('granted')
+            },
+          })
+        },
+      }
+
+      tm.enqueue(spawner)
+      expect(executed).toEqual(['granted'])
+      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
     })
   })
 

@@ -73,4 +73,34 @@ describe('Player', () => {
     player.addToHand('card-2')
     expect(player.getHandSize()).toBe(2)
   })
+
+  describe('clone() and action points', () => {
+    it('carries SPENT action points, not the per-turn maximum', () => {
+      const player = new Player({
+        id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3,
+      })
+      player.decreaseActionPoints(2)
+
+      const copy = player.clone()
+
+      // The constructor seeds current AP from data.actionPoints, which is the
+      // MAXIMUM and never moves. Without an explicit carry, every frame
+      // snapshot came back with a full budget — so a failed roll, a lost
+      // challenge or a dismissed prompt refunded whatever had been spent.
+      expect(copy.getActionPoints()).toBe(1)
+      expect(copy.getActionPointsPerTurn()).toBe(3)
+    })
+
+    it('does not let the copy and the original share a budget', () => {
+      const player = new Player({
+        id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3,
+      })
+      const copy = player.clone()
+
+      copy.decreaseActionPoints(3)
+
+      expect(player.getActionPoints()).toBe(3)
+      expect(copy.getActionPoints()).toBe(0)
+    })
+  })
 })

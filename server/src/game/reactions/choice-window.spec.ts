@@ -87,12 +87,17 @@ describe('ChoiceWindow', () => {
     expect(win.isOpen()).toBe(true)
   })
 
-  it('resolves immediately when there are no options', () => {
+  it('resolves on the next tick when there are no options', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
     const events = collect(em)
     const win = new TestChoiceWindow('w', 'p1', [], 5000, gs, 'frame-1', em)
 
+    // Still open until the tick: resolving inline would settle the frame before
+    // the task that opened it had returned, so the pipeline would not yet be
+    // parked to receive the result.
+    expect(win.isOpen()).toBe(true)
+    jest.advanceTimersByTime(0)
     expect(win.isOpen()).toBe(false)
     const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
     expect(payloadOf(resolved!)['results']).toEqual([])
@@ -159,7 +164,7 @@ describe('ChoiceWindow', () => {
   // Timeout
   // -------------------------------------------------------------------------
 
-  it('picks one of the options at random on timeout', () => {
+  it('picks NOTHING on timeout — a silent player names no target', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
     const events = collect(em)
@@ -168,8 +173,20 @@ describe('ChoiceWindow', () => {
     jest.advanceTimersByTime(5000)
 
     const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
-    const [picked] = payloadOf(resolved!)['results'] as unknown[]
-    expect(['a', 'b', 'c']).toContain(picked)
+    expect(payloadOf(resolved!)['results']).toEqual([])
+  })
+
+  it('RESOLVES on timeout rather than rolling back', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    makeWindow({ gs, em, options: ['a', 'b', 'c'], timeoutMs: 5000, frameId: 'f1' })
+
+    jest.advanceTimersByTime(5000)
+
+    // A rollback would rewind the step that opened this window; the window is
+    // not in the snapshot, so that step would re-open it and time out again —
+    // an AFK player would loop forever.
+    expect(gs.frames.has('f1')).toBe(false)
   })
 
   it('does not resolve before the timeout elapses', () => {
@@ -244,6 +261,7 @@ describe('ChoiceWindow', () => {
     const em = new GameEventEmitter()
     const events = collect(em)
     new TestChoiceWindow('w', 'p1', [], 5000, gs, 'frame-1', em)
+    jest.advanceTimersByTime(0)
 
     const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
     expect(payloadOf(resolved!)['results']).toEqual([])
