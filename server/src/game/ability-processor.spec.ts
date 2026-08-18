@@ -28,7 +28,7 @@ const makeRm = (gs: GameState, em: GameEventEmitter) =>
  * here, not carried on the card itself. The builders below write into it, so a
  * test still declares a card and its ability in one place.
  */
-let abilities = new Map<string, IAbility>()
+let abilities = new Map<string, IAbility[]>()
 beforeEach(() => {
   abilities = new Map()
 })
@@ -57,7 +57,7 @@ const makeTask = (events: IGameEvent[] = [], spy?: () => void): ITask => ({
 
 /** Minimal ICard. Any ability passed is registered against the card's id. */
 const makeFakeCard = (id: string, ability?: IAbility): ICard => {
-  if (ability) abilities.set(id, ability)
+  if (ability) abilities.set(id, [ability])
   return {
     getId: () => id,
     getName: () => id,
@@ -73,7 +73,7 @@ const makeHeroCard = (
   ability?: IAbility,
   equippedItem?: string,
 ): HeroCard => {
-  if (ability) abilities.set(id, ability)
+  if (ability) abilities.set(id, [ability])
   return new HeroCard({
     id,
     name: id,
@@ -130,6 +130,98 @@ function setupPlayer(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('AbilityProcessor — a step that opens a frame must return it', () => {
+  it('throws when a step returns a frameId whose frame has already settled', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const rm = makeRm(gs, em)
+
+    // Steps are meant to return through suspendOn(), which filters this out.
+    // Building the return value by hand and getting it wrong would otherwise
+    // park the remaining steps under a frame nothing can ever resume.
+    class RawReturnTask implements ITask {
+      execute(_gs: GameState, _ctx: AbilityContext, _em: never, r: typeof rm): string {
+        const id = r.openFrame()
+        gs.releaseFrame(id)
+        return id
+      }
+    }
+
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: 'p1', leaderId: 'lead-1', heroIds: [], monsterIds: [] }),
+    )
+    abilities.set('lead-1', [{
+      trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
+      steps: [new RawReturnTask() as unknown as ITask],
+    }])
+    new AbilityProcessor(gs, em, rm, abilities)
+
+    expect(() =>
+      em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' })),
+    ).toThrow(/is not an open frame/)
+    expect(gs.abilityPipelines.size).toBe(0)
+  })
+
+  it('carries on when a step opened a frame that settled and returned nothing', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const rm = makeRm(gs, em)
+    const ran: string[] = []
+
+    // What suspendOn() produces for a window that resolved in its own
+    // constructor: no frameId, because there is nothing left to wait on.
+    class SettledTask implements ITask {
+      execute(_gs: GameState, _ctx: AbilityContext, _em: never, r: typeof rm): void {
+        const id = r.openFrame()
+        gs.releaseFrame(id)
+      }
+    }
+
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: 'p1', leaderId: 'lead-1', heroIds: [], monsterIds: [] }),
+    )
+    abilities.set('lead-1', [{
+      trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
+      steps: [
+        new SettledTask() as unknown as ITask,
+        makeTask([], () => ran.push('after')),
+      ],
+    }])
+    new AbilityProcessor(gs, em, rm, abilities)
+
+    em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' }))
+
+    expect(gs.abilityPipelines.size).toBe(0) // nothing stranded
+    expect(ran).toEqual(['after']) // and the pipeline was not cut short
+  })
+
+  it('does not throw for a step that opens nothing', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: 'p1', leaderId: 'lead-1', heroIds: [], monsterIds: [] }),
+    )
+    abilities.set('lead-1', [{
+      trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
+      steps: [makeTask()],
+    }])
+    makeAp(gs, em)
+
+    expect(() =>
+      em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' })),
+    ).not.toThrow()
+  })
+})
 
 describe('AbilityProcessor', () => {
   // -------------------------------------------------------------------------

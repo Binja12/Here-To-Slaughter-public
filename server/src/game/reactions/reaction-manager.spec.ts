@@ -88,25 +88,12 @@ describe('ReactionManager', () => {
       expect(gs.frames.get(id)!.windows).toHaveLength(0)
     })
 
-    it('sets takeLastFrameId to the new frame id', () => {
-      const id = rm.openFrame()
-      expect(rm.takeLastFrameId()).toBe(id)
-    })
-  })
-
-  // ---------------------------------------------------------------------------
-  // takeLastFrameId
-  // ---------------------------------------------------------------------------
-
-  describe('takeLastFrameId', () => {
-    it('returns null before any frame has been opened', () => {
-      expect(rm.takeLastFrameId()).toBeNull()
-    })
-
-    it('clears the id after the first call', () => {
-      rm.openFrame()
-      rm.takeLastFrameId()
-      expect(rm.takeLastFrameId()).toBeNull()
+    it('returns a fresh id each time, and holds no state about it', () => {
+      const a = rm.openFrame()
+      const b = rm.openFrame()
+      expect(a).not.toBe(b)
+      expect(gs.frames.has(a)).toBe(true)
+      expect(gs.frames.has(b)).toBe(true)
     })
   })
 

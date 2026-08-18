@@ -14,7 +14,8 @@ import { Party } from '../party'
 import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { ModifierCard } from '../cards/modifier-card'
-import { IReactionWindow } from '../interfaces'
+import { IModifiableWindow, IReactionWindow } from '../interfaces'
+import { ModifierWindow } from './modifier-window'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,14 +59,21 @@ const collect = (em: GameEventEmitter): IGameEvent[] => {
   return events
 }
 
-/** Stub modifier window with a jest spy on submitReaction. */
-const makeStubWindow = (): IReactionWindow & { submitReaction: jest.Mock } => ({
+/**
+ * Stub modifier window with a jest spy on submitReaction.
+ * Declares acceptsModifierFor because that capability — not the concrete class
+ * — is what PlayModifierReaction looks for.
+ */
+const makeStubWindow = (
+  rollerId = 'p1',
+): IModifiableWindow & { submitReaction: jest.Mock } => ({
   getId: () => 'w1',
   getType: () => ReactionWindowType.Modifier,
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
+  acceptsModifierFor: (playerId: string) => playerId === rollerId,
 })
 
 /** Add a modifier frame to gs with a stub window. */
@@ -81,6 +89,54 @@ const makeReaction = (value = 2, targetPlayerId = 'p1') =>
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('PlayModifierReaction — target must be the roller', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+
+  /** A REAL ModifierWindow: the guard is instanceof-gated, a stub would skip it. */
+  const openRealWindow = (rollerId: string) => {
+    const win = new ModifierWindow('w1', rollerId, 3, 5, 'hero-1', 5000, gs, 'f1', em)
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [win] })
+    return win
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    gs = makeGs()
+    em = new GameEventEmitter()
+    gs.registerPlayer(makePlayer('p1', []))
+    gs.registerPlayer(makePlayer('p2', ['mod-1']))
+    gs.registerParty(makeParty('p1'))
+    gs.registerParty(makeParty('p2'))
+    gs.registerCard(makeModifierCard('mod-1'))
+  })
+  afterEach(() => jest.useRealTimers())
+
+  it('canExecute is true when the target IS the roller', () => {
+    openRealWindow('p1')
+    const r = new PlayModifierReaction('r1', 'p2', 'mod-1', 2, 'p1')
+    expect(r.canExecute(gs)).toBe(true)
+  })
+
+  it('canExecute is false when the target is not the roller', () => {
+    openRealWindow('p1')
+    const r = new PlayModifierReaction('r1', 'p2', 'mod-1', 2, 'p2')
+    expect(r.canExecute(gs)).toBe(false)
+  })
+
+  it('a refused modifier is NOT burned — execute() burns before it submits', () => {
+    openRealWindow('p1')
+    const r = new PlayModifierReaction('r1', 'p2', 'mod-1', 2, 'p2')
+
+    // The manager gate is what protects the card; going straight to execute()
+    // would spend it on a bonus the window then discards.
+    if (r.canExecute(gs)) r.execute(gs, em)
+
+    expect(gs.getPlayer('p2')!.getHand()).toContain('mod-1')
+    expect(gs.getDiscardPile().getAll()).not.toContain('mod-1')
+  })
+})
 
 describe('PlayModifierReaction', () => {
   let gs: GameState
@@ -177,10 +233,59 @@ describe('PlayModifierReaction', () => {
     //   expect((e!.getPayload() as any).cardId).toBe('mod-1')
     // })
 
-    it('calls window.submitReaction with { value, targetPlayerId }', () => {
-      makeReaction(3, 'p2').execute(gs, em)
-      expect(stub.submitReaction).toHaveBeenCalledWith('p1', {
+    it('emits ModifierPlayed naming the card, value and target', () => {
+      const stub = makeStubWindow()
+      openFrame(gs, stub)
+      const events = collect(em)
+
+      makeReaction(3, 'p1').execute(gs, em)
+
+      const played = events.filter(
+        (e) => e.getType() === GameEventType.ModifierPlayed,
+      )
+      expect(played).toHaveLength(1)
+      expect(played[0].getPlayerId()).toBe('p1')
+      expect(played[0].getPayload()).toEqual({
+        cardId: 'mod-1',
         value: 3,
+        targetPlayerId: 'p1',
+      })
+    })
+
+    it('announces the play BEFORE the window applies it', () => {
+      const gs2 = makeGs()
+      const em2 = new GameEventEmitter()
+      gs2.registerPlayer(makePlayer('p1', ['mod-1']))
+      gs2.registerParty(makeParty('p1'))
+      gs2.registerCard(makeModifierCard('mod-1'))
+      // A REAL window, so ModifierApplied actually follows.
+      const win = new ModifierWindow('w1', 'p1', 3, 5, 'hero-1', 5000, gs2, 'f1', em2)
+      gs2.addFrame('f1', { snapshot: gs2.clone(), windows: [win] })
+      const events = collect(em2)
+
+      new PlayModifierReaction('r1', 'p1', 'mod-1', 3, 'p1').execute(gs2, em2)
+
+      const order = events
+        .map((e) => e.getType())
+        .filter(
+          (t) =>
+            t === GameEventType.ModifierPlayed ||
+            t === GameEventType.ModifierApplied,
+        )
+      expect(order).toEqual([
+        GameEventType.ModifierPlayed,
+        GameEventType.ModifierApplied,
+      ])
+    })
+
+    it('calls window.submitReaction with { value, cardId, targetPlayerId }', () => {
+      makeReaction(3, 'p2').execute(gs, em)
+      // cardId rides along so the window can record WHICH card paid for the
+      // bonus — a roll is shown broken down by source, not as one total.
+      expect(stub.submitReaction).toHaveBeenCalledWith('p1', {
+        type: 'modifier',
+        value: 3,
+        cardId: 'mod-1',
         targetPlayerId: 'p2',
       })
     })

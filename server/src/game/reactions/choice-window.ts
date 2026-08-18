@@ -12,15 +12,21 @@ import { NO_CONTEXT_RESULT } from '../ability-context'
 // timer. Candidate selection happens before the window opens (the task owns
 // the filtering); the window only holds the options and validates the pick.
 //
-// Settlement follows ModifierWindow/ChallengeWindow exactly:
+// A choice window ALWAYS releases its frame — there is no bad outcome here:
 //
-//   good outcome → releaseFrame()  → suspended pipeline survives and resumes
-//   bad outcome  → restoreFrame()  → snapshot rollback also drops the pipeline
-//   always       → frameResolved(frameId, [picked])
+//   releaseFrame()                    → suspended pipeline survives and resumes
+//   frameResolved(frameId, [picked])  → picks may be empty
 //
-// A plain card/player choice has no bad outcome, so it always releases.
-// TaskChoiceWindow overrides isSuccess() so DISMISS rolls back instead —
-// which is what cancels the rest of the ability, with no extra machinery.
+// It once had a failure branch that restored instead, used only by
+// TaskChoiceWindow's DISMISS. That is gone: a confirm now announces CONFIRM
+// with a TaskConfirmed event and says nothing on DISMISS, so "no" needs no
+// rollback — the continuation entry simply never triggers. Rollback goes back
+// to meaning what it always did: an outcome that FAILED (a roll under its
+// requirement, a lost challenge), never a player declining an offer.
+//
+// A timeout resolves the same way, with no pick. Restoring would rewind the
+// step that opened the window, and since the window is not in the snapshot that
+// step would re-run and re-open it — an AFK player would loop forever.
 // ---------------------------------------------------------------------------
 
 export abstract class ChoiceWindow implements IReactionWindow {
@@ -36,6 +42,13 @@ export abstract class ChoiceWindow implements IReactionWindow {
     protected readonly gs: GameState,
     protected readonly frameId: string,
     protected readonly emitter: IGameEventEmitter,
+    /**
+     * Extra fields for the ReactionWindowOpened payload. A constructor argument
+     * rather than an overridable method: the base constructor emits that event,
+     * and a subclass's own parameter properties are not assigned until after
+     * super() returns — an override would read undefined every time.
+     */
+    openDetail?: Record<string, unknown>,
   ) {
     // One public event. WHO may see these options is decided downstream by the
     // projection layer in front of the API, not here.
@@ -45,16 +58,25 @@ export abstract class ChoiceWindow implements IReactionWindow {
         this.respondentId,
         this.frameId,
         this.options,
+        openDetail,
       ),
     )
 
-    // Nothing to choose from — don't hang the pipeline for the full timeout.
-    if (this.options.length === 0) {
-      this.resolve()
-      return
-    }
-
-    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+    // Nothing to choose from — settle at once rather than hanging the pipeline
+    // for a full timeout, but on a 0ms TIMER, never inline.
+    //
+    // Resolving inside the constructor would settle the frame before the task
+    // that opened it had even returned, so AbilityProcessor had not parked the
+    // remainder yet: the FrameResolved went out with nobody listening, the
+    // context never received the empty result, and the frameId handed back was
+    // already dead. Deferring by one tick puts this case back on the ordinary
+    // path — suspend, resolve, resume — so the empty result reaches the context
+    // like every other outcome and the steps behind it simply read an empty
+    // pick. That is what let STOP_PIPELINE and suspendOn be deleted.
+    this.timer = setTimeout(
+      () => this.resolve(),
+      this.options.length === 0 ? 0 : this.timeoutMs,
+    )
   }
 
   // --- IReactionWindow ---
@@ -102,11 +124,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
       this.picked = undefined
     }
 
-    if (this.isSuccess(this.picked)) {
-      this.gs.releaseFrame(this.frameId)
-    } else {
-      this.gs.restoreFrame(this.frameId)
-    }
+    this.gs.releaseFrame(this.frameId)
 
     // Arrays here — a choice may become multi-select, and starting single
     // would mean migrating every consumer later.
@@ -122,6 +140,11 @@ export abstract class ChoiceWindow implements IReactionWindow {
       ),
     )
 
+    // Domain event before the lifecycle one, mirroring ModifierWindow emitting
+    // RollSuccess between releaseFrame and FrameResolved: whatever the outcome
+    // triggers starts with this frame already gone.
+    this.announceOutcome(this.picked)
+
     this.emitter.emit(
       GameEventFactory.frameResolved(
         this.frameId,
@@ -134,19 +157,31 @@ export abstract class ChoiceWindow implements IReactionWindow {
   // --- Internal ---
 
   /** Fallback when the window times out. Defaults to a random option. */
+  /**
+   * What a silent player is taken to have picked: NOTHING.
+   *
+   * This used to pick at random from the options, which committed an idle
+   * player to a target they never named. It also must not RESTORE — a timeout
+   * that rolled the frame back would rewind the action that opened the window,
+   * and since the window is not in the snapshot the same step would simply run
+   * again, re-open the window, and time out again. An AFK player would loop
+   * forever. So a timeout resolves like any other outcome; it just carries no
+   * pick, and the steps behind it read an empty choice.
+   *
+   * TaskChoiceWindow still overrides this: a confirm prompt HAS a meaningful
+   * silent answer (DISMISS), and its rollback ends the pipeline rather than
+   * re-running anything.
+   */
   protected defaultChoice(): unknown {
-    if (this.options.length === 0) return undefined
-    return this.options[Math.floor(Math.random() * this.options.length)]
+    return undefined
   }
 
   /**
-   * Whether the resolved pick counts as a success. False rolls the frame back,
-   * which discards any ability pipeline suspended on it — the same mechanism a
-   * failed modifier roll or a lost challenge uses to abort an ability.
+   * Emit whatever this window's outcome means to the rest of the game. The
+   * base has nothing to say — release-vs-restore already carries a plain
+   * choice's meaning.
    */
-  protected isSuccess(_picked: unknown): boolean {
-    return true
-  }
+  protected announceOutcome(_picked: unknown): void {}
 
   /**
    * Re-check a pick at resolve time. Card/player choices override this to

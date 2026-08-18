@@ -75,7 +75,7 @@ function seat(gs: GameState, playerId: string, heroIds: string[] = []): void {
   )
 }
 
-function setup(abilities: Map<string, IAbility> = new Map()) {
+function setup(abilities: Map<string, IAbility[]> = new Map()) {
   const gs = makeGs()
   const em = new GameEventEmitter()
   const events: IGameEvent[] = []
@@ -294,7 +294,9 @@ describe('ongoing effects', () => {
         anEffect({
           passive: undefined,
           trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          steps: [{ execute: () => fired.push('ran') }],
+          steps: [{ execute: () => {
+        fired.push('ran')
+      } }],
         }),
       )
 
@@ -312,7 +314,9 @@ describe('ongoing effects', () => {
         anEffect({
           passive: undefined,
           trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          steps: [{ execute: () => fired.push('ran') }],
+          steps: [{ execute: () => {
+        fired.push('ran')
+      } }],
         }),
       )
 
@@ -332,7 +336,9 @@ describe('ongoing effects', () => {
         anEffect({
           passive: undefined,
           trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          steps: [{ execute: () => fired.push('ran') }],
+          steps: [{ execute: () => {
+        fired.push('ran')
+      } }],
           expiry: [whileRangerInParty],
         }),
       )
@@ -354,7 +360,9 @@ describe('ongoing effects', () => {
         anEffect({
           passive: undefined,
           trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.OwnerEvent },
-          steps: [{ execute: () => fired.push('ran') }],
+          steps: [{ execute: () => {
+        fired.push('ran')
+      } }],
           expiry: [untilOwnersNextTurn],
         }),
       )

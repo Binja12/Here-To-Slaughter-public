@@ -3,22 +3,27 @@ import { IGameEventEmitter } from 'shared'
 import { ChoiceWindow } from './choice-window'
 import { GameState } from '../game-state'
 import { NO_CONTEXT_RESULT } from '../ability-context'
+import { GameEventFactory } from '../events/game-event-factory'
 
 export const CONFIRM = 'confirm'
 export const DISMISS = 'dismiss'
 
 // ---------------------------------------------------------------------------
-// TaskChoiceWindow — "do you want to do X?" asked BEFORE a task fires.
+// TaskChoiceWindow — "do you want to do X?" asked before the step that does X.
 //
-// DISMISS is treated as the window's failure case, exactly like a modifier
-// roll under its requirement or a lost challenge: the frame is restored rather
-// than released, and because abilityPipelines lives inside the snapshot, the
-// rollback takes the suspended pipeline with it. That is what stops the rest
-// of the ability — no cancellation flag anywhere.
+// CONFIRM emits TaskConfirmed; DISMISS emits nothing. "No" is the ABSENCE of
+// an event, so there is nothing to cancel and nothing to roll back — the
+// window always releases its frame either way.
 //
-// Because it gates an opt-in effect, a timeout defaults to DISMISS rather than
-// a coin flip — an idle player should not be committed to an action they never
-// asked for.
+// That is why a confirm is the LAST step of its ability entry: the follow-up
+// is a separate entry triggered by TaskConfirmed, so the answer decides whether
+// it ever runs. Before this, DISMISS restored the frame and the rollback
+// discarded whatever remained parked behind it — which worked, but cancelled
+// EVERY later step wholesale, and made a player's answer the one thing besides
+// a failed roll or a lost challenge that could rewind state.
+//
+// A timeout still defaults to DISMISS: an idle player is not committed to an
+// effect they never asked for. It simply means no event, like any other "no".
 // ---------------------------------------------------------------------------
 
 export class TaskChoiceWindow extends ChoiceWindow {
@@ -29,8 +34,29 @@ export class TaskChoiceWindow extends ChoiceWindow {
     gs: GameState,
     frameId: string,
     emitter: IGameEventEmitter,
+    /**
+     * What is being confirmed — `{ confirms, cardId?, ... }` from whoever
+     * opened it. CONFIRM/DISMISS alone cannot be rendered: a client needs to
+     * know the question to draw "Roll on Victim?" rather than a bare yes/no.
+     */
+    /**
+     * What is being confirmed: `{ confirms, seq?, ctxSeed?, cardId? }` from
+     * whoever opened the window. `confirms` and `seq` are what a continuation
+     * trigger matches on; `ctxSeed` is the slots that continuation needs, since
+     * it runs with a FRESH context and cannot see this pipeline's blackboard.
+     */
+    private readonly question: Record<string, unknown> = {},
   ) {
-    super(id, respondentId, [CONFIRM, DISMISS], timeoutMs, gs, frameId, emitter)
+    super(
+      id,
+      respondentId,
+      [CONFIRM, DISMISS],
+      timeoutMs,
+      gs,
+      frameId,
+      emitter,
+      question,
+    )
   }
 
   getType(): ReactionWindowType {
@@ -51,8 +77,25 @@ export class TaskChoiceWindow extends ChoiceWindow {
     return DISMISS
   }
 
-  /** DISMISS is the failure case — it rolls the frame back. */
-  protected override isSuccess(picked: unknown): boolean {
-    return picked === CONFIRM
+  /**
+   * CONFIRM announces itself so a continuation entry can trigger on it.
+   * DISMISS says nothing at all — no event, no continuation, nothing undone.
+   */
+  protected override announceOutcome(picked: unknown): void {
+    if (picked !== CONFIRM) return
+    const { confirms: label, ctxSeed, sourceCardId } = this.question as {
+      confirms?: string
+      ctxSeed?: Record<string, unknown>
+      sourceCardId?: string
+    }
+    if (!label || !sourceCardId) return
+    this.emitter.emit(
+      GameEventFactory.taskConfirmed(
+        this.respondentId,
+        sourceCardId,
+        label,
+        ctxSeed,
+      ),
+    )
   }
 }

@@ -1,4 +1,6 @@
-import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
+import { GameEventType, IGameEvent, PassiveType, ReactionWindowType } from 'shared'
+import { Player } from '../player'
+import { Party } from '../party'
 import { ChallengeWindow } from './challenge-window'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -63,6 +65,102 @@ function makeWindow({
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('ChallengeWindow — standing roll bonuses', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+  let events: IGameEvent[]
+
+  const seat = (id: string) => {
+    gs.registerPlayer(
+      new Player({ id, name: id, hand: [], partyId: id + '-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: id, leaderId: id + '-l', heroIds: [], monsterIds: [] }),
+    )
+  }
+
+  const giveRollBonus = (playerId: string, sourceCardId: string, value: number) =>
+    gs.addEffect({
+      id: 'eff-' + playerId,
+      sourceCardId,
+      ownerId: playerId,
+      passive: { type: PassiveType.RollBonus, value },
+    })
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    gs = makeGs()
+    em = new GameEventEmitter()
+    events = collect(em)
+    seat('p1') // challenged
+    seat('p2') // challenger
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+  })
+
+  const resolved = () =>
+    events
+      .find((e) => e.getType() === GameEventType.ChallengeResolved)!
+      .getPayload() as Record<string, unknown>
+
+  it("a challenged player's +3 counts toward their challenge roll", () => {
+    giveRollBonus('p1', 'hero-028', 3)
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+
+    // challenger 6, challenged 5 — challenged loses on the dice alone...
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0.4)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    win.resolve()
+
+    // ...but 5 + 3 = 8 beats 6.
+    expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 8 })
+  })
+
+  it("a challenger's own bonus counts toward THEIR roll", () => {
+    giveRollBonus('p2', 'hero-028', 3)
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.4).mockReturnValueOnce(0.5)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    win.resolve()
+
+    expect(resolved()).toMatchObject({ challengerFinal: 8, defenderFinal: 6 })
+  })
+
+  it('ChallengeStarted carries each side opening bonuses, with sources', () => {
+    giveRollBonus('p1', 'hero-028', 3)
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.5)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+
+    const started = events
+      .find((e) => e.getType() === GameEventType.ChallengeStarted)!
+      .getPayload() as Record<string, unknown>
+    expect(started['challengerBonuses']).toEqual([])
+    expect(started['defenderBonuses']).toEqual([
+      { cardSource: 'hero-028', amount: 3 },
+    ])
+  })
+
+  it('a modifier naming neither side of the challenge is ignored', () => {
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+    jest.spyOn(Math, 'random').mockReturnValue(0.5)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    win.submitReaction('p3', {
+      type: 'modifier',
+      value: 9,
+      cardId: 'mod-x',
+      targetPlayerId: 'p3',
+    })
+    win.resolve()
+
+    expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 6 })
+  })
+})
 
 describe('ChallengeWindow', () => {
   let gs: GameState

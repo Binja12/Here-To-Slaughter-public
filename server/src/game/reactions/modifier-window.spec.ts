@@ -1,4 +1,5 @@
-import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
+import { GameEventType, IGameEvent, PassiveType, ReactionWindowType } from 'shared'
+import { Player } from '../player'
 import { ModifierWindow } from './modifier-window'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -57,6 +58,145 @@ function makeWindow({
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('ModifierWindow — standing bonuses stack, each keeping its source', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+  let events: IGameEvent[]
+
+  const giveRollBonus = (sourceCardId: string, value: number) =>
+    gs.addEffect({
+      id: 'eff-' + sourceCardId,
+      sourceCardId,
+      ownerId: 'p1',
+      passive: { type: PassiveType.RollBonus, value },
+    })
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    gs = makeGs()
+    em = new GameEventEmitter()
+    events = collect(em)
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+  })
+  afterEach(() => jest.useRealTimers())
+
+  it('adds two different sources together and keeps them distinguishable', () => {
+    // Wise Shield (+3) and Vibrant Glow (+5) are both real base-set cards with
+    // exactly this wording, so a stack of two is reachable in a normal game.
+    giveRollBonus('hero-028', 3)
+    giveRollBonus('hero-029', 5)
+
+    makeWindow({ gs, em, rollerId: 'p1', baseRoll: 2 })
+
+    const opened = events.find(
+      (e) => e.getType() === GameEventType.ReactionWindowOpened,
+    )!
+    const payload = opened.getPayload() as Record<string, unknown>
+    expect(payload['finalRoll']).toBe(10) // 2 + 3 + 5
+    expect(payload['bonuses']).toEqual([
+      { cardSource: 'hero-028', amount: 3 },
+      { cardSource: 'hero-029', amount: 5 },
+    ])
+  })
+
+  it('two copies of one card design stack — each copy is its own card id', () => {
+    // "+2, +2, then roll with the third action point." The base set holds one
+    // record per physical card (25 distinct ids all named "Modifier"), so two
+    // copies of a +2 magic card are magic-012 and magic-013, never one id twice.
+    giveRollBonus('magic-012', 2)
+    giveRollBonus('magic-013', 2)
+
+    makeWindow({ gs, em, rollerId: 'p1', baseRoll: 3 })
+
+    const payload = events
+      .find((e) => e.getType() === GameEventType.ReactionWindowOpened)!
+      .getPayload() as Record<string, unknown>
+    expect(payload['finalRoll']).toBe(7) // 3 + 2 + 2, neither swallowed
+    expect(payload['bonuses']).toEqual([
+      { cardSource: 'magic-012', amount: 2 },
+      { cardSource: 'magic-013', amount: 2 },
+    ])
+  })
+
+  it('two modifier cards played into one window both count, each named', () => {
+    const win = makeWindow({ gs, em, rollerId: 'p1', baseRoll: 3 })
+    win.submitReaction('p2', { value: 2, cardId: 'mod-1', targetPlayerId: 'p1' })
+    win.submitReaction('p2', { value: 2, cardId: 'mod-2', targetPlayerId: 'p1' })
+    win.resolve()
+
+    const closed = events.find(
+      (e) => e.getType() === GameEventType.ReactionWindowClosed,
+    )!
+    expect(closed.getPayload()).toMatchObject({ finalRoll: 7 })
+  })
+
+  it('a bonus belonging to another player is not picked up', () => {
+    gs.registerPlayer(
+      new Player({ id: 'p2', name: 'p2', hand: [], partyId: 'p2-p', actionPoints: 3 }),
+    )
+    gs.addEffect({
+      id: 'eff-other',
+      sourceCardId: 'hero-028',
+      ownerId: 'p2',
+      passive: { type: PassiveType.RollBonus, value: 3 },
+    })
+
+    makeWindow({ gs, em, rollerId: 'p1', baseRoll: 2 })
+
+    const payload = events
+      .find((e) => e.getType() === GameEventType.ReactionWindowOpened)!
+      .getPayload() as Record<string, unknown>
+    expect(payload['bonuses']).toEqual([])
+    expect(payload['finalRoll']).toBe(2)
+  })
+})
+
+describe('ModifierWindow — targetPlayerId', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+  let events: IGameEvent[]
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    gs = makeGs()
+    em = new GameEventEmitter()
+    events = collect(em)
+  })
+  afterEach(() => jest.useRealTimers())
+
+  const applied = () =>
+    events.filter((e) => e.getType() === GameEventType.ModifierApplied)
+
+  it('applies a modifier aimed at the roller', () => {
+    const win = makeWindow({ gs, em, rollerId: 'p1', baseRoll: 3 })
+    win.submitReaction('p2', { value: 4, cardId: 'mod-1', targetPlayerId: 'p1' })
+    expect(applied()).toHaveLength(1)
+    expect(applied()[0].getPayload()).toMatchObject({ finalRoll: 7 })
+  })
+
+  it('applies a modifier with no target named — a plain roll has only one', () => {
+    const win = makeWindow({ gs, em, rollerId: 'p1', baseRoll: 3 })
+    win.submitReaction('p2', { value: 4, cardId: 'mod-1' })
+    expect(applied()).toHaveLength(1)
+    expect(applied()[0].getPayload()).toMatchObject({ finalRoll: 7 })
+  })
+
+  it('REFUSES a modifier aimed at anyone else — it used to help the roller', () => {
+    const win = makeWindow({ gs, em, rollerId: 'p1', baseRoll: 3 })
+    win.submitReaction('p2', { value: 4, cardId: 'mod-1', targetPlayerId: 'p2' })
+    expect(applied()).toHaveLength(0)
+
+    // and the refusal must not leak into the settled roll either
+    win.resolve()
+    const closed = events.find(
+      (e) => e.getType() === GameEventType.ReactionWindowClosed,
+    )
+    expect(closed!.getPayload()).toMatchObject({ finalRoll: 3 })
+  })
+})
 
 describe('ModifierWindow', () => {
   let gs: GameState

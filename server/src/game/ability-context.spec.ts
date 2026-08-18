@@ -3,7 +3,7 @@ import {
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
   CTX_FINAL_ROLL,
-  CTX_LAST_DRAWN_CARD_ID,
+  CTX_DRAWN_CARD_IDS,
   CTX_STOLEN_HERO_ID,
   chosenCards,
   chosenPlayers,
@@ -19,8 +19,8 @@ describe("AbilityContext", () => {
 
   it("should set and get a value", () => {
     const ctx = new AbilityContext("card-1", "player-1");
-    ctx.set(CTX_LAST_DRAWN_CARD_ID, "card-42");
-    expect(ctx.get<string>(CTX_LAST_DRAWN_CARD_ID)).toBe("card-42");
+    ctx.set(CTX_DRAWN_CARD_IDS, "card-42");
+    expect(ctx.get<string>(CTX_DRAWN_CARD_IDS)).toBe("card-42");
   });
 
   it("should return undefined for missing keys", () => {

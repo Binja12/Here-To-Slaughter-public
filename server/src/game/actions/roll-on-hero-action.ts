@@ -6,6 +6,17 @@ import { HeroCard } from '../cards/hero-card'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
 
+/** What a roll costs when the player pays for it themselves. */
+const COST = 1
+
+/**
+ * A roll granted by another action rather than bought with an action point —
+ * the free roll that comes with playing a hero. Cost is a constructor argument
+ * so the free case is the same class with a different price, not a second class
+ * or an `isFree` branch inside this one.
+ */
+export const FREE = 0
+
 export class RollOnHeroAction implements IAction {
   constructor(
     private readonly id: string,
@@ -13,18 +24,21 @@ export class RollOnHeroAction implements IAction {
     private readonly cardId: string,
     private readonly emmiter: GameEventEmitter,
     private readonly reactionManager: ReactionManager,
+    private readonly cost: number = COST,
   ) {}
 
   getId(): string { return this.id }
   getPlayerId(): string { return this.playerId }
   getType(): ActionType { return ActionType.RollOnHero }
-  getCost(): number { return 1 }
+  getCost(): number { return this.cost }
   isReactable(): boolean { return true }
 
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    if (player.getActionPoints() <= 0) return false
+    // `< cost`, not `<= 0`: a FREE roll must still be legal at zero AP, which
+    // is exactly the state playing a hero with the last point leaves you in.
+    if (player.getActionPoints() < this.cost) return false
     const party = gs.getParty(this.playerId)
     if (!party?.getHeroIds().includes(this.cardId)) return false
     if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) return false
@@ -33,7 +47,7 @@ export class RollOnHeroAction implements IAction {
 
   execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(this.getCost())
+    player.decreaseActionPoints(this.cost)
 
     const card = gs.getCard(this.cardId) as HeroCard
     const rollReq = card.getRollReq()
@@ -55,10 +69,9 @@ export class RollOnHeroAction implements IAction {
       heroId: this.cardId,
     })
 
-    // RollSuccess is emitted by GameEngine on FrameResolved when finalRoll >= rollReq.
-    // The frameId is consumed by AbilityProcessor (via takeLastFrameId) only if this
-    // were inside a task pipeline; for actions, GameEngine handles FrameResolved.
-    // We clear lastFrameId here so AbilityProcessor doesn't try to suspend a pipeline.
-    this.reactionManager.takeLastFrameId()
+    // ModifierWindow — not GameEngine — emits RollSuccess, and does it between
+    // releaseFrame and FrameResolved, so an ability triggered by the roll runs
+    // with the frame already gone. GameEngine's only job on FrameResolved is
+    // resumeDrain().
   }
 }

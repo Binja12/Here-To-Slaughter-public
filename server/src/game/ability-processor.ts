@@ -1,4 +1,9 @@
-import { GameEventType, IGameEvent, IGameEventEmitter, IGameEventListener } from 'shared'
+import {
+  GameEventType,
+  IGameEvent,
+  IGameEventEmitter,
+  IGameEventListener,
+} from 'shared'
 import {
   AbilityTrigger,
   ActiveEffect,
@@ -52,7 +57,10 @@ export class AbilityProcessor implements IGameEventListener {
      * Card behaviour, keyed by card id. Injected so a test can supply its own
      * table instead of registering real cards.
      */
-    private readonly abilities: ReadonlyMap<string, IAbility> = abilityRegistry,
+    private readonly abilities: ReadonlyMap<
+      string,
+      IAbility[]
+    > = abilityRegistry,
   ) {
     em.addListener(this)
   }
@@ -88,10 +96,19 @@ export class AbilityProcessor implements IGameEventListener {
 
     for (const source of this.abilitySources()) {
       if (!triggerMatches(this.gs, source, source.trigger, event)) continue
-      this.runSteps(
-        source.steps,
-        new AbilityContext(source.sourceCardId, source.ownerId),
-      )
+
+      const ctx = new AbilityContext(source.sourceCardId, source.ownerId)
+      // A continuation runs with a FRESH context, so whatever it needs from the
+      // pipeline that asked has to travel on the event. Generic on purpose: the
+      // processor copies slots without knowing what any of them mean.
+      const { ctxSeed } = (event.getPayload() ?? {}) as {
+        ctxSeed?: Record<string, unknown>
+      }
+      if (ctxSeed) {
+        for (const [key, value] of Object.entries(ctxSeed)) ctx.set(key, value)
+      }
+
+      this.runSteps(source.steps, ctx)
     }
   }
 
@@ -169,22 +186,30 @@ export class AbilityProcessor implements IGameEventListener {
     return out
   }
 
-  /** Adds a card's registered ability, if it has a usable one. */
+  /**
+   * Adds every ability entry registered for a card.
+   *
+   * A card holds a LIST, not one entry: an ability that pauses on a confirm is
+   * declared as the part before the question plus a part triggered by the
+   * answer. Both are the same card's behaviour, differing only in what wakes
+   * them.
+   */
   private pushCardAbility(
     out: AbilitySource[],
     cardId: string,
     ownerId: string,
   ): void {
-    const ability = this.abilities.get(cardId)
-    // An entry with no trigger can never match; skipping keeps a malformed
-    // registration inert rather than crashing every event in the game.
-    if (!ability?.trigger) return
-    out.push({
-      trigger: ability.trigger,
-      steps: ability.steps,
-      sourceCardId: cardId,
-      ownerId,
-    })
+    for (const ability of this.abilities.get(cardId) ?? []) {
+      // An entry with no trigger can never match; skipping keeps a malformed
+      // registration inert rather than crashing every event in the game.
+      if (!ability.trigger) continue
+      out.push({
+        trigger: ability.trigger,
+        steps: ability.steps,
+        sourceCardId: cardId,
+        ownerId,
+      })
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -193,12 +218,28 @@ export class AbilityProcessor implements IGameEventListener {
 
   private runSteps(steps: ITask[], ctx: AbilityContext): void {
     for (let i = 0; i < steps.length; i++) {
-      steps[i].execute(this.gs, ctx, this.em, this.rm)
+      const frameId = steps[i].execute(this.gs, ctx, this.em, this.rm)
 
-      const frameId = this.rm.takeLastFrameId()
       if (frameId) {
+        // Only a LIVE frame can be resumed: FrameResolved comes from the window
+        // that owns it, so parking the remainder under a settled frame strands
+        // the steps forever and leaks the entry into every later snapshot.
+        // Every window now settles on a timer, never inside the step that
+        // opened it, so a frame is always live when its task hands the id back.
+        // Reaching here means a step released or restored its own frame and
+        // returned the id anyway — loud at the mistake, not silently stuck.
+        if (!this.gs.frames.has(frameId)) {
+          throw new Error(
+            `${steps[i].constructor.name} returned frameId "${frameId}", which ` +
+              'is not an open frame — return rm.suspendOn(frameId) instead.',
+          )
+        }
+
         // Step opened a reaction frame — suspend; resume on FrameResolved.
-        this.gs.abilityPipelines.set(frameId, { steps: steps.slice(i + 1), ctx })
+        this.gs.abilityPipelines.set(frameId, {
+          steps: steps.slice(i + 1),
+          ctx,
+        })
         return
       }
     }

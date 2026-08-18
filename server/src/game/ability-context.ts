@@ -1,4 +1,5 @@
-export const CTX_LAST_DRAWN_CARD_ID = "lastDrawnCardId";
+/** string[] — written by DrawTask: every card that draw produced, in order. */
+export const CTX_DRAWN_CARD_IDS = "drawnCardIds";
 
 /**
  * string[] — the hero StealFromPartyTask moved, kept so a later step can still
@@ -48,6 +49,7 @@ export const CTX_FINAL_ROLL = "finalRoll";
  * declare one. A symbol, so it can never collide with a real key.
  */
 export const NO_CONTEXT_RESULT = Symbol("noContextResult");
+
 
 export class AbilityContext {
   private data: Map<string, unknown> = new Map();

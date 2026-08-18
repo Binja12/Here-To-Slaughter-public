@@ -202,7 +202,7 @@ describe('PlayMagicAction', () => {
         gs,
         emitter,
         new ReactionManager(gs, emitter),
-        new Map([['magic-1', spyAbility(taskSpy)]]),
+        new Map([['magic-1', [spyAbility(taskSpy)]]]),
       )
       makeAction().execute(gs)
       expect(taskSpy).toHaveBeenCalledTimes(1)

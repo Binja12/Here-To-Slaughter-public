@@ -28,6 +28,23 @@ export interface IAction {
   execute(gs: GameState): void
 }
 
+/**
+ * The turn's action queue, as an *executing* action sees it.
+ *
+ * Declared here rather than importing TurnManager for the same reason as
+ * IReactionManager below: this module is the abstraction layer and must not
+ * point back at an implementation. Only the member an action in mid-execute
+ * actually calls belongs here — an action never starts a turn or drains.
+ */
+export interface IActionQueue {
+  /**
+   * Put `action` at the FRONT of the queue, so it runs before anything the
+   * player had already queued. This is how one action spawns its own
+   * continuation — playing a hero grants the free roll on that hero.
+   */
+  enqueueFirst(action: IAction): void
+}
+
 export interface IReaction {
   getId(): string
   getType(): ReactionType
@@ -57,11 +74,6 @@ export interface IReactionManager {
     respondent: string,
     config?: Record<string, unknown>,
   ): void
-  /**
-   * The frame opened since the last call, or null. Read by AbilityProcessor
-   * after each step to decide whether to suspend the pipeline.
-   */
-  takeLastFrameId(): string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -69,18 +81,29 @@ export interface IReactionManager {
 // ---------------------------------------------------------------------------
 
 export interface ITask {
+  /**
+   * Returns the frameId when this step suspended on a window, otherwise
+   * nothing. That return value is the ONLY channel: `AbilityProcessor` reads it
+   * to decide whether to park the rest of the pipeline.
+   *
+   * A step never decides anything about the steps AFTER it. It may skip its own
+   * body when its input is empty, but silencing its siblings is not its call —
+   * that belongs to frame settlement, where a lost roll, a lost challenge and a
+   * dismissed prompt all cancel the same way (§3).
+   *
+   * It used to come back through a one-slot mailbox on `ReactionManager`
+   * (`openFrame` wrote it, `takeLastFrameId` read it). That slot was global to
+   * the manager while only tasks were meant to use it, so every action opening
+   * a frame had to remember to wipe it — and forgetting let an unrelated
+   * ability suspend itself on the action's window. A return value cannot be
+   * left behind for someone else to pick up.
+   */
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
     rm: IReactionManager,
-  ): void
-}
-
-export interface IIfTask extends ITask {
-  condition: (gs: GameState, ctx: AbilityContext) => boolean
-  ifTrue: ITask[]
-  ifFalse?: ITask[]
+  ): string | void
 }
 
 /**
@@ -90,6 +113,16 @@ export interface IIfTask extends ITask {
 export type AbilityTrigger = {
   on: GameEventType
   scope: TriggerScope
+  /**
+   * Which variant of the event this entry answers to, matched against the
+   * payload's `label`. Scope answers "whose event"; this answers
+   * "which one".
+   *
+   * A card that asks the same question more than once distinguishes its
+   * continuations by labelling them apart — 'QiBearDiscard2', 'QiBearDiscard3'
+   * — rather than carrying a separate counter.
+   */
+  when?: string
 }
 
 export interface IAbility {
@@ -172,6 +205,20 @@ export interface IRollResolver {
 // ---------------------------------------------------------------------------
 // Reaction windows
 // ---------------------------------------------------------------------------
+
+/**
+ * A window a modifier card can be spent into.
+ *
+ * Both a plain roll and a challenge accept modifiers, but for different
+ * reasons — one roll versus two — so each answers the target question its own
+ * way. Declared as a capability rather than checked with `instanceof` so
+ * PlayModifierReaction stays clear of concrete window classes (§9), and so a
+ * test double can stand in for one.
+ */
+export interface IModifiableWindow extends IReactionWindow {
+  /** True when a modifier aimed at `playerId` belongs in this window. */
+  acceptsModifierFor(playerId: string): boolean
+}
 
 /** Base interface for any timed reaction window. */
 export interface IReactionWindow {

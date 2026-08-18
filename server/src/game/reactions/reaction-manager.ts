@@ -9,9 +9,6 @@ import { CardChoiceWindow } from './card-choice-window'
 import { TaskChoiceWindow } from './task-choice-window'
 
 export class ReactionManager implements IReactionManager {
-  /** Set inside openFrame(); consumed by AbilityProcessor after each task step. */
-  private _lastFrameId: string | null = null
-
   constructor(
     private readonly gs: GameState,
     private readonly em: GameEventEmitter,
@@ -22,15 +19,14 @@ export class ReactionManager implements IReactionManager {
   // ---------------------------------------------------------------------------
 
   /**
-   * Snapshots GS and inserts an empty frame. Returns the frameId.
-   * AbilityProcessor reads _lastFrameId after each step to decide
-   * whether to suspend the pipeline.
+   * Snapshots GS and inserts an empty frame. Returns the frameId — the caller
+   * owns it from here: a task hands it back from `execute` so the processor can
+   * suspend, an action simply keeps it to open its window with.
    */
   openFrame(): string {
     const frameId = crypto.randomUUID()
     const snapshot = this.gs.clone()
     this.gs.addFrame(frameId, { snapshot, windows: [] })
-    this._lastFrameId = frameId
     return frameId
   }
 
@@ -44,13 +40,6 @@ export class ReactionManager implements IReactionManager {
     const frame = this.gs.frames.get(frameId)
     if (!frame) return
     frame.windows.push(this.buildWindow(type, respondent, config, frameId))
-  }
-
-  /** Consumed by AbilityProcessor after each task step. */
-  takeLastFrameId(): string | null {
-    const id = this._lastFrameId
-    this._lastFrameId = null
-    return id
   }
 
   // ---------------------------------------------------------------------------
@@ -121,6 +110,7 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        config,
       )
     }
 
