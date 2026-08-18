@@ -62,11 +62,7 @@ export class GameEventFactory {
     )
   }
 
-  /**
-   * Emitted by TaskChoiceWindow on CONFIRM only. The `cardId` is the ability's
-   * SOURCE card, so TriggerScope.SelfCard routes the continuation back to the
-   * card that asked — the same match a hero's own RollSuccess uses.
-   */
+  /** From TaskChoiceWindow on CONFIRM. `cardId` is the ability's source card. */
   static taskConfirmed(
     playerId: string,
     sourceCardId: string,
@@ -81,11 +77,7 @@ export class GameEventFactory {
     )
   }
 
-  /**
-   * A condition held. `label` is what a continuation entry matches with
-   * `when`; `ctxSeed` carries the slots it will need, since it runs with a
-   * fresh context. Nothing is emitted when the condition fails.
-   */
+  /** From CardTypeCondition. `label` is what a continuation matches with `when`. */
   static conditionMet(
     playerId: string,
     sourceCardId: string,
@@ -106,7 +98,7 @@ export class GameEventFactory {
     cardId: string,
     challengerRoll: number,
     defenderRoll: number,
-    /** Standing bonuses each side brings in, so the opening totals are real. */
+    /** Standing bonuses each side brings in. */
     challengerBonuses: unknown[] = [],
     defenderBonuses: unknown[] = [],
   ): IGameEvent {
@@ -206,11 +198,7 @@ export class GameEventFactory {
     )
   }
 
-  /**
-   * A modifier card was spent into an open window. `burnCard` moves it silently
-   * (hand and discard, in live state and in the snapshot), so without this the
-   * card's departure could only be inferred from the bonus that followed.
-   */
+  /** burnCard moves the card silently, so this is the only record it was spent. */
   static modifierPlayed(
     playerId: string,
     cardId: string,
@@ -346,13 +334,8 @@ export class GameEventFactory {
   // --- Reaction Frame ---
 
   /**
-   * `results` is the uniform transport for the event log — always an array,
-   * whatever the window produced.
-   *
-   * `result` is the optional context write: the window names both the slot and
-   * the value, so it owns the SHAPE too. A choice reports an array (it may be
-   * multi-select); a roll reports a plain number, because there is only ever
-   * one final roll. Omitted when the outcome is not an ability input.
+   * `results` is the log transport, always an array. `result` is the optional
+   * context write — the window names both slot and value (resultKey).
    */
   static frameResolved(
     frameId: string,
@@ -370,21 +353,10 @@ export class GameEventFactory {
   // --- Reaction Windows (generic lifecycle) ---
 
   /**
-   * The ONE lifecycle event every reaction window emits. Consumers switch on
-   * payload windowType (or call window.getType()) instead of subscribing to a
-   * different event per window kind.
-   *
-   * `options` is the discrete candidate list, omitted by windows that offer
-   * none. `detail` carries whatever else that window kind needs to render —
-   * the roll and requirement for a modifier, the contested card for a
-   * challenge.
-   *
-   * Windows still emit true domain events (ModifierApplied, ChallengeStarted,
-   * ChallengeResolved) for things that are not window lifecycle.
-   *
-   * Carries every candidate. Deciding which of them a given client may see is
-   * the projection layer's job in front of the API; the engine states what is
-   * true and does not tailor events per recipient.
+   * The one lifecycle event every reaction window emits; consumers switch on
+   * payload windowType. `options` is the candidate list, `detail` whatever
+   * that window kind needs to render. Carries every candidate — the projection
+   * layer in front of the API decides who sees what.
    */
   static reactionWindowOpened(
     windowType: ReactionWindowType,

@@ -137,9 +137,6 @@ describe('AbilityProcessor — a step that opens a frame must return it', () => 
     const em = new GameEventEmitter()
     const rm = makeRm(gs, em)
 
-    // Steps are meant to return through suspendOn(), which filters this out.
-    // Building the return value by hand and getting it wrong would otherwise
-    // park the remaining steps under a frame nothing can ever resume.
     class RawReturnTask implements ITask {
       execute(_gs: GameState, _ctx: AbilityContext, _em: never, r: typeof rm): string {
         const id = r.openFrame()
@@ -172,8 +169,7 @@ describe('AbilityProcessor — a step that opens a frame must return it', () => 
     const rm = makeRm(gs, em)
     const ran: string[] = []
 
-    // What suspendOn() produces for a window that resolved in its own
-    // constructor: no frameId, because there is nothing left to wait on.
+    // A window that settled before its own step returned.
     class SettledTask implements ITask {
       execute(_gs: GameState, _ctx: AbilityContext, _em: never, r: typeof rm): void {
         const id = r.openFrame()
@@ -236,10 +232,7 @@ describe('AbilityProcessor', () => {
       ).not.toThrow()
     })
 
-    // -----------------------------------------------------------------------
-    // Passive sources — leaders, equipped items, monsters
-    // Fire on trigger match alone; payload is irrelevant.
-    // -----------------------------------------------------------------------
+    // ----------------------------------------------------------------------- P...
 
     it('fires leader ability when trigger matches', () => {
       const gs = makeGs()
@@ -390,10 +383,7 @@ describe('AbilityProcessor', () => {
       expect(fired).toHaveLength(0)
     })
 
-    // -----------------------------------------------------------------------
-    // Active sources — heroes
-    // Only fire when payload.cardId matches the hero's id.
-    // -----------------------------------------------------------------------
+    // ----------------------------------------------------------------------- A...
 
     it('fires hero ability when payload.cardId matches', () => {
       const gs = makeGs()
@@ -459,9 +449,7 @@ describe('AbilityProcessor', () => {
       expect(firedBy).not.toContain('hero-2')
     })
 
-    // -----------------------------------------------------------------------
-    // Event propagation & context
-    // -----------------------------------------------------------------------
+    // ----------------------------------------------------------------------- E...
 
     it('emits events produced by a triggered passive task through the shared emitter', () => {
       const gs = makeGs()

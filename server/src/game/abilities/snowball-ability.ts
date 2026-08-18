@@ -8,25 +8,15 @@ import { CardTypeCondition } from '../tasks/conditions'
 // Snowball (hero-040): "DRAW a card. If it is a Magic card, you may play it
 // immediately and DRAW a second card."
 //
-//   [0] RollSuccess on Snowball  → draw, and test what came up
+//   [0] RollSuccess on Snowball   → draw, and test what came up
 //   [1] ConditionMet 'DrewMagic'  → ask
 //   [2] TaskConfirmed 'DrawAgain' → draw the second card
 //
-// Three entries because the ability pauses twice: once on a test, once on a
-// question. Both hand off the same way — an event with a label — so neither
-// the condition nor the confirm holds the steps it guards.
+// Three entries because it pauses twice: on a test, then on a question.
 //
-// The card says "you MAY", which the old single-entry version ignored — it drew
-// the second card automatically. The question needs an answer to gate, and a
-// confirm is terminal, so the second draw moves to its own entry.
-//
-// The prompt has no subjectKey yet: it is always asked once the condition
-// holds, and drawing a second card needs nothing carried. The drawn card DOES
-// reach entry [1] — CardTypeCondition seeds CTX_DRAWN_CARD_IDS onto its event —
-// so finishing "play it immediately" is a subjectKey away.
-//
-// GAP: "play it immediately" is still unimplemented — there is no task for
-// playing a card out of hand from inside an ability. The draw half is complete.
+// GAP: "play it immediately" is unimplemented — there is no task for playing a
+// card from hand. CardTypeCondition already seeds CTX_DRAWN_CARD_IDS onto its
+// event, so the card reaches entry [1] when that task exists.
 const DREW_A_MAGIC = 'SnowballDrewMagic'
 const CONFIRMS_DRAW_AGAIN = 'SnowballDrawAgain'
 

@@ -84,8 +84,6 @@ describe('ModifierWindow — standing bonuses stack, each keeping its source', (
   afterEach(() => jest.useRealTimers())
 
   it('adds two different sources together and keeps them distinguishable', () => {
-    // Wise Shield (+3) and Vibrant Glow (+5) are both real base-set cards with
-    // exactly this wording, so a stack of two is reachable in a normal game.
     giveRollBonus('hero-028', 3)
     giveRollBonus('hero-029', 5)
 
@@ -103,9 +101,6 @@ describe('ModifierWindow — standing bonuses stack, each keeping its source', (
   })
 
   it('two copies of one card design stack — each copy is its own card id', () => {
-    // "+2, +2, then roll with the third action point." The base set holds one
-    // record per physical card (25 distinct ids all named "Modifier"), so two
-    // copies of a +2 magic card are magic-012 and magic-013, never one id twice.
     giveRollBonus('magic-012', 2)
     giveRollBonus('magic-013', 2)
 

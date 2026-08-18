@@ -20,13 +20,8 @@ export class ChallengeWindow implements IModifiableWindow {
   private challengerRoll: number = 0
   private challengedRoll: number = 0
   /**
-   * Two rolls, so two lists — same `{ cardSource, amount }` entries a plain
-   * modifier window keeps, for the same reason: the UI has to attribute each
-   * contribution rather than show one opaque total per side.
-   *
-   * Seeded in startChallenge() rather than the constructor: until someone
-   * actually challenges there is no roll for a bonus to apply to, and the
-   * challenger is not known before then.
+   * Two rolls, so two lists of RollBonus (see modifier-window.ts). Seeded in
+   * startChallenge(): before that there is no roll, and no known challenger.
    */
   private challengerBonuses: RollBonus[] = []
   private challengedBonuses: RollBonus[] = []
@@ -62,12 +57,7 @@ export class ChallengeWindow implements IModifiableWindow {
     return ReactionWindowType.Challenge
   }
 
-  /**
-   * Deliberately none. A lost challenge restores the frame and discards the
-   * pipeline, so any step that still runs was necessarily on the winning side —
-   * the value would be a constant `true`. The outcome reaches the log through
-   * ChallengeResolved and the window lifecycle events instead.
-   */
+  /** None: a lost challenge restores the frame, so a survivor necessarily won. */
   resultKey(): string | typeof NO_CONTEXT_RESULT {
     return NO_CONTEXT_RESULT
   }
@@ -80,13 +70,7 @@ export class ChallengeWindow implements IModifiableWindow {
     return this.cardId
   }
 
-  /**
-   * Does a modifier aimed at `playerId` belong in this window?
-   *
-   * A challenge has TWO rolls, which is the whole reason modifiers carry a
-   * target at all — either participant can be pushed. Nobody can be modified
-   * before a challenge actually starts: until then there are no rolls.
-   */
+  /** Two rolls here, so either participant — but only once a challenge began. */
   acceptsModifierFor(playerId: string): boolean {
     if (!this.challenged) return false
     return playerId === this.challengerId || playerId === this.challengedId
@@ -153,9 +137,7 @@ export class ChallengeWindow implements IModifiableWindow {
     const challengedFinal = this.total(this.challengedRoll, this.challengedBonuses)
     const challengedWins = challengedFinal > challengerFinal
 
-    // Both resolve paths emit this. The old ChallengeWindowClosed only fired
-    // when the card went uncontested, so a client tracking open windows leaked
-    // state on a contested challenge.
+    // Emitted on both paths, so a client tracking open windows never leaks.
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
         this.getType(),
@@ -179,24 +161,17 @@ export class ChallengeWindow implements IModifiableWindow {
 
     if (challengedWins) {
       this.gs.releaseFrame(this.frameId)
-      // The card stood up to a challenge, so it cannot be challenged again this
-      // turn. Recorded only on a win: a card whose challenge SUCCEEDED is in the
-      // discard and can never be targeted again anyway.
+      // Survived, so it cannot be challenged again this turn. Cleared by
+      // TurnManager.startTurn.
       this.gs.markCardChallenged(this.cardId)
     } else {
       this.gs.restoreFrame(this.frameId)
-      // AFTER the restore, never before — restoreFrame swaps the whole discard
-      // pile for the snapshot's, which would swallow anything added first.
-      //
-      // The play was undone but the card is still spent: PlayHeroAction took it
-      // out of hand BEFORE opening the frame, so the rollback leaves it in no
-      // zone at all. This is what puts it somewhere. No CardDiscarded event —
-      // ChallengeResolved already told the table the play was defeated, and a
-      // second event would read as a separate discard.
-      //
-      // Cards SPENT during the challenge need nothing here: burnCard already
-      // writes them into the snapshot's discard pile, so they survive the
-      // rollback on their own. Passive effects are not cards and are untouched.
+      // AFTER the restore: restoreFrame swaps in the snapshot's discard pile.
+      // PlayHeroAction removes the card from hand BEFORE opening the frame, so
+      // the rollback leaves it in no zone — this is what puts it somewhere.
+      // No CardDiscarded event; ChallengeResolved already reported the defeat.
+      // Cards spent during the window need nothing: burnCard already wrote
+      // them into the snapshot's pile.
       this.gs.getDiscardPile().add(this.cardId)
     }
 

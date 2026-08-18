@@ -83,10 +83,7 @@ describe('Player', () => {
 
       const copy = player.clone()
 
-      // The constructor seeds current AP from data.actionPoints, which is the
-      // MAXIMUM and never moves. Without an explicit carry, every frame
-      // snapshot came back with a full budget — so a failed roll, a lost
-      // challenge or a dismissed prompt refunded whatever had been spent.
+      // The constructor seeds current AP from data.actionPoints, which is the MAX...
       expect(copy.getActionPoints()).toBe(1)
       expect(copy.getActionPointsPerTurn()).toBe(3)
     })

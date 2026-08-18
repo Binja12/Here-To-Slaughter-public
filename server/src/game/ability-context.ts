@@ -1,26 +1,12 @@
 /** string[] — written by DrawTask: every card that draw produced, in order. */
 export const CTX_DRAWN_CARD_IDS = "drawnCardIds";
 
-/**
- * string[] — the hero StealFromPartyTask moved, kept so a later step can still
- * reach it after another card choice has overwritten CTX_CHOSEN_CARD.
- *
- * The player it was taken FROM is deliberately not stored: nothing reads it,
- * and the HeroStolen event already carries it for the log.
- */
+/** string[] — written by StealFromPartyTask. */
 export const CTX_STOLEN_HERO_ID = "stolenHeroId";
 
 // ---------------------------------------------------------------------------
-// Frame result keys
-//
-// Each reaction window declares which of these its outcome belongs to (see
-// IReactionWindow.resultKey), and AbilityProcessor writes the resolved value
-// there when it resumes the pipeline. Because the window type decides the key,
-// a modifier window can never land in a card slot and a confirm prompt can
-// never be mistaken for a chosen card.
-//
-// Every one of these holds an ARRAY — length 1 for single picks — so multi-
-// select choices need no migration later.
+// Frame result keys. A window names one via IReactionWindow.resultKey, and
+// AbilityProcessor writes the value there on resume.
 // ---------------------------------------------------------------------------
 
 /** string[] — written by CardChoiceWindow. */
@@ -29,25 +15,10 @@ export const CTX_CHOSEN_CARD = "chosenCard";
 /** string[] — written by PlayerChoiceWindow. */
 export const CTX_CHOSEN_PLAYER = "chosenPlayer";
 
-/**
- * number — written by ModifierWindow. Scalar, not an array: a roll resolves to
- * exactly one value, so there is no multi-select case to leave room for.
- *
- * Only ever present on the success path: a roll under its requirement restores
- * the frame, which discards the pipeline along with it, so nothing downstream
- * ever runs to read a failed roll.
- */
+/** number — written by ModifierWindow. Scalar; only set on a successful roll. */
 export const CTX_FINAL_ROLL = "finalRoll";
 
-/**
- * Returned by a window whose outcome is deliberately NOT an ability input —
- * a confirm prompt or a challenge, where release-vs-restore already carries
- * the whole meaning and a key would only ever hold a constant.
- *
- * A sentinel rather than `undefined` so "decided there is none" is a value a
- * test can assert on, and cannot be confused with an author forgetting to
- * declare one. A symbol, so it can never collide with a real key.
- */
+/** Returned by resultKey() when a window's outcome is not an ability input. */
 export const NO_CONTEXT_RESULT = Symbol("noContextResult");
 
 

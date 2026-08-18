@@ -28,9 +28,8 @@ export class PlayModifierReaction implements IReaction {
     if (!gs.getPlayer(this.playerId)?.getHand().includes(this.cardId))
       return false
 
-    // Checked here, not only in the window: execute() BURNS the card before it
-    // submits, so a target the window would refuse has to be caught while the
-    // card is still in hand. The window owns the rule; this only asks.
+    // execute() burns the card before it submits, so a target the window
+    // would refuse must be caught while the card is still in hand.
     return open.window.acceptsModifierFor(this.targetPlayerId)
   }
 
@@ -39,9 +38,8 @@ export class PlayModifierReaction implements IReaction {
     if (!open) return
     gs.burnCard(open.frameId, this.playerId, this.cardId)
 
-    // Announced BEFORE the submission, so the log reads played-then-applied and
-    // the two events cannot arrive out of order. burnCard emits nothing itself,
-    // so this is the only word that the card was spent.
+    // Before the submission, so the log reads played-then-applied. burnCard
+    // emits nothing, so this is the only record the card was spent.
     em.emit(
       GameEventFactory.modifierPlayed(
         this.playerId,
@@ -52,13 +50,10 @@ export class PlayModifierReaction implements IReaction {
     )
 
     open.window.submitReaction(this.playerId, {
-      // ChallengeWindow multiplexes challenge and modifier submissions on one
-      // method, so the kind is named. ModifierWindow reads only what it needs
-      // and ignores the extra field.
+      // ChallengeWindow takes challenges and modifiers on one method, so the
+      // kind is named; ModifierWindow ignores it.
       type: 'modifier',
       value: this.value,
-      // The window records which card paid for the bonus, so a roll can be
-      // shown broken down by source rather than as one opaque total.
       cardId: this.cardId,
       targetPlayerId: this.targetPlayerId,
     })
@@ -68,13 +63,7 @@ export class PlayModifierReaction implements IReaction {
   // Internal
   // ---------------------------------------------------------------------------
 
-  /**
-   * The open window a modifier can be played into — a plain roll OR a
-   * challenge. Only the roll window used to be looked for, which left the
-   * challenge branch of ChallengeWindow.submitReaction unreachable: a modifier
-   * could never be spent on a challenge, despite that being the only reason
-   * `targetPlayerId` exists.
-   */
+  /** The open window a modifier can go into — a plain roll or a challenge. */
   private openWindow(
     gs: GameState,
   ): { frameId: string; window: IModifiableWindow } | undefined {
@@ -92,10 +81,7 @@ export class PlayModifierReaction implements IReaction {
   }
 }
 
-/**
- * Capability probe, not an `instanceof`: keeps this reaction free of concrete
- * window classes, so adding a third modifiable window needs no change here.
- */
+/** Capability probe, not instanceof — keeps concrete window classes out. */
 function acceptsModifiers(w: IReactionWindow): w is IModifiableWindow {
   return typeof (w as IModifiableWindow).acceptsModifierFor === 'function'
 }

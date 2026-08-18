@@ -274,11 +274,8 @@ export class GameState {
   }
 
   // ---------------------------------------------------------------------------
-  // Installed abilities & ongoing effects
-  //
-  // The records live on their owning Player — ownership is structural. These are
-  // the cross-player views. WHEN an entry dies is AbilityProcessor's call
-  // (effects.ts holds the rules); storage is the player's.
+  // Ongoing effects — stored on Player; these are the cross-player views.
+  // Expiry is AbilityProcessor's call, using the rules in effects.ts.
   // ---------------------------------------------------------------------------
 
   /** Routes to the owning player named by the effect itself. */
@@ -298,11 +295,7 @@ export class GameState {
     return this.players.get(playerId)?.hasEffect(type) ?? false
   }
 
-  /**
-   * Every effect on `playerId` carrying this passive. `PassiveType.RollBonus`
-   * had no reader at all until this: hasEffect answers "is there a bonus" and
-   * drops both the amount and the card it came from.
-   */
+  /** Every effect on `playerId` carrying this passive. */
   getEffectsWithPassive(type: PassiveType, playerId: string): ActiveEffect[] {
     return this.players.get(playerId)?.getEffectsWithPassive(type) ?? []
   }

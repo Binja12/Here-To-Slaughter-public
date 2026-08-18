@@ -18,14 +18,7 @@ import { abilityRegistry } from './abilities'
 import { isEffectExpired, triggerMatches } from './effects'
 import { GameEventFactory } from './events/game-event-factory'
 
-/**
- * One ability to check against the current event, and who it belongs to.
- * Gathered fresh per event; nothing here is retained between events.
- *
- * Two kinds of source produce these — a card in play (found by its position)
- * and an ongoing effect (stored on its owner) — and both check through the same
- * trigger, so the run loop treats them alike.
- */
+/** One ability to check this event, and who owns it. Gathered fresh per event. */
 type AbilitySource = {
   trigger: AbilityTrigger
   steps: ITask[]
@@ -34,18 +27,9 @@ type AbilitySource = {
 }
 
 // ---------------------------------------------------------------------------
-// AbilityProcessor
-//
-// Per event: expire finished effects, then run everything whose trigger fits.
-//
-// Card abilities are never stored. A card's ability is live because the card is
-// in play — read fresh from the party each event — so it cannot fall out of
-// sync with reality: a stolen hero's ability belongs to its new owner with no
-// bookkeeping at all, and a destroyed hero stops listening the moment it leaves.
-//
-// Ongoing effects are the exception, and the reason ActiveEffect exists: "your
-// heroes cannot be stolen until your next turn" has no card position to derive
-// from, so it is stored on the player until an expiry event removes it.
+// AbilityProcessor — per event: expire finished effects, then run every
+// ability whose trigger fits. Card abilities are derived from the party each
+// event; ongoing effects are stored on Player.
 // ---------------------------------------------------------------------------
 
 export class AbilityProcessor implements IGameEventListener {
@@ -53,10 +37,7 @@ export class AbilityProcessor implements IGameEventListener {
     private readonly gs: GameState,
     private readonly em: IGameEventEmitter,
     private readonly rm: IReactionManager,
-    /**
-     * Card behaviour, keyed by card id. Injected so a test can supply its own
-     * table instead of registering real cards.
-     */
+    /** Keyed by card id. Injected so tests can supply their own table. */
     private readonly abilities: ReadonlyMap<
       string,
       IAbility[]
@@ -70,9 +51,8 @@ export class AbilityProcessor implements IGameEventListener {
   // ---------------------------------------------------------------------------
 
   onEvent(event: IGameEvent): void {
-    // Lifetimes first, so an effect ending on this event is already gone for
-    // anything the same event triggers — "until your next turn" means the turn
-    // starts clean.
+    // Before trigger matching, so an effect ending on this event is already
+    // gone for anything the same event fires.
     this.sweepExpired(event)
 
     // FrameResolved — resume a suspended pipeline.
@@ -81,14 +61,11 @@ export class AbilityProcessor implements IGameEventListener {
         frameId: string
         result?: { key: string; value: unknown }
       }
-      // A window that rolled its frame back (failed roll, lost challenge,
-      // dismissed prompt) has already discarded the entry with the snapshot —
-      // there is nothing left to resume.
+      // A rolled-back frame discarded its entry with the snapshot.
       const entry = this.gs.abilityPipelines.get(frameId)
       if (!entry) return
       this.gs.abilityPipelines.delete(frameId)
-      // The window named both the slot and the value; the processor never
-      // inspects or reshapes it.
+      // The window named both slot and value (IReactionWindow.resultKey).
       if (result) entry.ctx.set(result.key, result.value)
       this.runSteps(entry.steps, entry.ctx)
       return
@@ -98,9 +75,8 @@ export class AbilityProcessor implements IGameEventListener {
       if (!triggerMatches(this.gs, source, source.trigger, event)) continue
 
       const ctx = new AbilityContext(source.sourceCardId, source.ownerId)
-      // A continuation runs with a FRESH context, so whatever it needs from the
-      // pipeline that asked has to travel on the event. Generic on purpose: the
-      // processor copies slots without knowing what any of them mean.
+      // Continuations run with a fresh context, so what they need travels on
+      // the event — see ConfirmTask and CardTypeCondition.
       const { ctxSeed } = (event.getPayload() ?? {}) as {
         ctxSeed?: Record<string, unknown>
       }
@@ -120,8 +96,7 @@ export class AbilityProcessor implements IGameEventListener {
     const expired: ActiveEffect[] = []
 
     for (const player of this.gs.getPlayers()) {
-      // Decide first, remove second: every shouldExpire runs against the same
-      // pre-sweep state, so expiry cannot depend on the order of the list.
+      // Decide first, remove second, so expiry cannot depend on list order.
       const doomed = player
         .getEffects()
         .filter((effect) => isEffectExpired(this.gs, effect, event))
@@ -130,8 +105,7 @@ export class AbilityProcessor implements IGameEventListener {
       expired.push(...doomed)
     }
 
-    // Pruned before announcing, so nothing reacting to EffectExpired can still
-    // observe the dead entry.
+    // Pruned before announcing, so no listener sees a dead entry.
     for (const effect of expired) {
       this.em.emit(
         GameEventFactory.effectExpired(
@@ -186,22 +160,13 @@ export class AbilityProcessor implements IGameEventListener {
     return out
   }
 
-  /**
-   * Adds every ability entry registered for a card.
-   *
-   * A card holds a LIST, not one entry: an ability that pauses on a confirm is
-   * declared as the part before the question plus a part triggered by the
-   * answer. Both are the same card's behaviour, differing only in what wakes
-   * them.
-   */
+  /** Adds every entry registered for a card — see abilities/index.ts. */
   private pushCardAbility(
     out: AbilitySource[],
     cardId: string,
     ownerId: string,
   ): void {
     for (const ability of this.abilities.get(cardId) ?? []) {
-      // An entry with no trigger can never match; skipping keeps a malformed
-      // registration inert rather than crashing every event in the game.
       if (!ability.trigger) continue
       out.push({
         trigger: ability.trigger,
@@ -221,17 +186,12 @@ export class AbilityProcessor implements IGameEventListener {
       const frameId = steps[i].execute(this.gs, ctx, this.em, this.rm)
 
       if (frameId) {
-        // Only a LIVE frame can be resumed: FrameResolved comes from the window
-        // that owns it, so parking the remainder under a settled frame strands
-        // the steps forever and leaks the entry into every later snapshot.
-        // Every window now settles on a timer, never inside the step that
-        // opened it, so a frame is always live when its task hands the id back.
-        // Reaching here means a step released or restored its own frame and
-        // returned the id anyway — loud at the mistake, not silently stuck.
+        // Only a live frame can be resumed — FrameResolved comes from the
+        // window that owns it.
         if (!this.gs.frames.has(frameId)) {
           throw new Error(
-            `${steps[i].constructor.name} returned frameId "${frameId}", which ` +
-              'is not an open frame — return rm.suspendOn(frameId) instead.',
+            `${steps[i].constructor.name} returned frameId "${frameId}", ` +
+              'which is not an open frame.',
           )
         }
 

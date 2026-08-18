@@ -94,14 +94,7 @@ export class Player {
     return this.effects.some((e) => e.passive?.type === type)
   }
 
-  /**
-   * Every installed effect carrying this passive — the entries, not a total.
-   *
-   * Returns effects rather than a summed number because the caller needs to
-   * know WHICH card is responsible for each contribution, not just how much:
-   * a roll shows "+3 Wise Shield, +5 Fireball", and a sum cannot be taken apart
-   * again. Callers that only want the magnitude reduce it themselves.
-   */
+  /** Entries, not a total: callers need the source card, not just the amount. */
   getEffectsWithPassive(type: PassiveType): ActiveEffect[] {
     return this.effects.filter((e) => e.passive?.type === type)
   }
@@ -111,12 +104,8 @@ export class Player {
       ...this.data,
       hand: [...this.data.hand],
     })
-    // Carried explicitly: the constructor seeds ActionPoints from
-    // data.actionPoints, which is the per-turn MAXIMUM and never moves.
-    // decreaseActionPoints touches only the live field, so a clone that skipped
-    // this line came back with a full turn's budget — and every frame rollback
-    // (failed roll, lost challenge, dismissed prompt) would refund whatever the
-    // player had already spent.
+    // Explicit: the constructor seeds this from data.actionPoints, which is
+    // the per-turn MAXIMUM — without this, every rollback refunds spent AP.
     copy.ActionPoints = this.ActionPoints
     // Effects are immutable records: copy the array, share the entries.
     copy.effects = [...this.effects]

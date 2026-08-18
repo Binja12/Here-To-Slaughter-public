@@ -23,11 +23,8 @@ export const abilityRegistry: ReadonlyMap<string, IAbility[]> = new Map<
   string,
   IAbility[]
 >([
-  // A card holds a LIST of entries. One entry per stretch of steps that runs
-  // without pausing for a yes/no: the part before a question, and the part the
-  // answer unlocks, triggered by TaskConfirmed. Repetition unrolls the same way
-  // — "you may do this up to three times" is three entries, separated by `seq`,
-  // with no loop construct and no counter to keep in sync.
+  // A card holds a LIST of entries — one per stretch of steps that runs
+  // without pausing. See wiggles-ability.ts for the split.
   ['hero-036', WigglesAbility], // Wiggles — STEAL a Hero, then may roll on it
   ['hero-040', SnowballAbility], // Snowball — DRAW; if Magic, may DRAW again
   ['hero-028', WiseShieldAbility], // Wise Shield — +3 to your rolls until end of turn

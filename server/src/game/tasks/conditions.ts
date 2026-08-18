@@ -5,32 +5,12 @@ import { AbilityContext } from '../ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 
 // ---------------------------------------------------------------------------
-// CardTypeCondition — does the card(s) in a named slot have this type?
+// CardTypeCondition — do the card(s) in a named slot have this type?
 //
-// It holds NO steps. When the test passes it emits ConditionMet with its label,
-// and whatever the condition guards lives in its own registry entry triggered
-// by that event — exactly how a confirm hands off to its continuation. When the
-// test fails it emits nothing, so "false" is the absence of an event and there
-// is nothing to skip past.
+// Holds no steps. On a match it emits ConditionMet; whatever it guards is a
+// separate registry entry triggered by that event. No match emits nothing.
 //
-// This replaced an IIfTask that carried `ifTrue` / `ifFalse` lists and ran them
-// INLINE, in its own loop, outside AbilityProcessor. That design predates
-// frames and suspending steps entirely: a branch step that opened a window had
-// no remainder tracked behind it, so the steps after it ran underneath that
-// open window. It had been patched to pass a frameId out and to throw when a
-// suspending step was not last — a restriction §8 recorded as "IIfTask can't
-// contain suspending steps". Making the guarded steps a normal entry removes
-// the restriction rather than policing it: they are ordinary pipeline steps
-// now, with no position rules and no second way for a step to run.
-//
-// The slot is a constructor argument, so this task knows how to compare a
-// card's type and nothing about where the card came from — the same rule as
-// StealFromPartyTask(fromKey) and RollOnHeroTask(fromKey).
-//
-// Holds when ANY card in the slot has the type. With a single-card slot — every
-// current use — that is just "is it this type"; with several it reads as "did
-// this produce a Magic card". An absent or empty slot is false: nothing to ask
-// about cannot be a match.
+// True when ANY card in the slot matches. An absent or empty slot is false.
 // ---------------------------------------------------------------------------
 
 export class CardTypeCondition implements ITask {
@@ -54,11 +34,8 @@ export class CardTypeCondition implements ITask {
     )
     if (!held) return
 
-    // The tested slot rides along: the entry this unlocks starts with a fresh
-    // context (§2 — nested runs do not inherit), and the cards it was asked
-    // about are the obvious thing it will act on. Snowball's "you may play IT"
-    // needs the drawn card two hops later — through this event, then the
-    // confirm's.
+    // The tested slot rides along: the entry this unlocks runs with a fresh
+    // context and cannot see this one.
     em.emit(
       GameEventFactory.conditionMet(ctx.ownerId, ctx.sourceCardId, this.label, {
         [this.sourceKey]: cardIds,

@@ -224,14 +224,7 @@ describe('PlayModifierReaction', () => {
       expect(snapshot?.getDiscardPile().getAll()).toContain('mod-1')
     })
 
-    //should not emit discard event
-    // it('emits CardDiscarded for the sender', () => {
-    //   makeReaction().execute(gs, em)
-    //   const e = events.find((e) => e.getType() === GameEventType.CardDiscarded)
-    //   expect(e).toBeDefined()
-    //   expect(e!.getPlayerId()).toBe('p1')
-    //   expect((e!.getPayload() as any).cardId).toBe('mod-1')
-    // })
+    // should not emit discard event it('emits CardDiscarded for the sender', ()...
 
     it('emits ModifierPlayed naming the card, value and target', () => {
       const stub = makeStubWindow()

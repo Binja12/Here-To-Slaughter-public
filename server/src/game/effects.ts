@@ -4,30 +4,9 @@ import type { GameState } from './game-state'
 import { HeroCard } from './cards/hero-card'
 
 // ---------------------------------------------------------------------------
-// Effect lifetimes
-//
-// Trigger and expiry are symmetric: both are game events. An effect turns on
-// when its installing ability runs, and off when one of its expiry events
-// fires — optionally confirmed by `shouldExpire`, a state check that runs
-// ONLY then. The event says when to look; the check says whether it is
-// really over. No expiry at all means permanent.
-//
-// Evaluated by AbilityProcessor before any trigger matching, so on the event
-// that ends an effect, the effect is already gone for anything that same
-// event triggers — "until your next turn" means the turn starts clean.
-//
-// This lives with the processor and not TurnManager because expiry events are
-// arbitrary (a steal, a hero removal, a turn boundary); the processor is the
-// one place that already sees every event.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Trigger matching
-//
-// Replaces the processor's old passiveSources/activeSources scans. Those hard
-// coded exactly two answers to "whose events count" — any player's (leaders,
-// monsters, items) or this card's own (heroes) — and could not express a card
-// that reacts to any player's roll. Scope makes the answer declarative.
+// Trigger matching and effect lifetimes. Both are driven by game events, and
+// both are evaluated by AbilityProcessor — expiry before trigger matching, so
+// an effect ending on an event is gone for anything that event fires.
 // ---------------------------------------------------------------------------
 
 /**
@@ -44,8 +23,7 @@ export function triggerMatches(
 ): boolean {
   if (trigger.on !== event.getType()) return false
 
-  // "Which event", after scope has answered "whose event". Absent means the
-  // trigger takes every event of this type.
+  // Which variant, after scope answered whose. Absent = any event of the type.
   if (trigger.when !== undefined) {
     const { label } = (event.getPayload() ?? {}) as { label?: string }
     if (label !== trigger.when) return false
@@ -92,17 +70,11 @@ export function isEffectExpired(
 }
 
 // ---------------------------------------------------------------------------
-// Expiries — every card wording lives here, one place to read them all.
-//
-// `shouldExpire` is omitted whenever the event alone settles it, and present
-// whenever the event also fires in situations that are not this effect's:
-// TurnStarted fires for every player, HeroRemovedFromParty for every hero.
+// Expiries — every card wording, in one place. `shouldExpire` is present only
+// when the event also fires for situations that are not this effect's.
 // ---------------------------------------------------------------------------
 
-/**
- * "...until the end of the turn" — the turn in progress, whoever is playing it.
- * No check: every TurnEnded ends that turn, so there is nothing to confirm.
- */
+/** "...until the end of the turn" — the turn in progress, whoever plays it. */
 export const untilEndOfTurn: EffectExpiry = {
   on: GameEventType.TurnEnded,
 }
@@ -114,11 +86,7 @@ export const untilOwnersNextTurn: EffectExpiry = {
     (event.getPayload() as { playerId?: string })?.playerId === effect.ownerId,
 }
 
-/**
- * "...while the card that granted this is still in play" — for an effect whose
- * source can leave the party. Card ABILITIES need nothing like this: they are
- * read from the party each event, so they stop on their own.
- */
+/** "...while the card that granted this is still in play." */
 export const untilSourceLeavesParty: EffectExpiry = {
   on: GameEventType.HeroRemovedFromParty,
   shouldExpire: (_gs, effect, event) =>
@@ -126,14 +94,8 @@ export const untilSourceLeavesParty: EffectExpiry = {
 }
 
 /**
- * "...while you have a <class> in your party."
- *
- * A factory rather than one constant per class: the wording is identical for
- * all six, only the class differs.
- *
- * The event says WHEN to look; the check says WHETHER it is really over —
- * losing one of two Rangers fires HeroRemovedFromParty but leaves the condition
- * true, so the effect survives. That case is why `shouldExpire` exists at all.
+ * "...while you have a <class> in your party." The check matters: losing one of
+ * two Rangers fires HeroRemovedFromParty but leaves the condition true.
  */
 export function whileClassInParty(heroClass: HeroClass): EffectExpiry {
   return {

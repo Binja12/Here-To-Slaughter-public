@@ -28,20 +28,9 @@ export interface IAction {
   execute(gs: GameState): void
 }
 
-/**
- * The turn's action queue, as an *executing* action sees it.
- *
- * Declared here rather than importing TurnManager for the same reason as
- * IReactionManager below: this module is the abstraction layer and must not
- * point back at an implementation. Only the member an action in mid-execute
- * actually calls belongs here — an action never starts a turn or drains.
- */
+/** Implemented by TurnManager; declared here so actions need not import it. */
 export interface IActionQueue {
-  /**
-   * Put `action` at the FRONT of the queue, so it runs before anything the
-   * player had already queued. This is how one action spawns its own
-   * continuation — playing a hero grants the free roll on that hero.
-   */
+  /** Run `action` before anything already queued. */
   enqueueFirst(action: IAction): void
 }
 
@@ -54,14 +43,8 @@ export interface IReaction {
 }
 
 // ---------------------------------------------------------------------------
-// Reaction system, as an ability step sees it
-//
-// Declared here instead of imported: this module is the engine's abstraction
-// layer, so it must not depend on a concrete implementation. The lone
-// `import type { ReactionManager }` that used to sit above was the edge every
-// one of the five reported import cycles ran through — the abstraction pointing
-// back at its own implementation. Only the members a step (or the processor
-// draining one) actually calls belong here.
+// Reaction system, as an ability step sees it.
+// Implemented by ReactionManager; declared here to avoid the import cycle.
 // ---------------------------------------------------------------------------
 
 export interface IReactionManager {
@@ -82,21 +65,8 @@ export interface IReactionManager {
 
 export interface ITask {
   /**
-   * Returns the frameId when this step suspended on a window, otherwise
-   * nothing. That return value is the ONLY channel: `AbilityProcessor` reads it
-   * to decide whether to park the rest of the pipeline.
-   *
-   * A step never decides anything about the steps AFTER it. It may skip its own
-   * body when its input is empty, but silencing its siblings is not its call —
-   * that belongs to frame settlement, where a lost roll, a lost challenge and a
-   * dismissed prompt all cancel the same way (§3).
-   *
-   * It used to come back through a one-slot mailbox on `ReactionManager`
-   * (`openFrame` wrote it, `takeLastFrameId` read it). That slot was global to
-   * the manager while only tasks were meant to use it, so every action opening
-   * a frame had to remember to wipe it — and forgetting let an unrelated
-   * ability suspend itself on the action's window. A return value cannot be
-   * left behind for someone else to pick up.
+   * Returns the frameId if this step suspended on a window, else nothing.
+   * AbilityProcessor reads it to decide whether to park the remaining steps.
    */
   execute(
     gs: GameState,
@@ -113,15 +83,7 @@ export interface ITask {
 export type AbilityTrigger = {
   on: GameEventType
   scope: TriggerScope
-  /**
-   * Which variant of the event this entry answers to, matched against the
-   * payload's `label`. Scope answers "whose event"; this answers
-   * "which one".
-   *
-   * A card that asks the same question more than once distinguishes its
-   * continuations by labelling them apart — 'QiBearDiscard2', 'QiBearDiscard3'
-   * — rather than carrying a separate counter.
-   */
+  /** Matched against the payload's `label` — see TaskConfirmed, ConditionMet. */
   when?: string
 }
 
@@ -131,28 +93,10 @@ export interface IAbility {
 }
 
 // ---------------------------------------------------------------------------
-// Ongoing effects
-//
-// An ability's `trigger` says WHEN its pipeline starts; it says nothing about
-// how long anything the pipeline installed should last. "Your heroes cannot be
-// stolen until your next turn" is one ability run that installs an ActiveEffect
-// — the ability is over immediately, the EFFECT is what has a lifetime.
-//
-// Effects are plain data held on GameState, so they snapshot and roll back with
-// a frame for free: an effect installed inside a frame that is later restored
-// disappears along with the state it was protecting.
+// Ongoing effects — stored on Player, swept by AbilityProcessor.
 // ---------------------------------------------------------------------------
 
-/**
- * One way an effect can end: a game event, optionally confirmed by a state
- * check. The event names WHEN to look; `shouldExpire` says WHETHER it is
- * really over — "while you have a Ranger" expires on HeroRemovedFromParty
- * only if no Ranger remains, so losing one of two Rangers changes nothing.
- *
- * `shouldExpire` belongs in the ability's own module, next to the declaration
- * that installs the effect — never as a method on a card class, which would
- * put behaviour back onto shared card data.
- */
+/** One way an effect can end. Reusable expiries live in effects.ts. */
 export type EffectExpiry = {
   on: GameEventType
   /** Absent = the event alone decides. */
@@ -169,24 +113,12 @@ export interface ActiveEffect {
   sourceCardId: string
   /** Whose effect it is — the player expiry checks and queries resolve against. */
   ownerId: string
-  /**
-   * A standing rule flag: consulted at the point the rule applies (via
-   * gs.hasEffect), never triggered.
-   */
+  /** Standing rule flag, read via gs.hasEffect / gs.getEffectsWithPassive. */
   passive?: { type: PassiveType; value?: number }
-  /**
-   * Optional triggered behaviour, making this effect an ability source in its
-   * own right: the processor checks it alongside the cards in play, for as long
-   * as the effect lives. Present together with `steps` or not at all.
-   */
+  /** Optional behaviour; AbilityProcessor lists it as a source while it lives. */
   trigger?: AbilityTrigger
   steps?: ITask[]
-  /**
-   * ABSENT = permanent. Monster passives are the canonical case: a slain
-   * monster never leaves the party (Party has no removeMonster), so its
-   * effect simply has no expiry. Multiple entries = first match ends it —
-   * "on use OR at my next turn start" for a once-per-turn charge.
-   */
+  /** Absent = permanent. Multiple entries = first match ends it. */
   expiry?: EffectExpiry[]
 }
 
@@ -207,13 +139,8 @@ export interface IRollResolver {
 // ---------------------------------------------------------------------------
 
 /**
- * A window a modifier card can be spent into.
- *
- * Both a plain roll and a challenge accept modifiers, but for different
- * reasons — one roll versus two — so each answers the target question its own
- * way. Declared as a capability rather than checked with `instanceof` so
- * PlayModifierReaction stays clear of concrete window classes (§9), and so a
- * test double can stand in for one.
+ * A window a modifier card can be spent into. PlayModifierReaction probes for
+ * this method rather than testing instanceof.
  */
 export interface IModifiableWindow extends IReactionWindow {
   /** True when a modifier aimed at `playerId` belongs in this window. */
@@ -231,17 +158,8 @@ export interface IReactionWindow {
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
   /**
-   * Context key this window's outcome belongs to. The window type owns it — a
-   * CardChoiceWindow always yields a chosen card — and also owns the value's
-   * SHAPE at the emit site: choices write arrays because they may be
-   * multi-select, a modifier writes a plain number because there is only ever
-   * one final roll.
-   *
-   * Return NO_CONTEXT_RESULT when the outcome is not an ability input: a
-   * confirm prompt says everything through release-vs-restore, and a challenge
-   * that resumes at all was necessarily won. Those still reach the event log
-   * via the window lifecycle events; they simply give ability steps nothing to
-   * branch on. Every window must state which case it is — there is no default.
+   * Context key this window's outcome is filed under; AbilityProcessor writes
+   * it on resume. NO_CONTEXT_RESULT when the outcome is not an ability input.
    */
   resultKey(): string | typeof NO_CONTEXT_RESULT
 }

@@ -7,26 +7,12 @@ import { NO_CONTEXT_RESULT } from '../ability-context'
 // ---------------------------------------------------------------------------
 // ChoiceWindow — base for every "pick one of these" window.
 //
-// Unlike ModifierWindow, a choice has exactly ONE respondent and accepts
-// exactly ONE submission, so it resolves on submit and never extends its
-// timer. Candidate selection happens before the window opens (the task owns
-// the filtering); the window only holds the options and validates the pick.
+// One respondent, one submission, single timer. The task filters candidates
+// before the window opens; the window holds them and validates the pick.
 //
-// A choice window ALWAYS releases its frame — there is no bad outcome here:
-//
-//   releaseFrame()                    → suspended pipeline survives and resumes
-//   frameResolved(frameId, [picked])  → picks may be empty
-//
-// It once had a failure branch that restored instead, used only by
-// TaskChoiceWindow's DISMISS. That is gone: a confirm now announces CONFIRM
-// with a TaskConfirmed event and says nothing on DISMISS, so "no" needs no
-// rollback — the continuation entry simply never triggers. Rollback goes back
-// to meaning what it always did: an outcome that FAILED (a roll under its
-// requirement, a lost challenge), never a player declining an offer.
-//
-// A timeout resolves the same way, with no pick. Restoring would rewind the
-// step that opened the window, and since the window is not in the snapshot that
-// step would re-run and re-open it — an AFK player would loop forever.
+// It ALWAYS releases its frame, on any outcome including a timeout. Rollback
+// is for outcomes that FAILED (a roll under its requirement, a lost challenge),
+// never for a player declining.
 // ---------------------------------------------------------------------------
 
 export abstract class ChoiceWindow implements IReactionWindow {
@@ -43,15 +29,13 @@ export abstract class ChoiceWindow implements IReactionWindow {
     protected readonly frameId: string,
     protected readonly emitter: IGameEventEmitter,
     /**
-     * Extra fields for the ReactionWindowOpened payload. A constructor argument
-     * rather than an overridable method: the base constructor emits that event,
-     * and a subclass's own parameter properties are not assigned until after
-     * super() returns — an override would read undefined every time.
+     * Extra fields for the ReactionWindowOpened payload. A constructor argument,
+     * not an override: super() emits before subclass fields are assigned.
      */
     openDetail?: Record<string, unknown>,
   ) {
-    // One public event. WHO may see these options is decided downstream by the
-    // projection layer in front of the API, not here.
+    // Full option list; the projection layer in front of the API decides who
+    // may see what.
     this.emitter.emit(
       GameEventFactory.reactionWindowOpened(
         this.getType(),
@@ -62,17 +46,9 @@ export abstract class ChoiceWindow implements IReactionWindow {
       ),
     )
 
-    // Nothing to choose from — settle at once rather than hanging the pipeline
-    // for a full timeout, but on a 0ms TIMER, never inline.
-    //
-    // Resolving inside the constructor would settle the frame before the task
-    // that opened it had even returned, so AbilityProcessor had not parked the
-    // remainder yet: the FrameResolved went out with nobody listening, the
-    // context never received the empty result, and the frameId handed back was
-    // already dead. Deferring by one tick puts this case back on the ordinary
-    // path — suspend, resolve, resume — so the empty result reaches the context
-    // like every other outcome and the steps behind it simply read an empty
-    // pick. That is what let STOP_PIPELINE and suspendOn be deleted.
+    // Nothing to choose from settles at once, but on a 0ms TIMER — never
+    // inline, or the frame would settle before the task that opened it
+    // returned and AbilityProcessor would have nothing parked to resume.
     this.timer = setTimeout(
       () => this.resolve(),
       this.options.length === 0 ? 0 : this.timeoutMs,
@@ -83,12 +59,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   abstract getType(): ReactionWindowType
 
-  /**
-   * Abstract on purpose — no default. A subclass that inherited "no result"
-   * by silence would drop the player's pick without any error, and the failure
-   * would surface much later as a downstream task complaining about a missing
-   * target. Every subclass must name its slot or say NO_CONTEXT_RESULT.
-   */
+  /** No default: every subclass must name its slot or say NO_CONTEXT_RESULT. */
   abstract resultKey(): string | typeof NO_CONTEXT_RESULT
 
   getId(): string {
@@ -126,8 +97,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
     this.gs.releaseFrame(this.frameId)
 
-    // Arrays here — a choice may become multi-select, and starting single
-    // would mean migrating every consumer later.
+    // Arrays, so multi-select needs no migration later.
     const picks = this.picked === undefined ? [] : [this.picked]
     const key = this.resultKey()
 
@@ -140,9 +110,8 @@ export abstract class ChoiceWindow implements IReactionWindow {
       ),
     )
 
-    // Domain event before the lifecycle one, mirroring ModifierWindow emitting
-    // RollSuccess between releaseFrame and FrameResolved: whatever the outcome
-    // triggers starts with this frame already gone.
+    // After releaseFrame, before FrameResolved — same ordering ModifierWindow
+    // uses for RollSuccess, so anything this triggers sees the frame gone.
     this.announceOutcome(this.picked)
 
     this.emitter.emit(
@@ -156,31 +125,15 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   // --- Internal ---
 
-  /** Fallback when the window times out. Defaults to a random option. */
   /**
-   * What a silent player is taken to have picked: NOTHING.
-   *
-   * This used to pick at random from the options, which committed an idle
-   * player to a target they never named. It also must not RESTORE — a timeout
-   * that rolled the frame back would rewind the action that opened the window,
-   * and since the window is not in the snapshot the same step would simply run
-   * again, re-open the window, and time out again. An AFK player would loop
-   * forever. So a timeout resolves like any other outcome; it just carries no
-   * pick, and the steps behind it read an empty choice.
-   *
-   * TaskChoiceWindow still overrides this: a confirm prompt HAS a meaningful
-   * silent answer (DISMISS), and its rollback ends the pipeline rather than
-   * re-running anything.
+   * What a silent player picked: nothing. TaskChoiceWindow overrides it —
+   * a confirm has a meaningful silent answer (DISMISS).
    */
   protected defaultChoice(): unknown {
     return undefined
   }
 
-  /**
-   * Emit whatever this window's outcome means to the rest of the game. The
-   * base has nothing to say — release-vs-restore already carries a plain
-   * choice's meaning.
-   */
+  /** Emit what this outcome means elsewhere. See TaskChoiceWindow. */
   protected announceOutcome(_picked: unknown): void {}
 
   /**

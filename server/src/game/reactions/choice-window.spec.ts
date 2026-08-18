@@ -93,9 +93,7 @@ describe('ChoiceWindow', () => {
     const events = collect(em)
     const win = new TestChoiceWindow('w', 'p1', [], 5000, gs, 'frame-1', em)
 
-    // Still open until the tick: resolving inline would settle the frame before
-    // the task that opened it had returned, so the pipeline would not yet be
-    // parked to receive the result.
+    // Still open until the tick: resolving inline would settle the frame before...
     expect(win.isOpen()).toBe(true)
     jest.advanceTimersByTime(0)
     expect(win.isOpen()).toBe(false)
@@ -183,9 +181,6 @@ describe('ChoiceWindow', () => {
 
     jest.advanceTimersByTime(5000)
 
-    // A rollback would rewind the step that opened this window; the window is
-    // not in the snapshot, so that step would re-open it and time out again —
-    // an AFK player would loop forever.
     expect(gs.frames.has('f1')).toBe(false)
   })
 
@@ -215,7 +210,6 @@ describe('ChoiceWindow', () => {
   // -------------------------------------------------------------------------
 
   // Card/player choices have no failure case, so they always release. Only
-  // TaskChoiceWindow overrides isSuccess() to roll back on DISMISS.
   it('releases its frame when the pick is a success', () => {
     const gs = makeGs()
     const win = makeWindow({ gs, em: new GameEventEmitter(), frameId: 'frame-1' })

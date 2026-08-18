@@ -27,21 +27,15 @@ import { abilityRegistry } from './index'
 import { IReactionWindow } from '../interfaces'
 
 // ---------------------------------------------------------------------------
-// Wise Shield (hero-028) — full life cycle, one stage at a time.
+// Wise Shield (hero-028) — full life cycle, through the real wiring
+// (TurnManager, GameEngine and the real abilityRegistry).
 //
-//   play the hero -> challenge window -> granted free roll -> modifier window
-//   -> RollSuccess -> ability installs +3 -> next roll sees it -> TurnEnded
-//   sweeps it
+//   play hero -> challenge -> free roll -> modifier window -> RollSuccess
+//   -> +3 installed -> next roll sees it -> TurnEnded sweeps it
 //
-// Driven through the real production wiring: TurnManager owns the queue,
-// GameEngine resumes the drain on FrameResolved, and AbilityProcessor is given
-// the REAL abilityRegistry rather than a test table, so registration of
-// hero-028 is covered by these tests too.
-//
-// Roll arithmetic, fixed by the two formulas under test:
-//   baseRoll       = Math.ceil(random * 11) + 1   -> random 0 => 1,  0.99 => 12
-//   challenge roll = Math.floor(random * 11) + 1  -> random 0 => 1,  0.99 => 11
-// hero-028 rollReq is 6, matching the real card data.
+//   baseRoll       = ceil(random * 11) + 1   -> 0 => 1, 0.99 => 12
+//   challenge roll = floor(random * 11) + 1  -> 0 => 1, 0.99 => 11
+//   hero-028 rollReq is 6.
 // ---------------------------------------------------------------------------
 
 const WISE_SHIELD = 'hero-028'
@@ -291,10 +285,9 @@ describe('Wise Shield — full life cycle', () => {
       )
       jest.advanceTimersByTime(5000)
 
-      // Removal happened before the snapshot, so rollback cannot restore it to
-      // hand — without an explicit discard the card left the game entirely.
+      // Removed from hand before the snapshot, so only an explicit discard
+      // keeps it in the game.
       expect(gs.getDiscardPile().getAll()).toContain(WISE_SHIELD)
-      // The challenger's spent card is there too, via burnCard.
       expect(gs.getDiscardPile().getAll()).toContain('chal-1')
     })
 
@@ -473,9 +466,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValue(LOW)
       rm.submitReaction(new PlayChallengeReaction('r3', 'p2', 'chal-1', 'hero-777'))
 
-      // p2 pushes their OWN challenge roll with a +5 modifier. This path did
-      // not exist before: PlayModifierReaction only ever looked for a plain
-      // roll window, so ChallengeWindow's modifier branch was unreachable.
+      // p2 pushes their OWN challenge roll with a +5 modifier.
       rm.submitReaction(new PlayModifierReaction('r4', 'p2', 'mod-1', 5, 'p2'))
       jest.advanceTimersByTime(5000)
 

@@ -48,12 +48,9 @@ export class PlayHeroAction implements IAction {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
 
-    // Out of hand FIRST, then snapshot. Snapshot timing decides scope (§3), and
-    // the card leaving the hand is the one part of a play that a lost challenge
-    // must NOT undo — a challenged card is spent either way. Taking the frame
-    // after the removal is what makes that true without a single flag: the
-    // snapshot rollback restores a hand that already lacks the card. Same shape
-    // as PlayChallengeReaction burning the challenger's card.
+    // Out of hand BEFORE the snapshot: a challenged card is spent either way,
+    // so a lost challenge must not restore it to hand. ChallengeWindow puts it
+    // in the discard when the challenger wins.
     player.removeFromHand(this.cardId)
     this.emmiter.emit(
       GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
@@ -61,19 +58,15 @@ export class PlayHeroAction implements IAction {
 
     const frameId = this.reactionManager.openFrame()
 
-    // Everything from here on is inside the frame, so a lost challenge undoes
-    // all of it: the hero never joined, and the roll it granted never happens.
+    // Everything below is inside the frame, so a lost challenge undoes it all.
 
-    // addHero announces the arrival itself — membership cannot change silently.
+    // addHero announces the arrival itself.
     gs.getParty(this.playerId).addHero(this.cardId, this.emmiter, 'Played')
 
-    // Playing a hero grants a roll on it. It is a queued action, not an inline
-    // call, because a roll suspends on a modifier window and only the queue
-    // knows how to pause and resume around that. It goes to the FRONT so it
-    // resolves before anything the player queued behind this play, and it is
-    // FREE — the action point was already spent on the play itself.
-    // The queue lives on GameState, so this entry rides in the snapshot too and
-    // a rollback un-grants the roll along with the hero.
+    // Queued rather than called inline: a roll suspends on a modifier window,
+    // and only the queue can pause and resume around that. FREE — the point
+    // was spent on the play. The queue lives on GameState, so a rollback
+    // un-grants this along with the hero.
     this.actionQueue.enqueueFirst(
       new RollOnHeroAction(
         crypto.randomUUID(),
@@ -85,11 +78,8 @@ export class PlayHeroAction implements IAction {
       ),
     )
 
-    // Opened last: the window is what suspends the drain, so nothing above it
-    // can be left half-done when TurnManager stops. ChallengeWindow owns
-    // settlement — release on an unchallenged or won play, restore on a lost
-    // one — and GameEngine resumes the drain on FrameResolved, which is when
-    // the granted roll runs.
+    // Last: this window suspends the drain. ChallengeWindow owns settlement,
+    // and GameEngine resumes the drain on FrameResolved.
     this.reactionManager.openWindow(
       frameId,
       ReactionWindowType.Challenge,
