@@ -11,24 +11,9 @@ import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../ability-context'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 
-/**
- * One contribution to a roll, and the card answerable for it.
- *
- * A standing effect and a played modifier card are both just bonuses, so they
- * share one list — the roll is `baseRoll` plus every amount here. What the UI
- * needs is not two lists but the SOURCE on each entry, so it can show
- * "+3 Wise Shield, +5 Fireball" instead of an unattributable "+8".
- */
+/** One contribution to a roll: standing effects and played cards share a list. */
 export type RollBonus = {
-  /**
-   * Card answerable for this contribution — the effect's source card, or the
-   * modifier played.
-   *
-   * Enough on its own to tell two contributions apart: card ids are per COPY,
-   * not per design. The base set carries 136 records for 136 physical cards —
-   * 25 separate ids all named "Modifier" — so two copies of one +2 magic card
-   * are two different ids, and playing both reads as two entries.
-   */
+  /** The effect's source card, or the modifier played. Card ids are per copy. */
   cardSource: string
   amount: number
 }
@@ -49,11 +34,8 @@ export class ModifierWindow implements IModifiableWindow {
     private readonly frameId: string,
     private readonly emitter: IGameEventEmitter,
   ) {
-    // Standing bonuses (Wise Shield's +3) are seeded the moment the window
-    // opens, not folded in at settlement. Timing is the point: the client draws
-    // base / bonuses / total as soon as the window appears, and a player
-    // deciding whether to spend a modifier card must see the +3 already
-    // counted. Each keeps its own source, so the UI can attribute it.
+    // Seeded at OPEN, not at settlement: a player deciding whether to spend a
+    // modifier card must already see the standing bonus counted.
     for (const effect of gs.getEffectsWithPassive(PassiveType.RollBonus, rollerId)) {
       this.bonuses.push({
         cardSource: effect.sourceCardId,
@@ -70,8 +52,7 @@ export class ModifierWindow implements IModifiableWindow {
         {
           rollerId: this.rollerId,
           baseRoll: this.baseRoll,
-          // COPIED, not the live array: the payload of an event already emitted
-          // must not change when a later modifier is played into this window.
+          // Copied: an emitted payload must not change on a later submission.
           bonuses: [...this.bonuses],
           finalRoll: this.getFinalRoll(),
           rollReq: this.rollReq,
@@ -92,13 +73,7 @@ export class ModifierWindow implements IModifiableWindow {
     return ReactionWindowType.Modifier
   }
 
-  /**
-   * Does a modifier aimed at `playerId` belong in this window?
-   *
-   * A plain roll has exactly ONE roll, so only the roller qualifies. Asked by
-   * PlayModifierReaction before it burns the card — the window owns the rule,
-   * the reaction just consults it, so neither has to know the other's shape.
-   */
+  /** One roll here, so only the roller. Asked by PlayModifierReaction. */
   acceptsModifierFor(playerId: string): boolean {
     return playerId === this.rollerId
   }
@@ -113,16 +88,9 @@ export class ModifierWindow implements IModifiableWindow {
   }
 
   /**
-   * payload: { value, cardId, targetPlayerId? } — the bonus, the card spent for
-   * it, and optionally whose roll it is meant for.
-   *
-   * A plain roll has exactly ONE roll, the roller's, so the only sensible
-   * target is `rollerId`; `targetPlayerId` exists because a CHALLENGE has two.
-   * Naming anyone else is malformed, and was previously applied to the roller
-   * anyway — a modifier aimed at an opponent silently helped the person it was
-   * played against. Refused here rather than thrown: this is player input off a
-   * socket, and a window validating a submission is how the choice windows
-   * behave too.
+   * payload: { value, cardId, targetPlayerId? }. `targetPlayerId` exists for
+   * challenges, which have two rolls; here only the roller is valid, and
+   * anything else is refused rather than thrown (player input off a socket).
    */
   submitReaction(playerId: string, payload: unknown): void {
     const { value, cardId, targetPlayerId } = payload as {

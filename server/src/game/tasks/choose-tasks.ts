@@ -34,9 +34,6 @@ export class ChoosePlayerTask implements ITask {
       options,
     })
 
-    // Always suspend, even on an empty option set: that window settles on a
-    // 0ms timer rather than inline, so the frame is still live here and the
-    // empty result reaches the context through the ordinary resume path.
     return frameId
   }
 }
@@ -57,48 +54,26 @@ export class ChooseCardTask implements ITask {
       options,
     })
 
-    // Always suspend, even on an empty option set: that window settles on a
-    // 0ms timer rather than inline, so the frame is still live here and the
-    // empty result reaches the context through the ordinary resume path.
+    // Suspends even on an empty option set: ChoiceWindow settles that on a
+    // 0ms timer, so the frame is still live here.
     return frameId
   }
 }
 
 // ---------------------------------------------------------------------------
-// ConfirmTask — "do you want to do X?" asked before the step that does X.
+// ConfirmTask — "do you want to do X?", via TaskChoiceWindow.
 //
-// It NAMES its question. `confirms` says which follow-up is being offered and
-// `subjectKey` points at the context slot holding what it would be done to, so
-// the window's payload carries both and a client can render "Roll on Victim?"
-// from data instead of guessing from window type alone. One window type with a
-// described question, not a window class per confirmable task — the same call
-// made when the per-window Opened/Closed events collapsed into one pair (§4).
-//
-// It also SKIPS ITSELF when that subject is empty: there is no sense asking
-// whether to roll on a hero that was never stolen. Skipping its own body is a
-// task's business; silencing the steps after it is not — those read the same
-// empty subject and skip in turn.
-//
-// It is TERMINAL. CONFIRM emits TaskConfirmed and a separate registry entry
-// triggers on it; DISMISS emits nothing, so the continuation never runs. The
-// answer therefore gates exactly what the declaration puts in that entry —
-// which is how "skip just this" stops being indistinguishable from "cancel
-// everything after", the one thing wholesale rollback could not express.
+// Must be the LAST step of its entry: CONFIRM emits TaskConfirmed and a
+// separate registry entry triggers on it, DISMISS emits nothing. Skips itself
+// when `subjectKey` names an empty slot.
 // ---------------------------------------------------------------------------
 
 export type ConfirmSpec = {
-  /** The follow-up being offered, e.g. 'RollOnHero'. A continuation entry
-   *  matches on it with `when: { confirms }`, and the client renders it. */
+  /** The follow-up offered. Becomes the event's `label`, matched by `when`. */
   confirms: string
   /**
-   * Context slot holding the subject. Absent means the prompt has no subject
-   * and is always asked; present-but-empty means there is nothing to ask about
-   * and the task skips itself.
-   *
-   * It is also the handoff: the continuation runs with a FRESH context (§2 —
-   * nested runs do not inherit), so this slot rides on the TaskConfirmed event
-   * and is seeded back in. Carry exactly what the confirm names, never the
-   * whole blackboard.
+   * Slot holding the subject: names it for the client, skips the prompt when
+   * empty, and rides to the continuation as ctxSeed.
    */
   subjectKey?: string
 }
@@ -116,15 +91,13 @@ export class ConfirmTask implements ITask {
       ? (ctx.get<unknown[]>(this.spec.subjectKey) ?? [])
       : undefined
 
-    // Nothing to ask about — skip the prompt rather than opening a window
-    // about a subject that does not exist. Skipping its own body is this
-    // task's business; the continuation simply never triggers.
+    // Nothing to ask about.
     if (subject && subject.length === 0) return
 
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.TaskChoice, ctx.ownerId, {
       confirms: this.spec.confirms,
-      // Routes the answer back to the card that asked, via TriggerScope.SelfCard.
+      // Routes the answer back via TriggerScope.SelfCard.
       sourceCardId: ctx.sourceCardId,
       ...(this.spec.subjectKey &&
         subject && {

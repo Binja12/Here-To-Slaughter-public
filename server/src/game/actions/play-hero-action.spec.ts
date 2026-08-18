@@ -259,8 +259,7 @@ describe('PlayHeroAction', () => {
     })
 
     it('un-grants the free roll when the challenge is lost', () => {
-      // The queue lives on GameState, so the granted roll rides in the snapshot
-      // and the rollback takes it with the hero.
+      // The queue lives on GameState, so a rollback un-grants the roll.
       const rm = new ReactionManager(gs, emitter)
       const tm = new TurnManager(gs, emitter)
       tm.startTurn('p1')
@@ -310,7 +309,6 @@ describe('PlayHeroAction', () => {
     it('queues the roll only after the hero is in the party, so it can execute', () => {
       const { queue, queued } = makeQueue()
       makeAction(queue).execute(gs)
-      // canExecute requires party membership — proves the ordering inside execute.
       expect(queued[0].canExecute(gs)).toBe(true)
     })
 

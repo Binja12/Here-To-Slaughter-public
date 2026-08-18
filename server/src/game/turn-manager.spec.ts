@@ -288,9 +288,7 @@ describe('TurnManager', () => {
         },
       }
 
-      // Seed both directly so 'later' is genuinely waiting behind 'spawner'
-      // when it runs — tm.enqueue() would drain the first one before the second
-      // was ever added.
+      // Seed both directly so 'later' is genuinely waiting behind 'spawner' when...
       gs.actionQueue.push(spawner, later)
       tm.resumeDrain()
 

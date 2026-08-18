@@ -37,10 +37,6 @@ export class DrawTask implements ITask {
     const player = gs.getPlayer(ctx.ownerId)
     if (!player) return
 
-    // Collected, then written once as an array — every other context slot is a
-    // list, and this one being a bare string was the odd one out. A reader that
-    // expected a list got a string's `.length` and its first CHARACTER instead
-    // of a card id, with no error to notice.
     const drawn: string[] = []
     for (let i = 0; i < this.count; i++) {
       const cardId = gs.getMainDeck().draw()
@@ -49,8 +45,8 @@ export class DrawTask implements ITask {
       drawn.push(cardId)
       em.emit(GameEventFactory.cardDrawn(ctx.ownerId, cardId))
     }
-    // Set even when the deck ran dry: "drew nothing" and "never drew" are
-    // different facts, and a later step reads the difference.
+    // Set even when the deck ran dry: readers tell "drew nothing" from "never
+    // drew" (see CardTypeCondition, RollOnHeroTask).
     ctx.set(CTX_DRAWN_CARD_IDS, drawn)
   }
 }
@@ -183,8 +179,7 @@ export class StealFromPartyTask implements ITask {
   ): void {
     const chosen = ctx.get<string[]>(this.fromKey)
 
-    // ABSENT means no ChooseCardTask ran ahead of this step — a mis-declared
-    // ability, and §2's "missing required input throws" applies.
+    // Absent = no ChooseCardTask ran ahead of this step: a mis-declared ability.
     if (chosen === undefined) {
       throw new Error(
         `StealFromPartyTask: nothing has written ${this.fromKey} — the ` +
@@ -192,12 +187,8 @@ export class StealFromPartyTask implements ITask {
       )
     }
 
-    // Declare the outcome slot up front, empty. Every path below where the
-    // steal does not happen simply leaves it that way and returns: this step
-    // skips its own body, and says nothing about the steps after it — they read
-    // an empty subject and skip themselves in turn. A task deciding that its
-    // SIBLINGS should not run would be the same overreach as a task cancelling
-    // them; that call belongs to frame settlement alone (§3).
+    // Declared up front, empty: every no-steal path leaves it that way, and
+    // later steps read the empty slot and skip themselves.
     ctx.set(CTX_STOLEN_HERO_ID, [])
 
     const [heroId] = chosen
@@ -206,17 +197,14 @@ export class StealFromPartyTask implements ITask {
     const fromPlayerId = gs.getCardOwner(heroId)
     if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
 
-    // A standing CantBeStolen effect on the target's owner beats the steal.
-    // Checked here, at the mutation, rather than only when the choice window
-    // built its options: the protection may have been installed in between.
+    // Checked at the mutation, not when the choice window built its options:
+    // the protection may have been installed in between.
     if (gs.hasEffect(PassiveType.CantBeStolen, fromPlayerId)) return
 
     const fromParty = gs.getParty(fromPlayerId)
     if (!fromParty.getHeroIds().includes(heroId)) return
 
-    // Both halves announce themselves, so effect expiries keyed to a hero
-    // leaving OR entering a party see the move. The hero's own ability needs no
-    // help: it is read from whichever party holds the card, so it follows here.
+    // Both halves announce themselves, so expiries keyed to either see it.
     fromParty.removeHero(heroId, em, 'Stolen')
     gs.getParty(ctx.ownerId).addHero(heroId, em, 'Stolen')
     // Recorded so later steps can still reach this hero after a second card
@@ -227,15 +215,10 @@ export class StealFromPartyTask implements ITask {
 }
 
 // ---------------------------------------------------------------------------
-// RollOnHeroTask — roll dice on a hero and open a modifier window.
+// RollOnHeroTask — roll on a hero and open a modifier window; the pipeline
+// suspends here. ModifierWindow owns settlement and emits RollSuccess.
 //
-// Emits DiceRolled then opens a modifier-window frame (which snapshots GS).
-// The pipeline suspends here; if finalRoll >= rollReq ReactionManager emits
-// RollSuccess and FrameResolved resumes remaining steps.
-//
-// The snapshot is taken HERE, so a failed roll only undoes what happens from
-// this step onward — earlier steps in the same ability (a steal, a discard)
-// have already been captured by it and survive the rollback.
+// Its snapshot is taken HERE, so a failed roll undoes nothing before it.
 // ---------------------------------------------------------------------------
 
 export class RollOnHeroTask implements ITask {
@@ -252,8 +235,7 @@ export class RollOnHeroTask implements ITask {
   ): string | void {
     const chosen = ctx.get<string[]>(this.fromKey)
 
-    // ABSENT — nothing ever wrote this slot, so no step ahead of this one was
-    // declared to supply a hero. A mis-declared ability; §2 says throw.
+    // Absent = no step ahead was declared to supply a hero.
     if (chosen === undefined) {
       throw new Error(
         `RollOnHeroTask: nothing has written ${this.fromKey} — expected a ` +
@@ -261,10 +243,6 @@ export class RollOnHeroTask implements ITask {
       )
     }
 
-    // PRESENT BUT EMPTY — the step ahead ran and produced no hero (a steal that
-    // found no legal target). Legal, and nothing to roll on, so skip. Note this
-    // is the TASK path only: RollOnHeroAction takes its heroId as a constructor
-    // argument straight from the API request and can never arrive empty.
     const [heroId] = chosen
     if (!heroId) return
 

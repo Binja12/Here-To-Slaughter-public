@@ -144,8 +144,6 @@ describe('CardTypeCondition', () => {
     const gs = makeGs()
     gs.registerCard(makeMagicCard('magic-1'))
     const ctx = makeCtx()
-    // A CHOSEN card, not a drawn one — the condition has no opinion about
-    // where the id came from.
     ctx.set(CTX_CHOSEN_CARD, ['magic-1'])
     const em = new GameEventEmitter()
     const events = collect(em)
@@ -170,7 +168,6 @@ describe('CardTypeCondition', () => {
       gs, ctx, em, stubRm,
     )
 
-    // "did this produce a Magic card", not "was the last one Magic"
     expect(metEvents(events)).toHaveLength(1)
   })
 
@@ -186,8 +183,7 @@ describe('CardTypeCondition', () => {
       gs, ctx, em, stubRm,
     )
 
-    // The continuation runs with a fresh context, so the cards it was asked
-    // about have to travel with the event.
+    // The continuation runs with a fresh context.
     expect(metEvents(events)[0].getPayload()).toMatchObject({
       ctxSeed: { drawnCardIds: ['magic-1'] },
     })

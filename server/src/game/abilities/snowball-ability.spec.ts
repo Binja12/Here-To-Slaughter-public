@@ -146,11 +146,8 @@ describe('DrawTask', () => {
 })
 
 // ---------------------------------------------------------------------------
-// SnowballAbility — end to end, through the real processor
-//
-// "DRAW a card. If it is a Magic card, you MAY play it immediately and DRAW a
-// second card." The may is the point: the second draw is its own entry,
-// unlocked by answering the prompt.
+// SnowballAbility — end to end, through the real processor. The second draw is
+// its own entry, unlocked by answering the prompt.
 // ---------------------------------------------------------------------------
 
 function setup(deckCards: string[]) {
@@ -212,7 +209,6 @@ describe('SnowballAbility', () => {
 
     fire(em)
 
-    // The card says "you MAY" — the old version drew again automatically.
     expect(player.getHand()).toEqual(['magic-1'])
     expect(drawnCount(events)).toBe(1)
     expect(openPrompt(gs)).toBeDefined()
@@ -236,8 +232,6 @@ describe('SnowballAbility', () => {
 
     openPrompt(gs)!.submitReaction('p1', { choice: DISMISS })
 
-    // "No" is the ABSENCE of the event — nothing is cancelled or rolled back,
-    // the continuation entry simply never matches.
     expect(player.getHand()).toEqual(['magic-1'])
     expect(drawnCount(events)).toBe(1)
     expect(
@@ -264,7 +258,6 @@ describe('SnowballAbility', () => {
 
     openPrompt(gs)!.submitReaction('p1', { choice: DISMISS })
 
-    // The window releases on either answer, so declining rewinds nothing.
     expect(player.getHand()).toContain('magic-1')
   })
 })

@@ -284,9 +284,7 @@ describe('RollOnHeroAction', () => {
           image: '',
           description: '',
           set: '',
-          // No ability: a modifier is played by a player REQUEST gated on an
-          // open modifier frame (PlayModifierReaction.canExecute), never by a
-          // passive trigger.
+          // No ability: a modifier is played by a player REQUEST gated on an open mod...
           values: [3],
         }),
       )

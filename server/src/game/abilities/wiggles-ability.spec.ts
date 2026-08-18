@@ -15,11 +15,8 @@ import { IReactionWindow } from '../interfaces'
 import { CTX_CHOSEN_CARD, CTX_FINAL_ROLL } from '../ability-context'
 
 // ---------------------------------------------------------------------------
-// Wiggles end-to-end: RollSuccess on Wiggles →
-//   ChooseCardTask → StealFromPartyTask → ConfirmTask → RollOnHeroTask
-//
-// Each of the three suspending steps resolves its own frame, so the pipeline
-// is driven forward by answering one window at a time.
+// Wiggles end-to-end: ChooseCard -> Steal -> Confirm | RollOnHero.
+// Each suspending step opens its own window, answered one at a time.
 // ---------------------------------------------------------------------------
 
 const makeGs = () =>
@@ -190,8 +187,6 @@ describe('WigglesAbility', () => {
       .filter((e) => e.getType() === GameEventType.ReactionWindowOpened)
       .map((e) => e.getPayload() as Record<string, unknown>)
       .find((p) => p['confirms'] !== undefined)
-    // CONFIRM/DISMISS alone is unrenderable — "Roll on victim?" needs both the
-    // follow-up being offered and its subject.
     expect(prompt).toMatchObject({ confirms: 'RollOnHero', cardId: 'victim' })
   })
 
@@ -219,8 +214,7 @@ describe('WigglesAbility', () => {
 
     answerRollPrompt(gs, CONFIRM)
 
-    // Entry [1] runs with a FRESH context — without the seed on the event it
-    // would find CTX_STOLEN_HERO_ID absent and throw.
+    // Entry [1] runs with a fresh context, so this has to travel on the event.
     const confirmed = events.find(
       (e) => e.getType() === GameEventType.TaskConfirmed,
     )
@@ -239,9 +233,6 @@ describe('WigglesAbility', () => {
 
     answerRollPrompt(gs, DISMISS)
 
-    // Nothing is rolled back at all now: the window releases either way, and
-    // "no" simply means no TaskConfirmed, so entry [1] never triggers. The
-    // answer gates exactly what the declaration put in that entry.
     expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     expect(gs.getParty('p2').getHeroIds()).not.toContain('victim')
     expect(events.some((e) => e.getType() === GameEventType.DiceRolled)).toBe(
@@ -372,10 +363,7 @@ describe('WigglesAbility', () => {
 
     expect(() => fireTrigger(em)).not.toThrow()
 
-    // The choice window has no options, so it resolves inside its own
-    // constructor and ChooseCardTask records an empty pick. StealFromPartyTask
-    // reads "offered nothing" rather than "no choice step ran", so it no-ops
-    // instead of throwing.
+    // The choice window has no options, so it resolves inside its own construct...
     expect(gs.getParty('p1').getHeroIds()).toEqual(['wiggles'])
   })
 
@@ -390,10 +378,7 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
     jest.advanceTimersByTime(0) // the empty choice settles on the next tick
 
-    // The choice resolved with no pick, the steal skipped itself, and
-    // ConfirmTask saw an empty subject and skipped too — so nobody is asked
-    // "roll on the hero you just took?" about a hero that was never taken.
-    // No step had to silence another to get here.
+    // The choice resolved with no pick, the steal skipped itself, and ConfirmTa...
     expect(openWindows(gs)).toHaveLength(0)
     expect(gs.abilityPipelines.size).toBe(0)
   })
@@ -402,7 +387,6 @@ describe('WigglesAbility', () => {
     const { gs, em, events } = setup()
     fireTrigger(em)
 
-    // Options existed; the player simply never answered.
     jest.advanceTimersByTime(5000)
 
     expect(gs.getParty('p2').getHeroIds()).toContain('victim') // no steal

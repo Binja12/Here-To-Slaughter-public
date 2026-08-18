@@ -57,18 +57,10 @@ export enum GameEventType {
   CardDrawn = "CardDrawn",
   CardPlayed = "CardPlayed",
   CardDiscarded = "CardDiscarded",
-  /**
-   * A card left a hand to be played. Distinct from CardDiscarded (it is not
-   * going to the pile) and from HeroAddedToParty (that announces the ARRIVAL,
-   * and only for heroes) — every play type passes through this one first.
-   */
+  /** A card left a hand to be played. Every play type emits this first. */
   CardRemovedFromHand = "CardRemovedFromHand",
   MagicPlayed = "MagicPlayed",
-  /**
-   * A modifier card was SPENT into an open window. Distinct from
-   * ModifierApplied, which the window emits once the bonus is in the running
-   * total — this one says the card left the player's hand for it.
-   */
+  /** A modifier card was spent. ModifierApplied reports the bonus landing. */
   ModifierPlayed = "ModifierPlayed",
 
   // Hero events
@@ -110,25 +102,14 @@ export enum GameEventType {
   FrameResolved = "FrameResolved",
 
   /**
-   * A player said YES to a ConfirmTask. Carries which question was answered
-   * (`confirms`), an optional `seq` when a card asks the same question more
-   * than once, and an optional `ctxSeed` of context slots for the continuation.
-   *
-   * This is how an ability continues past a confirm: the confirm is the LAST
-   * step of its entry, and the follow-up is a separate registry entry triggered
-   * by this event. DISMISS emits nothing at all — "no" is the absence of the
-   * event, so nothing has to be cancelled.
+   * A player said YES to a ConfirmTask. `{ cardId, label, ctxSeed? }` — the
+   * follow-up is a registry entry triggered by this. DISMISS emits nothing.
    */
   TaskConfirmed = "TaskConfirmed",
 
   /**
-   * A condition step held. Carries the `label` its declaration gave it, and a
-   * `ctxSeed` of the slots the continuation needs.
-   *
-   * Same shape as TaskConfirmed, for the same reason: the steps a condition
-   * guards live in their own registry entry triggered by this event, rather
-   * than nested inside the condition. A condition that does NOT hold emits
-   * nothing, so "false" is the absence of the event — nothing to skip over.
+   * A condition held. Same shape as TaskConfirmed: the steps it guards are a
+   * registry entry triggered by this. A failing condition emits nothing.
    */
   ConditionMet = "ConditionMet",
 
@@ -193,19 +174,11 @@ export enum SelectionMode {
 }
 
 // ---------------------------------------------------------------------------
-// Card targeting — two independent axes, deliberately kept apart.
-//
-// Zone answers WHICH pile, Owner answers WHOSE. Fusing them (an
-// "OpponentHand" member, say) forces a new value for every combination and
-// still cannot express "the chosen player's hand", so they stay separate and
-// compose: { zone: Zone.Hand, owner: Owner.Chosen }.
+// Card targeting — two independent axes that compose:
+// { zone: Zone.Hand, owner: Owner.Chosen }. See reactions/choice-filters.ts.
 // ---------------------------------------------------------------------------
 
-/**
- * Where cards live. Used to say which cards an ability may target — NOT which
- * a given client may see. Visibility belongs to the projection layer in front
- * of the API, since the client never receives the whole GameState anyway.
- */
+/** Where cards live. Targeting only — visibility is the projection layer's. */
 export enum Zone {
   Hand = "Hand",
   Party = "Party",
@@ -243,18 +216,11 @@ export enum TriggerScope {
 }
 
 /**
- * Standing rule flags an ActiveEffect can carry. A flag is only real once some
- * rule READS it — declaring one changes nothing on its own, and an effect
- * carrying an unread flag installs, emits EffectApplied and expires on schedule
- * while the rule it names quietly does not apply.
- *
- * Wired today:
- *   RollBonus     — summed into every roll (both reaction windows)
- *   CantBeStolen  — checked in StealFromPartyTask, at the mutation
- *
- * NOT wired yet — no reader exists, and none will be added until a card that
- * needs the effect is implemented:=
- *   CantBeChallenged  — would gate the same, on the card's owner
+ * Standing rule flags on an ActiveEffect. A flag does nothing until a rule
+ * reads it.
+ *   RollBonus     — read by ModifierWindow and ChallengeWindow
+ *   CantBeStolen  — read by StealFromPartyTask
+ *   CantChallenge, CantBeChallenged — NOT wired; no reader yet.
  */
 export enum PassiveType {
   RollBonus = "RollBonus",

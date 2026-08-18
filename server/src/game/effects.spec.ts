@@ -261,10 +261,7 @@ describe('ongoing effects', () => {
       expect(isProtected(gs)).toBe(false)
     })
 
-    // There used to be a test here proving that a raw party mutation was
-    // invisible to expiries. It no longer compiles: Party.removeHero requires
-    // an emitter and a reason, so a silent removal cannot be written at all.
-    // The contract moved from a documented hole to a compile error.
+    // There used to be a test here proving that a raw party mutation was invisi...
 
     it('untilSourceLeavesParty ends when the installing card itself is removed', () => {
       const { gs, em } = setup()
@@ -491,10 +488,7 @@ describe('ongoing effects', () => {
     })
 
     it('brings back an effect the sweep removed after the snapshot', () => {
-      // The case that proves Player.clone() isolates the list: the snapshot and
-      // the live player share effect ENTRIES but must not share the ARRAY. If
-      // removeEffect could reach the snapshot's array, the rollback below would
-      // find the effect already gone.
+      // The case that proves Player.clone() isolates the list: the snapshot and t...
       const { gs, em, rm } = setup()
       seat(gs, 'p1')
       gs.addEffect(anEffect({ expiry: [untilEndOfTurn] }))

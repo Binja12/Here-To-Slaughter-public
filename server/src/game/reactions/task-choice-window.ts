@@ -9,21 +9,11 @@ export const CONFIRM = 'confirm'
 export const DISMISS = 'dismiss'
 
 // ---------------------------------------------------------------------------
-// TaskChoiceWindow — "do you want to do X?" asked before the step that does X.
+// TaskChoiceWindow — "do you want to do X?", opened by ConfirmTask.
 //
-// CONFIRM emits TaskConfirmed; DISMISS emits nothing. "No" is the ABSENCE of
-// an event, so there is nothing to cancel and nothing to roll back — the
-// window always releases its frame either way.
-//
-// That is why a confirm is the LAST step of its ability entry: the follow-up
-// is a separate entry triggered by TaskConfirmed, so the answer decides whether
-// it ever runs. Before this, DISMISS restored the frame and the rollback
-// discarded whatever remained parked behind it — which worked, but cancelled
-// EVERY later step wholesale, and made a player's answer the one thing besides
-// a failed roll or a lost challenge that could rewind state.
-//
-// A timeout still defaults to DISMISS: an idle player is not committed to an
-// effect they never asked for. It simply means no event, like any other "no".
+// CONFIRM emits TaskConfirmed; DISMISS (and a timeout) emits nothing. The
+// frame is released either way. A confirm is therefore the LAST step of its
+// ability entry — the follow-up is a separate entry triggered by that event.
 // ---------------------------------------------------------------------------
 
 export class TaskChoiceWindow extends ChoiceWindow {
@@ -35,15 +25,9 @@ export class TaskChoiceWindow extends ChoiceWindow {
     frameId: string,
     emitter: IGameEventEmitter,
     /**
-     * What is being confirmed — `{ confirms, cardId?, ... }` from whoever
-     * opened it. CONFIRM/DISMISS alone cannot be rendered: a client needs to
-     * know the question to draw "Roll on Victim?" rather than a bare yes/no.
-     */
-    /**
-     * What is being confirmed: `{ confirms, seq?, ctxSeed?, cardId? }` from
-     * whoever opened the window. `confirms` and `seq` are what a continuation
-     * trigger matches on; `ctxSeed` is the slots that continuation needs, since
-     * it runs with a FRESH context and cannot see this pipeline's blackboard.
+     * `{ confirms, sourceCardId, cardId?, ctxSeed? }` from ConfirmTask.
+     * `confirms` becomes the event's `label`, which a continuation matches
+     * with `when`; `ctxSeed` is what that continuation needs in its context.
      */
     private readonly question: Record<string, unknown> = {},
   ) {
@@ -63,12 +47,7 @@ export class TaskChoiceWindow extends ChoiceWindow {
     return ReactionWindowType.TaskChoice
   }
 
-  /**
-   * Deliberately none. CONFIRM releases the frame and DISMISS restores it, so
-   * any step that runs afterwards necessarily got CONFIRM — a context key here
-   * could only ever hold the constant `true`, and a stray 'confirm' string
-   * sitting in the context is exactly what a later card choice must not read.
-   */
+  /** None: the answer travels on TaskConfirmed, not through the context. */
   override resultKey(): string | typeof NO_CONTEXT_RESULT {
     return NO_CONTEXT_RESULT
   }
@@ -77,10 +56,7 @@ export class TaskChoiceWindow extends ChoiceWindow {
     return DISMISS
   }
 
-  /**
-   * CONFIRM announces itself so a continuation entry can trigger on it.
-   * DISMISS says nothing at all — no event, no continuation, nothing undone.
-   */
+  /** CONFIRM announces itself; DISMISS says nothing. */
   protected override announceOutcome(picked: unknown): void {
     if (picked !== CONFIRM) return
     const { confirms: label, ctxSeed, sourceCardId } = this.question as {

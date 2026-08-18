@@ -30,19 +30,9 @@ export class TurnManager implements IActionQueue {
   }
 
   /**
-   * Put an action at the FRONT of the queue — the continuation an action
-   * spawns while it executes (playing a hero grants a free roll on that hero).
-   *
-   * Deliberately different from `enqueue` on three counts:
-   * - **It does not drain.** The only caller is an action already running
-   *   inside the drain loop; draining here would re-enter the loop from within
-   *   `execute()` and could end the turn before the outer iteration finished.
-   *   The outer loop picks the action up on its next pass, or `resumeDrain()`
-   *   does once an open window settles.
-   * - **No phase check.** This is the engine continuing work it already
-   *   started, not a fresh player request arriving out of phase.
-   * - **No reactable/open-window check.** A window opened by the spawning
-   *   action's own events must delay the continuation, never discard it.
+   * Front of the queue, for a continuation an action spawns mid-execute.
+   * Does not drain: the caller is already inside the drain loop, which picks
+   * this up on its next pass (or resumeDrain does, once a window settles).
    */
   enqueueFirst(action: IAction): void {
     this.gs.actionQueue.unshift(action)
@@ -58,8 +48,6 @@ export class TurnManager implements IActionQueue {
     if (!player) return
     this.gs.setCurrentPlayerId(playerId)
     this.gs.clearUsedAbilities()
-    // Same lifetime as the ability slots: "challenged this turn" has to be
-    // wiped when the turn changes, or the guard hardens into a permanent ban.
     this.gs.clearChallengedCards()
     player.resetActionPoints()
     this.phase = TurnPhase.ActionWindow

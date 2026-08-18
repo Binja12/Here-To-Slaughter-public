@@ -9,12 +9,7 @@ import { GameEventFactory } from '../events/game-event-factory'
 /** What a roll costs when the player pays for it themselves. */
 const COST = 1
 
-/**
- * A roll granted by another action rather than bought with an action point —
- * the free roll that comes with playing a hero. Cost is a constructor argument
- * so the free case is the same class with a different price, not a second class
- * or an `isFree` branch inside this one.
- */
+/** Cost for a roll granted by another action — PlayHeroAction's free roll. */
 export const FREE = 0
 
 export class RollOnHeroAction implements IAction {
@@ -36,8 +31,7 @@ export class RollOnHeroAction implements IAction {
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    // `< cost`, not `<= 0`: a FREE roll must still be legal at zero AP, which
-    // is exactly the state playing a hero with the last point leaves you in.
+    // `< cost`, not `<= 0`: a FREE roll is legal at zero AP.
     if (player.getActionPoints() < this.cost) return false
     const party = gs.getParty(this.playerId)
     if (!party?.getHeroIds().includes(this.cardId)) return false
@@ -69,9 +63,7 @@ export class RollOnHeroAction implements IAction {
       heroId: this.cardId,
     })
 
-    // ModifierWindow — not GameEngine — emits RollSuccess, and does it between
-    // releaseFrame and FrameResolved, so an ability triggered by the roll runs
-    // with the frame already gone. GameEngine's only job on FrameResolved is
-    // resumeDrain().
+    // ModifierWindow emits RollSuccess between releaseFrame and FrameResolved.
+    // GameEngine's only job on FrameResolved is resumeDrain().
   }
 }
