@@ -189,6 +189,19 @@ export class GameEventFactory {
     )
   }
 
+  static itemUnequipped(
+    playerId: string,
+    cardId: string,
+    heroId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.ItemUnequipped,
+      playerId,
+      { cardId, heroId },
+      Audience.All,
+    )
+  }
+
   static magicPlayed(playerId: string, cardId: string): IGameEvent {
     return new GameEvent(
       GameEventType.MagicPlayed,

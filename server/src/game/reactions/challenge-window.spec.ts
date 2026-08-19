@@ -85,7 +85,8 @@ describe('ChallengeWindow — standing roll bonuses', () => {
       id: 'eff-' + playerId,
       sourceCardId,
       ownerId: playerId,
-      passive: { type: PassiveType.RollBonus, value },
+      type: PassiveType.RollBonus,
+      value,
     })
 
   beforeEach(() => {

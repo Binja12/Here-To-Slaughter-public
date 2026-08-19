@@ -383,16 +383,16 @@ describe('WigglesAbility', () => {
     expect(gs.abilityPipelines).toHaveLength(0)
   })
 
-  it('ends the ability when the card choice times out, without prompting', () => {
-    const { gs, em, events } = setup()
+  it('steals a random option when the card choice times out', () => {
+    const { gs, em } = setup()
     fireTrigger(em)
 
     jest.advanceTimersByTime(5000)
 
-    expect(gs.getParty('p2').getHeroIds()).toContain('victim') // no steal
-    expect(openWindows(gs)).toHaveLength(0) // and no follow-up prompt
-    expect(events.some((e) => e.getType() === GameEventType.DiceRolled)).toBe(
-      false,
-    )
+    // A card choice defaults to one of its options, so an idle player still
+    // steals — and the confirm behind it is offered as normal.
+    expect(gs.getParty('p2').getHeroIds()).not.toContain('victim')
+    expect(gs.getParty('p1').getHeroIds()).toContain('victim')
+    expect(openWindows(gs)).toHaveLength(1)
   })
 })

@@ -1,7 +1,6 @@
 import { IGameEventEmitter, PassiveType } from 'shared'
 import {
-  AbilityTrigger,
-  ActiveEffect,
+  IEffect,
   EffectExpiry,
   IReactionManager,
   ITask,
@@ -94,30 +93,22 @@ export class DiscardTask implements ITask {
 // ---------------------------------------------------------------------------
 
 export type EffectSpec = {
-  passive?: { type: PassiveType; value?: number }
-  /** Same shape a card ability uses — installed, they are the same record. */
-  trigger?: AbilityTrigger
-  steps?: ITask[]
+  /** Which standing rule to install. */
+  type: PassiveType
+  /** Magnitude, for the rules that carry one. */
+  value?: number
   /** Absent = permanent. One entry or several — first match ends the effect. */
   expiry?: EffectExpiry | EffectExpiry[]
+  /**
+   * Narrow the rule to the hero carrying the source card — for an item whose
+   * wording is about "the equipped Hero". Resolved at install time, because a
+   * declaration built at module load has no carrier yet.
+   */
+  scopedToCarrier?: boolean
 }
 
 export class ApplyEffectTask implements ITask {
-  constructor(private readonly spec: EffectSpec) {
-    const triggered = spec.trigger !== undefined
-    if (triggered !== (spec.steps !== undefined)) {
-      throw new Error(
-        'ApplyEffectTask: `trigger` and `steps` go together — a trigger with ' +
-          'no steps fires nothing, and steps with no trigger never run.',
-      )
-    }
-    if (!spec.passive && !triggered) {
-      throw new Error(
-        'ApplyEffectTask: an effect needs a `passive` flag or a ' +
-          '`trigger`+`steps` pair, otherwise it does nothing at all.',
-      )
-    }
-  }
+  constructor(private readonly spec: EffectSpec) {}
 
   execute(
     gs: GameState,
@@ -125,12 +116,14 @@ export class ApplyEffectTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const { expiry, ...rule } = this.spec
-    const effect: ActiveEffect = {
+    const { expiry, scopedToCarrier, ...rule } = this.spec
+
+    const effect: IEffect = {
       id: crypto.randomUUID(),
       sourceCardId: ctx.sourceCardId,
       ownerId: ctx.ownerId,
       ...rule,
+      ...(scopedToCarrier && { cardId: gs.getItemCarrier(ctx.sourceCardId) }),
       // Normalised to an array so the sweep has one shape to walk.
       ...(expiry && { expiry: Array.isArray(expiry) ? expiry : [expiry] }),
     }
@@ -138,7 +131,7 @@ export class ApplyEffectTask implements ITask {
     gs.addEffect(effect)
     em.emit(
       GameEventFactory.effectApplied(ctx.ownerId, effect.id, ctx.sourceCardId, {
-        passive: effect.passive?.type,
+        passive: effect.type,
         // Event types only: shouldExpire is server code and has no business in
         // a payload a client may render.
         expiresOn: effect.expiry?.map((e) => e.on),

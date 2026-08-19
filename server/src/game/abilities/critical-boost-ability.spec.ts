@@ -166,15 +166,16 @@ describe('CriticalBoostAbility', () => {
     expect((discards[0].getPayload() as { cardId: string }).cardId).toBe('b')
   })
 
-  it('keeps the three cards when the player never answers', () => {
+  it('still pays the discard when the player never answers', () => {
     const { gs, player } = play(['a', 'b', 'c'])
 
     jest.advanceTimersByTime(5000)
 
-    // A timeout resolves, it never rolls back: the draw stands and nothing is
-    // thrown away.
-    expect(player.getHand()).toEqual(['a', 'b', 'c'])
-    expect(gs.getDiscardPile().getAll()).not.toContain('a')
+    // A timeout resolves rather than rolling back, and a card choice defaults
+    // to a random one of the options — so the cost lands either way.
+    expect(player.getHand()).toHaveLength(2)
+    const [gone] = ['a', 'b', 'c'].filter((c) => !player.getHand().includes(c))
+    expect(gs.getDiscardPile().getAll()).toContain(gone)
     expect(gs.abilityPipelines).toHaveLength(0)
   })
 
@@ -287,9 +288,11 @@ describe('Snowball drawing Critical Boost', () => {
 
     jest.advanceTimersByTime(5000)
 
-    // No discard, but Snowball's second draw is not lost with it.
+    // The idle discard is taken from the Boost's own options, and Snowball's
+    // second draw is not lost with it.
     expect(drawnCount(events)).toBe(5)
-    expect(player.getHand()).toEqual(['a', 'b', 'c', 'd'])
+    expect(player.getHand()).toHaveLength(3)
+    expect(player.getHand()).toContain('d')
     expect(gs.abilityPipelines).toHaveLength(0)
   })
 })

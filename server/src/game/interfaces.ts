@@ -100,24 +100,29 @@ export interface IAbility {
 export type EffectExpiry = {
   on: GameEventType
   /** Absent = the event alone decides. */
-  shouldExpire?: (
-    gs: GameState,
-    effect: ActiveEffect,
-    event: IGameEvent,
-  ) => boolean
+  shouldExpire?: (gs: GameState, effect: IEffect, event: IGameEvent) => boolean
 }
 
-export interface ActiveEffect {
+/**
+ * A standing rule with a lifetime. An ability is the one-time run; what it
+ * leaves behind is this, and this is only ever a rule somebody reads — never
+ * behaviour of its own.
+ */
+export interface IEffect {
   id: string
   /** The card whose ability installed this. Identity for logs and self-matching. */
   sourceCardId: string
   /** Whose effect it is — the player expiry checks and queries resolve against. */
   ownerId: string
-  /** Standing rule flag, read via gs.hasEffect / gs.getEffectsWithPassive. */
-  passive?: { type: PassiveType; value?: number }
-  /** Optional behaviour; TaskManager lists it as a source while it lives. */
-  trigger?: AbilityTrigger
-  steps?: ITask[]
+  /** Which rule this is, read via gs.hasEffect / gs.getEffects. */
+  type: PassiveType
+  /** Magnitude, for the rules that carry one. */
+  value?: number
+  /**
+   * Narrows it to rolls ABOUT this card — absent means it applies to
+   * everything the owner rolls. Read at the two roll sites, not here.
+   */
+  cardId?: string
   /** Absent = permanent. Multiple entries = first match ends it. */
   expiry?: EffectExpiry[]
 }

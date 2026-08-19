@@ -20,16 +20,16 @@ import { GameEventFactory } from '../events/game-event-factory'
  * type-check while letting TaskManager run an action — playing its
  * constructor-bound card and ignoring the context.
  */
-export abstract class MagicPlay {
+export abstract class PlayMagic {
   /**
-   * Hand → instance pile → `MagicPlayed` → challenge window. Returns the
+   * Hand → instance pile → `PlayMagiced` → challenge window. Returns the
    * frameId.
    *
    * The card leaves the hand BEFORE the frame and joins the instance pile
    * inside it, so a lost challenge takes the play back but not the card;
    * ChallengeWindow discards it on that branch.
    *
-   * `MagicPlayed` announces the attempt — it is what the table challenges. The
+   * `PlayMagiced` announces the attempt — it is what the table challenges. The
    * card's own steps trigger on the settled challenge frame instead: the
    * window names this card on its FrameResolved, and a defeated card is no
    * longer in the pile to be matched from.
@@ -68,7 +68,7 @@ export abstract class MagicPlay {
  * itself. Names WHAT it needs (a slot holding a card), never where that card
  * came from.
  */
-export class PlayMagicTask extends MagicPlay implements ITask {
+export class PlayMagicTask extends PlayMagic implements ITask {
   /** Card to play. Defaults to the card a ChooseCardTask put on the context. */
   constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {
     super()
@@ -108,7 +108,7 @@ export class PlayMagicTask extends MagicPlay implements ITask {
  * The last step of every played magic card's entry: instance pile → discard.
  *
  * Acts on the entry's own source card, so it takes no argument. Silent —
- * MagicPlayed already told the table the card was spent. A magic card whose
+ * PlayMagiced already told the table the card was spent. A magic card whose
  * entry omits it is left sitting in the instance pile.
  */
 export class DisposeMagicTask implements ITask {

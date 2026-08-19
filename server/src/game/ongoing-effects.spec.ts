@@ -17,7 +17,7 @@ import { GameEventEmitter } from './events/game-event-emitter'
 import { TaskManager } from './task-manager'
 import { ReactionManager } from './reactions/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
-import { ActiveEffect, IAbility } from './interfaces'
+import { IEffect, IAbility } from './interfaces'
 import { ApplyEffectTask } from './tasks/tasks'
 import { StealFromPartyTask } from './tasks/hero-tasks'
 import {
@@ -25,7 +25,7 @@ import {
   untilOwnersNextTurn,
   untilSourceLeavesParty,
   whileClassInParty,
-} from './effects'
+} from './expiries'
 
 // ---------------------------------------------------------------------------
 // Ongoing effects — the lifetime an ability's `trigger` cannot express.
@@ -87,11 +87,11 @@ function setup(abilities: Map<string, IAbility[]> = new Map()) {
 }
 
 /** A CantBeStolen effect on p1. No expiry = permanent, unless overridden. */
-const anEffect = (over: Partial<ActiveEffect> = {}): ActiveEffect => ({
+const anEffect = (over: Partial<IEffect> = {}): IEffect => ({
   id: 'effect-1',
   sourceCardId: 'source-card',
   ownerId: 'p1',
-  passive: { type: PassiveType.CantBeStolen },
+  type: PassiveType.CantBeStolen,
   ...over,
 })
 
@@ -108,7 +108,7 @@ const isProtected = (gs: GameState, playerId = 'p1') =>
 
 /** Effects live on their owner, so assertions read them from the player. */
 const effectsOf = (gs: GameState, playerId: string) =>
-  gs.getPlayer(playerId)!.getEffects()
+  gs.getPlayer(playerId)!.getAllEffects()
 
 describe('ongoing effects', () => {
   // -------------------------------------------------------------------------
@@ -121,7 +121,7 @@ describe('ongoing effects', () => {
       seat(gs, 'p2')
 
       new ApplyEffectTask({
-        passive: { type: PassiveType.CantBeStolen },
+        type: PassiveType.CantBeStolen,
         expiry: untilOwnersNextTurn,
       }).execute(gs, new AbilityContext('leader-card', 'p2'), em, rm)
 
@@ -136,7 +136,7 @@ describe('ongoing effects', () => {
       seat(gs, 'p1')
 
       new ApplyEffectTask({
-        passive: { type: PassiveType.CantBeStolen },
+        type: PassiveType.CantBeStolen,
         expiry: untilOwnersNextTurn,
       }).execute(gs, new AbilityContext('source-card', 'p1'), em, rm)
 
@@ -157,28 +157,11 @@ describe('ongoing effects', () => {
       seat(gs, 'p1')
 
       new ApplyEffectTask({
-        passive: { type: PassiveType.CantBeStolen },
+        type: PassiveType.CantBeStolen,
         expiry: untilEndOfTurn,
       }).execute(gs, new AbilityContext('source-card', 'p1'), em, rm)
 
       expect(effectsOf(gs, 'p1')[0].expiry).toEqual([untilEndOfTurn])
-    })
-
-    it('rejects an effect that would do nothing', () => {
-      expect(() => new ApplyEffectTask({})).toThrow(/passive/)
-    })
-
-    it('rejects a trigger with no steps, and steps with no trigger', () => {
-      expect(
-        () =>
-          new ApplyEffectTask({
-            trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          }),
-      ).toThrow(/go together/)
-
-      expect(
-        () => new ApplyEffectTask({ steps: [{ execute: () => undefined }] }),
-      ).toThrow(/go together/)
     })
   })
 
@@ -282,118 +265,6 @@ describe('ongoing effects', () => {
   // -------------------------------------------------------------------------
   // A live effect is a temporary passive ability
   // -------------------------------------------------------------------------
-
-  describe('effects as passive sources', () => {
-    it('fires its steps while it lives', () => {
-      const { gs, em } = setup()
-      seat(gs, 'p1')
-      const fired: string[] = []
-      gs.addEffect(
-        anEffect({
-          passive: undefined,
-          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          steps: [{ execute: () => {
-        fired.push('ran')
-      } }],
-        }),
-      )
-
-      em.emit(new GameEvent(GameEventType.DiceRolled, 'p1', {}))
-      em.emit(new GameEvent(GameEventType.DiceRolled, 'p1', {}))
-
-      expect(fired).toHaveLength(2)
-    })
-
-    it('fires on any matching event, unlike a hero — it is not tied to a cardId', () => {
-      const { gs, em } = setup()
-      seat(gs, 'p1')
-      const fired: string[] = []
-      gs.addEffect(
-        anEffect({
-          passive: undefined,
-          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          steps: [{ execute: () => {
-        fired.push('ran')
-      } }],
-        }),
-      )
-
-      em.emit(
-        new GameEvent(GameEventType.DiceRolled, 'p1', { cardId: 'somebody-else' }),
-      )
-
-      expect(fired).toHaveLength(1)
-    })
-
-    it('stops firing once its expiry event ends it', () => {
-      const { gs, em } = setup()
-      seat(gs, 'p1', ['ranger-1'])
-      gs.registerCard(hero('ranger-1', HeroClass.Ranger))
-      const fired: string[] = []
-      gs.addEffect(
-        anEffect({
-          passive: undefined,
-          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
-          steps: [{ execute: () => {
-        fired.push('ran')
-      } }],
-          expiry: [whileRangerInParty],
-        }),
-      )
-
-      em.emit(new GameEvent(GameEventType.DiceRolled, 'p1', {}))
-      expect(fired).toHaveLength(1)
-
-      gs.getParty('p1').removeHero('ranger-1', em, 'Destroyed')
-      em.emit(new GameEvent(GameEventType.DiceRolled, 'p1', {}))
-
-      expect(fired).toHaveLength(1) // swept on the removal event
-    })
-
-    it('the sweep runs BEFORE triggers, so an expiring effect does not fire on its last event', () => {
-      const { gs, em } = setup()
-      seat(gs, 'p1')
-      const fired: string[] = []
-      gs.addEffect(
-        anEffect({
-          passive: undefined,
-          trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.OwnerEvent },
-          steps: [{ execute: () => {
-        fired.push('ran')
-      } }],
-          expiry: [untilOwnersNextTurn],
-        }),
-      )
-
-      em.emit(turnStarted('p1'))
-
-      // "Until your next turn" means the turn starts clean.
-      expect(fired).toHaveLength(0)
-      expect(effectsOf(gs, 'p1')).toHaveLength(0)
-    })
-
-    it('a multi-entry expiry ends on whichever event comes first — the once-per-turn shape', () => {
-      const { gs, em } = setup()
-      seat(gs, 'p1')
-      // "Once per turn": off on use, or swept at the owner's next TurnStarted
-      // just before the installing trigger re-arms a fresh charge.
-      const oncePerTurn = () =>
-        anEffect({
-          expiry: [
-            { on: GameEventType.HeroStolen }, // used
-            untilOwnersNextTurn, // unused, replaced next turn
-          ],
-        })
-
-      gs.addEffect(oncePerTurn())
-      em.emit(new GameEvent(GameEventType.HeroStolen, 'p1', {}))
-      expect(isProtected(gs)).toBe(false) // consumed by use
-
-      gs.addEffect(oncePerTurn())
-      em.emit(turnStarted('p1'))
-      expect(isProtected(gs)).toBe(false) // swept at re-arm time
-    })
-  })
 
   // -------------------------------------------------------------------------
   // Rule consumers — a passive flag is only real if something reads it

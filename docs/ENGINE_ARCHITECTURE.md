@@ -106,6 +106,40 @@ override of `execute(gs, ctx, em, rm)`), so a single class satisfying both would
 type-check while letting `TaskManager` run an action — silently playing its
 constructor-bound card and ignoring the context.
 
+**Playing an ITEM takes the same shape as playing a magic card.** `playItem`
+(`tasks/item-tasks.ts`) takes the card out of hand, opens a frame, writes the
+equip and announces `ItemEquippedToHero`, then opens the challenge window. The
+item's own entry triggers on the settled frame, so a defeated item never
+installs anything — it is un-equipped by the rollback and is no longer a source
+to match against.
+
+**Equipment is PARTY state, and that is what makes the rollback work.**
+`GameState.clone()` shares the card map by reference, so anything stored on a
+`HeroCard` or `ItemCard` survives a `restoreFrame` — gear kept there would leave
+a defeated item both worn and in the discard. `PartyData.equipment` maps hero id
+to item id, `Party.clone()` copies it, and the snapshot covers it like any other
+party state.
+
+**Gear moves through the same choke point as membership.** `removeHero`
+RETURNS what the hero was carrying and `addHero` accepts it, so every removal
+site has to say where the gear goes — a steal carries it to the new party, a
+destroy sends it to the discard with its owner. `unequipItem` returns it the
+same way, for a hero who stays. A return value rather than a silent delete, for
+the reason the emitter is a parameter (§7): it makes the decision a compile-time
+obligation instead of something a new removal path can forget.
+
+**A hero carries ONE item, and a second does not replace it.** `canEquip`
+refuses an occupied hero, so the action's `canExecute` says no and the task
+skips. `playItem` THROWS if it is reached anyway: both wrappers are contracted
+to ask first, so arriving with gear already on the hero is an engine mistake
+rather than an illegal request, and it fails where the mistake was made (§11.2).
+
+**Who may wear an item is the CURSED flag's question.** A cursed item is played
+at somebody, so any hero on the table is a legal target; a plain one only ever
+goes on its owner's. `PlayItem.canEquip` holds that rule and the one-item rule
+together — the action calls it from `canExecute`, the task when it discovers
+its target.
+
 **Behaviour is bound by card id, not carried on card data.** `abilityRegistry`
 (`game/abilities/index.ts`) maps card id → `IAbility[]`; card data in `shared/`
 holds display text and rule numbers only. Three reasons: `steps` are live
@@ -241,12 +275,16 @@ stop, carry on when it resolves.
   submission; choice windows have **one respondent, one submission**, resolve
   immediately, single timer, and **always release** — a choice has no failure
   branch.
-- **A timeout resolves; it never rolls back.** A card or player choice that runs
-  out defaults to NO pick, and still releases its frame. Restoring would rewind
-  the step that opened the window — and since the window is not in the snapshot,
-  that step would re-run, re-open it, and time out again: an AFK player would
-  loop forever. `TaskChoiceWindow` defaults to DISMISS, which means "emit
-  nothing" rather than "roll back".
+- **A timeout resolves; it never rolls back.** A choice that runs out still
+  releases its frame. Restoring would rewind the step that opened the window —
+  and since the window is not in the snapshot, that step would re-run, re-open
+  it, and time out again: an AFK player would loop forever.
+- **What a silent player picked is the subclass's call.** `defaultChoice()` is
+  the seam. The base answers NOTHING; `TaskChoiceWindow` answers DISMISS ("emit
+  nothing", not "roll back"); `CardChoiceWindow` answers a RANDOM one of its
+  own options, so a card that asks for a card cannot be dodged by waiting (§8).
+  With no options there is no pick on any of them — that is "ran and produced
+  nothing", and the steps behind it skip.
 - **Results are self-describing.** Each window declares its context slot *and*
   value shape via `resultKey()`: choices write arrays, the modifier writes a
   scalar `number`. The processor blindly does `ctx.set(result.key, result.value)`.
@@ -321,11 +359,17 @@ nothing. **Per event: sweep → resume → match.**
 ### Trigger: whose event, and which
 
 ```
-SelfCard    payload.cardId is this card   — a hero's own successful roll
-OwnerEvent  the event is my owner's       — "each time YOU roll to CHALLENGE"
-OwnerTurn   only during my owner's turn
-Anyone      any player's event            — the -1 modifier card
+SelfCard     payload.cardId is this card   — a hero's own successful roll
+CarrierCard  payload.cardId is the hero I am equipped to — a cursed item
+OwnerEvent   the event is my owner's       — "each time YOU roll to CHALLENGE"
+OwnerTurn    only during my owner's turn
+Anyone       any player's event            — the -1 modifier card
 ```
+
+`CarrierCard` exists because an equipped item's events are about its HERO, not
+about the item: `RollSuccess` names the hero, so `SelfCard` never matches an
+item and `OwnerEvent` would fire on rolls the item has nothing to do with. It
+derives the link from `gs.getEquippedItem`, so nothing is stored.
 
 `SelfCard` is load-bearing: Wiggles and Snowball both trigger on `RollSuccess`
 and can sit in the same party, so rolling on one must not fire the other.
@@ -425,9 +469,17 @@ player back a full turn's budget on every rollback. Specs pin both.
 `trigger` says when a pipeline *starts*. It cannot say how long what the
 pipeline installed should *last* — "your heroes cannot be stolen until your next
 turn" is one ability run that finishes immediately and leaves something behind.
-So the lifetime belongs to an `ActiveEffect`, not to the entry.
+So the lifetime belongs to an `IEffect`, not to the entry.
 
-**Trigger and expiry are symmetric: both are game events.** An effect turns on
+**An ability is the one-time run; an `IEffect` is a standing RULE with a
+lifetime.** That split is the whole of it — an effect carries no behaviour of
+its own, so there is nothing to run and nothing to trigger. `TaskManager` scans
+cards for abilities and sweeps effects for expiry, and the two never meet.
+
+**Trigger and expiry are symmetric: both are game events**, and they get a file
+each — `trigger-matching.ts` says when an event STARTS an ability,
+`expiries.ts` when one ENDS an effect. `TaskManager` runs the second before the
+first (§7 sweep order). An effect turns on
 when its installing ability runs, and off when one of its expiry events fires —
 optionally confirmed by `shouldExpire`, a state check that runs only then. The
 event says WHEN to look; the check says WHETHER it is really over. **No expiry
@@ -452,9 +504,19 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   two Rangers fires `HeroRemovedFromParty`, but "while you have a Ranger" still
   holds. The check lives next to the declaration that installs the effect —
   never as a method on a card class.
-- **Every expiry lives in `effects.ts`** — `untilEndOfTurn`,
-  `untilOwnersNextTurn`, `untilSourceLeavesParty`, `whileClassInParty(cls)` — so
-  all card wordings read in one place.
+- **Every expiry lives in `expiries.ts`** — `untilEndOfTurn`,
+  `untilOwnersNextTurn`, `untilSourceLeavesParty`, `whileEquipped`,
+  `whileClassInParty(cls)` — so all card wordings read in one place.
+- **An item's ABILITY ends with its position for free; an effect it installed
+  does not.** The ability is derived from the item sitting on a hero, so it
+  stops being scanned the moment that stops being true. Anything the item put on
+  the player is stored, and needs `whileEquipped` to go with it — Really Big
+  Ring is the reference.
+- **One wording, every way it can end.** `whileEquipped` is TWO entries —
+  `HeroRemovedFromParty` and `ItemUnequipped` — sharing one check: is the source
+  item still on anybody? Asked of the item rather than of the event's subject,
+  because both callers drop the gear before they announce, so the departing
+  hero's own equipment is already gone by the time the sweep runs.
 - **The sweep runs before trigger matching**, so an effect ending at the start of
   your turn is already gone for anything that same `TurnStarted` fires.
 - **TaskManager owns expiry, not TurnManager** — expiry events are
@@ -462,13 +524,18 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   place that already sees every event.
 - **Multi-entry expiry = first match wins.** The once-per-turn shape: a charge
   expires on use OR at the owner's next `TurnStarted`.
-- **A live effect with `trigger` + `steps` IS a temporary passive ability** — the
-  processor lists it among its sources for exactly as long as it lives.
 - **A passive flag is only real if a rule reads it.** `CantBeStolen` is checked
   in `StealFromPartyTask` at the mutation, not merely when a choice window built
   its options — the protection may have been installed in between.
-- **A passive with a magnitude is read as ENTRIES, not a total.**
-  `getEffectsWithPassive(type, playerId)` returns the effects; callers sum them.
+- **An effect can be SCOPED to one card.** `cardId` narrows it to rolls
+  about that card; absent, it applies to everything its owner rolls.
+  `getEffects(type, playerId, cardId?)` does the filtering, so asking
+  about no card — a challenge roll is not a roll on a hero — leaves the scoped
+  ones out rather than letting them in. `ApplyEffectTask`'s `scopedToCarrier`
+  fills it at install time, because a declaration built at module load has no
+  carrier yet. Really Big Ring is the reference.
+- **An effect with a magnitude is read as ENTRIES, not a total.**
+  `getEffects(type, playerId)` returns the effects; callers sum them.
   A number would be the smaller API and the wrong one: the roll UI has to show
   "+3 Wise Shield, +5 Fireball", and a sum cannot be taken apart again.
 - **Numeric passives STACK, each keeping its own source.** Two RollBonus effects
@@ -515,19 +582,13 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   is already in that payload.
 - **No else-branch on a condition.** `ConditionMet` fires only when the test
   holds; "if Magic do A, otherwise B" needs two conditions with opposite labels.
-- **A COST can be dodged by not answering.** A timeout defaults to NO pick
-  (§4), which is right for an offer and wrong for a price: Critical Boost's
-  "DISCARD a card" simply does not happen if the player sits on the prompt, and
-  a sacrifice would go the same way. Nothing distinguishes a choice the player
-  is being *offered* from one they *owe*, so the engine cannot tell which
-  default is correct.
-
-  Likely fix, when a card needs it: `ChoiceWindow.defaultChoice()` is already
-  the seam — `TaskChoiceWindow` overrides it to DISMISS — so a window opened
-  for a cost overrides it to pick a random option instead, and the filtered
-  option list it already holds is the pool to draw from. Marking WHICH choices
-  are costs is the actual design work; the default itself is one override. No
-  new mechanism, and no change to the timeout rule.
+- **A card choice cannot tell a COST from an OFFER.** `CardChoiceWindow`
+  defaults to a random option, which is right for a price — Critical Boost's
+  "DISCARD a card" lands whether or not the player answers — and blunt for an
+  offer: an idle Wiggles steals a hero it was only ever *invited* to steal.
+  Nothing distinguishes the two, so both get the same default. Marking which
+  choices are costs is the outstanding design work; the defaults themselves are
+  one override each.
 
 - **A lost challenge cancels whatever played the card.** `PlayMagicTask`
   suspends its own entry on the challenge, so a defeat rolls back the steps
@@ -552,11 +613,13 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   emitted before `FrameResolved`, so the continuation still matches from the
   instance pile — the one exception to "a confirm must be the last step of its
   entry" (§6).
+- **Card objects are still shared across snapshots.** `clone()` copies players,
+  parties, piles and queues, but `cards` is assigned by reference, so any
+  mutation of a `HeroCard` or `ItemCard` outlives a rollback. Equipment moved to
+  `Party` for that reason; anything else that ever needs to change on a card has
+  the same problem waiting.
 - **`CantChallenge` / `CantBeChallenged` have no readers.** Declared, installable
   and inert until a card needs them.
-- **No unequip event.** An equipped item's ability is derived from its carrier
-  sitting in the party, so it ends when the hero leaves; an *effect* an item
-  granted would need its own expiry.
 - **`CantBeStolen` guards the steal but does not filter choices** — a protected
   hero can still be *offered* by a `ChooseCardTask`; the steal then no-ops.
 - **`interfaces.ts` ↔ `game-state.ts` remains a type-only cycle.** Genuinely
@@ -568,6 +631,12 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 implementation**. It declares `IReactionManager` (`openFrame`, `openWindow`) and
 `IActionQueue` (`enqueueFirst`); `ReactionManager` and `TurnManager` implement
 them. Tasks, actions and the processor take the interface.
+
+`HeroCard.getEquippedItem(gs)` and `ItemCard.getEquippedTo(gs)` are the same
+rule read the other way. Equipment is party state, so a card cannot answer from
+its own data — it takes the board. The `GameState` import in both is
+`import type`, and `game-state.ts` imports neither card class, so the edge is
+one-way and erased: no cycle in either direction, not even a type-only one.
 
 One `import type { ReactionManager }` in `interfaces.ts` used to be the edge
 every reported import cycle ran through — 53 traversals collapsed to zero when it
@@ -582,11 +651,15 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **No bootstrap**: nothing turns `GameConfig` + `base-game-cards.ts` (136
   cards) into a playable GameState — no deck build/shuffle/deal.
   `defaultGameConfig` has zero consumers.
-- **Four cards declare an ability** — `hero-028` (Wise Shield), `hero-036`
-  (Wiggles), `hero-040` (Snowball) and Critical Boost, whose two printed
-  copies are two ids (`magic-053`, `magic-054`) sharing one declaration.
+- **Seven card ids declare an ability** — `hero-028` (Wise Shield), `hero-036`
+  (Wiggles), `hero-040` (Snowball), Critical Boost (`magic-053`, `magic-054` —
+  two printed copies sharing one declaration), Really Big Ring (`item-064`,
+  `item-065`) and Suspiciously Shiny Coin (`item-073`).
   Critical Boost is the reference MAGIC card: one entry that pauses on a choice
-  and finishes as a later step of the same run.
+  and finishes as a later step of the same run. Really Big Ring is the
+  reference ITEM — an on-equip effect that ends with its carrier — and
+  Suspiciously Shiny Coin the reference CURSED item, riding an opponent's hero
+  and taxing that opponent on `CarrierCard` scope.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
   passes the suite silently.
 - **`npm ci` is incomplete in some checkouts** — `@nestjs/testing` and eslint's

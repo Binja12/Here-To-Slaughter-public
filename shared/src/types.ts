@@ -40,11 +40,9 @@ export type CardBase = {
 export type HeroCardData = CardBase & {
   heroClass: HeroClass;
   rollReq: number;
-  equippedItem?: string;
 };
 
 export type ItemCardData = CardBase & {
-  equippedHero?: string;
   cursed: boolean;
 };
 
@@ -87,6 +85,12 @@ export type PartyData = {
   heroIds: string[];
   monsterIds: string[];
   instanceCardIds?: string[];
+  /**
+   * Hero id -> the item it carries. Party state rather than card state, so a
+   * frame snapshot covers it: GameState.clone() shares the card map by
+   * reference, and equipment has to roll back with a lost challenge.
+   */
+  equipment?: Record<string, string>;
 };
 
 export type PlayerData = {

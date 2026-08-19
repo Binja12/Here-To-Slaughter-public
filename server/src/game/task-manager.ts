@@ -6,7 +6,7 @@ import {
 } from 'shared'
 import {
   AbilityTrigger,
-  ActiveEffect,
+  IEffect,
   IAbility,
   IReactionManager,
   ITask,
@@ -15,7 +15,8 @@ import { AbilityPipeline, GameState } from './game-state'
 
 import { AbilityContext } from './ability-context'
 import { abilityRegistry } from './abilities'
-import { isEffectExpired, triggerMatches } from './effects'
+import { isEffectExpired } from './expiries'
+import { triggerMatches } from './trigger-matching'
 import { GameEventFactory } from './events/game-event-factory'
 
 /** One ability to check this event, and who owns it. Gathered fresh per event. */
@@ -120,16 +121,16 @@ export class TaskManager implements IGameEventListener {
   }
 
   // ---------------------------------------------------------------------------
-  // Effect lifetimes
+  // IEffect lifetimes
   // ---------------------------------------------------------------------------
 
   private sweepExpired(event: IGameEvent): void {
-    const expired: ActiveEffect[] = []
+    const expired: IEffect[] = []
 
     for (const player of this.gs.getPlayers()) {
       // Decide first, remove second, so expiry cannot depend on list order.
       const doomed = player
-        .getEffects()
+        .getAllEffects()
         .filter((effect) => isEffectExpired(this.gs, effect, event))
 
       for (const effect of doomed) player.removeEffect(effect.id)
@@ -176,16 +177,6 @@ export class TaskManager implements IGameEventListener {
         this.pushCardAbility(out, instanceId, pid)
       }
 
-      // --- Ongoing effects: stored, until an event expires them ---
-      for (const effect of player.getEffects()) {
-        if (!effect.trigger || !effect.steps) continue // a passive flag only
-        out.push({
-          trigger: effect.trigger,
-          steps: effect.steps,
-          sourceCardId: effect.sourceCardId,
-          ownerId: effect.ownerId,
-        })
-      }
     }
 
     return out

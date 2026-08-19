@@ -69,7 +69,8 @@ describe('ModifierWindow — standing bonuses stack, each keeping its source', (
       id: 'eff-' + sourceCardId,
       sourceCardId,
       ownerId: 'p1',
-      passive: { type: PassiveType.RollBonus, value },
+      type: PassiveType.RollBonus,
+      value,
     })
 
   beforeEach(() => {
@@ -136,7 +137,8 @@ describe('ModifierWindow — standing bonuses stack, each keeping its source', (
       id: 'eff-other',
       sourceCardId: 'hero-028',
       ownerId: 'p2',
-      passive: { type: PassiveType.RollBonus, value: 3 },
+      type: PassiveType.RollBonus,
+        value: 3,
     })
 
     makeWindow({ gs, em, rollerId: 'p1', baseRoll: 2 })
