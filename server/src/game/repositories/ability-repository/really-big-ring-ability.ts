@@ -1,7 +1,7 @@
 import { GameEventType, PassiveType, TriggerScope } from 'shared'
-import { IAbility } from '../interfaces'
-import { ApplyEffectTask } from '../tasks/tasks'
-import { whileEquipped } from './expiries'
+import { IAbility } from '../../interfaces'
+import { ApplyEffectTask } from '../../tasks/tasks'
+import { whileEquipped } from '../../abilities/expiries'
 
 // Really Big Ring (item-064, item-065): "Each time you roll to use the equipped
 // Hero card's effect, +2 to your roll."

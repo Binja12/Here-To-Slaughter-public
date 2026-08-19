@@ -1,8 +1,8 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { IAbility } from '../interfaces'
-import { RollOnHeroTask, StealFromPartyTask } from '../tasks/hero-tasks'
-import { ChooseCardTask, ConfirmTask } from '../tasks/choose-tasks'
-import { CTX_STOLEN_HERO_ID } from './ability-context'
+import { IAbility } from '../../interfaces'
+import { RollOnHeroTask, StealFromPartyTask } from '../../tasks/hero-tasks'
+import { ChooseCardTask, ConfirmTask } from '../../tasks/choose-tasks'
+import { CTX_STOLEN_HERO_ID } from '../../abilities/ability-context'
 
 // Wiggles (hero-036): "STEAL a Hero card and roll to use its effect immediately"
 //

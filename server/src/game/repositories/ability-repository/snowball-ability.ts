@@ -1,10 +1,10 @@
 import { CardType, GameEventType, TriggerScope } from 'shared'
-import { IAbility } from '../interfaces'
-import { DrawTask } from '../tasks/tasks'
-import { PlayMagicTask } from '../tasks/magic-tasks'
-import { ConfirmTask } from '../tasks/choose-tasks'
-import { CTX_DRAWN_CARD_IDS } from './ability-context'
-import { CardTypeCondition } from '../tasks/conditions'
+import { IAbility } from '../../interfaces'
+import { DrawTask } from '../../tasks/tasks'
+import { PlayMagicTask } from '../../tasks/magic-tasks'
+import { ConfirmTask } from '../../tasks/choose-tasks'
+import { CTX_DRAWN_CARD_IDS } from '../../abilities/ability-context'
+import { CardTypeCondition } from '../../tasks/conditions'
 
 // Snowball (hero-040): "DRAW a card. If it is a Magic card, you may play it
 // immediately and DRAW a second card."

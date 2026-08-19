@@ -1,7 +1,7 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { IAbility } from '../interfaces'
-import { DiscardTask } from '../tasks/tasks'
-import { ChooseCardTask } from '../tasks/choose-tasks'
+import { IAbility } from '../../interfaces'
+import { DiscardTask } from '../../tasks/tasks'
+import { ChooseCardTask } from '../../tasks/choose-tasks'
 
 // Suspiciously Shiny Coin (item-073): "If you successfully roll to use the
 // equipped Hero card's effect, DISCARD a card."

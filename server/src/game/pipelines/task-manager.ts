@@ -15,7 +15,7 @@ import {
 import { AbilityPipeline, GameState } from './game-state'
 
 import { AbilityContext } from '../abilities/ability-context'
-import { abilityRegistry } from '../abilities'
+import { abilityRegistry } from '../repositories/ability-repository'
 import { isEffectExpired } from '../abilities/expiries'
 import { GameEventFactory } from '../events/game-event-factory'
 
@@ -239,7 +239,7 @@ export class TaskManager implements IGameEventListener {
     return out
   }
 
-  /** Adds every entry registered for a card — see abilities/index.ts. */
+  /** Adds every entry registered for a card — see the abilityRegistry. */
   private pushCardAbility(
     out: AbilitySource[],
     cardId: string,

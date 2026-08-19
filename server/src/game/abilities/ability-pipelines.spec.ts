@@ -22,7 +22,7 @@ import { ReactionManager } from '../pipelines/reaction-manager'
 import { ConfirmTask } from '../tasks/choose-tasks'
 import { DrawTask } from '../tasks/tasks'
 import { DisposeMagicTask, PlayMagicTask } from '../tasks/magic-tasks'
-import { SnowballAbility } from './snowball-ability'
+import { SnowballAbility } from '../repositories/ability-repository/snowball-ability'
 import { CONFIRM } from '../reactions/task-choice-window'
 
 // ---------------------------------------------------------------------------
