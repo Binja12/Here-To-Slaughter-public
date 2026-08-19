@@ -100,14 +100,20 @@ describe('CriticalBoostAbility', () => {
       new Map([[BOOST, CriticalBoostAbility]]),
     )
     new PlayMagicAction('a1', 'p1', BOOST, ctx.rm, ctx.em).execute(ctx.gs)
+    // Nobody challenges: the window times out and the play goes through.
+    jest.advanceTimersByTime(5000)
     return ctx
   }
 
   it('is one entry — the pause is a step, not a continuation', () => {
-    // A played card is in the discard by the time a later event lands, so a
-    // second entry could never be matched for it.
+    // Nothing forces the split: a choice window suspends the pipeline in
+    // place, so the discard is a later STEP of the same run. (A played card
+    // now holds its instance-pile position until its ability is done, so a
+    // continuation entry WOULD match — this card simply does not need one.)
     expect(CriticalBoostAbility).toHaveLength(1)
-    expect(CriticalBoostAbility[0].trigger.on).toBe(GameEventType.MagicPlayed)
+    expect(CriticalBoostAbility[0].trigger.on).toBe(
+      GameEventType.FrameResolved,
+    )
   })
 
   it('draws three cards, then asks which one to lose', () => {
@@ -121,14 +127,21 @@ describe('CriticalBoostAbility', () => {
   it('offers the freshly drawn cards — the draw happens first', () => {
     const { gs, events } = play(['a', 'b', 'c'])
 
+    // The challenge window opened first; this is the ability's own.
     const opened = events.find(
-      (e) => e.getType() === GameEventType.ReactionWindowOpened,
+      (e) =>
+        e.getType() === GameEventType.ReactionWindowOpened &&
+        (e.getPayload() as { windowType: ReactionWindowType }).windowType ===
+          ReactionWindowType.CardChoice,
     )!
     const { options } = opened.getPayload() as { options: string[] }
     expect(options).toEqual(expect.arrayContaining(['a', 'b', 'c']))
     // Never itself: it left the hand when it was played.
     expect(options).not.toContain(BOOST)
-    expect(gs.getDiscardPile().getAll()).toContain(BOOST)
+    // Still in the instance pile — a played card is disposed of only once its
+    // ability has finished.
+    expect(gs.getParty('p1').getInstanceCardIds()).toContain(BOOST)
+    expect(gs.getDiscardPile().getAll()).not.toContain(BOOST)
   })
 
   it('discards the card the player picks', () => {
@@ -211,6 +224,8 @@ describe('Snowball drawing Critical Boost', () => {
     ctx.em.emit(GameEventFactory.rollSuccess('p1', 'snowball'))
     // Snowball's prompt: yes, play it and draw.
     openWindow(ctx.gs)!.submitReaction('p1', { choice: CONFIRM })
+    // Then the challenge on the Boost itself, uncontested.
+    jest.advanceTimersByTime(5000)
     return ctx
   }
 
@@ -236,7 +251,8 @@ describe('Snowball drawing Critical Boost', () => {
     // Snowball's draw, then the Boost's three.
     expect(drawnCount(events)).toBe(4)
     expect(player.getHand()).toEqual(['a', 'b', 'c'])
-    expect(gs.getDiscardPile().getAll()).toContain(BOOST)
+    // Held until its own ability is done.
+    expect(gs.getParty('p1').getInstanceCardIds()).toContain(BOOST)
     expect(openWindow(gs)?.getType()).toBe(ReactionWindowType.CardChoice)
   })
 
@@ -252,6 +268,9 @@ describe('Snowball drawing Critical Boost', () => {
     expect(drawnCount(events)).toBe(5)
     expect(player.getHand()).toEqual(['a', 'c', 'd'])
     expect(gs.getDiscardPile().getAll()).toContain('b')
+    // And only now is the Boost itself disposed of.
+    expect(gs.getParty('p1').getInstanceCardIds()).not.toContain(BOOST)
+    expect(gs.getDiscardPile().getAll()).toContain(BOOST)
   })
 
   it('leaves nothing pending once both abilities are done', () => {

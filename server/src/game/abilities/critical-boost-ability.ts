@@ -2,27 +2,38 @@ import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
 import { IAbility } from '../interfaces'
 import { DrawTask, DiscardTask } from '../tasks/tasks'
 import { ChooseCardTask } from '../tasks/choose-tasks'
+import { DisposeMagicTask } from '../tasks/magic-tasks'
 
 // Critical Boost (magic-053, magic-054): "DRAW 3 cards and DISCARD a card."
 //
-//   [0] MagicPlayed on this card → draw 3, ask which card to lose, discard it
+//   [0] FrameResolved on this card → draw 3, ask which card to lose,
+//       discard it, then dispose of the Boost itself
+//
+// The settled challenge frame, not MagicPlayed: the play is announced when the
+// card reaches the instance pile and is challenged from there. A defeated card
+// is rolled back out of that pile, so it is not among the sources this event
+// is matched against and the entry never runs.
 //
 // ONE entry, even though it pauses. The choice window suspends the pipeline in
 // place and FrameResolved wakes it with CTX_CHOSEN_CARD filled, so the discard
-// is a later STEP of the same run — not a continuation entry. It has to be:
-// a played magic card is in the discard by the time any later event arrives,
-// so nothing could match a second entry for it (§8).
+// is a later STEP of the same run.
 //
 // The player picks from their hand AFTER the draw, so a freshly drawn card is
 // a legal thing to throw away. Picking nothing — an idle player — discards
 // nothing; the empty slot travels and DiscardTask skips itself.
+//
+// DisposeMagicTask last: every played magic card ends its entry with it.
 export const CriticalBoostAbility: IAbility[] = [
   {
-    trigger: { on: GameEventType.MagicPlayed, scope: TriggerScope.SelfCard },
+    trigger: {
+      on: GameEventType.FrameResolved,
+      scope: TriggerScope.SelfCard,
+    },
     steps: [
       new DrawTask(3),
       new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
       new DiscardTask(),
+      new DisposeMagicTask(),
     ],
   },
 ]

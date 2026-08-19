@@ -1,7 +1,7 @@
 import { CardType, GameEventType, TriggerScope } from 'shared'
 import { IAbility } from '../interfaces'
 import { DrawTask } from '../tasks/tasks'
-import { PlayMagicTask } from '../tasks/action-tasks'
+import { PlayMagicTask } from '../tasks/magic-tasks'
 import { ConfirmTask } from '../tasks/choose-tasks'
 import { CTX_DRAWN_CARD_IDS } from '../ability-context'
 import { CardTypeCondition } from '../tasks/conditions'

@@ -337,15 +337,21 @@ export class GameEventFactory {
    * `results` is the log transport, always an array. `result` is the optional
    * context write — the window names both slot and value (resultKey).
    */
+  /**
+   * `cardId` names what the frame was over, for windows that settle on one.
+   * The frame is deleted before this goes out, so the event is the only place
+   * left to read it — a played card's entry triggers on exactly this.
+   */
   static frameResolved(
     frameId: string,
     results: unknown[],
     result?: { key: string; value: unknown },
+    cardId?: string,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.FrameResolved,
       '',
-      { frameId, results, result },
+      { frameId, results, result, cardId },
       Audience.All,
     )
   }

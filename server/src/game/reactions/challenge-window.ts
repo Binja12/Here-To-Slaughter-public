@@ -129,7 +129,9 @@ export class ChallengeWindow implements IModifiableWindow {
         ),
       )
       this.gs.releaseFrame(this.frameId)
-      this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [true]))
+      this.emitter.emit(
+        GameEventFactory.frameResolved(this.frameId, [true], undefined, this.cardId),
+      )
       return
     }
 
@@ -176,7 +178,12 @@ export class ChallengeWindow implements IModifiableWindow {
     }
 
     this.emitter.emit(
-      GameEventFactory.frameResolved(this.frameId, [challengedWins]),
+      GameEventFactory.frameResolved(
+        this.frameId,
+        [challengedWins],
+        undefined,
+        this.cardId,
+      ),
     )
   }
 

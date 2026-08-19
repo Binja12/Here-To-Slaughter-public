@@ -17,7 +17,7 @@ import { TaskManager } from './task-manager'
 import { ReactionManager } from './reactions/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
 import { IAbility } from './interfaces'
-import { StealFromPartyTask } from './tasks/tasks'
+import { StealFromPartyTask } from './tasks/hero-tasks'
 
 // ---------------------------------------------------------------------------
 // Trigger scope — WHOSE events a card ability listens to.

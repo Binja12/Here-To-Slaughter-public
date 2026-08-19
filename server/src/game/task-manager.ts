@@ -62,25 +62,27 @@ export class TaskManager implements IGameEventListener {
     // gone for anything the same event fires.
     this.sweepExpired(event)
 
-    // FrameResolved — put whatever waited on this frame back on the stack.
+    // FrameResolved additionally wakes whatever waited on this frame; it is
+    // matched like any other event afterwards, which is how a played card's
+    // entry fires (§1).
     if (event.getType() === GameEventType.FrameResolved) {
       const { frameId, result } = event.getPayload() as {
         frameId: string
         result?: { key: string; value: unknown }
       }
-      // Wake whatever paused on this frame. After a rollback nothing is paused
-      // on it any more — that pipeline went with the snapshot — but the ones
-      // underneath came back and still need to finish, so always drain.
+      // After a rollback nothing is paused on it any more — that pipeline went
+      // with the snapshot — but the ones underneath came back and still need
+      // to finish, so the drain below runs either way.
       for (const pipeline of this.gs.abilityPipelines) {
         if (pipeline.pausedOn !== frameId) continue
         pipeline.pausedOn = undefined
         // The window named both the slot and the value (resultKey).
         if (result) pipeline.ctx.set(result.key, result.value)
       }
-      this.drain()
-      return
     }
 
+    // Matched after the wake, so anything this event starts goes on top of it
+    // and resolves first.
     const matched: AbilityPipeline[] = []
 
     for (const source of this.abilitySources()) {

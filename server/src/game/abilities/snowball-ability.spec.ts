@@ -4,9 +4,12 @@ import {
   GameEventType,
   HeroClass,
   IGameEvent,
+  ReactionWindowType,
+  TriggerScope,
 } from 'shared'
 import { SnowballAbility } from './snowball-ability'
 import { DrawTask } from '../tasks/tasks'
+import { DisposeMagicTask } from '../tasks/magic-tasks'
 import { GameState } from '../game-state'
 import { Player } from '../player'
 import { Party } from '../party'
@@ -15,7 +18,7 @@ import { CardPile } from '../card-pile'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
 import { AbilityContext, CTX_DRAWN_CARD_IDS } from '../ability-context'
-import { ITask } from '../interfaces'
+import { IAbility, ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager as ReactionManagerImpl } from '../reactions/reaction-manager'
 import { TaskManager } from '../task-manager'
@@ -156,7 +159,27 @@ function setup(deckCards: string[]) {
   const events: IGameEvent[] = []
   em.addListener({ onEvent: (e) => events.push(e) })
   const rm = new ReactionManagerImpl(gs, em)
-  new TaskManager(gs, em, rm, new Map([['snowball', SnowballAbility]]))
+  new TaskManager(
+    gs,
+    em,
+    rm,
+    new Map<string, IAbility[]>([
+      ['snowball', SnowballAbility],
+      // The minimum a played magic card declares: where it goes afterwards.
+      [
+        'magic-1',
+        [
+          {
+            trigger: {
+              on: GameEventType.FrameResolved,
+              scope: TriggerScope.SelfCard,
+            },
+            steps: [new DisposeMagicTask()],
+          },
+        ],
+      ],
+    ]),
+  )
   gs.registerParty(
     new Party({
       playerId: 'p1',
@@ -179,9 +202,40 @@ const openPrompt = (gs: GameState) =>
 const drawnCount = (events: IGameEvent[]) =>
   events.filter((e) => e.getType() === GameEventType.CardDrawn).length
 
+/**
+ * Settle the played card's challenge window, uncontested. PlayMagicTask
+ * suspends the rest of Snowball's entry on that window, so nothing after the
+ * play happens until it resolves.
+ */
+const unchallenged = () => jest.advanceTimersByTime(5000)
+
+/** Seat an opponent, so there is somebody to challenge with. */
+const seatOpponent = (gs: GameState) => {
+  gs.registerPlayer(
+    new Player({
+      id: 'p2',
+      name: 'P2',
+      hand: [],
+      partyId: 'party-2',
+      actionPoints: 3,
+    }),
+  )
+  gs.registerParty(
+    new Party({
+      playerId: 'p2',
+      leaderId: 'leader-2',
+      heroIds: [],
+      monsterIds: [],
+    }),
+  )
+}
+
 describe('SnowballAbility', () => {
   beforeEach(() => jest.useFakeTimers())
-  afterEach(() => jest.useRealTimers())
+  afterEach(() => {
+    jest.restoreAllMocks()
+    jest.useRealTimers()
+  })
 
   it('is declared as three entries — draw, ask, play and draw', () => {
     // It pauses twice: once on a test, once on a question. Neither the
@@ -220,6 +274,7 @@ describe('SnowballAbility', () => {
     fire(em)
 
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+    unchallenged()
 
     // magic-1 was played out of hand; only the second draw is left.
     expect(player.getHand()).toEqual(['card-2'])
@@ -233,6 +288,7 @@ describe('SnowballAbility', () => {
     fire(em)
 
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+    unchallenged()
 
     const played = events.findIndex(
       (e) => e.getType() === GameEventType.MagicPlayed,
@@ -253,7 +309,51 @@ describe('SnowballAbility', () => {
     fire(em)
 
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+    unchallenged()
 
+    expect(gs.getDiscardPile().getAll()).toContain('magic-1')
+  })
+
+  it('waits on the challenge before playing the card or drawing again', () => {
+    const { gs, em, events } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+
+    // The play is announced and the challenge is open on it; everything the
+    // card does, and the second draw, wait on that window.
+    expect(openPrompt(gs)!.getType()).toBe(ReactionWindowType.Challenge)
+    expect(events.some((e) => e.getType() === GameEventType.MagicPlayed)).toBe(
+      true,
+    )
+    expect(gs.getParty('p1').getInstanceCardIds()).toContain('magic-1')
+    expect(drawnCount(events)).toBe(1)
+  })
+
+  it('a lost challenge cancels the play AND the draw behind it', () => {
+    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    seatOpponent(gs)
+    fire(em)
+    openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+
+    // Challenger rolls 11, Snowball's owner rolls 1.
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+    openPrompt(gs)!.submitReaction('p2', {
+      type: 'challenge',
+      challengerId: 'p2',
+    })
+    unchallenged()
+
+    // The entry was suspended on that window, so the rollback takes the second
+    // draw with it — the same way a lost challenge un-grants a hero's roll.
+    // The card is out of the instance pile, so none of its steps ever match.
+    expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
+    expect(drawnCount(events)).toBe(1)
+    // Spent either way: out of hand before the snapshot, discarded by the
+    // window on the losing branch.
+    expect(player.getHand()).not.toContain('magic-1')
     expect(gs.getDiscardPile().getAll()).toContain('magic-1')
   })
 
