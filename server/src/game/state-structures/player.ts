@@ -1,5 +1,5 @@
 import { PassiveType, PlayerData } from 'shared'
-import type { IEffect } from './interfaces'
+import type { IEffect } from '../interfaces'
 
 export class Player {
   /** Immutable per-turn budget (used to reset at turn start). */

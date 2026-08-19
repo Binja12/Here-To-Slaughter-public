@@ -1,8 +1,8 @@
 import { ReactionWindowType } from 'shared'
 import { IGameEventEmitter } from 'shared'
 import { ChoiceWindow } from './choice-window'
-import { GameState } from '../game-state'
-import { NO_CONTEXT_RESULT } from '../ability-context'
+import { GameState } from '../pipelines/game-state'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 
 export const CONFIRM = 'confirm'

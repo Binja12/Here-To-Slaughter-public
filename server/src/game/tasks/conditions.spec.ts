@@ -1,21 +1,21 @@
 import { CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
 import { CardTypeCondition } from './conditions'
 import { DrawTask } from './tasks'
-import { GameState } from '../game-state'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { GameState } from '../pipelines/game-state'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
-} from '../ability-context'
+} from '../abilities/ability-context'
 import { ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import type { ReactionManager } from '../reactions/reaction-manager'
+import type { ReactionManager } from '../pipelines/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // Builders

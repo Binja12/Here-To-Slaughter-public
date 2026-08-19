@@ -1,6 +1,6 @@
 import { CardType, HeroClass, Owner, Zone } from 'shared'
-import { GameState } from '../game-state'
-import { AbilityContext, chosenPlayers } from '../ability-context'
+import { GameState } from '../pipelines/game-state'
+import { AbilityContext, chosenPlayers } from '../abilities/ability-context'
 import { HeroCard } from '../cards/hero-card'
 
 // ---------------------------------------------------------------------------

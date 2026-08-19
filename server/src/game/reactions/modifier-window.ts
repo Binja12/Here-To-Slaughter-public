@@ -6,8 +6,8 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { IModifiableWindow } from '../interfaces'
-import { GameState } from '../game-state'
-import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../ability-context'
+import { GameState } from '../pipelines/game-state'
+import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 

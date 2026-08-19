@@ -1,11 +1,11 @@
 import { GameEventType, IGameEvent, PassiveType, ReactionWindowType } from 'shared'
-import { Player } from '../player'
-import { Party } from '../party'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
 import { ChallengeWindow } from './challenge-window'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 
 // ---------------------------------------------------------------------------
 // Helpers

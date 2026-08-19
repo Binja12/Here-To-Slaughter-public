@@ -1,11 +1,11 @@
 import { ICard } from 'shared'
-import type { IEffect, IAction, IReactionWindow, ITask } from './interfaces'
+import type { IEffect, IAction, IReactionWindow, ITask } from '../interfaces'
 import type { PassiveType } from 'shared'
-import { Player } from './player'
-import { Party } from './party'
-import { CardStack } from './card-stack'
-import { CardPile } from './card-pile'
-import type { AbilityContext } from './ability-context'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import type { AbilityContext } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // GameFrame — snapshot taken just before the frame was opened, plus any
@@ -305,7 +305,7 @@ export class GameState {
 
   // ---------------------------------------------------------------------------
   // Ongoing effects — stored on Player; these are the cross-player views.
-  // Expiry is TaskManager's call, using the rules in effects.ts.
+  // Expiry is TaskManager's call, using the rules in abilities/expiries.ts.
   // ---------------------------------------------------------------------------
 
   /** Routes to the owning player named by the effect itself. */

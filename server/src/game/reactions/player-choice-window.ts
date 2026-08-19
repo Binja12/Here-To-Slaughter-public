@@ -1,6 +1,6 @@
 import { ReactionWindowType } from 'shared'
 import { ChoiceWindow } from './choice-window'
-import { CTX_CHOSEN_PLAYER, NO_CONTEXT_RESULT } from '../ability-context'
+import { CTX_CHOSEN_PLAYER, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // PlayerChoiceWindow — pick one player id from a pre-filtered list.

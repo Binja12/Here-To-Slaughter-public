@@ -5,19 +5,19 @@ import {
   IGameEvent,
   TriggerScope,
 } from 'shared'
-import { GameState } from './game-state'
-import { CardStack } from './card-stack'
-import { CardPile } from './card-pile'
-import { Player } from './player'
-import { Party } from './party'
-import { HeroCard } from './cards/hero-card'
-import { GameEvent } from './events/game-event'
-import { GameEventEmitter } from './events/game-event-emitter'
-import { TaskManager } from './task-manager'
-import { ReactionManager } from './reactions/reaction-manager'
+import { GameState } from '../pipelines/game-state'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { HeroCard } from '../cards/hero-card'
+import { GameEvent } from '../events/game-event'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { TaskManager } from '../pipelines/task-manager'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
-import { IAbility } from './interfaces'
-import { StealFromPartyTask } from './tasks/hero-tasks'
+import { IAbility } from '../interfaces'
+import { StealFromPartyTask } from '../tasks/hero-tasks'
 
 // ---------------------------------------------------------------------------
 // Trigger scope — WHOSE events a card ability listens to.

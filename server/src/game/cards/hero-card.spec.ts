@@ -1,10 +1,10 @@
 import { HeroCard } from './hero-card'
 import { CardType, HeroClass } from 'shared'
 import { HeroCardData } from 'shared'
-import { GameState } from '../game-state'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { GameState } from '../pipelines/game-state'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 import { GameEventEmitter } from '../events/game-event-emitter'
 
 const mockHeroData: HeroCardData = {

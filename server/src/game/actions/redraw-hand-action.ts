@@ -1,6 +1,6 @@
 import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
 import { IAction } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'

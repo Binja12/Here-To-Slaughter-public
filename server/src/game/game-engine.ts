@@ -1,8 +1,8 @@
 import { GameEventType, IGameEvent, IGameEventListener } from 'shared'
 import { IWinCondition } from './interfaces'
-import { GameState } from './game-state'
-import { Player } from './player'
-import { TurnManager } from './turn-manager'
+import { GameState } from './pipelines/game-state'
+import { Player } from './state-structures/player'
+import { TurnManager } from './pipelines/turn-manager'
 import { GameEventEmitter } from './events/game-event-emitter'
 import { GameEvent } from './events/game-event'
 

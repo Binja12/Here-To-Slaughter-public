@@ -1,8 +1,8 @@
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { IReactionWindow } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
-import { NO_CONTEXT_RESULT } from '../ability-context'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // ChoiceWindow — base for every "pick one of these" window.

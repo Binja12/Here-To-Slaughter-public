@@ -1,5 +1,5 @@
 import { ICard } from 'shared'
-import type { GameState } from '../game-state'
+import type { GameState } from '../pipelines/game-state'
 import { HeroCardData, HeroClass, CardType } from 'shared'
 
 export class HeroCard implements ICard {

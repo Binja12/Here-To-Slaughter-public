@@ -1,7 +1,7 @@
 import { GameEventType, PassiveType, TriggerScope } from 'shared'
 import { IAbility } from '../interfaces'
 import { ApplyEffectTask } from '../tasks/tasks'
-import { untilEndOfTurn } from '../expiries'
+import { untilEndOfTurn } from './expiries'
 
 // Wise Shield (hero-028): "+3 to all of your rolls until the end of your turn."
 //

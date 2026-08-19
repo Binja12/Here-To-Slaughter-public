@@ -1,12 +1,12 @@
 import { GameEventType, HeroClass, IGameEvent } from 'shared'
-import type { IEffect, EffectExpiry } from './interfaces'
-import type { GameState } from './game-state'
-import { HeroCard } from './cards/hero-card'
+import type { IEffect, EffectExpiry } from '../interfaces'
+import type { GameState } from '../pipelines/game-state'
+import { HeroCard } from '../cards/hero-card'
 
 // ---------------------------------------------------------------------------
 // When a game event ends an effect, and the reusable lifetimes card wordings
-// are written in. The mirror of trigger-matching.ts — §7: trigger and expiry
-// are symmetric, both are game events.
+// are written in. The mirror of TaskManager.triggerMatches — §7: trigger and
+// expiry are symmetric, both are game events.
 // ---------------------------------------------------------------------------
 
 /** True when one of `effect`'s expiry entries matches `event`. */

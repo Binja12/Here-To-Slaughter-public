@@ -1,5 +1,5 @@
 import { IGameEventEmitter, PartyData } from 'shared'
-import { GameEventFactory } from './events/game-event-factory'
+import { GameEventFactory } from '../events/game-event-factory'
 
 /** Why a hero entered a party. */
 export type HeroAddReason = 'Played' | 'Stolen' | 'Reborn'

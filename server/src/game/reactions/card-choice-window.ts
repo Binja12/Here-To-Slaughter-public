@@ -1,6 +1,6 @@
 import { ReactionWindowType } from 'shared'
 import { ChoiceWindow } from './choice-window'
-import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../ability-context'
+import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // CardChoiceWindow — pick one card id from a pre-filtered list. The source

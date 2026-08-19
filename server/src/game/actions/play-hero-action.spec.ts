@@ -6,17 +6,17 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { PlayHeroAction } from './play-hero-action'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { HeroCard } from '../cards/hero-card'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { IAction, IActionQueue } from '../interfaces'
-import { TurnManager } from '../turn-manager'
+import { TurnManager } from '../pipelines/turn-manager'
 
 // --- Helpers ---
 

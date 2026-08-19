@@ -1,6 +1,6 @@
 import { IGameEventEmitter, ReactionType, ReactionWindowType } from 'shared'
 import { IReaction } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 
 export class PlayChallengeReaction implements IReaction {
   constructor(

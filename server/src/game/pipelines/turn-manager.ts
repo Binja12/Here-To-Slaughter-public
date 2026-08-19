@@ -1,8 +1,8 @@
 import { GameEventType, TurnPhase } from 'shared'
-import { IAction, IActionQueue } from './interfaces'
+import { IAction, IActionQueue } from '../interfaces'
 import { GameState } from './game-state'
-import { GameEventEmitter } from './events/game-event-emitter'
-import { GameEvent } from './events/game-event'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { GameEvent } from '../events/game-event'
 
 export class TurnManager implements IActionQueue {
   private phase: TurnPhase = TurnPhase.TurnStart

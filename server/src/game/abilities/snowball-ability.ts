@@ -3,7 +3,7 @@ import { IAbility } from '../interfaces'
 import { DrawTask } from '../tasks/tasks'
 import { PlayMagicTask } from '../tasks/magic-tasks'
 import { ConfirmTask } from '../tasks/choose-tasks'
-import { CTX_DRAWN_CARD_IDS } from '../ability-context'
+import { CTX_DRAWN_CARD_IDS } from './ability-context'
 import { CardTypeCondition } from '../tasks/conditions'
 
 // Snowball (hero-040): "DRAW a card. If it is a Magic card, you may play it

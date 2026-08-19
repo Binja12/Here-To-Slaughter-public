@@ -7,16 +7,16 @@ import {
   TriggerScope,
 } from 'shared'
 import { FREE, RollOnHeroAction } from './roll-on-hero-action'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { HeroCard } from '../cards/hero-card'
 import { ModifierCard } from '../cards/modifier-card'
-import { TaskManager } from '../task-manager'
+import { TaskManager } from '../pipelines/task-manager'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
 
 // --- Helpers ---

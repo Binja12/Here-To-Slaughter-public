@@ -1,5 +1,5 @@
 import { Party } from './party'
-import { GameEventEmitter } from './events/game-event-emitter'
+import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventType, HeroClass, IGameEvent } from 'shared'
 
 /** Party membership changes announce themselves; these tests ignore the events. */

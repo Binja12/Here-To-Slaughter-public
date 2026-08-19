@@ -1,13 +1,13 @@
 import { CardType, HeroClass, ReactionWindowType } from 'shared'
 import { GameState } from './game-state'
-import { Player } from './player'
-import { Party } from './party'
-import { CardStack } from './card-stack'
-import { HeroCard } from './cards/hero-card'
-import { IAbility, IReactionWindow } from './interfaces'
-import { CardPile } from './card-pile'
-import { DiscardTask } from './tasks/tasks'
-import { NO_CONTEXT_RESULT } from './ability-context'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { HeroCard } from '../cards/hero-card'
+import { IAbility, IReactionWindow } from '../interfaces'
+import { CardPile } from '../state-structures/card-pile'
+import { DiscardTask } from '../tasks/tasks'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 const makePlayer = (id: string) =>
   new Player({

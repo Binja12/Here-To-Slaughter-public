@@ -3,11 +3,11 @@ import { GameEventEmitter } from '../events/game-event-emitter'
 import { AllClassesInParty } from './win-conditions'
 import { InMemoryCardRepository } from '../repositories/in-memory-card-repository'
 import { baseGameCards } from '../../data/base-game-cards'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { GameState } from '../game-state'
-import { Player } from '../player'
-import { Party } from '../party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { GameState } from '../pipelines/game-state'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()
