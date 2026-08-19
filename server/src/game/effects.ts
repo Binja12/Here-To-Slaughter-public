@@ -5,7 +5,7 @@ import { HeroCard } from './cards/hero-card'
 
 // ---------------------------------------------------------------------------
 // Trigger matching and effect lifetimes. Both are driven by game events, and
-// both are evaluated by AbilityProcessor — expiry before trigger matching, so
+// both are evaluated by TaskManager — expiry before trigger matching, so
 // an effect ending on an event is gone for anything that event fires.
 // ---------------------------------------------------------------------------
 

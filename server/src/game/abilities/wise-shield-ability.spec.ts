@@ -16,7 +16,7 @@ import { ModifierCard } from '../cards/modifier-card'
 import { ChallengeCard } from '../cards/challenge-card'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../reactions/reaction-manager'
-import { AbilityProcessor } from '../ability-processor'
+import { TaskManager } from '../task-manager'
 import { TurnManager } from '../turn-manager'
 import { GameEngine } from '../game-engine'
 import { PlayHeroAction } from '../actions/play-hero-action'
@@ -92,7 +92,7 @@ function setup() {
 
   const rm = new ReactionManager(gs, em)
   const tm = new TurnManager(gs, em)
-  new AbilityProcessor(gs, em, rm, abilityRegistry)
+  new TaskManager(gs, em, rm, abilityRegistry)
   const engine = new GameEngine(gs, tm, em, [])
 
   seat(gs, 'p1', [WISE_SHIELD, 'hero-777'])

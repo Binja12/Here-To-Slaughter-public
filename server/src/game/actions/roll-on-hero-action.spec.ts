@@ -16,7 +16,7 @@ import { CardPile } from '../card-pile'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { HeroCard } from '../cards/hero-card'
 import { ModifierCard } from '../cards/modifier-card'
-import { AbilityProcessor } from '../ability-processor'
+import { TaskManager } from '../task-manager'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
 
 // --- Helpers ---
@@ -229,12 +229,12 @@ describe('RollOnHeroAction', () => {
       expect((event!.getPayload() as { cardId: string }).cardId).toBe('hero-1')
     })
 
-    it('fires hero ability tasks via AbilityProcessor when roll succeeds', () => {
+    it('fires hero ability tasks via TaskManager when roll succeeds', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
       const taskSpy = jest.fn()
       gs.registerCard(makeHeroCard('hero-1'))
       // Behaviour comes from the registry, keyed by card id.
-      new AbilityProcessor(
+      new TaskManager(
         gs,
         emitter,
         new ReactionManager(gs, emitter),

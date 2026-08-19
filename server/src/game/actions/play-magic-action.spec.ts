@@ -14,7 +14,7 @@ import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { MagicCard } from '../cards/magic-card'
-import { AbilityProcessor } from '../ability-processor'
+import { TaskManager } from '../task-manager'
 import { IAbility } from '../interfaces'
 
 // --- Helpers ---
@@ -147,31 +147,31 @@ describe('PlayMagicAction', () => {
 
   describe('execute', () => {
     it('decreases action points by 1', () => {
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
     })
 
     it('removes card from hand', () => {
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getPlayer('p1')!.getHand()).not.toContain('magic-1')
     })
 
     it('card ends up in discard pile after resolve', () => {
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getDiscardPile().getAll()).toContain('magic-1')
     })
 
     it('card is not in instance pile after resolve', () => {
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
     })
 
     it('emits MagicPlayed event with cardId in payload', () => {
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
@@ -184,21 +184,20 @@ describe('PlayMagicAction', () => {
       )
     })
 
-    it('emits CardDiscarded after ability resolves', () => {
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+    it('announces nothing for the discard — MagicPlayed already said it', () => {
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       const emitted: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
       makeAction().execute(gs)
-      const discarded = emitted.find(
-        (e) => e.getType() === GameEventType.CardDiscarded,
-      )
-      expect(discarded).toBeDefined()
+      expect(
+        emitted.some((e) => e.getType() === GameEventType.CardDiscarded),
+      ).toBe(false)
     })
 
-    it('executes the magic card ability tasks via AbilityProcessor', () => {
+    it('executes the magic card ability tasks via TaskManager', () => {
       const taskSpy = jest.fn()
       gs.registerCard(makeMagicCard('magic-1'))
-      new AbilityProcessor(
+      new TaskManager(
         gs,
         emitter,
         new ReactionManager(gs, emitter),
@@ -220,7 +219,7 @@ describe('PlayMagicAction', () => {
           }
         },
       })
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
+      new TaskManager(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       expect(inInstanceAtEmit).toBe(true)
     })

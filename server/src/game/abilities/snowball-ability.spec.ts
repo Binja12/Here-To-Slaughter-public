@@ -18,7 +18,7 @@ import { AbilityContext, CTX_DRAWN_CARD_IDS } from '../ability-context'
 import { ITask } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager as ReactionManagerImpl } from '../reactions/reaction-manager'
-import { AbilityProcessor } from '../ability-processor'
+import { TaskManager } from '../task-manager'
 import { GameEventFactory } from '../events/game-event-factory'
 import { CONFIRM, DISMISS } from '../reactions/task-choice-window'
 
@@ -146,8 +146,8 @@ describe('DrawTask', () => {
 })
 
 // ---------------------------------------------------------------------------
-// SnowballAbility — end to end, through the real processor. The second draw is
-// its own entry, unlocked by answering the prompt.
+// SnowballAbility — end to end, through the real processor. The play and the
+// second draw share one entry, unlocked by answering the prompt.
 // ---------------------------------------------------------------------------
 
 function setup(deckCards: string[]) {
@@ -156,7 +156,7 @@ function setup(deckCards: string[]) {
   const events: IGameEvent[] = []
   em.addListener({ onEvent: (e) => events.push(e) })
   const rm = new ReactionManagerImpl(gs, em)
-  new AbilityProcessor(gs, em, rm, new Map([['snowball', SnowballAbility]]))
+  new TaskManager(gs, em, rm, new Map([['snowball', SnowballAbility]]))
   gs.registerParty(
     new Party({
       playerId: 'p1',
@@ -183,7 +183,7 @@ describe('SnowballAbility', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => jest.useRealTimers())
 
-  it('is declared as three entries — draw, ask, draw again', () => {
+  it('is declared as three entries — draw, ask, play and draw', () => {
     // It pauses twice: once on a test, once on a question. Neither the
     // condition nor the confirm holds the steps it guards.
     expect(SnowballAbility).toHaveLength(3)
@@ -214,15 +214,47 @@ describe('SnowballAbility', () => {
     expect(openPrompt(gs)).toBeDefined()
   })
 
-  it('CONFIRM draws the second card', () => {
+  it('CONFIRM plays the magic card and draws the second', () => {
     const { gs, player, em, events } = setup(['magic-1', 'card-2'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
 
-    expect(player.getHand()).toEqual(['magic-1', 'card-2'])
+    // magic-1 was played out of hand; only the second draw is left.
+    expect(player.getHand()).toEqual(['card-2'])
+    expect(gs.getDiscardPile().getAll()).toContain('magic-1')
     expect(drawnCount(events)).toBe(2)
+  })
+
+  it('plays the card BEFORE drawing the second — printed order', () => {
+    const { gs, em, events } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+
+    const played = events.findIndex(
+      (e) => e.getType() === GameEventType.MagicPlayed,
+    )
+    const secondDraw = events.reduce(
+      (last, e, i) => (e.getType() === GameEventType.CardDrawn ? i : last),
+      -1,
+    )
+    expect(played).toBeGreaterThan(-1)
+    expect(played).toBeLessThan(secondDraw)
+  })
+
+  it('the drawn card reaches the continuation across both hops', () => {
+    // Fresh context per entry: the card only arrives as ctxSeed, seeded by the
+    // condition and re-seeded by the confirm's subjectKey.
+    const { gs, em } = setup(['magic-1', 'card-2'])
+    gs.registerCard(makeMagicCard('magic-1'))
+    fire(em)
+
+    openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
+
+    expect(gs.getDiscardPile().getAll()).toContain('magic-1')
   })
 
   it('DISMISS draws nothing more, and emits no TaskConfirmed to trigger it', () => {
@@ -234,13 +266,17 @@ describe('SnowballAbility', () => {
 
     expect(player.getHand()).toEqual(['magic-1'])
     expect(drawnCount(events)).toBe(1)
+    // One answer gates both halves: no play either.
+    expect(events.some((e) => e.getType() === GameEventType.MagicPlayed)).toBe(
+      false,
+    )
     expect(
       events.some((e) => e.getType() === GameEventType.TaskConfirmed),
     ).toBe(false)
     expect(gs.frames.size).toBe(0)
   })
 
-  it('an idle player draws nothing more — timeout is a DISMISS', () => {
+  it('an idle player plays and draws nothing more — timeout is a DISMISS', () => {
     const { gs, player, em, events } = setup(['magic-1', 'card-2'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)

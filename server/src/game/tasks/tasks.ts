@@ -52,11 +52,14 @@ export class DrawTask implements ITask {
 }
 
 // ---------------------------------------------------------------------------
-// DiscardTask — remove a card from the owner's hand to the discard pile
+// DiscardTask — move a card from the owner's hand to the discard pile
 // ---------------------------------------------------------------------------
 
 export class DiscardTask implements ITask {
-  constructor(private readonly cardId?: string) {}
+  /**
+   * Card to discard. Defaults to the card a ChooseCardTask put on the context.
+   */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
 
   execute(
     gs: GameState,
@@ -64,14 +67,27 @@ export class DiscardTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const targetId = this.cardId ?? ctx.sourceCardId
+    const cards = ctx.get<string[]>(this.fromKey)
+
+    // Absent = no step ahead was declared to supply a card.
+    if (cards === undefined) {
+      throw new Error(
+        `DiscardTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a card.',
+      )
+    }
+
+    // Empty = the player was asked and picked nothing. Nothing to discard.
+    const [cardId] = cards
+    if (!cardId) return
+
     const player = gs.getPlayer(ctx.ownerId)
     if (!player) return
-    if (!player.getHand().includes(targetId)) return
+    if (!player.getHand().includes(cardId)) return
 
-    player.removeFromHand(targetId)
-    gs.getDiscardPile().add(targetId)
-    em.emit(GameEventFactory.cardDiscarded(ctx.ownerId, targetId))
+    player.removeFromHand(cardId)
+    gs.getDiscardPile().add(cardId)
+    em.emit(GameEventFactory.cardDiscarded(ctx.ownerId, cardId))
   }
 }
 
@@ -268,4 +284,5 @@ export class RollOnHeroTask implements ITask {
     return frameId
   }
 }
+
 

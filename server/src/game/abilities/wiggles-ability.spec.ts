@@ -1,6 +1,6 @@
 import { CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
 import { WigglesAbility } from './wiggles-ability'
-import { AbilityProcessor } from '../ability-processor'
+import { TaskManager } from '../task-manager'
 import { GameState } from '../game-state'
 import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
@@ -63,7 +63,7 @@ function setup() {
   const rm = new ReactionManager(gs, em)
   // Behaviour is bound by card id through the registry, not carried on the
   // card's data — the same wiring production uses, with a test-local table.
-  new AbilityProcessor(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
+  new TaskManager(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
 
   seat(gs, 'p1', ['wiggles'])
   seat(gs, 'p2', ['victim'])
@@ -357,7 +357,7 @@ describe('WigglesAbility', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    new AbilityProcessor(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
+    new TaskManager(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
     seat(gs, 'p1', ['wiggles'])
     gs.registerCard(makeHeroCard('wiggles'))
 
@@ -371,7 +371,7 @@ describe('WigglesAbility', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    new AbilityProcessor(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
+    new TaskManager(gs, em, rm, new Map([['wiggles', WigglesAbility]]))
     seat(gs, 'p1', ['wiggles'])
     gs.registerCard(makeHeroCard('wiggles'))
 
@@ -380,7 +380,7 @@ describe('WigglesAbility', () => {
 
     // The choice resolved with no pick, the steal skipped itself, and ConfirmTa...
     expect(openWindows(gs)).toHaveLength(0)
-    expect(gs.abilityPipelines.size).toBe(0)
+    expect(gs.abilityPipelines).toHaveLength(0)
   })
 
   it('ends the ability when the card choice times out, without prompting', () => {

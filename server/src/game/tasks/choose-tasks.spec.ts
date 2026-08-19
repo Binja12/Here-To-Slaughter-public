@@ -168,7 +168,7 @@ describe('ChoosePlayerTask', () => {
     )
 
     // The frameId comes back from execute() — that return value is what tells
-    // AbilityProcessor to suspend, so a task that opens a frame must yield it.
+    // TaskManager to suspend, so a task that opens a frame must yield it.
     expect(frameId).toBeTruthy()
     expect(gs.frames.has(frameId as string)).toBe(true)
   })
@@ -394,10 +394,14 @@ describe('ConfirmTask', () => {
       em,
       rm,
     ) as string
-    gs.abilityPipelines.set(frameId, { steps: [], ctx: new AbilityContext('src', 'p1') })
+    gs.abilityPipelines.push({
+      steps: [],
+      ctx: new AbilityContext('src', 'p1'),
+      pausedOn: frameId,
+    })
     openWindow(gs).submitReaction('p1', { choice: CONFIRM })
 
-    // Present through resolution; AbilityProcessor is what consumes it.
+    // Present through resolution; TaskManager is what consumes it.
     expect(gs.frames.has(frameId)).toBe(false)
   })
 

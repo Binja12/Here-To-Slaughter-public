@@ -12,7 +12,11 @@ import { CardPile } from '../card-pile'
 import { Player } from '../player'
 import { Party } from '../party'
 import { HeroCard } from '../cards/hero-card'
-import { AbilityContext, CTX_DRAWN_CARD_IDS } from '../ability-context'
+import {
+  AbilityContext,
+  CTX_CHOSEN_CARD,
+  CTX_DRAWN_CARD_IDS,
+} from '../ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../reactions/reaction-manager'
 
@@ -155,14 +159,21 @@ describe('DrawTask', () => {
 // ---------------------------------------------------------------------------
 
 describe('DiscardTask', () => {
-  it('removes the explicit cardId from hand and adds it to the discard pile', () => {
+  /** A context with the named slot already filled, as a choice would leave it. */
+  const ctxWith = (cards: string[], key = CTX_CHOSEN_CARD) => {
+    const ctx = makeCtx()
+    ctx.set(key, cards)
+    return ctx
+  }
+
+  it('moves the card named by the slot from hand to the discard pile', () => {
     const gs = makeGs()
     const player = makePlayer('p1', ['card-1', 'card-2'])
     gs.registerPlayer(player)
     gs.registerParty(makeParty('p1'))
     const { emitter } = makeEmitter()
 
-    new DiscardTask('card-1').execute(gs, makeCtx(), emitter, stubRm)
+    new DiscardTask().execute(gs, ctxWith(['card-1']), emitter, stubRm)
 
     expect(player.getHand()).not.toContain('card-1')
     expect(player.getHand()).toContain('card-2')
@@ -175,7 +186,7 @@ describe('DiscardTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter, emitted } = makeEmitter()
 
-    new DiscardTask('card-1').execute(gs, makeCtx(), emitter, stubRm)
+    new DiscardTask().execute(gs, ctxWith(['card-1']), emitter, stubRm)
 
     expect(emitted).toHaveLength(1)
     expect(emitted[0].getType()).toBe(GameEventType.CardDiscarded)
@@ -183,17 +194,43 @@ describe('DiscardTask', () => {
     expect((emitted[0].getPayload() as any).cardId).toBe('card-1')
   })
 
-  it('defaults to ctx.sourceCardId when no explicit cardId is given', () => {
+  it('reads whichever slot it was declared with', () => {
     const gs = makeGs()
-    const player = makePlayer('p1', ['src-card'])
+    const player = makePlayer('p1', ['drawn-1'])
     gs.registerPlayer(player)
     gs.registerParty(makeParty('p1'))
     const { emitter } = makeEmitter()
 
-    new DiscardTask().execute(gs, makeCtx('src-card'), emitter, stubRm)
+    new DiscardTask(CTX_DRAWN_CARD_IDS).execute(
+      gs,
+      ctxWith(['drawn-1'], CTX_DRAWN_CARD_IDS),
+      emitter,
+      stubRm,
+    )
 
-    expect(player.getHand()).not.toContain('src-card')
-    expect(gs.getDiscardPile().getAll()).toContain('src-card')
+    expect(gs.getDiscardPile().getAll()).toContain('drawn-1')
+  })
+
+  it('throws when nothing has written the slot — a mis-declared ability', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['card-1']))
+    gs.registerParty(makeParty('p1'))
+    const { emitter } = makeEmitter()
+
+    expect(() =>
+      new DiscardTask().execute(gs, makeCtx(), emitter, stubRm),
+    ).toThrow(CTX_CHOSEN_CARD)
+  })
+
+  it('discards nothing when the player picked nothing', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['card-1']))
+    gs.registerParty(makeParty('p1'))
+    const { emitter, emitted } = makeEmitter()
+
+    new DiscardTask().execute(gs, ctxWith([]), emitter, stubRm)
+
+    expect(emitted).toHaveLength(0)
   })
 
   it('emits nothing when the card is not in hand', () => {
@@ -202,7 +239,7 @@ describe('DiscardTask', () => {
     gs.registerParty(makeParty('p1'))
     const { emitter, emitted } = makeEmitter()
 
-    new DiscardTask('missing').execute(gs, makeCtx(), emitter, stubRm)
+    new DiscardTask().execute(gs, ctxWith(['missing']), emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
   })
@@ -210,8 +247,10 @@ describe('DiscardTask', () => {
   it('emits nothing when owner is not found', () => {
     const gs = makeGs()
     const { emitter, emitted } = makeEmitter()
+    const ctx = new AbilityContext('src', 'unknown')
+    ctx.set(CTX_CHOSEN_CARD, ['card-1'])
 
-    new DiscardTask('card-1').execute(gs, makeCtx('src', 'unknown'), emitter, stubRm)
+    new DiscardTask().execute(gs, ctx, emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
   })
@@ -277,3 +316,4 @@ describe('DestroyTask', () => {
     expect(emitted).toHaveLength(0)
   })
 })
+

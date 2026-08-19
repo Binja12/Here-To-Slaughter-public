@@ -48,7 +48,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
     // Nothing to choose from settles at once, but on a 0ms TIMER — never
     // inline, or the frame would settle before the task that opened it
-    // returned and AbilityProcessor would have nothing parked to resume.
+    // returned and TaskManager would have nothing parked to resume.
     this.timer = setTimeout(
       () => this.resolve(),
       this.options.length === 0 ? 0 : this.timeoutMs,
