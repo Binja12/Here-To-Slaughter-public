@@ -34,8 +34,10 @@ export class DestroyTask implements ITask {
     const party = gs.getParty(ctx.ownerId)
     if (!party.getHeroIds().includes(targetId)) return
 
-    party.removeHero(targetId, em, 'Destroyed')
+    const carriedItemId = party.removeHero(targetId, em, 'Destroyed')
     gs.getDiscardPile().add(targetId)
+    // The gear goes down with its carrier rather than vanishing from every zone.
+    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
     em.emit(GameEventFactory.heroDestroyed(ctx.ownerId, targetId))
   }
 }
@@ -84,8 +86,9 @@ export class StealFromPartyTask implements ITask {
     if (!fromParty.getHeroIds().includes(heroId)) return
 
     // Both halves announce themselves, so expiries keyed to either see it.
-    fromParty.removeHero(heroId, em, 'Stolen')
-    gs.getParty(ctx.ownerId).addHero(heroId, em, 'Stolen')
+    // The hero brings its gear along.
+    const carriedItemId = fromParty.removeHero(heroId, em, 'Stolen')
+    gs.getParty(ctx.ownerId).addHero(heroId, em, 'Stolen', carriedItemId)
     // Recorded so later steps can still reach this hero after a second card
     // choice has overwritten CTX_CHOSEN_CARD.
     ctx.set(CTX_STOLEN_HERO_ID, [heroId])

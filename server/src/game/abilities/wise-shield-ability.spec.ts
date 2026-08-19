@@ -144,13 +144,13 @@ const typesOf = (events: IGameEvent[]) => events.map((e) => e.getType())
 /** Total RollBonus currently on a player — the entries, summed. */
 const rollBonus = (gs: GameState, playerId: string) =>
   gs
-    .getEffectsWithPassive(PassiveType.RollBonus, playerId)
-    .reduce((sum, e) => sum + (e.passive?.value ?? 0), 0)
+    .getEffects(PassiveType.RollBonus, playerId)
+    .reduce((sum, e) => sum + (e.value ?? 0), 0)
 
 /** Which cards are granting a player a roll bonus right now. */
 const rollBonusSources = (gs: GameState, playerId: string) =>
   gs
-    .getEffectsWithPassive(PassiveType.RollBonus, playerId)
+    .getEffects(PassiveType.RollBonus, playerId)
     .map((e) => e.sourceCardId)
 
 const payloadsOf = (events: IGameEvent[], type: GameEventType) =>

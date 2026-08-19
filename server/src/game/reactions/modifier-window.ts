@@ -36,10 +36,14 @@ export class ModifierWindow implements IModifiableWindow {
   ) {
     // Seeded at OPEN, not at settlement: a player deciding whether to spend a
     // modifier card must already see the standing bonus counted.
-    for (const effect of gs.getEffectsWithPassive(PassiveType.RollBonus, rollerId)) {
+    for (const effect of gs.getEffects(
+      PassiveType.RollBonus,
+      rollerId,
+      heroId,
+    )) {
       this.bonuses.push({
         cardSource: effect.sourceCardId,
-        amount: effect.passive?.value ?? 0,
+        amount: effect.value ?? 0,
       })
     }
 

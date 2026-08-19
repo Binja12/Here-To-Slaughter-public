@@ -81,6 +81,7 @@ describe('PlayItemAction', () => {
   let party: Party
 
   beforeEach(() => {
+    jest.useFakeTimers()
     emitter = new GameEventEmitter()
     emitSpy = jest.spyOn(emitter, 'emit')
     gs = makeGs()
@@ -92,6 +93,14 @@ describe('PlayItemAction', () => {
     gs.registerCard(makeItemCard('item-1'))
     gs.registerCard(makeHeroCard('hero-1'))
   })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+    jest.useRealTimers()
+  })
+
+  /** Nobody spends a challenge card: the window times out uncontested. */
+  const unchallenged = () => jest.advanceTimersByTime(5000)
 
   const makeAction = (targetHeroId = 'hero-1') => {
     const rm = new ReactionManager(gs, emitter)
@@ -204,6 +213,13 @@ describe('PlayItemAction', () => {
 
   // --- execute ---
 
+  it('canExecute is false when the target hero already carries an item', () => {
+    gs.getParty('p1').equipItem('hero-1', 'other-item')
+
+    // One item per hero: the request is refused rather than swapping.
+    expect(makeAction().canExecute(gs)).toBe(false)
+  })
+
   describe('execute', () => {
     it('decreases player action points by 1', () => {
       makeAction().execute(gs)
@@ -217,13 +233,32 @@ describe('PlayItemAction', () => {
 
     it('equips the item to the target hero', () => {
       makeAction().execute(gs)
-      const heroCard = gs.getCard('hero-1') as HeroCard
-      expect(heroCard.getEquippedItem()).toBe('item-1')
+      unchallenged()
+      // Party state, not card state, so a frame rollback covers it.
+      expect(gs.getEquippedItem('hero-1')).toBe('item-1')
     })
 
-    it('emits two events (card removed from hand, item equipped to hero)', () => {
+    it('equips inside the frame, so a lost challenge un-equips it', () => {
       makeAction().execute(gs)
-      expect(emitSpy).toHaveBeenCalledTimes(2)
+      const window = [...gs.frames.values()]
+        .flatMap((f) => f.windows)
+        .find((w) => w.isOpen())!
+
+      // Challenger rolls 11, defender 1.
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+      window.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+      unchallenged()
+
+      expect(gs.getEquippedItem('hero-1')).toBeUndefined()
+      // Spent either way: out of hand before the snapshot, discarded by the
+      // window on the losing branch.
+      expect(player.getHand()).not.toContain('item-1')
+      expect(gs.getDiscardPile().getAll()).toContain('item-1')
+    })
+
+    it('announces the removal and the equip, then opens the challenge', () => {
+      makeAction().execute(gs)
+      expect(emitSpy).toHaveBeenCalledTimes(3)
     })
   })
 })

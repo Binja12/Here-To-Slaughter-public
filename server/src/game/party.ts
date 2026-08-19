@@ -40,25 +40,60 @@ export class Party {
     return this.data.monsterIds.length
   }
 
+  /** `carriedItemId` is what the hero brings with it — see removeHero. */
   addHero(
     heroId: string,
     em: IGameEventEmitter,
     reason: HeroAddReason,
+    carriedItemId?: string,
   ): void {
     this.data.heroIds.push(heroId)
+    if (carriedItemId) this.equipItem(heroId, carriedItemId)
     em.emit(
       GameEventFactory.heroAddedToParty(this.getPlayerId(), heroId, reason),
     )
   }
+
+  /**
+   * Returns the item the hero was carrying, and drops it from this party.
+   *
+   * A return value rather than a silent delete: every caller has to decide
+   * where the gear goes — back onto the hero in its new party, or into the
+   * discard with it — and the compiler makes that a choice rather than an
+   * omission, the same way the emitter does for the announcement.
+   */
   removeHero(
     heroId: string,
     em: IGameEventEmitter,
     reason: HeroRemovalReason,
-  ): void {
+  ): string | undefined {
+    const carriedItemId = this.getEquippedItem(heroId)
     this.data.heroIds = this.data.heroIds.filter((id) => id !== heroId)
+    if (this.data.equipment) delete this.data.equipment[heroId]
     em.emit(
       GameEventFactory.heroRemovedFromParty(this.getPlayerId(), heroId, reason),
     )
+    return carriedItemId
+  }
+
+  getEquippedItem(heroId: string): string | undefined {
+    return this.data.equipment?.[heroId]
+  }
+
+  equipItem(heroId: string, itemId: string): void {
+    if (!this.data.equipment) this.data.equipment = {}
+    this.data.equipment[heroId] = itemId
+  }
+
+  /**
+   * Takes the gear off a hero who stays in the party, and returns it. Silent,
+   * like equipItem — the caller announces, and the caller decides where the
+   * item goes, exactly as removeHero makes it decide.
+   */
+  unequipItem(heroId: string): string | undefined {
+    const itemId = this.getEquippedItem(heroId)
+    if (this.data.equipment) delete this.data.equipment[heroId]
+    return itemId
   }
   addMonster(monsterId: string): void {
     this.data.monsterIds.push(monsterId)
@@ -73,7 +108,9 @@ export class Party {
   }
   removeInstanceCard(cardId: string): void {
     if (!this.data.instanceCardIds) return
-    this.data.instanceCardIds = this.data.instanceCardIds.filter((id) => id !== cardId)
+    this.data.instanceCardIds = this.data.instanceCardIds.filter(
+      (id) => id !== cardId,
+    )
   }
 
   clone(): Party {
@@ -81,7 +118,10 @@ export class Party {
       ...this.data,
       heroIds: [...this.data.heroIds],
       monsterIds: [...this.data.monsterIds],
-      instanceCardIds: this.data.instanceCardIds ? [...this.data.instanceCardIds] : undefined,
+      instanceCardIds: this.data.instanceCardIds
+        ? [...this.data.instanceCardIds]
+        : undefined,
+      equipment: this.data.equipment ? { ...this.data.equipment } : undefined,
     })
   }
 }

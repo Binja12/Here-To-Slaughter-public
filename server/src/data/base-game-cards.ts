@@ -786,7 +786,6 @@ export const baseItems: ItemCardData[] = [
       "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -798,7 +797,6 @@ export const baseItems: ItemCardData[] = [
       "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -810,7 +808,6 @@ export const baseItems: ItemCardData[] = [
       "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -822,7 +819,6 @@ export const baseItems: ItemCardData[] = [
       "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -834,7 +830,6 @@ export const baseItems: ItemCardData[] = [
       'If the equipped Hero card would be sacrificed or destroyed, move Decoy Doll to the discard pile instead.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -846,7 +841,6 @@ export const baseItems: ItemCardData[] = [
       'The equipped Hero card is considered a Fighter instead of its original class.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -858,7 +852,6 @@ export const baseItems: ItemCardData[] = [
       'The equipped Hero card is considered a Ranger instead of its original class.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -870,7 +863,6 @@ export const baseItems: ItemCardData[] = [
       'The equipped Hero card is considered a Thief instead of its original class.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -882,7 +874,6 @@ export const baseItems: ItemCardData[] = [
       'The equipped Hero card is considered a Guardian instead of its original class.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -894,7 +885,6 @@ export const baseItems: ItemCardData[] = [
       'The equipped Hero card is considered a Wizard instead of its original class.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
   {
@@ -906,7 +896,6 @@ export const baseItems: ItemCardData[] = [
       'The equipped Hero card is considered a Bard instead of its original class.',
     set: 'base',
 
-    equippedHero: undefined,
     cursed: false,
   },
 
@@ -919,7 +908,6 @@ export const baseItems: ItemCardData[] = [
       "If you successfully roll to use the equipped Hero card's effect, DISCARD a card.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: true,
   },
   {
@@ -931,7 +919,6 @@ export const baseItems: ItemCardData[] = [
       "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: true,
   },
   {
@@ -943,7 +930,6 @@ export const baseItems: ItemCardData[] = [
       "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: true,
   },
   {
@@ -954,7 +940,6 @@ export const baseItems: ItemCardData[] = [
     description: "You cannot use the equipped Hero card's effect.",
     set: 'base',
 
-    equippedHero: undefined,
     cursed: true,
   },
 

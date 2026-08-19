@@ -200,10 +200,10 @@ export class ChallengeWindow implements IModifiableWindow {
    */
   private standingBonuses(playerId: string): RollBonus[] {
     return this.gs
-      .getEffectsWithPassive(PassiveType.RollBonus, playerId)
+      .getEffects(PassiveType.RollBonus, playerId)
       .map((effect) => ({
         cardSource: effect.sourceCardId,
-        amount: effect.passive?.value ?? 0,
+        amount: effect.value ?? 0,
       }))
   }
 

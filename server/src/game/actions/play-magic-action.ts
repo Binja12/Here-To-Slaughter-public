@@ -1,7 +1,7 @@
 import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { MagicPlay } from '../tasks/magic-tasks'
+import { PlayMagic } from '../tasks/magic-tasks'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 
@@ -9,14 +9,14 @@ const COST = 1
 
 // ---------------------------------------------------------------------------
 // The player-request half of playing a magic card. The mechanic itself is
-// MagicPlay, in `tasks/magic-tasks.ts`, shared with PlayMagicTask (§1); this
+// PlayMagic, in `tasks/magic-tasks.ts`, shared with PlayMagicTask (§1); this
 // adds what only a request needs — a price, the guards, a queue identity.
 //
-// The frameId MagicPlay returns is dropped here: an action has no pipeline to
+// The frameId PlayMagic returns is dropped here: an action has no pipeline to
 // suspend, and TurnManager's drain already stops on the open window.
 // ---------------------------------------------------------------------------
 
-export class PlayMagicAction extends MagicPlay implements IAction {
+export class PlayMagicAction extends PlayMagic implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,

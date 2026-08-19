@@ -1,4 +1,5 @@
 import { ICard } from 'shared'
+import type { GameState } from '../game-state'
 import { HeroCardData, HeroClass, CardType } from 'shared'
 
 export class HeroCard implements ICard {
@@ -22,14 +23,19 @@ export class HeroCard implements ICard {
   getHeroClass(): HeroClass {
     return this.data.heroClass
   }
+  /**
+   * What this hero is carrying. Equipment is party state, so the board has to
+   * be asked — the hero only knows its own id.
+   *
+   * `import type` on GameState: erased at compile time, so this reads the
+   * board without a runtime edge back to it (§9).
+   */
+  getEquippedItem(gs: GameState): string | undefined {
+    return gs.getEquippedItem(this.getId())
+  }
+
   getRollReq(): number {
     return this.data.rollReq
-  }
-  getEquippedItem(): string | null {
-    return this.data.equippedItem ?? null
-  }
-  equipItem(itemId: string): void {
-    this.data.equippedItem = itemId
   }
 
   clone(): HeroCard {

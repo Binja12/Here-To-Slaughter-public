@@ -1,4 +1,5 @@
 import { ICard } from 'shared'
+import type { GameState } from '../game-state'
 import { ItemCardData, CardType } from 'shared'
 
 export class ItemCard implements ICard {
@@ -19,14 +20,16 @@ export class ItemCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
+  /**
+   * The hero wearing this, or nothing once it has left play. The other half of
+   * HeroCard.getEquippedItem — same reason it takes the board.
+   */
+  getEquippedTo(gs: GameState): string | undefined {
+    return gs.getItemCarrier(this.getId())
+  }
+
   isCursed(): boolean {
     return this.data.cursed
-  }
-  getEquippedTo(): string | null {
-    return this.data.equippedHero ?? null
-  }
-  equipTo(heroId: string): void {
-    this.data.equippedHero = heroId
   }
 
   clone(): ItemCard {

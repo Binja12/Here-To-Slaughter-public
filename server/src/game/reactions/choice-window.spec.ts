@@ -1,5 +1,7 @@
-import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
+import { CardType, GameEventType, IGameEvent, ReactionWindowType } from 'shared'
 import { ChoiceWindow } from './choice-window'
+import { CardChoiceWindow } from './card-choice-window'
+import { MagicCard } from '../cards/magic-card'
 import { GameState } from '../game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { CardStack } from '../card-stack'
@@ -273,5 +275,89 @@ describe('ChoiceWindow', () => {
     const resolvedAt = events.findIndex((e) => e.getType() === GameEventType.FrameResolved)
     expect(closedAt).toBeGreaterThanOrEqual(0)
     expect(closedAt).toBeLessThan(resolvedAt)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CardChoiceWindow — the one subclass whose silent answer is not "nothing"
+// ---------------------------------------------------------------------------
+
+describe('CardChoiceWindow', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => {
+    jest.restoreAllMocks()
+    jest.useRealTimers()
+  })
+
+  const makeCard = (id: string) =>
+    new MagicCard({
+      id,
+      name: id,
+      type: CardType.Magic,
+      image: '',
+      description: '',
+      set: 'test',
+    })
+
+  const openOn = (gs: GameState, em: GameEventEmitter, options: string[]) => {
+    for (const id of options) gs.registerCard(makeCard(id))
+    const win = new CardChoiceWindow('win-1', 'p1', options, 5000, gs, 'f1', em)
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [win] })
+    return win
+  }
+
+  it('picks one of the options on timeout — a card choice cannot be waited out', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    openOn(gs, em, ['a', 'b', 'c'])
+
+    jest.advanceTimersByTime(5000)
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toHaveLength(1)
+    expect(['a', 'b', 'c']).toContain(
+      (payloadOf(resolved!)['results'] as string[])[0],
+    )
+  })
+
+  it('draws the idle pick from the offered list, not the whole table', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    gs.registerCard(makeCard('not-offered'))
+    // Last option, so a default that ignored the list would miss it.
+    jest.spyOn(Math, 'random').mockReturnValue(0.99)
+    openOn(gs, em, ['a', 'b'])
+
+    jest.advanceTimersByTime(5000)
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual(['b'])
+  })
+
+  it('picks nothing when there was nothing to offer', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    openOn(gs, em, [])
+
+    jest.advanceTimersByTime(0)
+
+    // Empty means it ran and produced nothing; the steps behind it skip.
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual([])
+  })
+
+  it('still honours an explicit pick', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = openOn(gs, em, ['a', 'b', 'c'])
+
+    win.submitReaction('p1', { choice: 'c' })
+
+    const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
+    expect(payloadOf(resolved!)['results']).toEqual(['c'])
   })
 })

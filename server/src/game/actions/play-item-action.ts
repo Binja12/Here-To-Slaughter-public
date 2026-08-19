@@ -1,24 +1,19 @@
-import {
-  ActionType,
-  Audience,
-  CardType,
-  GameEventType,
-  IGameEvent,
-} from 'shared'
+import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { GameEvent } from '../events/game-event'
+import { PlayItem } from '../tasks/item-tasks'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
-import { TaskManager } from '../task-manager'
-import { MagicCard } from '../cards/magic-card'
-import { ItemCard } from '../cards/item-card'
-import { HeroCard } from '../cards/hero-card'
 
 const COST = 1
 
-export class PlayItemAction implements IAction {
+// ---------------------------------------------------------------------------
+// The player-request half of playing an item. The mechanic itself is PlayItem,
+// in `tasks/item-tasks.ts`, shared with PlayItemTask (§1); this adds what only
+// a request needs — a price, the guards, a queue identity.
+// ---------------------------------------------------------------------------
+
+export class PlayItemAction extends PlayItem implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
@@ -26,7 +21,9 @@ export class PlayItemAction implements IAction {
     private readonly targetHeroId: string,
     private readonly reactionManager: ReactionManager,
     private readonly emmiter: GameEventEmitter,
-  ) {}
+  ) {
+    super()
+  }
 
   getId(): string {
     return this.id
@@ -51,32 +48,19 @@ export class PlayItemAction implements IAction {
     if (gs.getCurrentPlayerId() !== this.playerId) return false
     if (player.getActionPoints() < COST) return false
     if (!player.getHand().includes(this.cardId)) return false
-    if (gs.getCard(this.targetHeroId)?.getType() !== CardType.Hero) return false
 
-    const itemCard = gs.getCard(this.cardId) as ItemCard
-    const targetOwnerId = gs.getCardOwner(this.targetHeroId)
-    if (!targetOwnerId) return false
-
-    if (!itemCard.isCursed() && targetOwnerId !== this.playerId) return false
-
-    return true
+    return this.canEquip(gs, this.playerId, this.cardId, this.targetHeroId)
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
-    player.removeFromHand(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
-    )
-    const card = gs.getCard(this.targetHeroId) as HeroCard
-    card.equipItem(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.itemEquipedToHero(
-        this.playerId,
-        this.cardId,
-        this.targetHeroId,
-      ),
+    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    this.playItem(
+      gs,
+      this.playerId,
+      this.cardId,
+      this.targetHeroId,
+      this.emmiter,
+      this.reactionManager,
     )
   }
 }

@@ -87,6 +87,11 @@ export enum GameEventType {
 
   // Item events
   ItemEquippedToHero = "ItemEquippedToHero",
+  /**
+   * An item came off a hero that stayed in play — replaced by another. Effects
+   * the item installed expire on this; see `whileEquipped`.
+   */
+  ItemUnequipped = "ItemUnequipped",
 
   // Game events
   GameStarted = "GameStarted",
@@ -207,6 +212,12 @@ export enum Owner {
 export enum TriggerScope {
   /** The event is ABOUT this card (payload.cardId === source). A hero's own roll. */
   SelfCard = "SelfCard",
+  /**
+   * The event is about the hero CARRYING this card — an equipped item reacting
+   * to its own carrier's roll. payload.cardId is the hero; the item is the
+   * source.
+   */
+  CarrierCard = "CarrierCard",
   /** The event belongs to my owner. "Each time YOU roll to CHALLENGE." */
   OwnerEvent = "OwnerEvent",
   /** Only while it is my owner's turn. */
@@ -216,7 +227,7 @@ export enum TriggerScope {
 }
 
 /**
- * Standing rule flags on an ActiveEffect. A flag does nothing until a rule
+ * Which standing rule an IEffect is. A rule does nothing until something
  * reads it.
  *   RollBonus     — read by ModifierWindow and ChallengeWindow
  *   CantBeStolen  — read by StealFromPartyTask

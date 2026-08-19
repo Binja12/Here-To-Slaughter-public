@@ -1,5 +1,5 @@
 import { PassiveType, PlayerData } from 'shared'
-import type { ActiveEffect } from './interfaces'
+import type { IEffect } from './interfaces'
 
 export class Player {
   /** Immutable per-turn budget (used to reset at turn start). */
@@ -14,7 +14,7 @@ export class Player {
    *
    * Plain data, copied by clone(), so frame rollback covers it.
    */
-  private effects: ActiveEffect[] = []
+  private effects: IEffect[] = []
 
   constructor(private data: PlayerData) {
     this.initialActionPoints = data.actionPoints
@@ -71,7 +71,7 @@ export class Player {
 
   // --- Installed abilities & ongoing effects ---
 
-  addEffect(effect: ActiveEffect): void {
+  addEffect(effect: IEffect): void {
     this.effects.push(effect)
   }
 
@@ -80,7 +80,7 @@ export class Player {
    * caller add or drop effects without going through addEffect/removeEffect.
    * It also gives the sweep a stable list to walk while it removes.
    */
-  getEffects(): ActiveEffect[] {
+  getAllEffects(): IEffect[] {
     return [...this.effects]
   }
 
@@ -91,12 +91,12 @@ export class Player {
 
   /** True while any installed effect carries the given passive flag. */
   hasEffect(type: PassiveType): boolean {
-    return this.effects.some((e) => e.passive?.type === type)
+    return this.effects.some((e) => e.type === type)
   }
 
   /** Entries, not a total: callers need the source card, not just the amount. */
-  getEffectsWithPassive(type: PassiveType): ActiveEffect[] {
-    return this.effects.filter((e) => e.passive?.type === type)
+  getEffects(type: PassiveType): IEffect[] {
+    return this.effects.filter((e) => e.type === type)
   }
 
   clone(): Player {

@@ -1,7 +1,7 @@
 import { GameEventType, PassiveType, TriggerScope } from 'shared'
 import { IAbility } from '../interfaces'
 import { ApplyEffectTask } from '../tasks/tasks'
-import { untilEndOfTurn } from '../effects'
+import { untilEndOfTurn } from '../expiries'
 
 // Wise Shield (hero-028): "+3 to all of your rolls until the end of your turn."
 //
@@ -16,7 +16,8 @@ export const WiseShieldAbility: IAbility[] = [
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new ApplyEffectTask({
-        passive: { type: PassiveType.RollBonus, value: BONUS },
+        type: PassiveType.RollBonus,
+        value: BONUS,
         // Card text reads "until the end of your turn" — TurnEnded, no check
         // needed, since every TurnEnded ends the turn in progress.
         expiry: untilEndOfTurn,

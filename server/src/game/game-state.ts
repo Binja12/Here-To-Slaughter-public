@@ -1,11 +1,9 @@
 import { ICard } from 'shared'
-import type { ActiveEffect, IAction, IReactionWindow, ITask } from './interfaces'
+import type { IEffect, IAction, IReactionWindow, ITask } from './interfaces'
 import type { PassiveType } from 'shared'
 import { Player } from './player'
 import { Party } from './party'
 import { CardStack } from './card-stack'
-import { HeroCard } from './cards/hero-card'
-import { ItemCard } from './cards/item-card'
 import { CardPile } from './card-pile'
 import type { AbilityContext } from './ability-context'
 
@@ -227,9 +225,23 @@ export class GameState {
     return this.cards.get(cardId)
   }
 
+  /** What `heroId` is carrying, from the party it stands in. */
   getEquippedItem(heroId: string): string | undefined {
-    const card = this.cards.get(heroId)
-    if (card instanceof HeroCard) return card.getEquippedItem() ?? undefined
+    for (const party of this.parties.values()) {
+      if (party.getHeroIds().includes(heroId)) {
+        return party.getEquippedItem(heroId)
+      }
+    }
+    return undefined
+  }
+
+  /** Which hero carries `itemId`, or nothing once it has left play. */
+  getItemCarrier(itemId: string): string | undefined {
+    for (const party of this.parties.values()) {
+      for (const heroId of party.getHeroIds()) {
+        if (party.getEquippedItem(heroId) === itemId) return heroId
+      }
+    }
     return undefined
   }
 
@@ -297,7 +309,7 @@ export class GameState {
   // ---------------------------------------------------------------------------
 
   /** Routes to the owning player named by the effect itself. */
-  addEffect(effect: ActiveEffect): void {
+  addEffect(effect: IEffect): void {
     const player = this.players.get(effect.ownerId)
     if (!player) {
       throw new Error(
@@ -313,9 +325,21 @@ export class GameState {
     return this.players.get(playerId)?.hasEffect(type) ?? false
   }
 
-  /** Every effect on `playerId` carrying this passive. */
-  getEffectsWithPassive(type: PassiveType, playerId: string): ActiveEffect[] {
-    return this.players.get(playerId)?.getEffectsWithPassive(type) ?? []
+  /**
+   * Every effect of this type on `playerId` that applies to `cardId`.
+   *
+   * An unscoped effect applies to everything; one that names a card applies
+   * only when the caller is asking about that card. Asking about nothing —
+   * a challenge roll is not a roll on a hero — therefore excludes the scoped
+   * ones rather than including them.
+   */
+  getEffects(
+    type: PassiveType,
+    playerId: string,
+    cardId?: string,
+  ): IEffect[] {
+    const effects = this.players.get(playerId)?.getEffects(type) ?? []
+    return effects.filter((effect) => !effect.cardId || effect.cardId === cardId)
   }
 
 

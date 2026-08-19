@@ -1,61 +1,18 @@
-import { GameEventType, HeroClass, IGameEvent, TriggerScope } from 'shared'
-import type { AbilityTrigger, ActiveEffect, EffectExpiry } from './interfaces'
+import { GameEventType, HeroClass, IGameEvent } from 'shared'
+import type { IEffect, EffectExpiry } from './interfaces'
 import type { GameState } from './game-state'
 import { HeroCard } from './cards/hero-card'
 
 // ---------------------------------------------------------------------------
-// Trigger matching and effect lifetimes. Both are driven by game events, and
-// both are evaluated by TaskManager — expiry before trigger matching, so
-// an effect ending on an event is gone for anything that event fires.
+// When a game event ends an effect, and the reusable lifetimes card wordings
+// are written in. The mirror of trigger-matching.ts — §7: trigger and expiry
+// are symmetric, both are game events.
 // ---------------------------------------------------------------------------
-
-/**
- * True when `trigger` should fire for this ability on this event.
- *
- * `source` is only the identity the scope resolves against — which card the
- * ability came from, and whose it is.
- */
-export function triggerMatches(
-  gs: GameState,
-  source: { sourceCardId: string; ownerId: string },
-  trigger: AbilityTrigger,
-  event: IGameEvent,
-): boolean {
-  if (trigger.on !== event.getType()) return false
-
-  // Which variant, after scope answered whose. Absent = any event of the type.
-  if (trigger.when !== undefined) {
-    const { label } = (event.getPayload() ?? {}) as { label?: string }
-    if (label !== trigger.when) return false
-  }
-
-  switch (trigger.scope) {
-    case TriggerScope.SelfCard:
-      return (
-        (event.getPayload() as { cardId?: string })?.cardId ===
-        source.sourceCardId
-      )
-
-    case TriggerScope.OwnerEvent:
-      return event.getPlayerId() === source.ownerId
-
-    case TriggerScope.OwnerTurn:
-      return gs.getCurrentPlayerId() === source.ownerId
-
-    case TriggerScope.Anyone:
-      return true
-  }
-
-  // Exhaustive: a new scope without a branch is a compile error here, rather
-  // than an ability that silently never fires.
-  const unhandled: never = trigger.scope
-  throw new Error(`Unhandled trigger scope ${String(unhandled)}`)
-}
 
 /** True when one of `effect`'s expiry entries matches `event`. */
 export function isEffectExpired(
   gs: GameState,
-  effect: ActiveEffect,
+  effect: IEffect,
   event: IGameEvent,
 ): boolean {
   if (!effect.expiry) return false // permanent
@@ -92,6 +49,25 @@ export const untilSourceLeavesParty: EffectExpiry = {
   shouldExpire: (_gs, effect, event) =>
     (event.getPayload() as { cardId?: string })?.cardId === effect.sourceCardId,
 }
+
+/**
+ * "...while the hero carrying the card that granted this is still in play."
+ * The item's own ability ends with its carrier for free (it is derived from the
+ * hero's position); an effect the item installed needs this.
+ */
+const noLongerWorn: EffectExpiry['shouldExpire'] = (gs, effect) =>
+  !gs.getItemCarrier(effect.sourceCardId)
+
+/**
+ * "...while the item that granted this is still worn." Two ways that ends —
+ * the carrier leaves play, or the item is replaced — and one question answers
+ * both: is it still on anybody? Asked of the ITEM rather than the event's
+ * subject, because both callers drop the gear before they announce.
+ */
+export const whileEquipped: EffectExpiry[] = [
+  { on: GameEventType.HeroRemovedFromParty, shouldExpire: noLongerWorn },
+  { on: GameEventType.ItemUnequipped, shouldExpire: noLongerWorn },
+]
 
 /**
  * "...while you have a <class> in your party." The check matters: losing one of

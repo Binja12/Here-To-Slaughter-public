@@ -67,12 +67,7 @@ const makeFakeCard = (id: string, ability?: IAbility): ICard => {
   }
 }
 
-/** Real HeroCard — needed when getEquippedItem() is exercised. */
-const makeHeroCard = (
-  id: string,
-  ability?: IAbility,
-  equippedItem?: string,
-): HeroCard => {
+const makeHeroCard = (id: string, ability?: IAbility): HeroCard => {
   if (ability) abilities.set(id, [ability])
   return new HeroCard({
     id,
@@ -83,7 +78,6 @@ const makeHeroCard = (
     set: 'test',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
-    equippedItem,
   })
 }
 
@@ -322,9 +316,10 @@ describe('TaskManager', () => {
       const gs = makeGs()
       const fired: boolean[] = []
 
-      const hero = makeHeroCard('hero-1', undefined, 'item-1')
+      const hero = makeHeroCard('hero-1')
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1', ['hero-1']))
+      gs.getParty('p1').equipItem('hero-1', 'item-1')
       gs.registerCard(makeFakeCard('leader-1'))
       gs.registerCard(hero)
       gs.registerCard(
@@ -344,7 +339,7 @@ describe('TaskManager', () => {
       const gs = makeGs()
       const fired: boolean[] = []
 
-      const hero = makeHeroCard('hero-1', undefined, undefined)
+      const hero = makeHeroCard('hero-1')
       gs.registerPlayer(makePlayer('p1'))
       gs.registerParty(makeParty('p1', 'leader-1', ['hero-1']))
       gs.registerCard(makeFakeCard('leader-1'))
