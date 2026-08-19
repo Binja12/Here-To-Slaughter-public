@@ -1,9 +1,4 @@
-import {
-  GameEventType,
-  IGameEventEmitter,
-  PassiveType,
-  ReactionWindowType,
-} from 'shared'
+import { IGameEventEmitter, PassiveType } from 'shared'
 import {
   AbilityTrigger,
   ActiveEffect,
@@ -16,10 +11,8 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
-  CTX_STOLEN_HERO_ID,
 } from '../ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
-import { HeroCard } from '../cards/hero-card'
 
 // ---------------------------------------------------------------------------
 // DrawTask — draw N cards from the main deck into the owner's hand

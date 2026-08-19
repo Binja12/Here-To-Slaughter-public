@@ -54,10 +54,10 @@ class at two prices, no `isFree` branch.
 **A mechanic both pipelines need is a BASE CLASS, not a duplicate.** Playing a
 magic card is the same sequence whether a player requested it or an ability
 did, so it lives once in a base class and both wrappers extend it. The base and
-the task sit together in `tasks/action-tasks.ts` — steps that do what a player
+the task sit together in `tasks/magic-tasks.ts` — steps that do what a player
 action does, for an ability that does it unasked — and the matching `IAction`
-stays in `actions/`, extending the base across the folder line. Hero and item
-follow the same layout. The base is the more basic thing — the mechanic with no
+stays in `actions/`, extending the base across the folder line. `hero-tasks.ts`
+and `item-tasks.ts` are the same shelf for their card types. The base is the more basic thing — the mechanic with no
 price and no identity; each pipeline's wrapper is pure addition (the action
 adds cost, `canExecute` guards and queue identity; the task adds a context slot
 read at runtime). Inheriting the other way round
@@ -545,7 +545,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   never reaches the discard. Nothing catches it: the engine cannot tell a card
   that is mid-run from one that will never run. Every magic card therefore needs
   an entry, even if its only step is the disposal. Pinned by a test in
-  `tasks/action-tasks.spec.ts`.
+  `tasks/magic-tasks.spec.ts`.
 - **A magic card that pauses must dispose on every branch.** `DisposeMagicTask`
   goes after the `ConfirmTask` rather than in the continuation entry, so the
   DISMISS branch puts the card away too. That works because `TaskConfirmed` is
