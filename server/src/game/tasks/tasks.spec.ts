@@ -1,17 +1,10 @@
-import {
-  Audience,
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-} from 'shared'
+import { Audience, GameEventType, IGameEvent } from 'shared'
 import { DrawTask, DiscardTask } from './tasks'
 import { GameState } from '../game-state'
 import { CardStack } from '../card-stack'
 import { CardPile } from '../card-pile'
 import { Player } from '../player'
 import { Party } from '../party'
-import { HeroCard } from '../cards/hero-card'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
@@ -44,18 +37,6 @@ const makeParty = (playerId: string, heroIds: string[] = []) =>
     leaderId: `${playerId}-leader`,
     heroIds,
     monsterIds: [],
-  })
-
-const makeHeroCard = (id: string) =>
-  new HeroCard({
-    id,
-    name: id,
-    type: CardType.Hero,
-    image: '',
-    description: '',
-    set: 'test',
-    heroClass: HeroClass.Fighter,
-    rollReq: 5,
   })
 
 const makeCtx = (sourceCardId = 'src-card', ownerId = 'p1') =>
