@@ -1,7 +1,7 @@
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
-import { GameState } from '../game-state'
-import { AbilityContext, CTX_CHOSEN_CARD } from '../ability-context'
+import { GameState } from '../pipelines/game-state'
+import { AbilityContext, CTX_CHOSEN_CARD } from '../abilities/ability-context'
 import { MagicCard } from '../cards/magic-card'
 import { GameEventFactory } from '../events/game-event-factory'
 

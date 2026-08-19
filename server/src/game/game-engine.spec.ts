@@ -1,12 +1,12 @@
 import { GameEventType, IGameEvent } from 'shared'
 import { GameEngine } from './game-engine'
-import { GameState } from './game-state'
-import { TurnManager } from './turn-manager'
+import { GameState } from './pipelines/game-state'
+import { TurnManager } from './pipelines/turn-manager'
 import { GameEventEmitter } from './events/game-event-emitter'
-import { Player } from './player'
-import { Party } from './party'
-import { CardStack } from './card-stack'
-import { CardPile } from './card-pile'
+import { Player } from './state-structures/player'
+import { Party } from './state-structures/party'
+import { CardStack } from './state-structures/card-stack'
+import { CardPile } from './state-structures/card-pile'
 import { IWinCondition } from './interfaces'
 
 const makePlayer = (id: string, points = 3) =>

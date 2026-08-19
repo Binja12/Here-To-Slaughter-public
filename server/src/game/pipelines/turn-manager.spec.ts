@@ -1,13 +1,13 @@
 import { ActionType, GameEventType, IGameEvent, ReactionWindowType, TurnPhase } from 'shared'
 import { TurnManager } from './turn-manager'
 import { GameState } from './game-state'
-import { GameEventEmitter } from './events/game-event-emitter'
-import { Player } from './player'
-import { Party } from './party'
-import { CardStack } from './card-stack'
-import { IAction, IReactionWindow } from './interfaces'
-import { CardPile } from './card-pile'
-import { NO_CONTEXT_RESULT } from './ability-context'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { IAction, IReactionWindow } from '../interfaces'
+import { CardPile } from '../state-structures/card-pile'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 const makeGs = (actionPoints = 3) => {
   const deck = new CardStack('deck-1', 'main-deck')

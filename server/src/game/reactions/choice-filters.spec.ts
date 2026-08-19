@@ -1,14 +1,14 @@
 import { CardType, HeroClass, Owner, Zone } from 'shared'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { filterCards, filterPlayers } from './choice-filters'
-import { GameState } from '../game-state'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { Player } from '../player'
-import { Party } from '../party'
+import { GameState } from '../pipelines/game-state'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
-import { AbilityContext, CTX_CHOSEN_PLAYER } from '../ability-context'
+import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()

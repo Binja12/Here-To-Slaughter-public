@@ -3,6 +3,7 @@ import {
   IGameEvent,
   IGameEventEmitter,
   IGameEventListener,
+  TriggerScope,
 } from 'shared'
 import {
   AbilityTrigger,
@@ -10,14 +11,13 @@ import {
   IAbility,
   IReactionManager,
   ITask,
-} from './interfaces'
+} from '../interfaces'
 import { AbilityPipeline, GameState } from './game-state'
 
-import { AbilityContext } from './ability-context'
-import { abilityRegistry } from './abilities'
-import { isEffectExpired } from './expiries'
-import { triggerMatches } from './trigger-matching'
-import { GameEventFactory } from './events/game-event-factory'
+import { AbilityContext } from '../abilities/ability-context'
+import { abilityRegistry } from '../abilities'
+import { isEffectExpired } from '../abilities/expiries'
+import { GameEventFactory } from '../events/game-event-factory'
 
 /** One ability to check this event, and who owns it. Gathered fresh per event. */
 type AbilitySource = {
@@ -87,7 +87,7 @@ export class TaskManager implements IGameEventListener {
     const matched: AbilityPipeline[] = []
 
     for (const source of this.abilitySources()) {
-      if (!triggerMatches(this.gs, source, source.trigger, event)) continue
+      if (!this.triggerMatches(source, source.trigger, event)) continue
 
       const ctx = new AbilityContext(source.sourceCardId, source.ownerId)
       // Continuations run with a fresh context, so what they need travels on
@@ -106,6 +106,63 @@ export class TaskManager implements IGameEventListener {
 
     this.add(matched)
     this.drain()
+  }
+
+  // ---------------------------------------------------------------------------
+  // Triggers
+  //
+  // When an event STARTS an ability — the mirror of abilities/expiries.ts, which
+  // says when one ENDS an effect. sweepExpired runs first, so an effect ending
+  // on an event is already gone for anything that same event fires.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * True when `trigger` should fire for this ability on this event.
+   *
+   * `source` is only the identity the scope resolves against — which card the
+   * ability came from, and whose it is.
+   */
+  private triggerMatches(
+    source: { sourceCardId: string; ownerId: string },
+    trigger: AbilityTrigger,
+    event: IGameEvent,
+  ): boolean {
+    if (trigger.on !== event.getType()) return false
+
+    // Which variant, after scope answered whose. Absent = any event of the type.
+    if (trigger.when !== undefined) {
+      const { label } = (event.getPayload() ?? {}) as { label?: string }
+      if (label !== trigger.when) return false
+    }
+
+    switch (trigger.scope) {
+      case TriggerScope.SelfCard:
+        return (
+          (event.getPayload() as { cardId?: string })?.cardId ===
+          source.sourceCardId
+        )
+
+      case TriggerScope.CarrierCard: {
+        const { cardId } = (event.getPayload() ?? {}) as { cardId?: string }
+        return (
+          !!cardId && this.gs.getEquippedItem(cardId) === source.sourceCardId
+        )
+      }
+
+      case TriggerScope.OwnerEvent:
+        return event.getPlayerId() === source.ownerId
+
+      case TriggerScope.OwnerTurn:
+        return this.gs.getCurrentPlayerId() === source.ownerId
+
+      case TriggerScope.Anyone:
+        return true
+    }
+
+    // Exhaustive: a new scope without a branch is a compile error here, rather
+    // than an ability that silently never fires.
+    const unhandled: never = trigger.scope
+    throw new Error(`Unhandled trigger scope ${String(unhandled)}`)
   }
 
   // ---------------------------------------------------------------------------

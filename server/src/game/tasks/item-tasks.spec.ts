@@ -6,11 +6,11 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { PlayItem, PlayItemTask } from './item-tasks'
-import { GameState } from '../game-state'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { GameState } from '../pipelines/game-state'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 import { HeroCard } from '../cards/hero-card'
 import { ItemCard } from '../cards/item-card'
 import { MagicCard } from '../cards/magic-card'
@@ -18,9 +18,9 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
-} from '../ability-context'
+} from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { ReactionManager } from '../pipelines/reaction-manager'
 
 // --- Helpers ---
 

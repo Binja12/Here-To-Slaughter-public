@@ -1,10 +1,10 @@
 import { ItemCard } from './item-card'
 import { CardType } from 'shared'
 import { ItemCardData } from 'shared'
-import { GameState } from '../game-state'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { GameState } from '../pipelines/game-state'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 
 const mockItemData: ItemCardData = {
   id: 'item-1',

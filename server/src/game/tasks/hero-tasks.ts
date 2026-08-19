@@ -4,12 +4,12 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_STOLEN_HERO_ID,
-} from '../ability-context'
+} from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 import { HeroCard } from '../cards/hero-card'
 

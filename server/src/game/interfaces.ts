@@ -9,10 +9,10 @@ import {
   RollResult,
   TriggerScope,
 } from 'shared'
-import type { GameState } from './game-state'
-import type { AbilityContext } from './ability-context'
-import type { NO_CONTEXT_RESULT } from './ability-context'
-import type { Player } from './player'
+import type { GameState } from './pipelines/game-state'
+import type { AbilityContext } from './abilities/ability-context'
+import type { NO_CONTEXT_RESULT } from './abilities/ability-context'
+import type { Player } from './state-structures/player'
 
 // ---------------------------------------------------------------------------
 // Turn actions
@@ -96,7 +96,7 @@ export interface IAbility {
 // Ongoing effects — stored on Player, swept by TaskManager.
 // ---------------------------------------------------------------------------
 
-/** One way an effect can end. Reusable expiries live in effects.ts. */
+/** One way an effect can end. Reusable expiries live in abilities/expiries.ts. */
 export type EffectExpiry = {
   on: GameEventType
   /** Absent = the event alone decides. */

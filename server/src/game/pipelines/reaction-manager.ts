@@ -1,12 +1,12 @@
 import { ReactionWindowType } from 'shared'
-import { GameState } from '../game-state'
+import { GameState } from './game-state'
 import { IReaction, IReactionManager, IReactionWindow } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { ModifierWindow } from './modifier-window'
-import { ChallengeWindow } from './challenge-window'
-import { PlayerChoiceWindow } from './player-choice-window'
-import { CardChoiceWindow } from './card-choice-window'
-import { TaskChoiceWindow } from './task-choice-window'
+import { ModifierWindow } from '../reactions/modifier-window'
+import { ChallengeWindow } from '../reactions/challenge-window'
+import { PlayerChoiceWindow } from '../reactions/player-choice-window'
+import { CardChoiceWindow } from '../reactions/card-choice-window'
+import { TaskChoiceWindow } from '../reactions/task-choice-window'
 
 export class ReactionManager implements IReactionManager {
   constructor(

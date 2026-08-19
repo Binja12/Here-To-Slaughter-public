@@ -2,11 +2,11 @@ import { CardType, GameEventType, IGameEvent, ReactionWindowType } from 'shared'
 import { ChoiceWindow } from './choice-window'
 import { CardChoiceWindow } from './card-choice-window'
 import { MagicCard } from '../cards/magic-card'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../ability-context'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // Helpers

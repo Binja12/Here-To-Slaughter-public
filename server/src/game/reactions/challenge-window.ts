@@ -6,10 +6,10 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { IModifiableWindow } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
-import { NO_CONTEXT_RESULT } from '../ability-context'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 import { RollBonus } from './modifier-window'
 
 export class ChallengeWindow implements IModifiableWindow {

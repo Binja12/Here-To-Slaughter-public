@@ -7,9 +7,9 @@ import {
   RollResult,
 } from 'shared'
 import { IAction } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
 import { MonsterCard } from '../cards/monster-card'

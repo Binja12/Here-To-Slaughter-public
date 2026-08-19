@@ -1,8 +1,8 @@
 import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { PlayMagic } from '../tasks/magic-tasks'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 
 const COST = 1

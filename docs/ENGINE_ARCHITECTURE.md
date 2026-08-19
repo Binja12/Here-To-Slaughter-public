@@ -15,6 +15,26 @@ finishes as a later step of itself. Read `abilities/snowball-ability.ts`,
 `abilities/wise-shield-ability.ts` and `abilities/critical-boost-ability.ts`
 with their specs before adding a card.
 
+## 0. Folder layout
+
+Two files sit at the root of `server/src/game/`: `game-engine.ts`, which wires
+the pipelines together, and `interfaces.ts`, the contract layer everything else
+depends on (§9). Everything else lives in a folder:
+
+- `pipelines/` — the drivers and the board they drive. `turn-manager.ts` and
+  `task-manager.ts` are the two pipelines of §1, `reaction-manager.ts` owns
+  frames and windows (§4), and `game-state.ts` is what all three read, snapshot
+  and roll back.
+- `abilities/` — card behaviour (`index.ts` is the registry, §6) together with
+  what that behaviour is written against: `ability-context.ts` (§3) and
+  `expiries.ts` (§7).
+- `state-structures/` — what `GameState` is made of: `card-pile.ts`,
+  `card-stack.ts`, `player.ts`, `party.ts`.
+- `actions/`, `tasks/`, `reactions/`, `cards/`, `conditions/`, `events/`,
+  `config/`, `repositories/` — one folder per kind of thing.
+
+Specs sit beside their subject.
+
 ## 1. Two pipelines, never confused
 
 - **Actions** (`IAction.execute(gs)`) — built fresh per player request, driven
@@ -476,10 +496,10 @@ lifetime.** That split is the whole of it — an effect carries no behaviour of
 its own, so there is nothing to run and nothing to trigger. `TaskManager` scans
 cards for abilities and sweeps effects for expiry, and the two never meet.
 
-**Trigger and expiry are symmetric: both are game events**, and they get a file
-each — `trigger-matching.ts` says when an event STARTS an ability,
-`expiries.ts` when one ENDS an effect. `TaskManager` runs the second before the
-first (§7 sweep order). An effect turns on
+**Trigger and expiry are symmetric: both are game events.** `TaskManager`'s
+private `triggerMatches` says when an event STARTS an ability;
+`abilities/expiries.ts` says when one ENDS an effect. `TaskManager` runs the
+second before the first (§7 sweep order). An effect turns on
 when its installing ability runs, and off when one of its expiry events fires —
 optionally confirmed by `shouldExpire`, a state check that runs only then. The
 event says WHEN to look; the check says WHETHER it is really over. **No expiry
@@ -504,7 +524,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   two Rangers fires `HeroRemovedFromParty`, but "while you have a Ranger" still
   holds. The check lives next to the declaration that installs the effect —
   never as a method on a card class.
-- **Every expiry lives in `expiries.ts`** — `untilEndOfTurn`,
+- **Every expiry lives in `abilities/expiries.ts`** — `untilEndOfTurn`,
   `untilOwnersNextTurn`, `untilSourceLeavesParty`, `whileEquipped`,
   `whileClassInParty(cls)` — so all card wordings read in one place.
 - **An item's ABILITY ends with its position for free; an effect it installed
@@ -622,7 +642,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   and inert until a card needs them.
 - **`CantBeStolen` guards the steal but does not filter choices** — a protected
   hero can still be *offered* by a `ChooseCardTask`; the steal then no-ops.
-- **`interfaces.ts` ↔ `game-state.ts` remains a type-only cycle.** Genuinely
+- **`interfaces.ts` ↔ `pipelines/game-state.ts` remains a type-only cycle.** Genuinely
   mutual; both edges are `import type`, so nothing exists at runtime.
 
 ## 9. Dependency direction
@@ -635,7 +655,7 @@ them. Tasks, actions and the processor take the interface.
 `HeroCard.getEquippedItem(gs)` and `ItemCard.getEquippedTo(gs)` are the same
 rule read the other way. Equipment is party state, so a card cannot answer from
 its own data — it takes the board. The `GameState` import in both is
-`import type`, and `game-state.ts` imports neither card class, so the edge is
+`import type`, and `pipelines/game-state.ts` imports neither card class, so the edge is
 one-way and erased: no cycle in either direction, not even a type-only one.
 
 One `import type { ReactionManager }` in `interfaces.ts` used to be the edge

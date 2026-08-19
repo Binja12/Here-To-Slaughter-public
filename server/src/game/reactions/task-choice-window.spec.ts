@@ -1,10 +1,10 @@
 import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
 import { CONFIRM, DISMISS, TaskChoiceWindow } from './task-choice-window'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { NO_CONTEXT_RESULT } from '../ability-context'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 const makeGs = () =>
   new GameState(

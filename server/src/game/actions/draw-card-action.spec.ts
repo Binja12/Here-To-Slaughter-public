@@ -1,10 +1,10 @@
 import { ActionType } from 'shared'
 import { DrawCardAction } from './draw-card-action'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { Player } from '../state-structures/player'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 
 // --- Helpers ---
 

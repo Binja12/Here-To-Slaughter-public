@@ -1,6 +1,6 @@
 import { IGameEventEmitter, ReactionType, ReactionWindowType } from 'shared'
 import { IModifiableWindow, IReaction, IReactionWindow } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
 
 export class PlayModifierReaction implements IReaction {

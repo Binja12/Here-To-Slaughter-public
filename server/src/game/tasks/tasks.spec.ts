@@ -1,17 +1,17 @@
 import { Audience, GameEventType, IGameEvent } from 'shared'
 import { DrawTask, DiscardTask } from './tasks'
-import { GameState } from '../game-state'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { Player } from '../player'
-import { Party } from '../party'
+import { GameState } from '../pipelines/game-state'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
-} from '../ability-context'
+} from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import type { ReactionManager } from '../reactions/reaction-manager'
+import type { ReactionManager } from '../pipelines/reaction-manager'
 
 // ---------------------------------------------------------------------------
 // Builders

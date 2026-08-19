@@ -1,10 +1,10 @@
 import { GameEventType, IGameEvent, PassiveType, ReactionWindowType } from 'shared'
-import { Player } from '../player'
+import { Player } from '../state-structures/player'
 import { ModifierWindow } from './modifier-window'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 
 // ---------------------------------------------------------------------------
 // Helpers

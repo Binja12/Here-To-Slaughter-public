@@ -5,12 +5,12 @@ import {
   IReactionManager,
   ITask,
 } from '../interfaces'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
-} from '../ability-context'
+} from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 
 // ---------------------------------------------------------------------------

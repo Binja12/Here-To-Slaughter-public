@@ -1,7 +1,7 @@
 import { CardType, IGameEventEmitter } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
-import { GameState } from '../game-state'
-import { AbilityContext } from '../ability-context'
+import { GameState } from '../pipelines/game-state'
+import { AbilityContext } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 
 // ---------------------------------------------------------------------------
