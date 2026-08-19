@@ -14,7 +14,7 @@ import {
 // suspend the pipeline.
 //
 // The task never says where the answer goes: the WINDOW names its own slot via
-// resultKey(), that key rides along on FrameResolved, and AbilityProcessor
+// resultKey(), that key rides along on FrameResolved, and TaskManager
 // files the result there on resume.
 // ---------------------------------------------------------------------------
 

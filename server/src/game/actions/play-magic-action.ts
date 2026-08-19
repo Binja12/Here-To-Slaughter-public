@@ -1,20 +1,28 @@
 import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
+import { MagicPlay } from '../tasks/action-tasks'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
 
 const COST = 1
 
-export class PlayMagicAction implements IAction {
+// ---------------------------------------------------------------------------
+// The player-request half of playing a magic card. The mechanic itself is
+// MagicPlay, in `tasks/action-tasks.ts`, shared with PlayMagicTask (§1); this
+// adds what only a request needs — a price, the guards, a queue identity.
+// ---------------------------------------------------------------------------
+
+export class PlayMagicAction extends MagicPlay implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
     private readonly reactionManager: ReactionManager,
     private readonly emmiter: GameEventEmitter,
-  ) {}
+  ) {
+    super()
+  }
 
   getId(): string {
     return this.id
@@ -43,27 +51,7 @@ export class PlayMagicAction implements IAction {
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
-
-    // Move card from hand to party instance pile
-    player.removeFromHand(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
-    )
-
-    const party = gs.getParty(this.playerId)
-    party.addInstanceCard(this.cardId)
-
-    // Emit MagicPlayed — AbilityProcessor picks this up via onEvent(),
-    // finds the card in instance sources, and executes its ability synchronously.
-    this.emmiter.emit(GameEventFactory.magicPlayed(this.playerId, this.cardId))
-
-    // Resolve: remove from instance, move to discard
-    party.removeInstanceCard(this.cardId)
-    gs.getDiscardPile().add(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardDiscarded(this.playerId, this.cardId),
-    )
+    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    this.playMagic(gs, this.playerId, this.cardId, this.emmiter)
   }
 }

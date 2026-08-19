@@ -1,4 +1,5 @@
 import { IAbility } from '../interfaces'
+import { CriticalBoostAbility } from './critical-boost-ability'
 import { SnowballAbility } from './snowball-ability'
 import { WigglesAbility } from './wiggles-ability'
 import { WiseShieldAbility } from './wise-shield-ability'
@@ -26,6 +27,9 @@ export const abilityRegistry: ReadonlyMap<string, IAbility[]> = new Map<
   // A card holds a LIST of entries — one per stretch of steps that runs
   // without pausing. See wiggles-ability.ts for the split.
   ['hero-036', WigglesAbility], // Wiggles — STEAL a Hero, then may roll on it
-  ['hero-040', SnowballAbility], // Snowball — DRAW; if Magic, may DRAW again
+  ['hero-040', SnowballAbility], // Snowball — DRAW; if Magic, may play it and DRAW
   ['hero-028', WiseShieldAbility], // Wise Shield — +3 to your rolls until end of turn
+  // Card ids are per COPY: two printed Critical Boosts are two entries.
+  ['magic-053', CriticalBoostAbility], // Critical Boost — DRAW 3, DISCARD 1
+  ['magic-054', CriticalBoostAbility],
 ])

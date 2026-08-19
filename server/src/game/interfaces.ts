@@ -66,7 +66,7 @@ export interface IReactionManager {
 export interface ITask {
   /**
    * Returns the frameId if this step suspended on a window, else nothing.
-   * AbilityProcessor reads it to decide whether to park the remaining steps.
+   * TaskManager reads it to decide whether to park the remaining steps.
    */
   execute(
     gs: GameState,
@@ -93,7 +93,7 @@ export interface IAbility {
 }
 
 // ---------------------------------------------------------------------------
-// Ongoing effects — stored on Player, swept by AbilityProcessor.
+// Ongoing effects — stored on Player, swept by TaskManager.
 // ---------------------------------------------------------------------------
 
 /** One way an effect can end. Reusable expiries live in effects.ts. */
@@ -115,7 +115,7 @@ export interface ActiveEffect {
   ownerId: string
   /** Standing rule flag, read via gs.hasEffect / gs.getEffectsWithPassive. */
   passive?: { type: PassiveType; value?: number }
-  /** Optional behaviour; AbilityProcessor lists it as a source while it lives. */
+  /** Optional behaviour; TaskManager lists it as a source while it lives. */
   trigger?: AbilityTrigger
   steps?: ITask[]
   /** Absent = permanent. Multiple entries = first match ends it. */
@@ -158,7 +158,7 @@ export interface IReactionWindow {
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
   /**
-   * Context key this window's outcome is filed under; AbilityProcessor writes
+   * Context key this window's outcome is filed under; TaskManager writes
    * it on resume. NO_CONTEXT_RESULT when the outcome is not an ability input.
    */
   resultKey(): string | typeof NO_CONTEXT_RESULT

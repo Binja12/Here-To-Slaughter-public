@@ -20,12 +20,16 @@ export type GameFrame = {
 }
 
 // ---------------------------------------------------------------------------
-// AbilityPipeline — a suspended ability pipeline waiting on a frame.
+// AbilityPipeline — one ability part-way through its steps.
 // ---------------------------------------------------------------------------
 
 export type AbilityPipeline = {
+  /** What is left to do. The processor takes these off the front. */
   steps: ITask[]
+  /** The memory those steps share. Also identifies the pipeline. */
   ctx: AbilityContext
+  /** The frame it is paused on, if it is paused. */
+  pausedOn?: string
 }
 
 export class GameState {
@@ -38,8 +42,16 @@ export class GameState {
   /** Actions queued for draining this turn — GS is source of truth. */
   actionQueue: IAction[] = []
 
-  /** Suspended ability pipelines keyed by frameId. */
-  abilityPipelines: Map<string, AbilityPipeline> = new Map()
+  /**
+   * Ability pipelines, newest on top. TaskManager works on the top one.
+   *
+   * A step's own events trigger more abilities while it is still running, and
+   * those go on top — so they finish before the step's own pipeline continues.
+   *
+   * Kept here rather than on the processor so frames snapshot it: a pipeline
+   * started inside a frame is undone when that frame rolls back.
+   */
+  abilityPipelines: AbilityPipeline[] = []
 
   /** All open reaction frames. Each holds its own pre-open snapshot. */
   frames: Map<string, GameFrame> = new Map()
@@ -142,7 +154,13 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     copy.actionQueue = [...this.actionQueue]
-    copy.abilityPipelines = new Map(this.abilityPipelines)
+    // Copied, not shared: the live stack consumes steps and marks pipelines as
+    // it goes, and none of that may leak into a snapshot. `ctx` stays shared —
+    // it is the memory of one run, not part of the board.
+    copy.abilityPipelines = this.abilityPipelines.map((pipeline) => ({
+      ...pipeline,
+      steps: [...pipeline.steps],
+    }))
     // Installed abilities and effects ride along inside Player.clone() above.
     // Frames: shallow-copy entries. The snapshot inside each frame is already a
     // complete GameState root — we reference it without recursing into it.
@@ -275,7 +293,7 @@ export class GameState {
 
   // ---------------------------------------------------------------------------
   // Ongoing effects — stored on Player; these are the cross-player views.
-  // Expiry is AbilityProcessor's call, using the rules in effects.ts.
+  // Expiry is TaskManager's call, using the rules in effects.ts.
   // ---------------------------------------------------------------------------
 
   /** Routes to the owning player named by the effect itself. */

@@ -13,7 +13,7 @@ import { Party } from './party'
 import { HeroCard } from './cards/hero-card'
 import { GameEvent } from './events/game-event'
 import { GameEventEmitter } from './events/game-event-emitter'
-import { AbilityProcessor } from './ability-processor'
+import { TaskManager } from './task-manager'
 import { ReactionManager } from './reactions/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
 import { IAbility } from './interfaces'
@@ -75,7 +75,7 @@ function setup(abilities: Map<string, IAbility[]> = new Map()) {
   const events: IGameEvent[] = []
   em.addListener({ onEvent: (e) => events.push(e) })
   const rm = new ReactionManager(gs, em)
-  new AbilityProcessor(gs, em, rm, abilities)
+  new TaskManager(gs, em, rm, abilities)
   return { gs, em, rm, events }
 }
 

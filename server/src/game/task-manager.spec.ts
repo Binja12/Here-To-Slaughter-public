@@ -6,7 +6,7 @@ import {
   CardType,
   TriggerScope,
 } from 'shared'
-import { AbilityProcessor } from './ability-processor'
+import { TaskManager } from './task-manager'
 import { GameState } from './game-state'
 import { CardStack } from './card-stack'
 import { CardPile } from './card-pile'
@@ -34,7 +34,7 @@ beforeEach(() => {
 })
 
 const makeAp = (gs: GameState, em: GameEventEmitter) =>
-  new AbilityProcessor(gs, em, makeRm(gs, em), abilities)
+  new TaskManager(gs, em, makeRm(gs, em), abilities)
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -131,7 +131,7 @@ function setupPlayer(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('AbilityProcessor — a step that opens a frame must return it', () => {
+describe('TaskManager — a step that opens a frame must return it', () => {
   it('throws when a step returns a frameId whose frame has already settled', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
@@ -155,12 +155,14 @@ describe('AbilityProcessor — a step that opens a frame must return it', () => 
       trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
       steps: [new RawReturnTask() as unknown as ITask],
     }])
-    new AbilityProcessor(gs, em, rm, abilities)
+    new TaskManager(gs, em, rm, abilities)
 
     expect(() =>
       em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' })),
     ).toThrow(/is not an open frame/)
-    expect(gs.abilityPipelines.size).toBe(0)
+    // A dead frameId can never be woken, so the throw is the only outcome —
+    // it must not leave a run paused on it.
+    expect(gs.abilityPipelines.some((r) => r.pausedOn)).toBe(false)
   })
 
   it('carries on when a step opened a frame that settled and returned nothing', () => {
@@ -190,11 +192,11 @@ describe('AbilityProcessor — a step that opens a frame must return it', () => 
         makeTask([], () => ran.push('after')),
       ],
     }])
-    new AbilityProcessor(gs, em, rm, abilities)
+    new TaskManager(gs, em, rm, abilities)
 
     em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' }))
 
-    expect(gs.abilityPipelines.size).toBe(0) // nothing stranded
+    expect(gs.abilityPipelines).toHaveLength(0) // nothing stranded
     expect(ran).toEqual(['after']) // and the pipeline was not cut short
   })
 
@@ -219,7 +221,7 @@ describe('AbilityProcessor — a step that opens a frame must return it', () => 
   })
 })
 
-describe('AbilityProcessor', () => {
+describe('TaskManager', () => {
   // -------------------------------------------------------------------------
   // onEvent() — scan-based passive triggering
   // -------------------------------------------------------------------------

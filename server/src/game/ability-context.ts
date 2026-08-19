@@ -6,7 +6,7 @@ export const CTX_STOLEN_HERO_ID = "stolenHeroId";
 
 // ---------------------------------------------------------------------------
 // Frame result keys. A window names one via IReactionWindow.resultKey, and
-// AbilityProcessor writes the value there on resume.
+// TaskManager writes the value there on resume.
 // ---------------------------------------------------------------------------
 
 /** string[] — written by CardChoiceWindow. */
