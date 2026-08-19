@@ -11,9 +11,9 @@ registry entries, and plays the card it drew. Wise Shield exercises the full
 effect lifecycle — install, read, expire — plus the whole action path around it
 (play, challenge, granted roll, modifier window). `magic-053` (Critical Boost)
 is the reference for a MAGIC card: one entry that pauses on a choice and
-finishes as a later step of itself. Read `abilities/snowball-ability.ts`,
-`abilities/wise-shield-ability.ts` and `abilities/critical-boost-ability.ts`
-with their specs before adding a card.
+finishes as a later step of itself. Read `snowball-ability.ts`,
+`wise-shield-ability.ts` and `critical-boost-ability.ts` in
+`repositories/ability-repository/` with their specs before adding a card.
 
 ## 0. Folder layout
 
@@ -25,13 +25,16 @@ depends on (§9). Everything else lives in a folder:
   `task-manager.ts` are the two pipelines of §1, `reaction-manager.ts` owns
   frames and windows (§4), and `game-state.ts` is what all three read, snapshot
   and roll back.
-- `abilities/` — card behaviour (`index.ts` is the registry, §6) together with
-  what that behaviour is written against: `ability-context.ts` (§3) and
-  `expiries.ts` (§7).
+- `abilities/` — the machinery a card's behaviour is written against:
+  `ability-context.ts` (§3) and `expiries.ts` (§7). Not the behaviour itself.
+- `repositories/ability-repository/` — the behaviour: one file per card's
+  `IAbility[]`, plus `index.ts`, the `abilityRegistry` that keys them by card
+  id (§6). Card *data* lives in `shared/`; this is the lookup from one to the
+  other, which is why it sits beside `in-memory-card-repository.ts`.
 - `state-structures/` — what `GameState` is made of: `card-pile.ts`,
   `card-stack.ts`, `player.ts`, `party.ts`.
 - `actions/`, `tasks/`, `reactions/`, `cards/`, `conditions/`, `events/`,
-  `config/`, `repositories/` — one folder per kind of thing.
+  `config/` — one folder per kind of thing.
 
 Specs sit beside their subject.
 
@@ -161,7 +164,7 @@ together — the action calls it from `canExecute`, the task when it discovers
 its target.
 
 **Behaviour is bound by card id, not carried on card data.** `abilityRegistry`
-(`game/abilities/index.ts`) maps card id → `IAbility[]`; card data in `shared/`
+(`game/repositories/ability-repository/index.ts`) maps card id → `IAbility[]`; card data in `shared/`
 holds display text and rule numbers only. Three reasons: `steps` are live
 `ITask` instances that cannot survive `clone()` (and GS is cloned per frame);
 nothing off-server may see a card's pipeline; and "which cards have behaviour"

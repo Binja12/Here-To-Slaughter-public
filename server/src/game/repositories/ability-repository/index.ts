@@ -1,4 +1,4 @@
-import { IAbility } from '../interfaces'
+import { IAbility } from '../../interfaces'
 import { CriticalBoostAbility } from './critical-boost-ability'
 import { ReallyBigRingAbility } from './really-big-ring-ability'
 import { SuspiciouslyShinyCoinAbility } from './suspiciously-shiny-coin-ability'

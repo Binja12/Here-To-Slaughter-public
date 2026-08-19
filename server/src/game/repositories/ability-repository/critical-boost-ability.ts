@@ -1,8 +1,8 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { IAbility } from '../interfaces'
-import { DrawTask, DiscardTask } from '../tasks/tasks'
-import { ChooseCardTask } from '../tasks/choose-tasks'
-import { DisposeMagicTask } from '../tasks/magic-tasks'
+import { IAbility } from '../../interfaces'
+import { DrawTask, DiscardTask } from '../../tasks/tasks'
+import { ChooseCardTask } from '../../tasks/choose-tasks'
+import { DisposeMagicTask } from '../../tasks/magic-tasks'
 
 // Critical Boost (magic-053, magic-054): "DRAW 3 cards and DISCARD a card."
 //
