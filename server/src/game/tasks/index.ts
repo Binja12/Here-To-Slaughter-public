@@ -1,4 +1,6 @@
 export * from './tasks'
 export * from './conditions'
 export * from './choose-tasks'
-export * from './action-tasks'
+export * from './magic-tasks'
+export * from './hero-tasks'
+export * from './item-tasks'

@@ -64,20 +64,41 @@ read at runtime). Inheriting the other way round
 would force the subclass to *remove* those, and a task cannot call the action's
 constructor honestly — it has no target at construction (§1).
 
-**The emit is what BINDS a played card's ability; the card's position only has
-to survive that long.** `playMagic` moves the card to the owner's instance pile
-— the position the processor derives its ability from (§6) — emits
-`MagicPlayed`, and disposes of the card straight after. Matching happens inside
-that synchronous emit, so the card's steps are already queued on the pipeline
-stack by the time it reaches the discard; they run afterwards, off the stack,
-and pause as normal. The emit still cannot be moved to the end of the mechanic:
-discard first and there is no position to match from, so the ability would
-never be bound at all.
+**Playing a magic card MOVES it and announces the attempt.** `playMagic` takes
+the card out of hand, opens a frame, puts the card in the owner's instance
+pile, emits `MagicPlayed` and opens a `Challenge` window on it. That is the
+whole mechanic. The pile is written inside the frame, so a defeated card rolls
+straight back out of it — the same lever `PlayHeroAction` pulls for a hero
+joining a party (§3). `MagicPlayed` is what the table is challenging, so it
+goes out before the window, not after it.
 
-**Disposal is not a task and says nothing.** `disposeMagic` moves the card
-instance pile → discard as a plain method. Nothing about it belongs to an
-ability, so nothing in the processor should be able to reach it, and
-`MagicPlayed` has already told the table the card was spent.
+It returns the frameId, so `PlayMagicTask` can suspend the declaring card's own
+entry on the same window. `PlayMagicAction` drops it: `TurnManager.drain`
+already stops on an open window.
+
+**A played card's steps trigger on the SETTLED FRAME, never on `MagicPlayed`.**
+`FrameResolved` carries the `cardId` its window settled on, which is what lets
+`TriggerScope.SelfCard` pick the played card out — the frame itself is deleted
+by the release or restore just before, so the event is the only place left to
+read it.
+
+No listener has to work out whether the play stood. A defeated card was rolled
+back out of the instance pile, so it is not among the sources
+`abilitySources()` gathers and its entry cannot match. Ordinary trigger
+matching does the whole job, and the card's position is the only record of the
+outcome (principle 3).
+
+`TaskManager` wakes the pipelines suspended on that frame and *then* matches,
+so a played card's own pipeline lands on the stack above them and resolves
+before the rest of whatever played it.
+
+**The card puts itself away: `DisposeMagicTask` is the last step of its
+entry.** Instance pile → discard, silent — `MagicPlayed` already told the table
+it was spent. Being a step is what makes the timing right for free: it runs
+after everything before it, including a pause on a window, so the card holds
+the position `abilitySources()` scans for as long as its own run needs it —
+which is what lets a magic card use a continuation entry (§6). Nothing sweeps
+the pile, so a card that omits the step stays in it (§8).
 
 The base implements **neither** `IAction` nor `ITask`. Their `execute`
 signatures are override-compatible in TypeScript (`execute(gs)` is a legal
@@ -145,6 +166,12 @@ expressed purely by where the snapshot was taken, with no "already paid" flag
 anywhere. `PlayChallengeReaction` gets the same result for the challenger's own
 card through `burnCard`, which writes the removal into live state *and* the
 snapshot.
+
+`PlayMagicAction` takes the same shape: the point and the card leave the hand
+before the snapshot, the instance pile is written inside the frame. What a
+rollback cannot undo is the `MagicPlayed` it emitted, which is why that event
+means "this play is being attempted" and the card's own steps hang off the
+settled frame instead (§1).
 
 **A pausing step RETURNS its frameId.** `ITask.execute` returns
 `string | void`, and that return value is the only channel — the processor
@@ -357,11 +384,13 @@ it happens before the second draw, in printed order.
 
 ONE entry, though it pauses in the middle. A choice window suspends the
 pipeline **in place** and `FrameResolved` wakes it with `CTX_CHOSEN_CARD`
-filled, so the discard is a later STEP of the same pipeline — not a
-continuation entry. For a played magic card it has to be: by the time any
-later event arrives the card is in the discard, and nothing would match a
-second entry for it (§8). Two printed copies are two ids sharing one
-declaration.
+filled, so the discard is a later STEP of the same pipeline. A continuation
+entry would match too — the card holds its instance-pile position until
+`DisposeMagicTask` runs (§1) — this wording just does not need one. Two printed
+copies are two ids sharing one declaration.
+
+It also shows the two things every magic card declares: the trigger is
+`FrameResolved` scoped to `SelfCard`, and the last step is `DisposeMagicTask`.
 
 Three things fall out of this shape:
 
@@ -500,15 +529,29 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   are costs is the actual design work; the default itself is one override. No
   new mechanism, and no change to the timeout rule.
 
-- **A played card gets ONE entry — no continuations.** Only the entry bound
-  during `MagicPlayed` ever runs. A second entry keyed to a later event (the
-  `TaskConfirmed` hand-off every other card uses, §6) cannot match, because by
-  then the card is in the discard and `abilitySources()` does not scan it. So a
-  magic card may pause on a window — the pipeline stack holds the rest of
-  whatever played it — but it may not resume into a NEW entry the way Snowball
-  does. Pinned by a test in `ability-pipelines.spec.ts`. Reachable as soon as a
-  magic card wants "choose a target, then roll"; the fix is to keep the card in
-  a scanned position until its ability is finished.
+- **A lost challenge cancels whatever played the card.** `PlayMagicTask`
+  suspends its own entry on the challenge, so a defeat rolls back the steps
+  behind the play too — Snowball's second draw goes with it. That follows the
+  frame rule (a lost challenge un-grants a hero's roll the same way), but it is
+  a rule about *where the snapshot was taken*, not a judgement about the
+  wording. A card that should keep its tail would need the play to be the last
+  step of its entry.
+- **Nothing stops two challenges nesting.** A magic card played by an ability
+  opens a challenge from inside a pipeline. Every ability that plays one has
+  settled its own window first, so the case does not arise; nothing enforces it.
+- **A magic card with no registry entry is stranded in the instance pile.**
+  `DisposeMagicTask` is the only thing that moves a played card on, and it is a
+  declared step, so a card with no entry — or one whose author forgot the step —
+  never reaches the discard. Nothing catches it: the engine cannot tell a card
+  that is mid-run from one that will never run. Every magic card therefore needs
+  an entry, even if its only step is the disposal. Pinned by a test in
+  `tasks/action-tasks.spec.ts`.
+- **A magic card that pauses must dispose on every branch.** `DisposeMagicTask`
+  goes after the `ConfirmTask` rather than in the continuation entry, so the
+  DISMISS branch puts the card away too. That works because `TaskConfirmed` is
+  emitted before `FrameResolved`, so the continuation still matches from the
+  instance pile — the one exception to "a confirm must be the last step of its
+  entry" (§6).
 - **`CantChallenge` / `CantBeChallenged` have no readers.** Declared, installable
   and inert until a card needs them.
 - **No unequip event.** An equipped item's ability is derived from its carrier

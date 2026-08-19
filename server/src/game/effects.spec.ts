@@ -18,7 +18,8 @@ import { TaskManager } from './task-manager'
 import { ReactionManager } from './reactions/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
 import { ActiveEffect, IAbility } from './interfaces'
-import { ApplyEffectTask, StealFromPartyTask } from './tasks/tasks'
+import { ApplyEffectTask } from './tasks/tasks'
+import { StealFromPartyTask } from './tasks/hero-tasks'
 import {
   untilEndOfTurn,
   untilOwnersNextTurn,

@@ -21,7 +21,7 @@ import { GameEvent } from './events/game-event'
 import { ReactionManager } from './reactions/reaction-manager'
 import { ConfirmTask } from './tasks/choose-tasks'
 import { DrawTask } from './tasks/tasks'
-import { PlayMagicTask } from './tasks/action-tasks'
+import { DisposeMagicTask, PlayMagicTask } from './tasks/magic-tasks'
 import { SnowballAbility } from './abilities/snowball-ability'
 import { CONFIRM } from './reactions/task-choice-window'
 
@@ -241,11 +241,19 @@ describe('ability pipelines — a played magic card', () => {
 
   const MAGIC_ASKS = 'MagicAsks'
 
-  /** A magic card that PAUSES: asks a question, then draws. */
+  /**
+   * A magic card that PAUSES: asks a question, then draws. Disposal follows
+   * the confirm rather than sitting in the continuation, so the card is put
+   * away on the DISMISS branch too. TaskConfirmed goes out before the frame
+   * resolves, so the continuation still matches from the instance pile.
+   */
   const magicAbility = (): IAbility[] => [
     {
-      trigger: { on: GameEventType.MagicPlayed, scope: TriggerScope.SelfCard },
-      steps: [new ConfirmTask({ confirms: MAGIC_ASKS })],
+      trigger: {
+        on: GameEventType.FrameResolved,
+        scope: TriggerScope.SelfCard,
+      },
+      steps: [new ConfirmTask({ confirms: MAGIC_ASKS }), new DisposeMagicTask()],
     },
     {
       trigger: {
@@ -273,16 +281,19 @@ describe('ability pipelines — a played magic card', () => {
     ctx.em.emit(GameEventFactory.rollSuccess('p1', 'snowball'))
     // Snowball's own prompt: yes, play it and draw.
     openWindows(ctx.gs)[0].submitReaction('p1', { choice: CONFIRM })
+    // Then the challenge the play opens on magic-1, uncontested.
+    jest.advanceTimersByTime(5000)
     return ctx
   }
 
-  it('is already in the discard once MagicPlayed has gone out', () => {
+  it('holds its instance-pile position until its ability is finished', () => {
     const { gs } = playThroughSnowball()
 
-    // Disposal follows the emit directly: the processor bound the card's
-    // ability during that emit, so the card's position is done with.
-    expect(gs.getDiscardPile().getAll()).toContain('magic-1')
-    expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
+    // Disposal is the LAST step of the play, below the card's own ability on
+    // the stack — so while that ability is still asking its question, the card
+    // is still in the position abilitySources() scans.
+    expect(gs.getParty('p1').getInstanceCardIds()).toContain('magic-1')
+    expect(gs.getDiscardPile().getAll()).not.toContain('magic-1')
   })
 
   it('still holds the rest of Snowball while the card asks its question', () => {
@@ -302,19 +313,23 @@ describe('ability pipelines — a played magic card', () => {
     ).toBeGreaterThan(1)
   })
 
-  it('LIMITATION: a played card gets no continuation entry', () => {
-    // Its second entry triggers on TaskConfirmed, and by then the card is in
-    // the discard — a pile abilitySources() does not scan — so nothing
-    // matches. Only the entry bound during MagicPlayed ever runs. Documented
-    // in ENGINE_ARCHITECTURE section 8.
+  it('hands off to a continuation entry, like any other card', () => {
+    // Its second entry triggers on TaskConfirmed. The card is still in the
+    // instance pile when that lands — disposal waits for the whole run — so
+    // abilitySources() scans it and the entry matches. This is what the
+    // deferred disposal buys; it used to be limitation 8.
     const { gs, events } = playThroughSnowball()
 
     openWindows(gs)[0].submitReaction('p1', { choice: CONFIRM })
 
-    // Snowball's two draws; the card's own DrawTask never fires.
+    // Snowball's two draws, plus the card's own.
     expect(
       types(events).filter((t) => t === GameEventType.CardDrawn),
-    ).toHaveLength(2)
+    ).toHaveLength(3)
+    // And only once the continuation is done does the card go.
+    expect(gs.getDiscardPile().getAll()).toContain('magic-1')
+    expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
+    expect(gs.abilityPipelines).toHaveLength(0)
   })
 
   it('leaves nothing pending when the card declines its own prompt', () => {

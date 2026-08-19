@@ -1,7 +1,7 @@
 import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../game-state'
-import { MagicPlay } from '../tasks/action-tasks'
+import { MagicPlay } from '../tasks/magic-tasks'
 import { ReactionManager } from '../reactions/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
 
@@ -9,8 +9,11 @@ const COST = 1
 
 // ---------------------------------------------------------------------------
 // The player-request half of playing a magic card. The mechanic itself is
-// MagicPlay, in `tasks/action-tasks.ts`, shared with PlayMagicTask (§1); this
+// MagicPlay, in `tasks/magic-tasks.ts`, shared with PlayMagicTask (§1); this
 // adds what only a request needs — a price, the guards, a queue identity.
+//
+// The frameId MagicPlay returns is dropped here: an action has no pipeline to
+// suspend, and TurnManager's drain already stops on the open window.
 // ---------------------------------------------------------------------------
 
 export class PlayMagicAction extends MagicPlay implements IAction {
@@ -51,7 +54,14 @@ export class PlayMagicAction extends MagicPlay implements IAction {
   }
 
   execute(gs: GameState): void {
+    // Spent before the frame opens, so a lost challenge still costs the point.
     gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
-    this.playMagic(gs, this.playerId, this.cardId, this.emmiter)
+    this.playMagic(
+      gs,
+      this.playerId,
+      this.cardId,
+      this.emmiter,
+      this.reactionManager,
+    )
   }
 }
