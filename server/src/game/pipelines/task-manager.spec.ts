@@ -11,7 +11,7 @@ import { GameState } from './game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import { AbilityContext } from '../abilities/ability-context'
-import { IAbility, ITask } from '../interfaces'
+import { IAbilityRule, ITask } from '../interfaces'
 import { GameEvent } from '../events/game-event'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { Player } from '../state-structures/player'
@@ -28,7 +28,7 @@ const makeRm = (gs: GameState, em: GameEventEmitter) =>
  * here, not carried on the card itself. The builders below write into it, so a
  * test still declares a card and its ability in one place.
  */
-let abilities = new Map<string, IAbility[]>()
+let abilities = new Map<string, IAbilityRule[]>()
 beforeEach(() => {
   abilities = new Map()
 })
@@ -56,7 +56,7 @@ const makeTask = (events: IGameEvent[] = [], spy?: () => void): ITask => ({
 })
 
 /** Minimal ICard. Any ability passed is registered against the card's id. */
-const makeFakeCard = (id: string, ability?: IAbility): ICard => {
+const makeFakeCard = (id: string, ability?: IAbilityRule): ICard => {
   if (ability) abilities.set(id, [ability])
   return {
     getId: () => id,
@@ -67,7 +67,7 @@ const makeFakeCard = (id: string, ability?: IAbility): ICard => {
   }
 }
 
-const makeHeroCard = (id: string, ability?: IAbility): HeroCard => {
+const makeHeroCard = (id: string, ability?: IAbilityRule): HeroCard => {
   if (ability) abilities.set(id, [ability])
   return new HeroCard({
     id,
@@ -110,7 +110,7 @@ function setupPlayer(
   gs: GameState,
   playerId: string,
   leaderId: string,
-  heroes: Array<{ cardId: string; ability?: IAbility }> = [],
+  heroes: Array<{ cardId: string; ability?: IAbilityRule }> = [],
 ): void {
   gs.registerPlayer(makePlayer(playerId))
   const heroIds = heroes.map((h) => h.cardId)
@@ -273,7 +273,7 @@ describe('TaskManager', () => {
       const gs = makeGs()
       const firedBy: string[] = []
 
-      const makeAbility = (tag: string): IAbility => ({
+      const makeAbility = (tag: string): IAbilityRule => ({
         trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
         steps: [makeTask([], () => firedBy.push(tag))],
       })
@@ -371,7 +371,7 @@ describe('TaskManager', () => {
         // forbids it, so the cast is what lets us assert the runtime guard.
         makeFakeCard('leader-1', {
           steps: [makeTask([], () => fired.push(true))],
-        } as unknown as IAbility),
+        } as unknown as IAbilityRule),
       )
 
       const ap = makeAp(gs, new GameEventEmitter())
@@ -429,7 +429,7 @@ describe('TaskManager', () => {
       const gs = makeGs()
       const firedBy: string[] = []
 
-      const makeAbility = (tag: string): IAbility => ({
+      const makeAbility = (tag: string): IAbilityRule => ({
         trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
         steps: [makeTask([], () => firedBy.push(tag))],
       })

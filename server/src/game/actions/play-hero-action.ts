@@ -1,22 +1,31 @@
-import { ActionType, ReactionWindowType } from 'shared'
-import { IAction, IActionQueue } from '../interfaces'
+import { ActionType } from 'shared'
+import { IAction } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
+import { PlayHero } from '../tasks/play-hero-task'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
-import { FREE, RollOnHeroAction } from './roll-on-hero-action'
 
 const COST = 1
 
-export class PlayHeroAction implements IAction {
+// ---------------------------------------------------------------------------
+// The player-request half of playing a hero. The mechanic is PlayHero, in
+// `tasks/play-hero-task.ts`, shared with PlayHeroTask (§1); this adds the cost,
+// the guards and a queue identity.
+//
+// The frameId is dropped: an action has no pipeline, and TurnManager's drain
+// already stops on the open window.
+// ---------------------------------------------------------------------------
+
+export class PlayHeroAction extends PlayHero implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
     private readonly reactionManager: ReactionManager,
     private readonly emmiter: GameEventEmitter,
-    private readonly actionQueue: IActionQueue,
-  ) {}
+  ) {
+    super()
+  }
 
   getId(): string {
     return this.id
@@ -45,46 +54,14 @@ export class PlayHeroAction implements IAction {
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
-
-    // Out of hand BEFORE the snapshot: a challenged card is spent either way,
-    // so a lost challenge must not restore it to hand. ChallengeWindow puts it
-    // in the discard when the challenger wins.
-    player.removeFromHand(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
-    )
-
-    const frameId = this.reactionManager.openFrame()
-
-    // Everything below is inside the frame, so a lost challenge undoes it all.
-
-    // addHero announces the arrival itself.
-    gs.getParty(this.playerId).addHero(this.cardId, this.emmiter, 'Played')
-
-    // Queued rather than called inline: a roll suspends on a modifier window,
-    // and only the queue can pause and resume around that. FREE — the point
-    // was spent on the play. The queue lives on GameState, so a rollback
-    // un-grants this along with the hero.
-    this.actionQueue.enqueueFirst(
-      new RollOnHeroAction(
-        crypto.randomUUID(),
-        this.playerId,
-        this.cardId,
-        this.emmiter,
-        this.reactionManager,
-        FREE,
-      ),
-    )
-
-    // Last: this window suspends the drain. ChallengeWindow owns settlement,
-    // and GameEngine resumes the drain on FrameResolved.
-    this.reactionManager.openWindow(
-      frameId,
-      ReactionWindowType.Challenge,
+    // Spent before the frame opens, so a lost challenge still costs the point.
+    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    this.playHero(
+      gs,
       this.playerId,
-      { cardId: this.cardId },
+      this.cardId,
+      this.emmiter,
+      this.reactionManager,
     )
   }
 }

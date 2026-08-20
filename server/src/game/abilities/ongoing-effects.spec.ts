@@ -17,7 +17,7 @@ import { GameEventEmitter } from '../events/game-event-emitter'
 import { TaskManager } from '../pipelines/task-manager'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
-import { IEffect, IAbility } from '../interfaces'
+import { IEffect, IAbilityRule } from '../interfaces'
 import { ApplyEffectTask } from '../tasks/tasks'
 import { StealFromPartyTask } from '../tasks/hero-tasks'
 import {
@@ -76,7 +76,7 @@ function seat(gs: GameState, playerId: string, heroIds: string[] = []): void {
   )
 }
 
-function setup(abilities: Map<string, IAbility[]> = new Map()) {
+function setup(abilities: Map<string, IAbilityRule[]> = new Map()) {
   const gs = makeGs()
   const em = new GameEventEmitter()
   const events: IGameEvent[] = []

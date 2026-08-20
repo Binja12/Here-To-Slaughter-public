@@ -1,10 +1,15 @@
-import { IAbility } from '../../interfaces'
+import { IAbilityRule } from '../../interfaces'
 import { CriticalBoostAbility } from './critical-boost-ability'
 import { ReallyBigRingAbility } from './really-big-ring-ability'
 import { SuspiciouslyShinyCoinAbility } from './suspiciously-shiny-coin-ability'
 import { SnowballAbility } from './snowball-ability'
 import { WigglesAbility } from './wiggles-ability'
 import { WiseShieldAbility } from './wise-shield-ability'
+
+// Not keyed by a card id — the rules a card gets from its position. Re-exported
+// so TaskManager reaches every table through this file.
+export { heroRules, OFFERS_ROLL } from './hero-rules'
+export { instanceRules } from './instance-rules'
 
 // ---------------------------------------------------------------------------
 // Ability registry — card BEHAVIOUR, keyed by card id.
@@ -22,9 +27,9 @@ import { WiseShieldAbility } from './wise-shield-ability'
 // A card id absent from this map simply has no ability: the processor skips it.
 // ---------------------------------------------------------------------------
 
-export const abilityRegistry: ReadonlyMap<string, IAbility[]> = new Map<
+export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   string,
-  IAbility[]
+  IAbilityRule[]
 >([
   // A card holds a LIST of entries — one per stretch of steps that runs
   // without pausing. See wiggles-ability.ts for the split.

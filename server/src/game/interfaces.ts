@@ -28,12 +28,6 @@ export interface IAction {
   execute(gs: GameState): void
 }
 
-/** Implemented by TurnManager; declared here so actions need not import it. */
-export interface IActionQueue {
-  /** Run `action` before anything already queued. */
-  enqueueFirst(action: IAction): void
-}
-
 export interface IReaction {
   getId(): string
   getType(): ReactionType
@@ -87,10 +81,21 @@ export type AbilityTrigger = {
   when?: string
 }
 
-export interface IAbility {
+/** WHEN something runs and WHAT it runs. Everything TaskManager matches. */
+export interface IGameRule {
   trigger: AbilityTrigger
   steps: ITask[]
 }
+
+/** A rule printed on a card — the abilityRegistry's values, keyed by card id. */
+export type IAbilityRule = IGameRule
+
+/** A rule of the game, printed on no card: hero-rules.ts, instance-rules.ts. */
+export type ISystemRule = IGameRule
+
+// Same shape, so nothing tells them apart at runtime. TaskManager.abilitySources
+// records which table a rule came from on the pipeline instead; only
+// AbilityDone reads it.
 
 // ---------------------------------------------------------------------------
 // Ongoing effects — stored on Player, swept by TaskManager.

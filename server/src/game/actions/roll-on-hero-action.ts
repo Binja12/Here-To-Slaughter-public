@@ -1,38 +1,42 @@
-import { ActionType, ReactionWindowType } from 'shared'
+import { ActionType } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
+import { RollOnHero } from '../tasks/roll-on-hero-task'
 import { ReactionManager } from '../pipelines/reaction-manager'
-import { HeroCard } from '../cards/hero-card'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
 
-/** What a roll costs when the player pays for it themselves. */
 const COST = 1
 
-/** Cost for a roll granted by another action — PlayHeroAction's free roll. */
-export const FREE = 0
+// ---------------------------------------------------------------------------
+// The player-request half of rolling on a hero. The mechanic is RollOnHero, in
+// `tasks/roll-on-hero-task.ts`, shared with RollOnHeroTask (§1); this adds the
+// cost, the guards and a queue identity.
+//
+// The frameId is dropped: an action has no pipeline, and TurnManager's drain
+// already stops on the open window.
+// ---------------------------------------------------------------------------
 
-export class RollOnHeroAction implements IAction {
+export class RollOnHeroAction extends RollOnHero implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
     private readonly emmiter: GameEventEmitter,
     private readonly reactionManager: ReactionManager,
-    private readonly cost: number = COST,
-  ) {}
+  ) {
+    super()
+  }
 
   getId(): string { return this.id }
   getPlayerId(): string { return this.playerId }
   getType(): ActionType { return ActionType.RollOnHero }
-  getCost(): number { return this.cost }
+  getCost(): number { return COST }
   isReactable(): boolean { return true }
 
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    // `< cost`, not `<= 0`: a FREE roll is legal at zero AP.
-    if (player.getActionPoints() < this.cost) return false
+    if (player.getActionPoints() < COST) return false
     const party = gs.getParty(this.playerId)
     if (!party?.getHeroIds().includes(this.cardId)) return false
     if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) return false
@@ -40,30 +44,14 @@ export class RollOnHeroAction implements IAction {
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(this.cost)
-
-    const card = gs.getCard(this.cardId) as HeroCard
-    const rollReq = card.getRollReq()
-    const baseRoll = Math.ceil(Math.random() * 11) + 1
-
-    this.emmiter.emit(GameEventFactory.diceRolled(this.playerId, this.cardId, baseRoll))
-
-    // Mark ability used before the snapshot so rollback doesn't undo it —
-    // the hero's ability slot is consumed whether the roll succeeds or fails.
-    gs.markAbilityUsed(this.cardId)
-
-    // Open frame + modifier window. ModifierWindow owns settlement:
-    // rollback on finalRoll < rollReq, RollSuccess + FrameResolved on success.
-    const frameId = this.reactionManager.openFrame()
-    this.reactionManager.openWindow(frameId, ReactionWindowType.Modifier, this.playerId, {
-      rollerId: this.playerId,
-      baseRoll,
-      rollReq,
-      heroId: this.cardId,
-    })
-
-    // ModifierWindow emits RollSuccess between releaseFrame and FrameResolved.
-    // GameEngine's only job on FrameResolved is resumeDrain().
+    // Spent before the frame opens, so a failed roll still costs the point.
+    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    this.rollOnHero(
+      gs,
+      this.playerId,
+      this.cardId,
+      this.emmiter,
+      this.reactionManager,
+    )
   }
 }

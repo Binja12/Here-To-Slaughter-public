@@ -1,5 +1,5 @@
 import { GameEventType, PassiveType, TriggerScope } from 'shared'
-import { IAbility } from '../../interfaces'
+import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilEndOfTurn } from '../../abilities/expiries'
 
@@ -11,7 +11,7 @@ import { untilEndOfTurn } from '../../abilities/expiries'
 // activation. Read by ModifierWindow and ChallengeWindow via RollBonus.
 const BONUS = 3
 
-export const WiseShieldAbility: IAbility[] = [
+export const WiseShieldAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [

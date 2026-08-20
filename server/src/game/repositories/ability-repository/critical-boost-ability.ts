@@ -1,13 +1,11 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { IAbility } from '../../interfaces'
+import { IAbilityRule } from '../../interfaces'
 import { DrawTask, DiscardTask } from '../../tasks/tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
-import { DisposeMagicTask } from '../../tasks/magic-tasks'
 
 // Critical Boost (magic-053, magic-054): "DRAW 3 cards and DISCARD a card."
 //
-//   [0] FrameResolved on this card → draw 3, ask which card to lose,
-//       discard it, then dispose of the Boost itself
+//   [0] FrameResolved on this card → draw 3, ask which card to lose, discard it
 //
 // The settled challenge frame, not MagicPlayed: the play is announced when the
 // card reaches the instance pile and is challenged from there. A defeated card
@@ -22,8 +20,8 @@ import { DisposeMagicTask } from '../../tasks/magic-tasks'
 // a legal thing to throw away. Picking nothing — an idle player — discards
 // nothing; the empty slot travels and DiscardTask skips itself.
 //
-// DisposeMagicTask last: every played magic card ends its entry with it.
-export const CriticalBoostAbility: IAbility[] = [
+// Nothing here puts the Boost away: instance-rules.ts does, on AbilityDone.
+export const CriticalBoostAbility: IAbilityRule[] = [
   {
     trigger: {
       on: GameEventType.FrameResolved,
@@ -33,7 +31,6 @@ export const CriticalBoostAbility: IAbility[] = [
       new DrawTask(3),
       new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
       new DiscardTask(),
-      new DisposeMagicTask(),
     ],
   },
 ]

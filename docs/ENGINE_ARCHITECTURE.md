@@ -8,8 +8,8 @@ shapes in the code. Branch: `HTSR-3-Game-engine`. Suite:
 Shield) are the most complete cycles in the engine. Snowball exercises the full
 ability pipeline — draw, condition, confirm, continuation — across three
 registry entries, and plays the card it drew. Wise Shield exercises the full
-effect lifecycle — install, read, expire — plus the whole action path around it
-(play, challenge, granted roll, modifier window). `magic-053` (Critical Boost)
+effect lifecycle — install, read, expire — plus the whole path around it (play,
+challenge, roll offer, modifier window). `magic-053` (Critical Boost)
 is the reference for a MAGIC card: one entry that pauses on a choice and
 finishes as a later step of itself. Read `snowball-ability.ts`,
 `wise-shield-ability.ts` and `critical-boost-ability.ts` in
@@ -26,10 +26,16 @@ depends on (§9). Everything else lives in a folder:
   frames and windows (§4), and `game-state.ts` is what all three read, snapshot
   and roll back.
 - `abilities/` — the machinery a card's behaviour is written against:
-  `ability-context.ts` (§3) and `expiries.ts` (§7). Not the behaviour itself.
+  `ability-context.ts` (§3), `ability-lifecycle.ts` — when an event starts a
+  rule and when one ends an effect, together because they are one question
+  asked twice (§7) — and `expiries.ts`, the lifetimes card wordings are written
+  in. Not the behaviour itself.
 - `repositories/ability-repository/` — the behaviour: one file per card's
-  `IAbility[]`, plus `index.ts`, the `abilityRegistry` that keys them by card
-  id (§6). Card *data* lives in `shared/`; this is the lookup from one to the
+  `IAbility[]`, plus `hero-rules.ts` (the entries every hero has, keyed to no
+  card at all) and `index.ts`, the `abilityRegistry` that keys the rest by card
+  id (§6). A mechanic shared by both pipelines gets a file of its own in
+  `tasks/` — `play-hero-task.ts`, `roll-on-hero-task.ts` — while `hero-tasks.ts`
+  keeps the steps that only ever move a hero already on the table. Card *data* lives in `shared/`; this is the lookup from one to the
   other, which is why it sits beside `in-memory-card-repository.ts`.
 - `state-structures/` — what `GameState` is made of: `card-pile.ts`,
   `card-stack.ts`, `player.ts`, `party.ts`.
@@ -52,27 +58,35 @@ Specs sit beside their subject.
 An ability entry is pure data: `{ trigger: { on, scope, when? }, steps: ITask[] }`.
 A card registers a **list** of them (§6).
 
-**An action may grant another action, never call one.** Playing a hero grants a
-roll on that hero. The roll is *queued* — `TurnManager.enqueueFirst` — not
-invoked inline, because a roll suspends on a modifier window and only the queue
-knows how to pause and resume around one; an inline call would run the roll's
-tail after `execute()` had already returned to a drain loop that thinks the
-action finished. Front of the queue, so the grant resolves before whatever the
-player stacked behind the play.
+**The action queue holds player requests and nothing else.** Everything in it
+arrived from the API. Work the engine starts for itself is a TASK, so there is
+no way to put an action at the front of the queue and no `IActionQueue` for an
+action to depend on — `TurnManager` exposes `enqueue` and `resumeDrain`, and
+that is the whole surface.
 
-`enqueueFirst` deliberately drops all three of `enqueue`'s guards. It does not
-drain (its caller is already *inside* the drain loop; re-entering would let the
-turn end mid-action), skips the phase check (the engine is continuing work it
-started, not accepting a fresh request), and skips the reactable/open-window
-check (a window opened by the granting action's own events must *delay* the
-continuation, never discard it). Actions depend on `IActionQueue`, not on
-`TurnManager` — same rule as §9.
+That is why **playing a hero does not grant itself a roll**. The offer belongs
+to the HERO: every hero in a party carries two engine entries (`hero-rules.ts`,
+§6) that ask "do you want to roll?" when a challenge on it settles, and run
+`RollOnHeroTask` if the answer is yes. `PlayHeroAction` and `PlayHeroTask`
+therefore describe only the play, and both get the roll without either knowing
+the roll exists.
 
-Cost is the grant's, not the class's: `RollOnHeroAction` takes its cost as a
-constructor argument (`FREE` for the granted case) and `canExecute` tests
-`AP < cost` rather than `AP <= 0`, so a free roll is still legal at zero AP —
-exactly the state that playing a hero with your last point leaves you in. One
-class at two prices, no `isFree` branch.
+What that offer leads to is a task with no price at all, rather than an action
+at a second price, so `RollOnHeroAction` is one class at one cost — no `isFree`
+branch and no cost constructor argument.
+
+**The two pipelines never call each other, but the TURN belongs to both.** A
+player is not finished while an ability they set off is still resolving, so
+`TurnManager.drain` stops — and declines to end the turn — whenever
+`GameState.abilityPipelines` is non-empty, exactly as it does for an open
+frame. It READS the task stack off GameState rather than holding a
+`TaskManager`, so the dependency stays out (§9) and the rule needs no
+cooperation from the other side.
+
+The stack is the right thing to ask, not the frames. `TaskManager` empties it as
+it goes, so outside its own drain a non-empty stack means something is parked —
+including the gap between a window releasing its frame and the `FrameResolved`
+that wakes the pipeline, where no frame is open and the work is not done.
 
 **A mechanic both pipelines need is a BASE CLASS, not a duplicate.** Playing a
 magic card is the same sequence whether a player requested it or an ability
@@ -115,12 +129,26 @@ outcome (principle 3).
 so a played card's own pipeline lands on the stack above them and resolves
 before the rest of whatever played it.
 
-**The card puts itself away: `DisposeMagicTask` is the last step of its
-entry.** Instance pile → discard, silent — `MagicPlayed` already told the table
-it was spent. Being a step is what makes the timing right for free: it runs
-after everything before it, including a pause on a window, so the card holds
-the position `abilitySources()` scans for as long as its own run needs it —
-which is what lets a magic card use a continuation entry (§6). Nothing sweeps
+**The instance pile is a ZONE, not a waiting room.** A played card sits there
+precisely so it is not in the discard while it resolves: a magic card that
+picks a card from the discard must not be able to pick itself, and the pile is
+what makes that true of the BOARD rather than of a filter at the choice. So the
+card cannot be discarded early, and it must not be left there either.
+
+**The card leaves that pile when its RUN ends, and the engine works out when
+that is.** `TaskManager` emits `AbilityDone { cardId }` as a pipeline leaves
+the stack — but only when no other pipeline is still sourced to that card, so
+it means "this card's rules are finished", not "a step ran". `instance-rules.ts`
+is one rule hung off it: instance pile → discard, silent, since `MagicPlayed`
+already told the table the card was spent.
+
+Disposal is a property of the ZONE, so it is declared once for the zone rather
+than by each card that enters it. A card wording says what the card does; where
+the card goes when it has finished doing it is not a wording. Making it a step
+would put two pieces of engine knowledge in the author's hands — that a card
+which pauses must dispose *before* the branch it might not take, and the order
+`TaskConfirmed` and `FrameResolved` are emitted in — and get either wrong and
+the card either vanishes mid-run or never leaves the pile. Nothing sweeps
 the pile, so a card that omits the step stays in it (§8).
 
 The base implements **neither** `IAction` nor `ITask`. Their `execute`
@@ -162,6 +190,22 @@ at somebody, so any hero on the table is a legal target; a plain one only ever
 goes on its owner's. `PlayItem.canEquip` holds that rule and the one-item rule
 together — the action calls it from `canExecute`, the task when it discovers
 its target.
+
+**Playing a HERO is the same shape a third time.** `playHero`
+(`tasks/hero-tasks.ts`) takes the card out of hand, opens a frame, adds it to
+the party and opens the challenge window. `addHero` announces the arrival
+itself, so there is no separate "hero played" event to emit — party membership
+cannot change silently (§7), and that one canonical event is the attempt.
+
+**Rolling on a hero is the fourth pair, and the one with no card to move.**
+`rollOnHero` throws the dice, announces `DiceRolled`, marks the hero's ability
+slot spent and opens the modifier window. `markAbilityUsed` runs BEFORE the
+frame opens, so a failed roll still costs the slot; everything else the roll
+does is inside the frame and goes back with it.
+
+Four mechanics, four bases, two wrappers each. A wrapper is always pure
+addition — the action adds a price, `canExecute` guards and a queue identity;
+the task adds a context slot read at runtime.
 
 **Behaviour is bound by card id, not carried on card data.** `abilityRegistry`
 (`game/repositories/ability-repository/index.ts`) maps card id → `IAbility[]`; card data in `shared/`
@@ -216,11 +260,12 @@ the follow-up roll fails). Want an earlier step undone? Open the frame earlier.
 
 `PlayHeroAction` is the clearest use of that lever. It spends the point, takes
 the card **out of hand**, and only *then* opens the frame and the challenge
-window; the hero joins the party and the free roll is granted inside the frame.
-So a lost challenge un-plays the hero and un-grants its roll, while the card
-stays out of the hand — a challenged card is spent either way, and that fact is
-expressed purely by where the snapshot was taken, with no "already paid" flag
-anywhere. `PlayChallengeReaction` gets the same result for the challenger's own
+window; the hero joins the party inside the frame. So a lost challenge un-plays
+the hero while the card stays out of the hand — a challenged card is spent
+either way, and that fact is expressed purely by where the snapshot was taken,
+with no "already paid" flag anywhere. The roll offer needs no undoing: it is
+matched from the hero's position in the party, and a defeated hero is not there
+to be matched. `PlayChallengeReaction` gets the same result for the challenger's own
 card through `burnCard`, which writes the removal into live state *and* the
 snapshot.
 
@@ -269,9 +314,8 @@ stop, carry on when it resolves.
   trigger returns at once — one drain loops at a time — and the loop already
   going reaches the new pipelines on its next turn. They therefore happen after
   the current step and before the rest of its pipeline. That delay is the whole
-  mechanism, and `drain`'s flag is what TurnManager gets from splitting
-  `enqueue` and `enqueueFirst`: every caller here arrives through `onEvent`
-  instead, so nothing else can tell the two apart.
+  mechanism, and `drain`'s flag is the only thing that tells a fresh start from
+  a re-entry: every caller arrives through `onEvent`, so nothing else can.
 - **A paused pipeline stays on the stack, marked `pausedOn`.** The pipelines
   *underneath* are the ones that must wait; lifting the paused one off would
   let the next drain walk straight past them. Only that frame's `FrameResolved`
@@ -375,9 +419,48 @@ against the event:
 - **Ongoing effects — STORED**, on the owning `Player`. "Your heroes cannot be
   stolen until your next turn" has no card position to derive from, so it lives
   on the player until an expiry event removes it (§7).
+- **Hero rules — UNIVERSAL.** `hero-rules.ts` holds the entries EVERY hero
+  carries, sourced to each hero in a party as if printed on it. "A hero you just
+  played may roll to use its effect" is a rule of the game, not one card's
+  behaviour, so it cannot live in a table keyed by card id — it belongs to all
+  136. Sourcing it to the hero is what makes it need no new machinery: scope,
+  context identity and rollback all resolve exactly as a printed ability's do.
 
-`abilitySources()` gathers both into one list per event, retained afterwards by
-nothing. **Per event: sweep → resume → match.**
+`abilitySources()` gathers all three into one list per event, retained
+afterwards by nothing. **Per event: sweep → resume → match.**
+
+It also records which table each one came from, because `AbilityDone` reports
+what a CARD did and must ignore the engine's housekeeping on both sides: a
+system rule neither announces a card finished nor delays the announcement. Suppress
+only one of the two and it breaks in opposite directions — a duplicate in the
+player's log, or a card whose last live pipeline is a system rule and is never
+reported finished at all.
+
+**The roll offer** is the reference for that third kind, and reads like any
+split ability:
+
+```ts
+[0] { on: FrameResolved, scope: SelfCard }
+      [Confirm({ confirms: OFFERS_ROLL })]
+[1] { on: TaskConfirmed, scope: SelfCard, when: OFFERS_ROLL }
+      [RollOnHero()]
+```
+
+`FrameResolved` names a `cardId` only when a CHALLENGE settled on that card, and
+the only challenges opened on a hero are the two halves of `PlayHero` — so
+entry [0] fires on exactly the plays it should and on nothing else. A hero that
+LOST its challenge was rolled back out of the party before the event went out,
+so it is not among the sources and is never offered anything: the card's
+position is the whole record of the outcome, as in §1.
+
+Both tasks take their target from `ctx.sourceCardId` rather than a slot, which
+is what "a task names WHAT it needs" looks like when the answer is "the card
+whose entry I am".
+
+Its label must not collide with a card's. Wiggles asks its own "may I roll?"
+question about a hero it stole, under `RollOnHero`; the universal offer uses
+`RollOnPlayedHero`. Sharing the string would make Wiggles roll on itself the
+moment it confirmed a roll on its steal — pinned by a test.
 
 ### Trigger: whose event, and which
 
@@ -452,12 +535,13 @@ it happens before the second draw, in printed order.
 ONE entry, though it pauses in the middle. A choice window suspends the
 pipeline **in place** and `FrameResolved` wakes it with `CTX_CHOSEN_CARD`
 filled, so the discard is a later STEP of the same pipeline. A continuation
-entry would match too — the card holds its instance-pile position until
-`DisposeMagicTask` runs (§1) — this wording just does not need one. Two printed
-copies are two ids sharing one declaration.
+entry would match too — the card holds its instance-pile position until its
+whole run ends (§1) — this wording just does not need one. Two printed copies
+are two ids sharing one declaration.
 
-It also shows the two things every magic card declares: the trigger is
-`FrameResolved` scoped to `SelfCard`, and the last step is `DisposeMagicTask`.
+It also shows the one thing every magic card declares, and the one it does not:
+the trigger is `FrameResolved` scoped to `SelfCard`, and **nothing says where
+the card goes afterwards**.
 
 Three things fall out of this shape:
 
@@ -499,10 +583,11 @@ lifetime.** That split is the whole of it — an effect carries no behaviour of
 its own, so there is nothing to run and nothing to trigger. `TaskManager` scans
 cards for abilities and sweeps effects for expiry, and the two never meet.
 
-**Trigger and expiry are symmetric: both are game events.** `TaskManager`'s
-private `triggerMatches` says when an event STARTS an ability;
-`abilities/expiries.ts` says when one ENDS an effect. `TaskManager` runs the
-second before the first (§7 sweep order). An effect turns on
+**Trigger and expiry are symmetric: both are game events**, so they sit in one
+file. `abilities/ability-lifecycle.ts` holds `triggerMatches` — when an event
+STARTS a rule — beside `isEffectExpired` and the `sweepExpired` that applies
+it. `TaskManager` calls the second before the first (§7 sweep order); it owns
+the STACK, not the question of what an event means. An effect turns on
 when its installing ability runs, and off when one of its expiry events fires —
 optionally confirmed by `shouldExpire`, a state check that runs only then. The
 event says WHEN to look; the check says WHETHER it is really over. **No expiry
@@ -527,7 +612,8 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   two Rangers fires `HeroRemovedFromParty`, but "while you have a Ranger" still
   holds. The check lives next to the declaration that installs the effect —
   never as a method on a card class.
-- **Every expiry lives in `abilities/expiries.ts`** — `untilEndOfTurn`,
+- **Every expiry lives in `abilities/expiries.ts`**, which holds only the
+  vocabulary a declaration imports — `untilEndOfTurn`,
   `untilOwnersNextTurn`, `untilSourceLeavesParty`, `whileEquipped`,
   `whileClassInParty(cls)` — so all card wordings read in one place.
 - **An item's ABILITY ends with its position for free; an effect it installed
@@ -541,8 +627,11 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   because both callers drop the gear before they announce, so the departing
   hero's own equipment is already gone by the time the sweep runs.
 - **The sweep runs before trigger matching**, so an effect ending at the start of
-  your turn is already gone for anything that same `TurnStarted` fires.
-- **TaskManager owns expiry, not TurnManager** — expiry events are
+  your turn is already gone for anything that same `TurnStarted` fires. It is a
+  function `TaskManager` calls rather than a listener of its own, precisely so
+  that ordering is written down in `onEvent` instead of resting on the order
+  listeners happened to be registered in.
+- **TaskManager drives expiry, not TurnManager** — expiry events are
   arbitrary (a steal, a removal, a turn boundary); the processor is the one
   place that already sees every event.
 - **Multi-entry expiry = first match wins.** The once-per-turn shape: a charge
@@ -616,7 +705,8 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **A lost challenge cancels whatever played the card.** `PlayMagicTask`
   suspends its own entry on the challenge, so a defeat rolls back the steps
   behind the play too — Snowball's second draw goes with it. That follows the
-  frame rule (a lost challenge un-grants a hero's roll the same way), but it is
+  frame rule (a lost challenge takes a hero's roll offer with it the same way,
+  by removing the hero that would have been offered one), but it is
   a rule about *where the snapshot was taken*, not a judgement about the
   wording. A card that should keep its tail would need the play to be the last
   step of its entry.
@@ -624,18 +714,16 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   opens a challenge from inside a pipeline. Every ability that plays one has
   settled its own window first, so the case does not arise; nothing enforces it.
 - **A magic card with no registry entry is stranded in the instance pile.**
-  `DisposeMagicTask` is the only thing that moves a played card on, and it is a
-  declared step, so a card with no entry — or one whose author forgot the step —
-  never reaches the discard. Nothing catches it: the engine cannot tell a card
-  that is mid-run from one that will never run. Every magic card therefore needs
-  an entry, even if its only step is the disposal. Pinned by a test in
+  Disposal hangs off `AbilityDone`, which is emitted when a PIPELINE leaves the
+  stack. A card with no entry never gets a pipeline, so nothing ever announces
+  it finished. The obligation shrank — every magic card needs an *entry*, not a
+  disposal step — but it did not go away. Pinned by a test in
   `tasks/magic-tasks.spec.ts`.
-- **A magic card that pauses must dispose on every branch.** `DisposeMagicTask`
-  goes after the `ConfirmTask` rather than in the continuation entry, so the
-  DISMISS branch puts the card away too. That works because `TaskConfirmed` is
-  emitted before `FrameResolved`, so the continuation still matches from the
-  instance pile — the one exception to "a confirm must be the last step of its
-  entry" (§6).
+- **`system` on `AbilityPipeline` is the one thing the two rule names buy at
+  runtime.** `IAbilityRule` and `ISystemRule` are aliases of `IGameRule`, so
+  nothing can tell them apart once the declaration is a pipeline; the match
+  loop records which table it came from instead. Only `AbilityDone` reads it.
+  A third distinction would need the same treatment rather than a type test.
 - **Card objects are still shared across snapshots.** `clone()` copies players,
   parties, piles and queues, but `cards` is assigned by reference, so any
   mutation of a `HeroCard` or `ItemCard` outlives a rollback. Equipment moved to
@@ -645,15 +733,21 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   and inert until a card needs them.
 - **`CantBeStolen` guards the steal but does not filter choices** — a protected
   hero can still be *offered* by a `ChooseCardTask`; the steal then no-ops.
+- **`TaskManager` must be added to the emitter before `GameEngine`.** Nothing
+  enforces it. The last drain of a turn is whichever `FrameResolved` leaves the
+  board idle, and only `GameEngine.resumeDrain` runs it; with `GameEngine`
+  first, `TaskManager` is still holding the stack when that drain arrives and a
+  turn ending on an ability's final step never ends at all. The same order is
+  required for any ability that opens a window on `FrameResolved`.
 - **`interfaces.ts` ↔ `pipelines/game-state.ts` remains a type-only cycle.** Genuinely
   mutual; both edges are `import type`, so nothing exists at runtime.
 
 ## 9. Dependency direction
 
 `interfaces.ts` is the abstraction layer, so **it must not import an
-implementation**. It declares `IReactionManager` (`openFrame`, `openWindow`) and
-`IActionQueue` (`enqueueFirst`); `ReactionManager` and `TurnManager` implement
-them. Tasks, actions and the processor take the interface.
+implementation**. It declares `IReactionManager` (`openFrame`, `openWindow`),
+which `ReactionManager` implements. Tasks, actions and the processor take the
+interface.
 
 `HeroCard.getEquippedItem(gs)` and `ItemCard.getEquippedTo(gs)` are the same
 rule read the other way. Equipment is party state, so a card cannot answer from

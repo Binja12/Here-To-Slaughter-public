@@ -1,5 +1,5 @@
 import { GameEventType, PassiveType, TriggerScope } from 'shared'
-import { IAbility } from '../../interfaces'
+import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { whileEquipped } from '../../abilities/expiries'
 
@@ -22,7 +22,7 @@ import { whileEquipped } from '../../abilities/expiries'
 // stays out of one.
 const BONUS = 2
 
-export const ReallyBigRingAbility: IAbility[] = [
+export const ReallyBigRingAbility: IAbilityRule[] = [
   {
     trigger: {
       on: GameEventType.FrameResolved,

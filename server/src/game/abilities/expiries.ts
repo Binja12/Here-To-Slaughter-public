@@ -1,34 +1,13 @@
-import { GameEventType, HeroClass, IGameEvent } from 'shared'
-import type { IEffect, EffectExpiry } from '../interfaces'
-import type { GameState } from '../pipelines/game-state'
+import { GameEventType, HeroClass } from 'shared'
+import type { EffectExpiry } from '../interfaces'
 import { HeroCard } from '../cards/hero-card'
 
 // ---------------------------------------------------------------------------
-// When a game event ends an effect, and the reusable lifetimes card wordings
-// are written in. The mirror of TaskManager.triggerMatches — §7: trigger and
-// expiry are symmetric, both are game events.
-// ---------------------------------------------------------------------------
-
-/** True when one of `effect`'s expiry entries matches `event`. */
-export function isEffectExpired(
-  gs: GameState,
-  effect: IEffect,
-  event: IGameEvent,
-): boolean {
-  if (!effect.expiry) return false // permanent
-
-  for (const expiry of effect.expiry) {
-    if (expiry.on !== event.getType()) continue
-    if (!expiry.shouldExpire || expiry.shouldExpire(gs, effect, event)) {
-      return true
-    }
-  }
-  return false
-}
-
-// ---------------------------------------------------------------------------
-// Expiries — every card wording, in one place. `shouldExpire` is present only
-// when the event also fires for situations that are not this effect's.
+// Every lifetime a card wording can be written in, in one place. Read by
+// `ability-lifecycle.ts`.
+//
+// `shouldExpire` is present only when the event also fires for situations that
+// are not this effect's.
 // ---------------------------------------------------------------------------
 
 /** "...until the end of the turn" — the turn in progress, whoever plays it. */

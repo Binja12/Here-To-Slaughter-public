@@ -103,6 +103,13 @@ export enum GameEventType {
   EffectApplied = "EffectApplied",
   EffectExpired = "EffectExpired",
 
+  /**
+   * A card's printed behaviour has finished: the last pipeline sourced to it
+   * left the stack. `{ cardId }`. System rules neither raise nor delay it.
+   * Read by instance-rules.ts.
+   */
+  AbilityDone = "AbilityDone",
+
   // Reaction frame
   FrameResolved = "FrameResolved",
 

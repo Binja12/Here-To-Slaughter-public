@@ -6,7 +6,7 @@ import {
   ReactionWindowType,
   TriggerScope,
 } from 'shared'
-import { DisposeMagicTask, PlayMagicTask } from './magic-tasks'
+import { PlayMagicTask } from './magic-tasks'
 import { ConfirmTask } from './choose-tasks'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
@@ -16,7 +16,7 @@ import { CardPile } from '../state-structures/card-pile'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
 import { AbilityContext, CTX_CHOSEN_CARD, CTX_DRAWN_CARD_IDS } from '../abilities/ability-context'
-import { IAbility } from '../interfaces'
+import { IAbilityRule } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { TaskManager } from '../pipelines/task-manager'
@@ -60,20 +60,21 @@ const makeMagicCard = (id: string) =>
 
 /**
  * How a magic card is authored: behaviour bound by card id, triggered by the
- * settled play, disposing of itself last.
+ * settled play. Nothing about disposal — the card leaves the instance pile
+ * when its run ends, which instance-rules.ts works out on its own.
  */
-const magicAbility = (steps: IAbility['steps']): IAbility => ({
+const magicAbility = (steps: IAbilityRule['steps']): IAbilityRule => ({
   trigger: {
     on: GameEventType.FrameResolved,
     scope: TriggerScope.SelfCard,
   },
-  steps: [...steps, new DisposeMagicTask()],
+  steps: [...steps],
 })
 
-/** A card that does nothing but still has to say where it goes. */
-const disposeOnly = (): IAbility[] => [magicAbility([])]
+/** A card that does nothing at all, but is still registered. */
+const noSteps = (): IAbilityRule[] => [magicAbility([])]
 
-const spyAbility = (taskSpy: jest.Mock): IAbility[] => [
+const spyAbility = (taskSpy: jest.Mock): IAbilityRule[] => [
   magicAbility([{ execute: () => taskSpy() }]),
 ]
 
@@ -129,7 +130,7 @@ describe('PlayMagicTask', () => {
    * A processor must be listening: the played card's steps are what carry it
    * to the discard, and only TaskManager runs those.
    */
-  const withTaskManager = (abilities: Map<string, IAbility[]> = new Map()) =>
+  const withTaskManager = (abilities: Map<string, IAbilityRule[]> = new Map()) =>
     new TaskManager(gs, emitter, rm, abilities)
 
   const run = (task: PlayMagicTask, ctx: AbilityContext) =>
@@ -155,7 +156,7 @@ describe('PlayMagicTask', () => {
   // --- Announce, then the window ---
 
   it('takes the card out of hand and opens a challenge window on it', () => {
-    withTaskManager(new Map([['magic-1', disposeOnly()]]))
+    withTaskManager(new Map([['magic-1', noSteps()]]))
 
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith(['magic-1']))
 
@@ -168,7 +169,7 @@ describe('PlayMagicTask', () => {
   })
 
   it('returns the frameId, so the rest of the entry waits on the same window', () => {
-    withTaskManager(new Map([['magic-1', disposeOnly()]]))
+    withTaskManager(new Map([['magic-1', noSteps()]]))
 
     const frameId = run(
       new PlayMagicTask(CTX_DRAWN_CARD_IDS),
@@ -199,7 +200,7 @@ describe('PlayMagicTask', () => {
   // --- Won ---
 
   it('plays the card named by the slot: hand to discard, via the instance pile', () => {
-    withTaskManager(new Map([['magic-1', disposeOnly()]]))
+    withTaskManager(new Map([['magic-1', noSteps()]]))
 
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith(['magic-1']))
     unchallenged()
@@ -210,7 +211,7 @@ describe('PlayMagicTask', () => {
   })
 
   it('disposal is silent — MagicPlayed already reported the card spent', () => {
-    withTaskManager(new Map([['magic-1', disposeOnly()]]))
+    withTaskManager(new Map([['magic-1', noSteps()]]))
 
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith(['magic-1']))
     unchallenged()
@@ -277,7 +278,7 @@ describe('PlayMagicTask', () => {
   })
 
   it('leaves nothing pending after a lost challenge', () => {
-    withTaskManager(new Map([['magic-1', disposeOnly()]]))
+    withTaskManager(new Map([['magic-1', noSteps()]]))
 
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith(['magic-1']))
     challengedBy(CHALLENGER_WINS)
@@ -286,12 +287,12 @@ describe('PlayMagicTask', () => {
     expect(gs.frames.size).toBe(0)
   })
 
-  // --- The rule the disposal step carries ---
+  // --- What the instance pile still cannot do ---
 
   it('LIMITATION: a card with no entry is left in the instance pile', () => {
-    // Nothing sweeps the pile; DisposeMagicTask is what moves a played card
-    // on, so a magic card with no registry entry never leaves. Documented in
-    // ENGINE_ARCHITECTURE section 8.
+    // Disposal hangs off AbilityDone, and that is emitted when a PIPELINE
+    // leaves the stack. A card with no registry entry never gets a pipeline,
+    // so nothing ever announces it finished. Documented in section 8.
     withTaskManager()
 
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith(['magic-1']))
@@ -346,7 +347,7 @@ describe('PlayMagicTask', () => {
   })
 
   it('defaults to the chosen-card slot', () => {
-    withTaskManager(new Map([['magic-1', disposeOnly()]]))
+    withTaskManager(new Map([['magic-1', noSteps()]]))
 
     run(new PlayMagicTask(), ctxWith(['magic-1'], CTX_CHOSEN_CARD))
 

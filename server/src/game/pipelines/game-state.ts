@@ -28,6 +28,11 @@ export type AbilityPipeline = {
   ctx: AbilityContext
   /** The frame it is paused on, if it is paused. */
   pausedOn?: string
+  /**
+   * True when this came from a rule nobody printed (hero-rules, instance-rules).
+   * Set by TaskManager.abilitySources; read only by announceIfCardIsDone.
+   */
+  system?: boolean
 }
 
 export class GameState {

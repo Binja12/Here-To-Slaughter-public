@@ -1,5 +1,5 @@
 import { CardType, GameEventType, TriggerScope } from 'shared'
-import { IAbility } from '../../interfaces'
+import { IAbilityRule } from '../../interfaces'
 import { DrawTask } from '../../tasks/tasks'
 import { PlayMagicTask } from '../../tasks/magic-tasks'
 import { ConfirmTask } from '../../tasks/choose-tasks'
@@ -22,7 +22,7 @@ import { CardTypeCondition } from '../../tasks/conditions'
 const DREW_A_MAGIC = 'SnowballDrewMagic'
 const CONFIRMS_PLAY_AND_DRAW = 'SnowballPlayAndDraw'
 
-export const SnowballAbility: IAbility[] = [
+export const SnowballAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [

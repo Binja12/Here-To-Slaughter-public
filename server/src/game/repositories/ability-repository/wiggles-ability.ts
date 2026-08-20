@@ -1,6 +1,7 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { IAbility } from '../../interfaces'
-import { RollOnHeroTask, StealFromPartyTask } from '../../tasks/hero-tasks'
+import { IAbilityRule } from '../../interfaces'
+import { StealFromPartyTask } from '../../tasks/hero-tasks'
+import { RollOnHeroTask } from '../../tasks/roll-on-hero-task'
 import { ChooseCardTask, ConfirmTask } from '../../tasks/choose-tasks'
 import { CTX_STOLEN_HERO_ID } from '../../abilities/ability-context'
 
@@ -16,7 +17,7 @@ import { CTX_STOLEN_HERO_ID } from '../../abilities/ability-context'
 // No confirm at the front — rolling on Wiggles is itself the opt-in.
 const CONFIRMS_ROLL = 'RollOnHero'
 
-export const WigglesAbility: IAbility[] = [
+export const WigglesAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [

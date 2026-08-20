@@ -3,20 +3,27 @@ import {
   IGameEvent,
   IGameEventEmitter,
   IGameEventListener,
-  TriggerScope,
 } from 'shared'
 import {
   AbilityTrigger,
-  IEffect,
-  IAbility,
+  IAbilityRule,
+  IGameRule,
   IReactionManager,
+  ISystemRule,
   ITask,
 } from '../interfaces'
 import { AbilityPipeline, GameState } from './game-state'
 
 import { AbilityContext } from '../abilities/ability-context'
-import { abilityRegistry } from '../repositories/ability-repository'
-import { isEffectExpired } from '../abilities/expiries'
+import {
+  abilityRegistry,
+  heroRules,
+  instanceRules,
+} from '../repositories/ability-repository'
+import {
+  sweepExpired,
+  triggerMatches,
+} from '../abilities/ability-lifecycle'
 import { GameEventFactory } from '../events/game-event-factory'
 
 /** One ability to check this event, and who owns it. Gathered fresh per event. */
@@ -25,16 +32,17 @@ type AbilitySource = {
   steps: ITask[]
   sourceCardId: string
   ownerId: string
+  /** Printed on the card, or a rule of the game — see AbilityPipeline.system. */
+  system: boolean
 }
 
 // ---------------------------------------------------------------------------
 // TaskManager — the Task pipeline, opposite TurnManager's Action queue (§1).
 //
-// Per event: expire finished effects, add a pipeline for every ability whose
-// trigger fits, then drain the stack.
-//
-// Card abilities are derived from the party each event; ongoing effects are
-// stored on Player.
+// Per event: expire finished effects, add a pipeline for every rule whose
+// trigger fits, then drain the stack. It owns the STACK; whether an event
+// starts or ends anything is `abilities/ability-lifecycle.ts`, and which rules
+// are live at all is derived below from where the cards are sitting.
 // ---------------------------------------------------------------------------
 
 export class TaskManager implements IGameEventListener {
@@ -45,8 +53,12 @@ export class TaskManager implements IGameEventListener {
     /** Keyed by card id. Injected so tests can supply their own table. */
     private readonly abilities: ReadonlyMap<
       string,
-      IAbility[]
+      IAbilityRule[]
     > = abilityRegistry,
+    /** Held by every hero in a party, on top of whatever the registry says. */
+    private readonly heroEntries: ISystemRule[] = heroRules,
+    /** Held by every card sitting in an instance pile, mid-play. */
+    private readonly instanceEntries: ISystemRule[] = instanceRules,
   ) {
     em.addListener(this)
   }
@@ -61,7 +73,7 @@ export class TaskManager implements IGameEventListener {
   onEvent(event: IGameEvent): void {
     // Before trigger matching, so an effect ending on this event is already
     // gone for anything the same event fires.
-    this.sweepExpired(event)
+    sweepExpired(this.gs, this.em, event)
 
     // FrameResolved additionally wakes whatever waited on this frame; it is
     // matched like any other event afterwards, which is how a played card's
@@ -87,7 +99,7 @@ export class TaskManager implements IGameEventListener {
     const matched: AbilityPipeline[] = []
 
     for (const source of this.abilitySources()) {
-      if (!this.triggerMatches(source, source.trigger, event)) continue
+      if (!triggerMatches(this.gs, source, source.trigger, event)) continue
 
       const ctx = new AbilityContext(source.sourceCardId, source.ownerId)
       // Continuations run with a fresh context, so what they need travels on
@@ -101,68 +113,11 @@ export class TaskManager implements IGameEventListener {
 
       // Copy the steps: the drain consumes the array, and the declaration's
       // own list is built once at module load and reused forever.
-      matched.push({ steps: [...source.steps], ctx })
+      matched.push({ steps: [...source.steps], ctx, system: source.system })
     }
 
     this.add(matched)
     this.drain()
-  }
-
-  // ---------------------------------------------------------------------------
-  // Triggers
-  //
-  // When an event STARTS an ability — the mirror of abilities/expiries.ts, which
-  // says when one ENDS an effect. sweepExpired runs first, so an effect ending
-  // on an event is already gone for anything that same event fires.
-  // ---------------------------------------------------------------------------
-
-  /**
-   * True when `trigger` should fire for this ability on this event.
-   *
-   * `source` is only the identity the scope resolves against — which card the
-   * ability came from, and whose it is.
-   */
-  private triggerMatches(
-    source: { sourceCardId: string; ownerId: string },
-    trigger: AbilityTrigger,
-    event: IGameEvent,
-  ): boolean {
-    if (trigger.on !== event.getType()) return false
-
-    // Which variant, after scope answered whose. Absent = any event of the type.
-    if (trigger.when !== undefined) {
-      const { label } = (event.getPayload() ?? {}) as { label?: string }
-      if (label !== trigger.when) return false
-    }
-
-    switch (trigger.scope) {
-      case TriggerScope.SelfCard:
-        return (
-          (event.getPayload() as { cardId?: string })?.cardId ===
-          source.sourceCardId
-        )
-
-      case TriggerScope.CarrierCard: {
-        const { cardId } = (event.getPayload() ?? {}) as { cardId?: string }
-        return (
-          !!cardId && this.gs.getEquippedItem(cardId) === source.sourceCardId
-        )
-      }
-
-      case TriggerScope.OwnerEvent:
-        return event.getPlayerId() === source.ownerId
-
-      case TriggerScope.OwnerTurn:
-        return this.gs.getCurrentPlayerId() === source.ownerId
-
-      case TriggerScope.Anyone:
-        return true
-    }
-
-    // Exhaustive: a new scope without a branch is a compile error here, rather
-    // than an ability that silently never fires.
-    const unhandled: never = trigger.scope
-    throw new Error(`Unhandled trigger scope ${String(unhandled)}`)
   }
 
   // ---------------------------------------------------------------------------
@@ -174,35 +129,6 @@ export class TaskManager implements IGameEventListener {
     // Backwards, because the top of the stack is what runs next.
     for (let i = pipelines.length - 1; i >= 0; i--) {
       this.gs.abilityPipelines.push(pipelines[i])
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // IEffect lifetimes
-  // ---------------------------------------------------------------------------
-
-  private sweepExpired(event: IGameEvent): void {
-    const expired: IEffect[] = []
-
-    for (const player of this.gs.getPlayers()) {
-      // Decide first, remove second, so expiry cannot depend on list order.
-      const doomed = player
-        .getAllEffects()
-        .filter((effect) => isEffectExpired(this.gs, effect, event))
-
-      for (const effect of doomed) player.removeEffect(effect.id)
-      expired.push(...doomed)
-    }
-
-    // Pruned before announcing, so no listener sees a dead entry.
-    for (const effect of expired) {
-      this.em.emit(
-        GameEventFactory.effectExpired(
-          effect.ownerId,
-          effect.id,
-          effect.sourceCardId,
-        ),
-      )
     }
   }
 
@@ -226,17 +152,43 @@ export class TaskManager implements IGameEventListener {
 
       for (const heroId of party.getHeroIds()) {
         this.pushCardAbility(out, heroId, pid)
+        // After the card's own entries, so a printed ability declared on the
+        // same event goes first.
+        this.pushRules(out, this.heroEntries, heroId, pid)
         const equippedItem = this.gs.getEquippedItem(heroId)
         if (equippedItem) this.pushCardAbility(out, equippedItem, pid)
       }
 
       for (const instanceId of party.getInstanceCardIds()) {
         this.pushCardAbility(out, instanceId, pid)
+        this.pushRules(out, this.instanceEntries, instanceId, pid)
       }
 
     }
 
     return out
+  }
+
+  /**
+   * Adds rules nobody printed — hero-rules.ts, instance-rules.ts. Sourced to
+   * the card they are about, so scope, context identity and rollback all work
+   * without the match loop knowing the difference.
+   */
+  private pushRules(
+    out: AbilitySource[],
+    rules: readonly IGameRule[],
+    cardId: string,
+    ownerId: string,
+  ): void {
+    for (const rule of rules) {
+      out.push({
+        trigger: rule.trigger,
+        steps: rule.steps,
+        sourceCardId: cardId,
+        ownerId,
+        system: true,
+      })
+    }
   }
 
   /** Adds every entry registered for a card — see the abilityRegistry. */
@@ -252,6 +204,7 @@ export class TaskManager implements IGameEventListener {
         steps: ability.steps,
         sourceCardId: cardId,
         ownerId,
+        system: false,
       })
     }
   }
@@ -263,11 +216,9 @@ export class TaskManager implements IGameEventListener {
   /**
    * Runs steps until there are none left to run.
    *
-   * The flag is what TurnManager gets from having two methods: `enqueue`
-   * drains, `enqueueFirst` only queues because its caller is already inside
-   * the loop. Every caller here arrives through onEvent instead, so the flag
-   * tells the two apart — a mid-drain event only adds pipelines, and the loop
-   * already going reaches them on its next turn.
+   * Every caller arrives through onEvent, so the flag is the only thing that
+   * tells a fresh start from a re-entry — a mid-drain event only adds
+   * pipelines, and the loop already going reaches them on its next turn.
    *
    * Without it, ANY event re-enters and runs the current pipeline's next step
    * inside the emitting step's body: DrawTask emits CardDrawn before writing
@@ -304,8 +255,32 @@ export class TaskManager implements IGameEventListener {
       if (step) return { pipeline: top, step }
 
       this.gs.abilityPipelines.pop() // spent
+      this.announceIfCardIsDone(top)
     }
     return undefined
+  }
+
+  /**
+   * Emits `AbilityDone` when a card's printed behaviour is finished — its last
+   * non-system pipeline has left the stack.
+   *
+   * Two filters, and they must agree: a system rule neither announces nor
+   * defers. Filter one side only and this either duplicates the event or never
+   * fires it. A card split at a question has a pipeline per entry, and the
+   * parent pops last, so anything still running for the card defers.
+   *
+   * Read by `repositories/ability-repository/instance-rules.ts`.
+   */
+  private announceIfCardIsDone(spent: AbilityPipeline): void {
+    if (spent.system) return
+
+    const cardId = spent.ctx.sourceCardId
+    const stillRunning = this.gs.abilityPipelines.some(
+      (p) => !p.system && p.ctx.sourceCardId === cardId,
+    )
+    if (stillRunning) return
+
+    this.em.emit(GameEventFactory.abilityDone(spent.ctx.ownerId, cardId))
   }
 
   /**

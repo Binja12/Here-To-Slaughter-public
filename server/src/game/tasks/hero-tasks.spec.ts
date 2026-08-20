@@ -62,7 +62,7 @@ const makeEmitter = () => {
   return { emitter, emitted }
 }
 
-/** Stub ReactionManager — the task under test does not open frames. */
+/** Stub ReactionManager — DestroyTask does not open frames. */
 const stubRm = null as unknown as ReactionManager
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { IAbility, IReactionWindow } from '../interfaces'
+import { IAbilityRule, IReactionWindow } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -24,7 +24,7 @@ const makeParty = (
   heroIds: string[] = [],
 ) => new Party({ playerId, leaderId, heroIds, monsterIds: [] })
 
-const makeHeroCard = (id: string, ability?: IAbility) =>
+const makeHeroCard = (id: string, ability?: IAbilityRule) =>
   new HeroCard({
     id,
     name: `Hero ${id}`,

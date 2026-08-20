@@ -344,6 +344,20 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * Emitted by TaskManager.announceIfCardIsDone as a pipeline leaves the stack.
+   * PlayerOnly: nothing off-server acts on it, and Audience has no server-only
+   * member.
+   */
+  static abilityDone(ownerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.AbilityDone,
+      ownerId,
+      { cardId },
+      Audience.PlayerOnly,
+    )
+  }
+
   // --- Reaction Frame ---
 
   /**

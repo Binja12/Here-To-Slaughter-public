@@ -6,7 +6,7 @@ import {
   IGameEvent,
   TriggerScope,
 } from 'shared'
-import { FREE, RollOnHeroAction } from './roll-on-hero-action'
+import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { Player } from '../state-structures/player'
@@ -107,11 +107,6 @@ describe('RollOnHeroAction', () => {
       expect(makeAction().getCost()).toBe(1)
     })
 
-    it('getCost returns the cost it was granted at', () => {
-      const rm = new ReactionManager(gs, emitter)
-      const free = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm, FREE)
-      expect(free.getCost()).toBe(0)
-    })
   })
 
   // --- canExecute ---
@@ -123,26 +118,6 @@ describe('RollOnHeroAction', () => {
       const rm = new ReactionManager(emptyGs, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
       expect(action.canExecute(emptyGs)).toBe(false)
-    })
-
-    it('returns true at 0 action points when the roll is FREE', () => {
-      const gs2 = makeGs()
-      gs2.registerPlayer(makePlayer('p1', 0))
-      gs2.registerParty(makeParty('p1', ['hero-1']))
-      gs2.registerCard(makeHeroCard('hero-1'))
-      const rm = new ReactionManager(gs2, emitter)
-      const free = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm, FREE)
-      expect(free.canExecute(gs2)).toBe(true)
-    })
-
-    it('does not spend an action point when the roll is FREE', () => {
-      const gs2 = makeGs()
-      gs2.registerPlayer(makePlayer('p1', 2))
-      gs2.registerParty(makeParty('p1', ['hero-1']))
-      gs2.registerCard(makeHeroCard('hero-1'))
-      const rm = new ReactionManager(gs2, emitter)
-      new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm, FREE).execute(gs2)
-      expect(gs2.getPlayer('p1')!.getActionPoints()).toBe(2)
     })
 
     it('returns false when player has 0 action points', () => {

@@ -16,8 +16,7 @@ import { CardPile } from '../state-structures/card-pile'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { MagicCard } from '../cards/magic-card'
 import { TaskManager } from '../pipelines/task-manager'
-import { IAbility } from '../interfaces'
-import { DisposeMagicTask } from '../tasks/magic-tasks'
+import { IAbilityRule } from '../interfaces'
 
 // --- Helpers ---
 
@@ -52,18 +51,18 @@ const makeMagicCard = (id: string) =>
  * How a magic card is authored: behaviour bound by card id, triggered by the
  * settled play, disposing of itself last.
  */
-const magicAbility = (steps: IAbility['steps']): IAbility => ({
+const magicAbility = (steps: IAbilityRule['steps']): IAbilityRule => ({
   trigger: {
     on: GameEventType.FrameResolved,
     scope: TriggerScope.SelfCard,
   },
-  steps: [...steps, new DisposeMagicTask()],
+  steps: [...steps],
 })
 
 /** A card that does nothing but still has to say where it goes. */
-const disposeOnly = (): IAbility[] => [magicAbility([])]
+const disposeOnly = (): IAbilityRule[] => [magicAbility([])]
 
-const spyAbility = (taskSpy: jest.Mock): IAbility[] => [
+const spyAbility = (taskSpy: jest.Mock): IAbilityRule[] => [
   magicAbility([{ execute: () => taskSpy() }]),
 ]
 
@@ -121,7 +120,7 @@ describe('PlayMagicAction', () => {
    * a magic card must declare.
    */
   const withTaskManager = (
-    abilities: Map<string, IAbility[]> = new Map([['magic-1', disposeOnly()]]),
+    abilities: Map<string, IAbilityRule[]> = new Map([['magic-1', disposeOnly()]]),
   ) => new TaskManager(gs, emitter, new ReactionManager(gs, emitter), abilities)
 
   const collect = () => {

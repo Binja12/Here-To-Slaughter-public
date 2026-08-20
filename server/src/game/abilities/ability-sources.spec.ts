@@ -16,7 +16,7 @@ import { GameEventEmitter } from '../events/game-event-emitter'
 import { TaskManager } from '../pipelines/task-manager'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
-import { IAbility } from '../interfaces'
+import { IAbilityRule } from '../interfaces'
 import { StealFromPartyTask } from '../tasks/hero-tasks'
 
 // ---------------------------------------------------------------------------
@@ -69,7 +69,7 @@ function seat(gs: GameState, playerId: string, heroIds: string[] = []): void {
   )
 }
 
-function setup(abilities: Map<string, IAbility[]> = new Map()) {
+function setup(abilities: Map<string, IAbilityRule[]> = new Map()) {
   const gs = makeGs()
   const em = new GameEventEmitter()
   const events: IGameEvent[] = []
@@ -84,7 +84,7 @@ const spyAbility = (
   on: GameEventType,
   scope: TriggerScope,
   ranFor: string[],
-): IAbility => ({
+): IAbilityRule => ({
   trigger: { on, scope },
   steps: [{ execute: (_gs, ctx) => {
         ranFor.push(ctx.ownerId)
