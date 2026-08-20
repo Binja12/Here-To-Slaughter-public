@@ -3,16 +3,26 @@ import { Test } from '@nestjs/testing'
 import cookieParser from 'cookie-parser'
 import request, { Response as SupertestResponse } from 'supertest'
 import { AppModule } from '../app.module'
+import { GAME_SERVER_CLIENT } from './lobby.interfaces'
+import type { IGameServerClient } from './lobby.interfaces'
 
 const PASSWORD = 'correct horse battery staple'
 
 describe('Lobby HTTP contract', () => {
   let app: INestApplication
+  let gameServer: jest.Mocked<IGameServerClient>
 
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile()
+    gameServer = {
+      createGame: jest.fn().mockResolvedValue({
+        gameId: 'game-1',
+        webSocketUrl: 'http://localhost:3001',
+      }),
+    }
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(GAME_SERVER_CLIENT)
+      .useValue(gameServer)
+      .compile()
 
     app = module.createNestApplication()
     app.use(cookieParser())
@@ -46,6 +56,7 @@ describe('Lobby HTTP contract', () => {
       state: 'IDLE',
       isHost: false,
     })
+    expect(idle.body.settings).toEqual({ gameConfig: 'default' })
 
     const ready = await request(app.getHttpServer())
       .post('/lobby/ready')
@@ -87,6 +98,67 @@ describe('Lobby HTTP contract', () => {
       .get('/lobby')
       .set('Cookie', sessionCookie(second))
     expect(secondSnapshot.body.self.isHost).toBe(true)
+  })
+
+  it('starts a game through the client and moves selected players in-game', async () => {
+    const first = await register(app, 'player-one')
+    const second = await register(app, 'player-two')
+    const firstCookie = sessionCookie(first)
+    const secondCookie = sessionCookie(second)
+
+    await request(app.getHttpServer())
+      .post('/lobby/ready')
+      .set('Cookie', firstCookie)
+      .expect(200)
+    await request(app.getHttpServer())
+      .post('/lobby/ready')
+      .set('Cookie', secondCookie)
+      .expect(200)
+
+    const response = await request(app.getHttpServer())
+      .post('/lobby/start-game')
+      .set('Cookie', firstCookie)
+
+    expect(response.status).toBe(202)
+    expect(response.body).toEqual({ gameId: 'game-1', status: 'STARTING' })
+    expect(gameServer.createGame).toHaveBeenCalledWith({
+      accountIds: [first.body.accountId, second.body.accountId],
+      gameConfig: 'default',
+    })
+
+    const secondSnapshot = await request(app.getHttpServer())
+      .get('/lobby')
+      .set('Cookie', secondCookie)
+    expect(secondSnapshot.body.readyPlayers).toEqual([])
+    expect(secondSnapshot.body.self.state).toBe('IN_GAME')
+  })
+
+  it('returns 503 and keeps the ready group when creation fails', async () => {
+    const first = await register(app, 'player-one')
+    const second = await register(app, 'player-two')
+    const firstCookie = sessionCookie(first)
+
+    await request(app.getHttpServer())
+      .post('/lobby/ready')
+      .set('Cookie', firstCookie)
+      .expect(200)
+    await request(app.getHttpServer())
+      .post('/lobby/ready')
+      .set('Cookie', sessionCookie(second))
+      .expect(200)
+    gameServer.createGame.mockRejectedValue(new Error('connection refused'))
+
+    const response = await request(app.getHttpServer())
+      .post('/lobby/start-game')
+      .set('Cookie', firstCookie)
+    expect(response.status).toBe(503)
+    expect(response.body).toEqual({ reason: 'Game server is unavailable' })
+
+    const snapshot = await request(app.getHttpServer())
+      .get('/lobby')
+      .set('Cookie', firstCookie)
+    expect(snapshot.body.readyPlayers).toHaveLength(2)
+    expect(snapshot.body.self.state).toBe('READY')
   })
 })
 

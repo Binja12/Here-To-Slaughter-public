@@ -1,15 +1,21 @@
 import { Injectable } from '@nestjs/common'
 import { LobbyFullError } from '../lobby.errors'
 import { ILobbyStore } from '../lobby.interfaces'
-import { LOBBY_CAPACITY, LobbyPlayer } from '../lobby.types'
+import { LOBBY_CAPACITY, LobbyPlayer, LobbySettings } from '../lobby.types'
 
 @Injectable()
 export class InMemoryLobbyStore implements ILobbyStore {
   private readonly readyPlayers: LobbyPlayer[] = []
+  private readonly settings: LobbySettings = { gameConfig: 'default' }
 
   async getReadyPlayers(): Promise<LobbyPlayer[]> {
     // Preserve ready order while preventing callers from changing stored players.
     return this.readyPlayers.map(clonePlayer)
+  }
+
+  async getSettings(): Promise<LobbySettings> {
+    // Return a copy so future settings cannot be changed outside the store.
+    return { ...this.settings }
   }
 
   async addReadyPlayer(player: LobbyPlayer): Promise<void> {

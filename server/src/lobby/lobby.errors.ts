@@ -25,3 +25,17 @@ export class InvalidReadyPlayerCountError extends Error {
     this.name = InvalidReadyPlayerCountError.name
   }
 }
+
+export class GameServerUnavailableError extends Error {
+  constructor() {
+    super('Game server is unavailable')
+    this.name = GameServerUnavailableError.name
+  }
+}
+
+export class GameStartInProgressError extends Error {
+  constructor() {
+    super('A game is already being started')
+    this.name = GameStartInProgressError.name
+  }
+}
