@@ -2,6 +2,14 @@ import { LOBBY_CAPACITY } from '../lobby.types'
 import { InMemoryLobbyStore } from './in-memory-lobby.store'
 
 describe('InMemoryLobbyStore', () => {
+  it('starts with the default game configuration', async () => {
+    const store = new InMemoryLobbyStore()
+
+    await expect(store.getSettings()).resolves.toEqual({
+      gameConfig: 'default',
+    })
+  })
+
   it('preserves ready order and treats the first player as the host', async () => {
     const store = new InMemoryLobbyStore()
     await store.addReadyPlayer({ accountId: 'account-1', username: 'one' })

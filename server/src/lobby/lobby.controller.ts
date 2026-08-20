@@ -10,9 +10,16 @@ import {
 } from '@nestjs/common'
 import { CurrentAccount, SessionAuthGuard } from '../auth/session-auth.guard'
 import type { AuthenticatedAccount } from '../auth/auth.types'
-import { AccountAlreadyInGameError, LobbyFullError } from './lobby.errors'
+import {
+  AccountAlreadyInGameError,
+  GameServerUnavailableError,
+  GameStartInProgressError,
+  InvalidReadyPlayerCountError,
+  LobbyFullError,
+  OnlyHostCanStartError,
+} from './lobby.errors'
 import { LobbyService } from './lobby.service'
-import type { LobbySnapshot } from './lobby.types'
+import type { LobbySnapshot, StartGameResponse } from './lobby.types'
 
 @Controller('lobby')
 @UseGuards(SessionAuthGuard)
@@ -49,6 +56,31 @@ export class LobbyController {
     @CurrentAccount() account: AuthenticatedAccount,
   ): Promise<LobbySnapshot> {
     return this.lobbyService.unready(account)
+  }
+
+  @Post('start-game')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async startGame(
+    @CurrentAccount() account: AuthenticatedAccount,
+  ): Promise<StartGameResponse> {
+    try {
+      return await this.lobbyService.startGame(account.accountId)
+    } catch (error) {
+      if (error instanceof OnlyHostCanStartError) {
+        throw reasonException(HttpStatus.FORBIDDEN, error.message)
+      }
+      if (
+        error instanceof InvalidReadyPlayerCountError ||
+        error instanceof AccountAlreadyInGameError ||
+        error instanceof GameStartInProgressError
+      ) {
+        throw reasonException(HttpStatus.CONFLICT, error.message)
+      }
+      if (error instanceof GameServerUnavailableError) {
+        throw reasonException(HttpStatus.SERVICE_UNAVAILABLE, error.message)
+      }
+      throw error
+    }
   }
 }
 

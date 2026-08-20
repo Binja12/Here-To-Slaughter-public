@@ -1,3 +1,5 @@
+import type { GameConfigId } from 'shared'
+
 export const MIN_GAME_PLAYERS = 2
 export const LOBBY_CAPACITY = 4
 
@@ -10,10 +12,15 @@ export type LobbyPlayerState = 'IDLE' | 'READY' | 'IN_GAME'
 
 export type LobbySnapshot = {
   readyPlayers: LobbyPlayer[]
+  settings: LobbySettings
   self: LobbyPlayer & {
     state: LobbyPlayerState
     isHost: boolean
   }
+}
+
+export type LobbySettings = {
+  gameConfig: GameConfigId
 }
 
 export type GameAssignment = {
@@ -21,4 +28,9 @@ export type GameAssignment = {
   gameId: string
   webSocketUrl: string
   assignedAt: Date
+}
+
+export type StartGameResponse = {
+  gameId: string
+  status: 'STARTING'
 }

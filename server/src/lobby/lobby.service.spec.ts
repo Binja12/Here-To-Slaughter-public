@@ -1,10 +1,12 @@
 import type { AuthenticatedAccount } from '../auth/auth.types'
 import {
   AccountAlreadyInGameError,
+  GameServerUnavailableError,
   InvalidReadyPlayerCountError,
   LobbyFullError,
   OnlyHostCanStartError,
 } from './lobby.errors'
+import type { IGameServerClient } from './lobby.interfaces'
 import { LobbyService } from './lobby.service'
 import { InMemoryGameAssignmentStore } from './stores/in-memory-game-assignment.store'
 import { InMemoryLobbyStore } from './stores/in-memory-lobby.store'
@@ -19,12 +21,19 @@ function account(index: number): AuthenticatedAccount {
 describe('LobbyService', () => {
   let lobbyStore: InMemoryLobbyStore
   let assignmentStore: InMemoryGameAssignmentStore
+  let gameServer: jest.Mocked<IGameServerClient>
   let service: LobbyService
 
   beforeEach(() => {
     lobbyStore = new InMemoryLobbyStore()
     assignmentStore = new InMemoryGameAssignmentStore()
-    service = new LobbyService(lobbyStore, assignmentStore)
+    gameServer = {
+      createGame: jest.fn().mockResolvedValue({
+        gameId: 'game-1',
+        webSocketUrl: 'http://localhost:3001',
+      }),
+    }
+    service = new LobbyService(lobbyStore, assignmentStore, gameServer)
   })
 
   it('keeps an ordered ready list and makes the first player host', async () => {
@@ -39,6 +48,7 @@ describe('LobbyService', () => {
 
     const hostSnapshot = await service.getSnapshot(account(1))
     expect(hostSnapshot.self.isHost).toBe(true)
+    expect(hostSnapshot.settings).toEqual({ gameConfig: 'default' })
   })
 
   it('moves host authority to the next player when the host unreadies', async () => {
@@ -98,5 +108,44 @@ describe('LobbyService', () => {
     await expect(service.ready(account(1))).rejects.toBeInstanceOf(
       AccountAlreadyInGameError,
     )
+
+    await service.ready(account(2))
+    await expect(
+      service.startGame(account(1).accountId),
+    ).rejects.toBeInstanceOf(AccountAlreadyInGameError)
+    expect(gameServer.createGame).not.toHaveBeenCalled()
+  })
+
+  it('creates a game, assigns its players, and frees the ready list', async () => {
+    await service.ready(account(1))
+    await service.ready(account(2))
+
+    await expect(service.startGame(account(1).accountId)).resolves.toEqual({
+      gameId: 'game-1',
+      status: 'STARTING',
+    })
+    expect(gameServer.createGame).toHaveBeenCalledWith({
+      accountIds: [account(1).accountId, account(2).accountId],
+      gameConfig: 'default',
+    })
+    await expect(lobbyStore.getReadyPlayers()).resolves.toEqual([])
+    await expect(assignmentStore.findByGameId('game-1')).resolves.toHaveLength(
+      2,
+    )
+  })
+
+  it('keeps players ready when the Game server cannot create the game', async () => {
+    await service.ready(account(1))
+    await service.ready(account(2))
+    gameServer.createGame.mockRejectedValue(new Error('connection refused'))
+
+    await expect(
+      service.startGame(account(1).accountId),
+    ).rejects.toBeInstanceOf(GameServerUnavailableError)
+    await expect(lobbyStore.getReadyPlayers()).resolves.toEqual([
+      account(1),
+      account(2),
+    ])
+    await expect(assignmentStore.findByGameId('game-1')).resolves.toEqual([])
   })
 })
