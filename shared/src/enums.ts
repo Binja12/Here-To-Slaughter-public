@@ -40,6 +40,8 @@ export enum ReactionWindowType {
   ValueChoice = "ValueChoice",
   /** A roll to slay a monster. Modifiable, like Modifier and Challenge. */
   Attack = "Attack",
+  /** Pick a monster from the row. Only ones the party may legally attack. */
+  MonsterChoice = "MonsterChoice",
 }
 
 export enum RollContext {
@@ -216,6 +218,8 @@ export enum Zone {
   Party = "Party",
   Discard = "Discard",
   EquippedItem = "EquippedItem",
+  /** The face-up monster row. Shared, like Discard — it belongs to nobody. */
+  MonsterPile = "MonsterPile",
 }
 
 /** Whose cards, resolved against the ability owner and the ability context. */

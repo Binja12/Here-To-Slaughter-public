@@ -1,4 +1,4 @@
-import { ICard, IGameEventEmitter, ReactionWindowType } from 'shared'
+import { HeroClass, ICard, IGameEventEmitter, ReactionWindowType } from 'shared'
 import type {
   IEffect,
   IAction,
@@ -12,6 +12,8 @@ import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
+import { HeroCard } from '../cards/hero-card'
+import { MonsterCard } from '../cards/monster-card'
 import type { AbilityContext } from '../abilities/ability-context'
 // Value import, not type-only: slayMonster announces. No cycle — the factory
 // reaches only shared, game-event.ts and ability-context.ts.
@@ -469,6 +471,36 @@ export class GameState {
   /** Face down, and drawn from only to refill the pile — see slayMonster. */
   getMonsterDeck(): CardStack {
     return this.monsterDeck
+  }
+
+  /**
+   * Whether `playerId` may attack `monsterId` right now — the whole of the
+   * legality question, asked in four places: the action's `canExecute`, the
+   * task when it discovers its target, the choice filter that builds the
+   * options, and `MonsterChoiceWindow.canSubmit`. One question with one
+   * answer, so a monster cannot be offered by one and refused by another.
+   *
+   * Two halves. It must be IN the row — the deck is face down and the party is
+   * already won — and the party must field what the monster's `partyReq` asks
+   * for. Both are read fresh, because a hero can leave a party while the choice
+   * window is open.
+   */
+  canAttackMonster(playerId: string, monsterId: string): boolean {
+    if (!this.monsterPile.getAll().includes(monsterId)) return false
+
+    const monster = this.getCard(monsterId)
+    if (!(monster instanceof MonsterCard)) return false
+
+    return monster.canBeAttackedBy(this.getPartyHeroClasses(playerId))
+  }
+
+  /** The classes standing in a party, one entry per hero. Leaders excluded. */
+  getPartyHeroClasses(playerId: string): HeroClass[] {
+    return this.getParty(playerId)
+      .getHeroIds()
+      .map((heroId) => this.getCard(heroId))
+      .filter((card): card is HeroCard => card instanceof HeroCard)
+      .map((hero) => hero.getHeroClass())
   }
 
   /**

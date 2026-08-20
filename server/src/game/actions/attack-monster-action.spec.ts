@@ -3,6 +3,7 @@ import {
   CardType,
   GameEventType,
   IGameEvent,
+  HeroClass,
   ReactionWindowType,
   RollCompareMode,
   TriggerScope,
@@ -16,6 +17,7 @@ import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { MonsterCard } from '../cards/monster-card'
+import { HeroCard } from '../cards/hero-card'
 import { TaskManager } from '../pipelines/task-manager'
 import { ITask } from '../interfaces'
 
@@ -157,6 +159,87 @@ describe('AttackMonsterAction', () => {
 
     it('returns true when all conditions are met', () => {
       expect(makeAction().canExecute(gs)).toBe(true)
+    })
+
+    // --- the monster's printed party requirement ---
+
+    describe("the monster's partyReq", () => {
+      /** The Dark Dragon King's shape: a Bard plus one more hero. */
+      const kingGs = (partyClasses: HeroClass[]) => {
+        const g = makeGs()
+        g.registerPlayer(makePlayer('p1', 3))
+        g.registerParty(makeParty('p1'))
+        g.setCurrentPlayerId('p1')
+        g.registerCard(
+          new MonsterCard({
+            id: 'monster-1',
+            name: 'Dark Dragon King',
+            type: CardType.Monster,
+            image: '',
+            description: '',
+            set: '',
+            lowerReq: 4,
+            higherReq: 8,
+            rollCompareMode: RollCompareMode.HighToWin,
+            partyReq: { classes: [HeroClass.Bard, 'Any'] },
+          }),
+        )
+        g.getMonsterPile().add('monster-1')
+        partyClasses.forEach((cls, i) => {
+          g.registerCard(
+            new HeroCard({
+              id: `hero-${i}`,
+              name: `hero-${i}`,
+              type: CardType.Hero,
+              image: '',
+              description: '',
+              set: '',
+              heroClass: cls,
+              rollReq: 5,
+            }),
+          )
+          g.getParty('p1').addHero(`hero-${i}`, emitter, 'Played')
+        })
+        return g
+      }
+
+      const canAttack = (g: GameState) =>
+        new AttackMonsterAction(
+          'a1',
+          'p1',
+          'monster-1',
+          new ReactionManager(g, emitter),
+          emitter,
+        ).canExecute(g)
+
+      it('refuses an empty party', () => {
+        expect(canAttack(kingGs([]))).toBe(false)
+      })
+
+      it('refuses a lone Bard — Any needs a SECOND hero', () => {
+        expect(canAttack(kingGs([HeroClass.Bard]))).toBe(false)
+      })
+
+      it('refuses two heroes when neither is a Bard', () => {
+        expect(canAttack(kingGs([HeroClass.Thief, HeroClass.Wizard]))).toBe(false)
+      })
+
+      it('allows a Bard and any other class', () => {
+        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Thief]))).toBe(true)
+      })
+
+      it('allows two Bards — one answers Bard, the other answers Any', () => {
+        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Bard]))).toBe(true)
+      })
+
+      it('goes false again when the Bard is stolen away', () => {
+        const g = kingGs([HeroClass.Bard, HeroClass.Thief])
+        expect(canAttack(g)).toBe(true)
+
+        g.getParty('p1').removeHero('hero-0', emitter, 'Stolen')
+
+        expect(canAttack(g)).toBe(false)
+      })
     })
   })
 

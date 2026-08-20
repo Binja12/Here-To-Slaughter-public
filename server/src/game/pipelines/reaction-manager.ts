@@ -8,6 +8,7 @@ import { AttackWindow } from '../reactions/attack-window'
 import { ChallengeWindow } from '../reactions/challenge-window'
 import { PlayerChoiceWindow } from '../reactions/player-choice-window'
 import { CardChoiceWindow } from '../reactions/card-choice-window'
+import { MonsterChoiceWindow } from '../reactions/monster-choice-window'
 import { ValueChoiceWindow } from '../reactions/value-choice-window'
 import { TaskChoiceWindow } from '../reactions/task-choice-window'
 
@@ -108,6 +109,18 @@ export class ReactionManager implements IReactionManager {
 
     if (type === ReactionWindowType.CardChoice) {
       return new CardChoiceWindow(
+        crypto.randomUUID(),
+        respondent,
+        (config['options'] as string[]) ?? [],
+        5000,
+        this.gs,
+        frameId,
+        this.em,
+      )
+    }
+
+    if (type === ReactionWindowType.MonsterChoice) {
+      return new MonsterChoiceWindow(
         crypto.randomUUID(),
         respondent,
         (config['options'] as string[]) ?? [],

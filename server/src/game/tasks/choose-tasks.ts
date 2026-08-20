@@ -1,4 +1,4 @@
-import { IGameEventEmitter, ReactionWindowType } from 'shared'
+import { IGameEventEmitter, ReactionWindowType, Zone } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { AbilityContext } from '../abilities/ability-context'
@@ -58,6 +58,39 @@ export class ChooseCardTask implements ITask {
 
     // Suspends even on an empty option set: ChoiceWindow settles that on a
     // 0ms timer, so the frame is still live here.
+    return frameId
+  }
+}
+
+/**
+ * ChooseMonsterTask — pick one monster out of the face-up row.
+ *
+ * Not a ChooseCardTask with a monster filter, for one reason: the window it
+ * opens has to be the one that knows the party requirement, so it can refuse a
+ * pick that has gone stale (MonsterChoiceWindow.canSubmit). The FILTER is
+ * ordinary though — Zone.MonsterPile with partyReqMet, both plain data.
+ *
+ * Only monsters the owner's party may legally attack are offered. With none,
+ * the window settles on a 0ms timer with no pick and the steps behind it skip
+ * on the empty slot — "the task just ends" needs no branch here.
+ */
+export class ChooseMonsterTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    _em: IGameEventEmitter,
+    rm: IReactionManager,
+  ): string | void {
+    const options = filterCards(gs, ctx, {
+      zone: Zone.MonsterPile,
+      partyReqMet: true,
+    })
+
+    const frameId = rm.openFrame()
+    rm.openWindow(frameId, ReactionWindowType.MonsterChoice, ctx.ownerId, {
+      options,
+    })
+
     return frameId
   }
 }

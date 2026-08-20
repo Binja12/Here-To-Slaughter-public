@@ -266,6 +266,21 @@ nothing", not a mis-declaration. It announces `MonsterSlain` itself, for the
 reason `Party.addHero` announces (§7) — one choke point that emits is what
 stops the next mechanic that slays a monster from forgetting to.
 
+**Whether a party MAY attack is one question with one answer.**
+`GameState.canAttackMonster(playerId, monsterId)` is asked in four places — the
+action's `canExecute`, the task when it discovers its target, the choice filter
+that builds the options, and `MonsterChoiceWindow.canSubmit` — so a monster
+cannot be offered by one and refused by another. Two halves: the monster must be
+in the face-up row, and the party must field what its printed `partyReq` asks.
+
+`partyReq.classes` is a MULTISET, not a set. The Dark Dragon King's
+`[Bard, 'Any']` wants a Bard AND a second hero, so two Bards qualify and a lone
+Bard does not. `MonsterCard.canBeAttackedBy` counts down a pool rather than
+asking `includes` per entry, and matches NAMED classes before `'Any'` — that
+ordering is what makes one greedy pass correct, since `'Any'` can take any hero
+a named entry rejects. `AllClassesInParty` in `conditions/` looks similar and is
+not: it tests distinct classes with a Set, which answers a different question.
+
 Five mechanics, five bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
@@ -457,6 +472,26 @@ stop, carry on when it resolves.
   (`ModifierApplied`, `ChallengeStarted/Resolved`, `HeroStolen`,
   `TaskConfirmed`, `ConditionMet`).
 
+**A choice window refuses a STALE pick loudly, and a wrong one quietly.**
+`canSubmit(choice)` runs the moment an answer arrives and THROWS when it fails;
+the two guards ahead of it — wrong respondent, choice not among the options —
+still return silently, because those are noise off a socket while this is a
+pick that WAS legal when the options were built and is not legal now. The
+window stays open so the player can send another, and the clock is untouched:
+a `ChoiceWindow` sets its timer once in the constructor and never resets it,
+unlike the modifier windows, so a refused submission cannot stall the turn.
+
+It is distinct from `isStillValid`, which runs at RESOLVE and quietly drops a
+stale pick. Two hooks because they answer to different audiences — one tells
+the player, the other tidies up after a timeout.
+
+`MonsterChoiceWindow` is the only override: it re-asks `canAttackMonster`,
+because a hero can be stolen out of the party while the window is open and take
+the party's claim on that monster with it. It also overrides `defaultChoice` to
+pick NOTHING — `CardChoiceWindow` defaults to a random option so a card that
+asks for a card cannot be dodged by waiting, which is right for a price, and an
+attack is an offer.
+
 **A VALUE choice does not default at random.** `CardChoiceWindow` picks one of
 its own options because a card has no direction; a number does. `ValueBias` is
 `highest` or `lowest`, and the window BEING MODIFIED decides which — a plain
@@ -529,6 +564,14 @@ steps: [
 
 Filters are **data, never closures** — readable, loggable, serializable to a
 client.
+
+`Zone.MonsterPile` is the face-up row, and is SHARED like `Discard` — it belongs
+to nobody, so `SHARED_ZONES` reads it once instead of once per seated player. It
+reaches only the pile: the monster deck is face down, and nothing face down is
+offerable. `partyReqMet` is the one axis that is not about position — it keeps
+the monsters the ability owner's party may legally attack, by asking the board
+the same question the action and the window ask. Non-monsters never match it,
+the way `heroClass` rejects non-heroes.
 
 **Visibility is not the engine's concern.** Events state the full truth
 (options include opponents' card ids). A projection layer in front of the API
@@ -1034,10 +1077,14 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   Nothing turns a monster face up, there is no face-up state to turn, and a
   table-wide roll penalty has no home: `IEffect` names an `ownerId` and lives on
   a `Player`.
-- **A card cannot ask a player to pick a monster.** `Zone` has no monster pile
-  member, so `ChooseCardTask` cannot offer one, and `DecisionType.PickMonster`
-  has no reader. `AttackMonsterTask` therefore has no way to be handed a target
-  by a choice yet — only by a slot some other step wrote.
+- **`DecisionType.PickMonster` still has no reader.** `ChooseMonsterTask` and
+  `ReactionWindowType.MonsterChoice` cover the mechanic; the `DecisionType`
+  enum is a parallel vocabulary nothing consults.
+- **Nothing catches what `canSubmit` throws.** No code outside tests routes a
+  choice submission — `getFrameByWindowId` has no non-spec caller, and the
+  socket layer lives on `HTSR-4`. The throw is an engine contract today; the
+  API layer has to turn it into a client error when it arrives, or one bad
+  packet kills the request.
 - **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
   like `MonsterCard.trySlay`, and read by nothing.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage

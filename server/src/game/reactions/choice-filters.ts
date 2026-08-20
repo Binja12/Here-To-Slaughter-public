@@ -24,13 +24,28 @@ export type PlayerFilter = {
 
 export type CardFilter = {
   zone: Zone
-  /** Ignored for shared zones (Discard), which belong to nobody. */
+  /** Ignored for shared zones (Discard, MonsterPile), which belong to nobody. */
   owner?: Owner
   cardType?: CardType
   /** Only meaningful for hero cards; non-heroes never match. */
   heroClass?: HeroClass
+  /**
+   * Monsters only: keep the ones the ability owner's party may legally attack,
+   * by the monster's printed `partyReq`. Non-monsters never match, the same way
+   * `heroClass` rejects non-heroes.
+   */
+  partyReqMet?: boolean
   excludeIds?: string[]
 }
+
+/**
+ * Zones that belong to the table rather than to a player. Resolving owners for
+ * one of these would return the same pile once per seated player.
+ */
+const SHARED_ZONES: ReadonlySet<Zone> = new Set([
+  Zone.Discard,
+  Zone.MonsterPile,
+])
 
 // ---------------------------------------------------------------------------
 // The one place the static vocabulary meets live state
@@ -96,6 +111,8 @@ function idsInZone(gs: GameState, zone: Zone, ownerId: string): string[] {
         .filter((id): id is string => !!id)
     case Zone.Discard:
       return gs.getDiscardPile().getAll()
+    case Zone.MonsterPile:
+      return gs.getMonsterPile().getAll()
   }
 }
 
@@ -106,13 +123,12 @@ export function filterCards(
 ): string[] {
   const exclude = new Set(filter.excludeIds ?? [])
 
-  // Discard is shared — resolving owners would return it once per player.
-  const ids =
-    filter.zone === Zone.Discard
-      ? idsInZone(gs, Zone.Discard, '')
-      : playersFor(gs, ctx, filter.owner).flatMap((ownerId) =>
-          idsInZone(gs, filter.zone, ownerId),
-        )
+  // A shared zone is read once, with no owner — see SHARED_ZONES.
+  const ids = SHARED_ZONES.has(filter.zone)
+    ? idsInZone(gs, filter.zone, '')
+    : playersFor(gs, ctx, filter.owner).flatMap((ownerId) =>
+        idsInZone(gs, filter.zone, ownerId),
+      )
 
   return ids.filter((id) => {
     if (exclude.has(id)) return false
@@ -124,6 +140,11 @@ export function filterCards(
       if (!(card instanceof HeroCard)) return false
       if (card.getHeroClass() !== filter.heroClass) return false
     }
+
+    // Asked of the board rather than answered here: the same question the
+    // action's canExecute and the window's canSubmit ask, so an option offered
+    // is an option that can be acted on.
+    if (filter.partyReqMet && !gs.canAttackMonster(ctx.ownerId, id)) return false
 
     return true
   })

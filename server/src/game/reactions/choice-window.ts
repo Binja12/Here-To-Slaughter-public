@@ -78,6 +78,21 @@ export abstract class ChoiceWindow implements IReactionWindow {
     const { choice } = (payload ?? {}) as { choice?: unknown }
     if (!this.options.includes(choice)) return
 
+    // THROWS rather than returning, and the two guards above deliberately do
+    // not: those refuse noise off a socket, this one catches a pick that was
+    // legal when the options were built and is not legal now. The caller is
+    // told, and the window stays OPEN so the player can pick again.
+    //
+    // The clock is not touched. A ChoiceWindow sets its timer once in the
+    // constructor and never resets it, unlike the modifier windows, so a
+    // rejected submission cannot be used to stall the turn.
+    if (!this.canSubmit(choice)) {
+      throw new Error(
+        `${this.constructor.name}: ${String(choice)} is no longer a legal ` +
+          'choice — it was offered, but the board has moved since.',
+      )
+    }
+
     this.picked = choice
     this.resolve()
   }
@@ -135,6 +150,18 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   /** Emit what this outcome means elsewhere. See TaskChoiceWindow. */
   protected announceOutcome(_picked: unknown): void {}
+
+  /**
+   * Re-check a pick at SUBMIT time. Distinct from `isStillValid`, which runs
+   * at resolve and quietly drops a stale pick: this one runs the moment the
+   * answer arrives and REFUSES it loudly, so the player can send another.
+   *
+   * Default yes — being one of the offered options is the whole test for most
+   * windows. MonsterChoiceWindow overrides it.
+   */
+  protected canSubmit(_choice: unknown): boolean {
+    return true
+  }
 
   /**
    * Re-check a pick at resolve time. Card/player choices override this to
