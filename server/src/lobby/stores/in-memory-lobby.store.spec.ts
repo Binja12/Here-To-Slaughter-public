@@ -1,7 +1,5 @@
-import {
-  DEFAULT_LOBBY_CAPACITY,
-  InMemoryLobbyStore,
-} from './in-memory-lobby.store'
+import { LOBBY_CAPACITY } from '../lobby.types'
+import { InMemoryLobbyStore } from './in-memory-lobby.store'
 
 describe('InMemoryLobbyStore', () => {
   it('preserves ready order and treats the first player as the host', async () => {
@@ -29,7 +27,7 @@ describe('InMemoryLobbyStore', () => {
 
   it('enforces the four-player capacity', async () => {
     const store = new InMemoryLobbyStore()
-    for (let index = 1; index <= DEFAULT_LOBBY_CAPACITY; index += 1) {
+    for (let index = 1; index <= LOBBY_CAPACITY; index += 1) {
       await store.addReadyPlayer({
         accountId: `account-${index}`,
         username: `player-${index}`,
