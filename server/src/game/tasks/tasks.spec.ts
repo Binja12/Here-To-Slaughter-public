@@ -1,5 +1,5 @@
 import { Audience, GameEventType, IGameEvent } from 'shared'
-import { DrawTask, DiscardTask } from './tasks'
+import { DrawTask, DiscardTask, PullCardTask } from './tasks'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
@@ -8,7 +8,9 @@ import { Party } from '../state-structures/party'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
+  CTX_CHOSEN_PLAYER,
   CTX_DRAWN_CARD_IDS,
+  CTX_PULLED_CARD_IDS,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
@@ -234,5 +236,121 @@ describe('DiscardTask', () => {
     new DiscardTask().execute(gs, ctx, emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PullCardTask — take a card out of another hand, sight unseen
+// ---------------------------------------------------------------------------
+
+describe('PullCardTask', () => {
+  /** p1 pulls from p2, whose hand is `victimHand`. */
+  function setup(victimHand: string[], ownHand: string[] = []) {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', [...ownHand]))
+    gs.registerPlayer(makePlayer('p2', [...victimHand]))
+    gs.registerParty(makeParty('p1'))
+    gs.registerParty(makeParty('p2'))
+    const ctx = makeCtx()
+    const { emitter, emitted } = makeEmitter()
+    return { gs, ctx, em: emitter, events: emitted }
+  }
+
+  afterEach(() => jest.restoreAllMocks())
+
+  it('moves a card from the chosen hand into the owner hand', () => {
+    const { gs, ctx, em } = setup(['a'])
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    expect(gs.getPlayer('p2')!.getHand()).toEqual([])
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['a'])
+  })
+
+  it('records what it took, so a later step can test it', () => {
+    const { gs, ctx, em } = setup(['a'])
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    expect(ctx.get(CTX_PULLED_CARD_IDS)).toEqual(['a'])
+  })
+
+  it('announces the pull, naming both sides', () => {
+    const { gs, ctx, em, events } = setup(['a'])
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    const pulled = events.filter(
+      (e) => e.getType() === GameEventType.CardPulled,
+    )
+    expect(pulled).toHaveLength(1)
+    expect(pulled[0].getPayload()).toEqual({
+      cardId: 'a',
+      fromPlayerId: 'p2',
+      toPlayerId: 'p1',
+    })
+  })
+
+  it('takes a RANDOM one — the puller cannot see the hand', () => {
+    const { gs, ctx, em } = setup(['a', 'b', 'c'])
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+    jest.spyOn(Math, 'random').mockReturnValue(0.99) // the last one
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['c'])
+  })
+
+  it('reads whichever slot it was told to', () => {
+    const { gs, ctx, em } = setup(['a'])
+    ctx.set('someOtherSlot', ['p2'])
+
+    new PullCardTask('someOtherSlot').execute(gs, ctx, em, stubRm)
+
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['a'])
+  })
+
+  it('THROWS when nothing was declared to supply a player', () => {
+    const { gs, ctx, em } = setup(['a'])
+
+    expect(() => new PullCardTask().execute(gs, ctx, em, stubRm)).toThrow(
+      /nothing has written/,
+    )
+  })
+
+  it('an empty hand produces nothing, and says so', () => {
+    const { gs, ctx, em, events } = setup([])
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    // "Ran and produced nothing", not "never ran": the steps behind it skip.
+    expect(ctx.get(CTX_PULLED_CARD_IDS)).toEqual([])
+    expect(events.map((e) => e.getType())).not.toContain(
+      GameEventType.CardPulled,
+    )
+  })
+
+  it('an empty CHOICE produces nothing either', () => {
+    const { gs, ctx, em } = setup(['a'])
+    ctx.set(CTX_CHOSEN_PLAYER, [])
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    expect(ctx.get(CTX_PULLED_CARD_IDS)).toEqual([])
+    expect(gs.getPlayer('p2')!.getHand()).toEqual(['a'])
+  })
+
+  it('refuses to pull from yourself', () => {
+    const { gs, ctx, em } = setup(['a'], ['own'])
+    ctx.set(CTX_CHOSEN_PLAYER, ['p1'])
+
+    new PullCardTask().execute(gs, ctx, em, stubRm)
+
+    expect(ctx.get(CTX_PULLED_CARD_IDS)).toEqual([])
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['own'])
   })
 })

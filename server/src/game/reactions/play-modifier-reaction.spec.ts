@@ -8,7 +8,10 @@ import {
 import { PlayModifierReaction } from './play-modifier-reaction'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import {
+  CTX_MODIFIER_TARGET,
+  NO_CONTEXT_RESULT,
+} from '../abilities/ability-context'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
@@ -18,8 +21,15 @@ import { IModifiableWindow, IReactionWindow } from '../interfaces'
 import { ModifierWindow } from './modifier-window'
 
 // ---------------------------------------------------------------------------
-// Helpers
+// PlayModifierReaction — the PLAY, and nothing else.
+//
+// What the card is WORTH is its own registry entry (modifier-ability.ts). This
+// spends the card, keeps the roll alive and announces it. The value used to
+// arrive here as a constructor argument off a socket, compared with nothing;
+// there is no value here at all any more.
 // ---------------------------------------------------------------------------
+
+const MOD = 'modifier-077'
 
 const makeGs = () =>
   new GameState(
@@ -48,9 +58,7 @@ const makeModifierCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    // No ability: a modifier is played by a player REQUEST gated on an open
-    // modifier frame (canExecute below), never by a passive trigger.
-    values: [2],
+    values: [2, -2],
   })
 
 const collect = (em: GameEventEmitter): IGameEvent[] => {
@@ -60,13 +68,15 @@ const collect = (em: GameEventEmitter): IGameEvent[] => {
 }
 
 /**
- * Stub modifier window with a jest spy on submitReaction.
- * Declares acceptsModifierFor because that capability — not the concrete class
- * — is what PlayModifierReaction looks for.
+ * Stub modifier window. Declares `acceptsModifierFor` and `cardSpent` because
+ * that CAPABILITY — not the concrete class — is what the reaction looks for.
  */
 const makeStubWindow = (
   rollerId = 'p1',
-): IModifiableWindow & { submitReaction: jest.Mock } => ({
+): IModifiableWindow & {
+  submitReaction: jest.Mock
+  cardSpent: jest.Mock
+} => ({
   getId: () => 'w1',
   getType: () => ReactionWindowType.Modifier,
   isOpen: () => true,
@@ -74,27 +84,24 @@ const makeStubWindow = (
   resolve: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   acceptsModifierFor: (playerId: string) => playerId === rollerId,
+  cardSpent: jest.fn(),
+  valueBiasFor: () => 'highest' as const,
 })
 
-/** Add a modifier frame to gs with a stub window. */
 const openFrame = (gs: GameState, stub: IReactionWindow) => {
   const frameId = 'frame-1'
   gs.addFrame(frameId, { snapshot: gs.clone(), windows: [stub] })
   return frameId
 }
 
-const makeReaction = (value = 2, targetPlayerId = 'p1') =>
-  new PlayModifierReaction('r1', 'p1', 'mod-1', value, targetPlayerId)
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+const makeReaction = (targetPlayerId = 'p1') =>
+  new PlayModifierReaction('r1', 'p1', MOD, targetPlayerId)
 
 describe('PlayModifierReaction — target must be the roller', () => {
   let gs: GameState
   let em: GameEventEmitter
 
-  /** A REAL ModifierWindow: the guard is instanceof-gated, a stub would skip it. */
+  /** A REAL ModifierWindow: the guard is the window's own, a stub would skip it. */
   const openRealWindow = (rollerId: string) => {
     const win = new ModifierWindow('w1', rollerId, 3, 5, 'hero-1', 5000, gs, 'f1', em)
     gs.addFrame('f1', { snapshot: gs.clone(), windows: [win] })
@@ -106,55 +113,49 @@ describe('PlayModifierReaction — target must be the roller', () => {
     gs = makeGs()
     em = new GameEventEmitter()
     gs.registerPlayer(makePlayer('p1', []))
-    gs.registerPlayer(makePlayer('p2', ['mod-1']))
+    gs.registerPlayer(makePlayer('p2', [MOD]))
     gs.registerParty(makeParty('p1'))
     gs.registerParty(makeParty('p2'))
-    gs.registerCard(makeModifierCard('mod-1'))
+    gs.registerCard(makeModifierCard(MOD))
   })
   afterEach(() => jest.useRealTimers())
 
   it('canExecute is true when the target IS the roller', () => {
     openRealWindow('p1')
-    const r = new PlayModifierReaction('r1', 'p2', 'mod-1', 2, 'p1')
-    expect(r.canExecute(gs)).toBe(true)
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p1').canExecute(gs)).toBe(
+      true,
+    )
   })
 
   it('canExecute is false when the target is not the roller', () => {
     openRealWindow('p1')
-    const r = new PlayModifierReaction('r1', 'p2', 'mod-1', 2, 'p2')
-    expect(r.canExecute(gs)).toBe(false)
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p2').canExecute(gs)).toBe(
+      false,
+    )
   })
 
-  it('a refused modifier is NOT burned — execute() burns before it submits', () => {
+  it('a refused modifier is NOT burned — execute() spends before anything lands', () => {
     openRealWindow('p1')
-    const r = new PlayModifierReaction('r1', 'p2', 'mod-1', 2, 'p2')
+    const r = new PlayModifierReaction('r1', 'p2', MOD, 'p2')
 
-    // The manager gate is what protects the card; going straight to execute()
-    // would spend it on a bonus the window then discards.
     if (r.canExecute(gs)) r.execute(gs, em)
 
-    expect(gs.getPlayer('p2')!.getHand()).toContain('mod-1')
-    expect(gs.getDiscardPile().getAll()).not.toContain('mod-1')
+    expect(gs.getPlayer('p2')!.getHand()).toContain(MOD)
+    expect(gs.getParty('p2').getInstanceCardIds()).not.toContain(MOD)
   })
 })
 
 describe('PlayModifierReaction', () => {
   let gs: GameState
   let em: GameEventEmitter
-  let events: IGameEvent[]
 
   beforeEach(() => {
     gs = makeGs()
     em = new GameEventEmitter()
-    events = collect(em)
-    gs.registerPlayer(makePlayer('p1', ['mod-1']))
+    gs.registerPlayer(makePlayer('p1', [MOD]))
     gs.registerParty(makeParty('p1'))
-    gs.registerCard(makeModifierCard('mod-1'))
+    gs.registerCard(makeModifierCard(MOD))
   })
-
-  // ---------------------------------------------------------------------------
-  // Metadata
-  // ---------------------------------------------------------------------------
 
   it('getId returns the reaction id', () => {
     expect(makeReaction().getId()).toBe('r1')
@@ -168,33 +169,23 @@ describe('PlayModifierReaction', () => {
     expect(makeReaction().getPlayerId()).toBe('p1')
   })
 
-  // ---------------------------------------------------------------------------
-  // canExecute
-  // ---------------------------------------------------------------------------
-
   it('canExecute returns false when no modifier frame is open', () => {
     expect(makeReaction().canExecute(gs)).toBe(false)
   })
 
   it('canExecute returns false when card not in player hand', () => {
-    gs.getPlayer('p1')!.removeFromHand('mod-1')
-    const stub = makeStubWindow()
-    openFrame(gs, stub)
+    gs.getPlayer('p1')!.removeFromHand(MOD)
+    openFrame(gs, makeStubWindow())
     expect(makeReaction().canExecute(gs)).toBe(false)
   })
 
   it('canExecute returns true when frame is open and card is in hand', () => {
-    const stub = makeStubWindow()
-    openFrame(gs, stub)
+    openFrame(gs, makeStubWindow())
     expect(makeReaction().canExecute(gs)).toBe(true)
   })
 
-  // ---------------------------------------------------------------------------
-  // execute
-  // ---------------------------------------------------------------------------
-
   describe('execute', () => {
-    let stub: IReactionWindow & { submitReaction: jest.Mock }
+    let stub: ReturnType<typeof makeStubWindow>
     let frameId: string
 
     beforeEach(() => {
@@ -202,91 +193,83 @@ describe('PlayModifierReaction', () => {
       frameId = openFrame(gs, stub)
     })
 
-    it('removes the modifier card from the current player hand', () => {
+    it('takes the card out of hand', () => {
       makeReaction().execute(gs, em)
-      expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain(MOD)
     })
 
-    it('adds the modifier card to the current discard pile', () => {
+    it('puts it in the INSTANCE pile, not the discard — it is a card in play', () => {
       makeReaction().execute(gs, em)
-      expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+      // On the table for as long as the roll is: the table can see it, and
+      // abilitySources can find its entry there.
+      expect(gs.getParty('p1').getInstanceCardIds()).toContain(MOD)
+      expect(gs.getDiscardPile().getAll()).not.toContain(MOD)
     })
 
-    it('removes the modifier card from the snapshot player hand', () => {
+    it('nothing is written down — the position IS the record', () => {
       makeReaction().execute(gs, em)
-      const snapshot = gs.frames.get(frameId)?.snapshot
-      expect(snapshot?.getPlayer('p1')?.getHand()).not.toContain('mod-1')
+
+      // The card is in a pile it was not in when the frame opened, and that
+      // is the whole of what says it was spent into this one.
+      expect(gs.getParty('p1').getInstanceCardIds()).toContain(MOD)
+      expect(
+        gs.frames.get(frameId)?.snapshot.getParty('p1').getInstanceCardIds(),
+      ).not.toContain(MOD)
+      expect(gs.isSpentInOpenFrame(MOD)).toBe(true)
     })
 
-    it('adds the modifier card to the snapshot discard pile', () => {
+    it('releasing the frame is what discards it', () => {
       makeReaction().execute(gs, em)
-      const snapshot = gs.frames.get(frameId)?.snapshot
-      expect(snapshot?.getDiscardPile().getAll()).toContain('mod-1')
+      gs.releaseFrame(frameId)
+
+      expect(gs.getParty('p1').getInstanceCardIds()).not.toContain(MOD)
+      expect(gs.getDiscardPile().getAll()).toContain(MOD)
     })
 
-    // should not emit discard event it('emits CardDiscarded for the sender', ()...
+    it('a ROLLBACK still leaves it spent', () => {
+      makeReaction().execute(gs, em)
+      gs.restoreFrame(frameId)
 
-    it('emits ModifierPlayed naming the card, value and target', () => {
-      const stub = makeStubWindow()
-      openFrame(gs, stub)
+      // The snapshot predates the burn, so it hands the card back; the frame
+      // remembered what was spent into it and takes it away again.
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain(MOD)
+      expect(gs.getDiscardPile().getAll()).toContain(MOD)
+    })
+
+    it('emits ModifierPlayed naming the card and the target', () => {
       const events = collect(em)
-
-      makeReaction(3, 'p1').execute(gs, em)
+      makeReaction('p1').execute(gs, em)
 
       const played = events.filter(
         (e) => e.getType() === GameEventType.ModifierPlayed,
       )
       expect(played).toHaveLength(1)
       expect(played[0].getPlayerId()).toBe('p1')
+      // No value: the card's own entry decides that. The target rides across
+      // as ctxSeed, because that entry runs with a fresh context.
       expect(played[0].getPayload()).toEqual({
-        cardId: 'mod-1',
-        value: 3,
+        cardId: MOD,
         targetPlayerId: 'p1',
+        ctxSeed: { [CTX_MODIFIER_TARGET]: ['p1'] },
       })
     })
 
-    it('announces the play BEFORE the window applies it', () => {
-      const gs2 = makeGs()
-      const em2 = new GameEventEmitter()
-      gs2.registerPlayer(makePlayer('p1', ['mod-1']))
-      gs2.registerParty(makeParty('p1'))
-      gs2.registerCard(makeModifierCard('mod-1'))
-      // A REAL window, so ModifierApplied actually follows.
-      const win = new ModifierWindow('w1', 'p1', 3, 5, 'hero-1', 5000, gs2, 'f1', em2)
-      gs2.addFrame('f1', { snapshot: gs2.clone(), windows: [win] })
-      const events = collect(em2)
-
-      new PlayModifierReaction('r1', 'p1', 'mod-1', 3, 'p1').execute(gs2, em2)
-
-      const order = events
-        .map((e) => e.getType())
-        .filter(
-          (t) =>
-            t === GameEventType.ModifierPlayed ||
-            t === GameEventType.ModifierApplied,
-        )
-      expect(order).toEqual([
-        GameEventType.ModifierPlayed,
-        GameEventType.ModifierApplied,
-      ])
+    it('does NOT submit anything to the window', () => {
+      makeReaction('p2').execute(gs, em)
+      // ApplyModifierTask does, once the card has chosen a value.
+      expect(stub.submitReaction).not.toHaveBeenCalled()
     })
 
-    it('calls window.submitReaction with { value, cardId, targetPlayerId }', () => {
-      makeReaction(3, 'p2').execute(gs, em)
-      // cardId rides along so the window can record WHICH card paid for the
-      // bonus — a roll is shown broken down by source, not as one total.
-      expect(stub.submitReaction).toHaveBeenCalledWith('p1', {
-        type: 'modifier',
-        value: 3,
-        cardId: 'mod-1',
-        targetPlayerId: 'p2',
-      })
+    it('keeps the window alive while the card resolves', () => {
+      makeReaction().execute(gs, em)
+      // The submission used to reset the timer; it now arrives a choice later.
+      expect(stub.cardSpent).toHaveBeenCalled()
     })
 
     it('does nothing when no modifier frame is open', () => {
-      gs.releaseFrame(frameId) // close frame
+      gs.releaseFrame(frameId)
       expect(() => makeReaction().execute(gs, em)).not.toThrow()
-      expect(stub.submitReaction).not.toHaveBeenCalled()
+      expect(gs.getPlayer('p1')!.getHand()).toContain(MOD)
     })
   })
 })

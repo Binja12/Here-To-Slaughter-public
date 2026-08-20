@@ -163,7 +163,7 @@ describe('PlayMagicTask', () => {
     expect(player.getHand()).not.toContain('magic-1')
     const window = openChallenge(gs)
     expect(window).toBeDefined()
-    expect((window as unknown as { getCardId(): string }).getCardId()).toBe(
+    expect(window!.subjectCardId!()).toBe(
       'magic-1',
     )
   })

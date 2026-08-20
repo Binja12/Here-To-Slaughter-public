@@ -36,6 +36,8 @@ export enum ReactionWindowType {
   PlayerChoice = "PlayerChoice",
   CardChoice = "CardChoice",
   TaskChoice = "TaskChoice",
+  /** Pick one number — a modifier card's printed values. */
+  ValueChoice = "ValueChoice",
 }
 
 export enum RollContext {
@@ -59,9 +61,19 @@ export enum GameEventType {
   CardDiscarded = "CardDiscarded",
   /** A card left a hand to be played. Every play type emits this first. */
   CardRemovedFromHand = "CardRemovedFromHand",
+  /**
+   * A card was taken out of one player's hand and into another's, unseen by
+   * the taker. Not CardRemovedFromHand: nothing is being played.
+   */
+  CardPulled = "CardPulled",
   MagicPlayed = "MagicPlayed",
   /** A modifier card was spent. ModifierApplied reports the bonus landing. */
   ModifierPlayed = "ModifierPlayed",
+  /**
+   * A challenge card was spent. The card's own entry starts the challenge on
+   * this; ChallengeStarted then reports the two rolls.
+   */
+  ChallengePlayed = "ChallengePlayed",
 
   // Hero events
   HeroAddedToParty = "HeroAddedToParty",
@@ -260,6 +272,8 @@ export enum Audience {
 export enum ActionType {
   DrawCard = "DrawCard",
   RollOnHero = "RollOnHero",
+  /** Activating a leader. The only way a leader's ability ever runs. */
+  RollOnLeader = "RollOnLeader",
   PlayHero = "PlayHero",
   PlayItem = "PlayItem",
   PlayMagic = "PlayMagic",

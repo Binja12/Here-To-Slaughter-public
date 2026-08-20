@@ -4,6 +4,8 @@ import {
   CardType,
   GameEventType,
   IGameEvent,
+  PassiveType,
+  RollContext,
   RollResult,
 } from 'shared'
 import { IAction } from '../interfaces'
@@ -55,8 +57,19 @@ export class AttackMonsterAction implements IAction {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
     const baseRoll = Math.ceil(Math.random() * 11) + 1
+    // Standing bonuses for an ATTACK roll — the Divine Arrow (leader-116) is
+    // the reference. No modifier window opens on an attack, so these are the
+    // whole of what can move the number.
+    const bonus = gs
+      .getEffects(
+        PassiveType.RollBonus,
+        this.playerId,
+        undefined,
+        RollContext.Attack,
+      )
+      .reduce((sum, effect) => sum + (effect.value ?? 0), 0)
     const rollResult = (gs.getCard(this.cardId) as MonsterCard).trySlay(
-      baseRoll,
+      baseRoll + bonus,
     )
     if (rollResult == RollResult.Slay) {
       gs.getMonsterPile().pick(this.cardId)

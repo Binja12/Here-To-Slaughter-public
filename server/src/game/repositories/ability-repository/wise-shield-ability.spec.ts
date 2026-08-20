@@ -42,6 +42,12 @@ import { IReactionWindow } from '../../interfaces'
 const WISE_SHIELD = 'hero-028'
 const ROLL_REQ = 6
 
+// Real printed ids, so the registry's ChallengeAbility and ModifierAbility run:
+// what these cards DO is their own entry now, not the reaction's argument. The
+// modifier's single printed value is the test's own — behaviour is keyed by id.
+const CHAL = 'challenge-102'
+const MOD = 'modifier-077'
+
 const LOW = 0 // baseRoll 1  — misses rollReq 6
 const HIGH = 0.99 // baseRoll 12 — clears rollReq 6
 
@@ -97,13 +103,13 @@ function setup() {
   const engine = new GameEngine(gs, tm, em, [])
 
   seat(gs, 'p1', [WISE_SHIELD, 'hero-777'])
-  seat(gs, 'p2', ['chal-1', 'mod-1'])
+  seat(gs, 'p2', [CHAL, MOD])
 
   gs.registerCard(makeHero(WISE_SHIELD))
   gs.registerCard(makeHero('hero-777'))
   gs.registerCard(
     new ChallengeCard({
-      id: 'chal-1',
+      id: CHAL,
       name: 'Challenge',
       type: CardType.Challenge,
       image: '',
@@ -113,7 +119,7 @@ function setup() {
   )
   gs.registerCard(
     new ModifierCard({
-      id: 'mod-1',
+      id: MOD,
       name: 'Modifier',
       type: CardType.Modifier,
       image: '',
@@ -149,6 +155,13 @@ const acceptRollOffer = (gs: GameState) =>
   rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
 
 const typesOf = (events: IGameEvent[]) => events.map((e) => e.getType())
+
+/**
+ * A played modifier now asks the player WHICH of its printed values to use, so
+ * the bonus lands a choice later rather than inside submitReaction. The window
+ * is deliberately shorter than the roll it is about.
+ */
+const settleValueChoice = () => jest.advanceTimersByTime(3000)
 
 /** Total RollBonus currently on a player — the entries, summed. */
 const rollBonus = (gs: GameState, playerId: string) =>
@@ -278,7 +291,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValue(HIGH)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
@@ -298,7 +311,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
@@ -320,14 +333,14 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
       // Removed from hand before the snapshot, so only an explicit discard
       // keeps it in the game.
       expect(gs.getDiscardPile().getAll()).toContain(WISE_SHIELD)
-      expect(gs.getDiscardPile().getAll()).toContain('chal-1')
+      expect(gs.getDiscardPile().getAll()).toContain(CHAL)
     })
 
     it('challenged and WON: the card is marked, so it cannot be challenged again', () => {
@@ -340,7 +353,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValue(HIGH)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
@@ -357,7 +370,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
@@ -401,7 +414,8 @@ describe('Wise Shield — full life cycle', () => {
 
     it('FAILED roll rescued by a modifier: RollSuccess fires and the effect installs', () => {
       const { gs, rm, events } = toModifierWindow(LOW) // baseRoll 1
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', 'mod-1', 5, 'p1')) // 1 + 5 = 6
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1')) // 1 + 5 = 6
+      settleValueChoice()
       jest.advanceTimersByTime(5000)
 
       expect(typesOf(events)).toContain(GameEventType.RollSuccess)
@@ -428,11 +442,12 @@ describe('Wise Shield — full life cycle', () => {
 
     it('a played modifier is recorded against the card that paid for it', () => {
       const { rm, events } = toModifierWindow(LOW)
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', 'mod-1', 5, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1'))
+      settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
       expect(applied).toHaveLength(1)
-      expect(applied[0]['cardId']).toBe('mod-1')
+      expect(applied[0]['cardId']).toBe(MOD)
       expect(applied[0]['finalRoll']).toBe(6) // 1 + 5
     })
   })
@@ -482,7 +497,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(0.5) // challenger p2 rolls 6
         .mockReturnValueOnce(0.4) // challenged p1 rolls 5
         .mockReturnValue(LOW) // whatever the granted roll needs afterwards
-      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', 'chal-1', 'hero-777'))
+      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
       jest.advanceTimersByTime(5000)
 
       const resolved = payloadsOf(events, GameEventType.ChallengeResolved)
@@ -505,10 +520,11 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(0.5) // challenger p2 rolls 6
         .mockReturnValueOnce(0) // challenged p1 rolls 1
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', 'chal-1', 'hero-777'))
+      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
 
       // p2 pushes their OWN challenge roll with a +5 modifier.
-      rm.submitReaction(new PlayModifierReaction('r4', 'p2', 'mod-1', 5, 'p2'))
+      rm.submitReaction(new PlayModifierReaction('r4', 'p2', MOD, 'p2'))
+      settleValueChoice()
       jest.advanceTimersByTime(5000)
 
       const resolved = payloadsOf(events, GameEventType.ChallengeResolved)
@@ -517,7 +533,7 @@ describe('Wise Shield — full life cycle', () => {
         defenderFinal: 4, // 1 + 3 from Wise Shield
         defenderWins: false,
       })
-      expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+      expect(gs.getDiscardPile().getAll()).toContain(MOD)
     })
 
     it('a standing effect and a played card sit in ONE list, each with its source', () => {
@@ -525,11 +541,12 @@ describe('Wise Shield — full life cycle', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(LOW) // baseRoll 1
       tm.enqueue(new RollOnHeroAction('a2', 'p1', 'hero-099', em, rm))
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', 'mod-1', 5, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1'))
+      settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
       const last = applied[applied.length - 1]
-      expect(last['cardId']).toBe('mod-1')
+      expect(last['cardId']).toBe(MOD)
       expect(last['finalRoll']).toBe(9) // 1 base + 3 Wise Shield + 5 card
     })
 

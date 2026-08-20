@@ -4,7 +4,7 @@ import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { IAbilityRule, IReactionWindow } from '../interfaces'
+import { IAbilityRule, IModifiableWindow, IReactionWindow } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -210,7 +210,7 @@ describe('GameState', () => {
       expect(gs.getFrameByWindowId('no-such-window')).toBeUndefined()
     })
 
-    describe('burnCard', () => {
+    describe('spendCard', () => {
       beforeEach(() => {
         const player = makePlayer('p1')
         player.addToHand('mod-1')
@@ -220,26 +220,48 @@ describe('GameState', () => {
       })
 
       it('removes the card from the current player hand', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
+        gs.spendCard('p1', 'mod-1')
         expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
       })
 
-      it('adds the card to the current discard pile', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
+      it('puts the card in the INSTANCE pile, not the discard', () => {
+        gs.spendCard('p1', 'mod-1')
+        // Live, it is a card in play for as long as the window it was spent
+        // into is open. releaseFrame is what puts it away.
+        expect(gs.getParty('p1').getInstanceCardIds()).toContain('mod-1')
+        expect(gs.getDiscardPile().getAll()).not.toContain('mod-1')
+      })
+
+      it('records it on the frame, and releasing the frame discards it', () => {
+        gs.spendCard('p1', 'mod-1')
+        expect(gs.isSpentInOpenFrame('mod-1')).toBe(true)
+
+        gs.releaseFrame('f1')
+
+        expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('mod-1')
+        expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+        expect(gs.isSpentInOpenFrame('mod-1')).toBe(false)
+      })
+
+      it('leaves the SNAPSHOT alone — it predates the burn', () => {
+        gs.spendCard('p1', 'mod-1')
+        const snap = gs.frames.get('f1')!.snapshot
+        // The frame records what was spent instead of reaching back into a
+        // past GameState to describe a decision the present just made.
+        expect(snap.getPlayer('p1')!.getHand()).toContain('mod-1')
+        expect(snap.getDiscardPile().getAll()).not.toContain('mod-1')
+      })
+
+      it('a ROLLBACK still keeps it spent', () => {
+        gs.spendCard('p1', 'mod-1')
+        gs.restoreFrame('f1')
+
+        // The snapshot handed the card back to the hand; disposeSpent takes it
+        // away again, so both settlement paths end the same way.
+        expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
         expect(gs.getDiscardPile().getAll()).toContain('mod-1')
       })
 
-      it('removes the card from the snapshot player hand', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
-        expect(snap.getPlayer('p1')!.getHand()).not.toContain('mod-1')
-      })
-
-      it('adds the card to the snapshot discard pile', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
-        expect(snap.getDiscardPile().getAll()).toContain('mod-1')
-      })
     })
   })
 
@@ -254,5 +276,122 @@ describe('GameState', () => {
     expect(active).toContain('hero-2')
     expect(active).toContain('leader-2')
     expect(active).toContain('hero-3')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The modifiable-window surface
+//
+// GameState holds the windows, so it answers the questions about them and
+// performs the one act. Nothing outside gets a window: callers would end up
+// depending on the shape it is handed in and on the wire format a submission
+// takes, and both are free to change while these three are not.
+// ---------------------------------------------------------------------------
+
+describe('GameState — the open modifiable window', () => {
+  const makeGs = () =>
+    new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+
+  /** Accepts bonuses aimed at `rollerId` only, and biases toward the roller. */
+  const modifiableStub = (
+    isOpen = true,
+    rollerId = 'p1',
+  ): IModifiableWindow & { submitReaction: jest.Mock } => ({
+    getId: () => 'w1',
+    getType: () => ReactionWindowType.Modifier,
+    isOpen: () => isOpen,
+    submitReaction: jest.fn(),
+    resolve: () => {},
+    resultKey: () => NO_CONTEXT_RESULT,
+    acceptsModifierFor: (playerId: string) => playerId === rollerId,
+    cardSpent: () => {},
+    valueBiasFor: (playerId: string, targetPlayerId: string) =>
+      targetPlayerId === playerId ? 'highest' : 'lowest',
+  })
+
+  const withWindow = (window: IReactionWindow) => {
+    const gs = makeGs()
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [window] })
+    return gs
+  }
+
+  describe('acceptsModifierFor', () => {
+    it('is false with no window at all', () => {
+      expect(makeGs().acceptsModifierFor('p1')).toBe(false)
+    })
+
+    it('defers to the window rule', () => {
+      const gs = withWindow(modifiableStub())
+      expect(gs.acceptsModifierFor('p1')).toBe(true)
+      expect(gs.acceptsModifierFor('p2')).toBe(false)
+    })
+
+    it('is false once the window has RESOLVED, frame or no frame', () => {
+      // resolve() sets the flag and only then releases, so there is a moment
+      // where a closed window still sits in a live frame.
+      const gs = withWindow(modifiableStub(false))
+      expect(gs.acceptsModifierFor('p1')).toBe(false)
+    })
+  })
+
+  describe('valueBiasFor', () => {
+    it('is absent with no window to have a rule', () => {
+      expect(makeGs().valueBiasFor('p1', 'p1')).toBeUndefined()
+    })
+
+    it('defers to the window rule', () => {
+      const gs = withWindow(modifiableStub())
+      expect(gs.valueBiasFor('p1', 'p1')).toBe('highest')
+      expect(gs.valueBiasFor('p1', 'p2')).toBe('lowest')
+    })
+  })
+
+  describe('applyModifier', () => {
+    it('submits the bonus, naming the kind so a challenge can route it', () => {
+      const window = modifiableStub()
+      const gs = withWindow(window)
+
+      gs.applyModifier('p2', { value: 3, cardId: 'mod-1', targetPlayerId: 'p1' })
+
+      expect(window.submitReaction).toHaveBeenCalledWith('p2', {
+        type: 'modifier',
+        value: 3,
+        cardId: 'mod-1',
+        targetPlayerId: 'p1',
+      })
+    })
+
+    it('does nothing when the window would REFUSE the target', () => {
+      const window = modifiableStub(true, 'p1')
+      const gs = withWindow(window)
+
+      gs.applyModifier('p2', { value: 3, cardId: 'mod-1', targetPlayerId: 'p2' })
+
+      expect(window.submitReaction).not.toHaveBeenCalled()
+    })
+
+    it('does nothing once the window has resolved — a late bonus is just late', () => {
+      const window = modifiableStub(false)
+      const gs = withWindow(window)
+
+      gs.applyModifier('p2', { value: 3, cardId: 'mod-1', targetPlayerId: 'p1' })
+
+      expect(window.submitReaction).not.toHaveBeenCalled()
+    })
+
+    it('does nothing with no window at all', () => {
+      expect(() =>
+        makeGs().applyModifier('p2', {
+          value: 3,
+          cardId: 'mod-1',
+          targetPlayerId: 'p1',
+        }),
+      ).not.toThrow()
+    })
   })
 })

@@ -27,6 +27,7 @@ export class Party {
   getPlayerId(): string {
     return this.data.playerId
   }
+  /** Set when the party is built and never changed: a leader does not move. */
   getLeaderId(): string {
     return this.data.leaderId
   }

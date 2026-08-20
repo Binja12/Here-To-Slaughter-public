@@ -291,8 +291,7 @@ export class TaskManager implements IGameEventListener {
    * them. It is also cut out of the frame's snapshot — that snapshot was taken
    * by the step that just paused, so it still holds this pipeline, and a
    * rollback would otherwise bring the rest of a failed run back to life.
-   * Undoing a frame IS cancelling what it waited for; the same two-place write
-   * burnCard makes.
+   * Undoing a frame IS cancelling what it waited for.
    */
   private pauseOn(
     pipeline: AbilityPipeline,

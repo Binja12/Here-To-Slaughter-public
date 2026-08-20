@@ -151,6 +151,43 @@ which pauses must dispose *before* the branch it might not take, and the order
 the card either vanishes mid-run or never leaves the pile. Nothing sweeps
 the pile, so a card that omits the step stays in it (§8).
 
+**A card SPENT into a window enters the same zone by a different door, and
+leaves by a different one.** `spendCard` takes it out of hand and puts it in its
+owner's instance pile, where it is a card in play: the table can see what is
+riding on the roll, and `abilitySources` finds its entry there, which is the
+whole reason a modifier card can have one.
+
+**Nothing records that it was spent — the POSITION is the record** (principle
+3). `spendCard` moves the card and stops there. Settlement asks `spentInto`,
+which compares the live instance zone with the frame's own snapshot: a card in
+a pile it was not in when the frame opened went in during this frame.
+
+One exception carries the whole distinction. A frame is ABOUT the card its
+challenge window contests — `subjectCardId()`, the same id `FrameResolved`
+carries — and that card is put away by whatever played it (its own run on the
+way through, or `ChallengeWindow` on a defeat). Everything ELSE that entered
+the zone was thrown INTO the contest, and is spent. Without that line a played
+magic card would be discarded by its own challenge before its ability ran.
+
+Both settlement paths then act on the same derivation: release takes the cards
+out of the instance pile, restore takes them out of the hands the snapshot
+handed them back to. `restoreFrame` must derive BEFORE `copyFrom` — restoring
+is what erases the evidence — and that ordering is the one fragile thing about
+deriving rather than storing. Both halves are pinned by tests.
+
+`DisposeInstanceCardTask` asks `isSpentInOpenFrame` first — the same derivation
+— and leaves such a card alone: a modifier's entry finishes the moment its
+bonus lands, which is not the moment its time on the table is over. Same zone,
+one disposer per door: a played card is put away by the pipeline that ran it, a
+spent one by the frame it was spent into.
+
+**A window must not lapse while a card committed to it is still resolving.**
+The bonus used to arrive inside `submitReaction`, which reset the timer; it now
+arrives a choice or two later, so the reaction calls `cardSpent()` at the burn.
+The nested choice is given a SHORTER timeout than the roll it is about, or both
+would fall due on the same tick and the roll — whose timer was reset first —
+would settle without the bonus.
+
 The base implements **neither** `IAction` nor `ITask`. Their `execute`
 signatures are override-compatible in TypeScript (`execute(gs)` is a legal
 override of `execute(gs, ctx, em, rm)`), so a single class satisfying both would
@@ -206,6 +243,37 @@ does is inside the frame and goes back with it.
 Four mechanics, four bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
+
+**A leader is never PLAYED, so there is no fifth mechanic.** `PartyData.leaderId`
+is set when the party is built and never changes: a party and its leader come
+into existence together, out of the game's configuration, before any turn
+exists. There is nothing to take out of a hand, nothing to contest, nothing to
+roll back and nothing to announce — party membership has a choke point because
+membership CHANGES, and this does not.
+
+**Activating a leader is a fifth pair with only one half.**
+`RollOnLeaderAction` is the ONLY way a leader's printed ability ever runs: no
+system rule reaches a leader, which is the point — a leader is never played,
+never rolled on by another card and never moves, so without a player asking,
+nothing would. It has the same shape as `RollOnHeroAction` with the dice taken
+out: price, guards, `markAbilityUsed`, announce. `RollSuccess` naming the
+leader is a plain "this fired" — there is no requirement to beat and no
+modifier window — and because it is the same event a hero's roll emits, the
+registry needs no leader-shaped special case. No task twin, deliberately: a
+second caller could only be a system rule.
+
+**A leader needs no registration step.** `abilitySources` reads the slot fresh
+on every event, exactly as it reads heroes and equipped items, so standing
+there is the whole of what makes a leader's printed ability live (§6). Nothing
+is stored, so nothing can go stale, and nothing ever sweeps a leader out.
+
+**A leader is NOT a hero, and the two are not made to share a class.** Every
+question about what may be stolen, destroyed, offered by a choice, geared up or
+rolled on is answered by POSITION — `Party.heroIds` — and a leader stands
+somewhere else, so all of them pass it by for free. Giving `PartyLeaderCard` a
+`HeroCard` shape to reach the roll route would have bought one activated
+ability and made a leader answer yes to `instanceof HeroCard` at five sites
+that mean "a hero in a party".
 
 **Behaviour is bound by card id, not carried on card data.** `abilityRegistry`
 (`game/repositories/ability-repository/index.ts`) maps card id → `IAbility[]`; card data in `shared/`
@@ -266,8 +334,8 @@ either way, and that fact is expressed purely by where the snapshot was taken,
 with no "already paid" flag anywhere. The roll offer needs no undoing: it is
 matched from the hero's position in the party, and a defeated hero is not there
 to be matched. `PlayChallengeReaction` gets the same result for the challenger's own
-card through `burnCard`, which writes the removal into live state *and* the
-snapshot.
+card through `spendCard`, which moves it out of the hand and into the instance
+zone, where a rollback cannot hand it back.
 
 `PlayMagicAction` takes the same shape: the point and the card leave the hand
 before the snapshot, the instance pile is written inside the frame. What a
@@ -326,8 +394,8 @@ stop, carry on when it resolves.
   a frame is undone by its rollback; one already going when the frame opened
   survives. A pausing pipeline is also cut out of that frame's own snapshot,
   or a rollback would bring the remainder of a failed pipeline back to life —
-  undoing a frame IS cancelling what it waited for, the same two-place write
-  `burnCard` makes. `FrameResolved` therefore drains even when nothing was
+  undoing a frame IS cancelling what it waited for. `FrameResolved` therefore
+  drains even when nothing was
   paused on that frame: after a rollback the pipelines underneath came back
   with the snapshot and still have to finish.
 - **Snapshots copy each pipeline**, because the live stack consumes `steps` and
@@ -363,9 +431,23 @@ stop, carry on when it resolves.
   (`ModifierApplied`, `ChallengeStarted/Resolved`, `HeroStolen`,
   `TaskConfirmed`, `ConditionMet`).
 
+**A VALUE choice does not default at random.** `CardChoiceWindow` picks one of
+its own options because a card has no direction; a number does. `ValueBias` is
+`highest` or `lowest`, and the window BEING MODIFIED decides which — a plain
+roll asks whether you were helping yourself (`highest` on your own roll,
+`lowest` on somebody else's), a challenge asks which side you pushed (`lowest`
+aimed at the defender, `highest` aimed at the challenger, so silence tips a
+contest toward the play being defeated). `ChooseValueTask` reads it at open
+time and hands it to the window, because the roll it describes may have settled
+by the time the choice resolves.
+
 **Modifiers are accepted by CAPABILITY, not by window class.**
-`IModifiableWindow` adds one method — `acceptsModifierFor(playerId)` — and both
-the roll window and the challenge window implement it, each with its own rule:
+`IModifiableWindow` adds three methods, each with its own rule per window:
+`cardSpent()` keeps the window alive while a card committed to it works out
+what it is worth, `valueBiasFor(playerId, targetPlayerId)` says which way an
+unanswered value choice falls, and `acceptsModifierFor(playerId)` says whether
+a bonus belongs here at all. Both the roll window and the challenge window
+implement all three:
 a plain roll has one roll so only the roller qualifies, a challenge has two so
 either participant does (and neither before a challenge has actually started).
 `PlayModifierReaction` probes for the method rather than testing `instanceof`,
@@ -583,6 +665,38 @@ lifetime.** That split is the whole of it — an effect carries no behaviour of
 its own, so there is nothing to run and nothing to trigger. `TaskManager` scans
 cards for abilities and sweeps effects for expiry, and the two never meet.
 
+**ALWAYS-ON is not the same as INERT, and only the second is an effect.** The
+question is not whether a card is passive; it is whether something READS a
+value or something RUNS steps.
+
+An effect is a fact and a reader. Every effect in the engine is a `RollBonus`
+or a `CantBeStolen`, consulted at exactly four places — the three roll sites
+and `StealFromPartyTask`. It exists so a value can be found at a moment when no
+ability is running: `ModifierWindow` seeds bonuses as it opens, and there is no
+pipeline around to ask.
+
+A permanently live TRIGGER is not that, and needs no effect to stay live: entries
+are re-derived from the card's position on every event (§6), so a card that sits
+in a party has its rules for the whole game. Suspiciously Shiny Coin
+(`item-073`) is the reference — always on, never activated, and no effect at
+all, because what it does is choose a card and discard it.
+
+**The Protecting Horn (`leader-121`) is the same shape, and is deliberately NOT
+an effect** even though it reads as a passive:
+
+- It has to ASK. "+1 or -1" is the player's choice, so it opens a
+  `ValueChoiceWindow` and pauses. An effect has no behaviour and cannot pause.
+- `RollBonus` is the wrong fact. It is seeded at window open and applies to its
+  owner's roll; the Horn's number lands on *that* roll — whichever the modifier
+  was played on, which may be an opponent's.
+- Making it one would mean a new `PassiveType`, a new reader inside
+  `applyModifier`, and a FIXED value — which the printed card does not have.
+
+It never needs to exist between runs, either: the modifier being played is what
+wakes it, so an ability is running at the exact moment the number matters. The
+three roll-bonus leaders are the opposite case and are effects for exactly that
+reason — their number must already be there before a window opens.
+
 **Trigger and expiry are symmetric: both are game events**, so they sit in one
 file. `abilities/ability-lifecycle.ts` holds `triggerMatches` — when an event
 STARTS a rule — beside `isEffectExpired` and the `sweepExpired` that applies
@@ -641,11 +755,30 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   its options — the protection may have been installed in between.
 - **An effect can be SCOPED to one card.** `cardId` narrows it to rolls
   about that card; absent, it applies to everything its owner rolls.
-  `getEffects(type, playerId, cardId?)` does the filtering, so asking
-  about no card — a challenge roll is not a roll on a hero — leaves the scoped
-  ones out rather than letting them in. `ApplyEffectTask`'s `scopedToCarrier`
-  fills it at install time, because a declaration built at module load has no
-  carrier yet. Really Big Ring is the reference.
+  `getEffects(type, playerId, cardId?, rollContext?)` does the filtering, so
+  asking about no card — a challenge roll is not a roll on a hero — leaves the
+  scoped ones out rather than letting them in. `ApplyEffectTask`'s
+  `scopedToCarrier` fills it at install time, because a declaration built at
+  module load has no carrier yet. Really Big Ring is the reference.
+- **`rollContext` is the second narrowing, and it is INDEPENDENT of the first.**
+  `cardId` says which card the roll is about; `RollContext` says what the roll
+  is FOR. Same rule as `cardId`: naming nothing means every kind, naming one
+  means only that kind, and asking about no kind leaves the scoped ones out.
+  Three sites ask, each with the only context it can ever have — `ModifierWindow`
+  with `HeroEffect` (`rollOnHero` is the only thing that opens it),
+  `AttackMonsterAction` with `Attack`, `ChallengeWindow` with `Challenge` for
+  the CHALLENGER and with nothing for the defender, because defending is not
+  challenging. `RollContext.Any` has no reader: "every kind" is the absent
+  field, and a second way to say it would be two mechanisms.
+- **A leader's passive installs on `GameStarted`.** A leader is never played,
+  never moves and never leaves, so a printed passive has no card movement to
+  hang off, and it has to be standing before the first roll. `GameEngine.start`
+  emits it before the first `TurnStarted`; the entries scope it `Anyone`,
+  because the event belongs to the table and carries no playerId — each
+  matching leader installs on its own owner, which the pipeline knows and the
+  event does not. The Divine Arrow (`leader-116`), the Fist of Reason
+  (`leader-118`) and the Charismatic Song (`leader-119`) are the references:
+  one `ApplyEffectTask` each, differing only in `rollContext`.
 - **An effect with a magnitude is read as ENTRIES, not a total.**
   `getEffects(type, playerId)` returns the effects; callers sum them.
   A number would be the smaller API and the wrong one: the roll UI has to show
@@ -678,12 +811,31 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   at all. `ChallengeWindow` adds it to the discard on the challenger-wins branch,
   **after** the restore (which swaps in the snapshot's pile), with no
   `CardDiscarded` event — `ChallengeResolved` already reported the defeat. Cards
-  *spent* during the window need nothing: `burnCard` already wrote them into the
-  snapshot's pile.
+  *spent* during the window need nothing here: `restoreFrame` has already put
+  them away, from the list the frame kept (§1).
 - **A card that SURVIVES a challenge is marked**, so it cannot be challenged
   twice in a turn; `TurnManager.startTurn` clears the list alongside the ability
   slots. Only the winning branch marks: a card whose challenge succeeded is in
   the discard anyway.
+- **A REACTION is the play; the registry is the effect.** `PlayModifierReaction`
+  and `PlayChallengeReaction` spend the card, keep the window alive and
+  announce `ModifierPlayed` / `ChallengePlayed`. What the card DOES —
+  `[ChooseValue, ApplyModifier]`, `[StartChallenge]` — is its own entry, keyed
+  by id like every other card type. That is what makes a modifier's value
+  unforgeable: it used to arrive as a constructor argument off a socket,
+  compared with nothing, and is now a pick from the card's own printed
+  `values`. `ChooseValueTask` with no argument reads them off its own card, so
+  all 25 printed copies share one declaration and all 14 challenges share
+  another.
+- **The Protecting Horn is why that split pays.** A leader granting "+1 or -1
+  on each Modifier you play" runs the *same two steps* a modifier card runs,
+  with the numbers passed in instead of read off a card. Before it, nothing
+  could put a bonus into an open window except the reaction that spent a card.
+- **`ApplyModifierTask` must not park on the roll's frame.** Reading "the card
+  is not finished until the roll is" as a pause would deadlock: the pipelines
+  underneath wait on the same frame, so a second bonus on the same roll — the
+  Horn's, riding a card's — would never run. The card stays on the table by
+  sitting in the instance zone instead, which settlement reads off the board.
 
 ## 8. Known limitations (deliberate, documented)
 
@@ -713,6 +865,13 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **Nothing stops two challenges nesting.** A magic card played by an ability
   opens a challenge from inside a pipeline. Every ability that plays one has
   settled its own window first, so the case does not arise; nothing enforces it.
+- **A nested value choice races the roll's own timer.** The choice window is
+  given a shorter timeout than the roll, and the burn resets the roll's, so the
+  ordinary case is safe. Two bonuses on one roll (the Horn's, then the card's)
+  are two choices in sequence, and a player who sits on both can still let the
+  roll lapse in between; `ApplyModifierTask` checks `isOpen()` and drops the
+  bonus rather than submitting into a settled window. The card is spent either
+  way.
 - **A magic card with no registry entry is stranded in the instance pile.**
   Disposal hangs off `AbilityDone`, which is emitted when a PIPELINE leaves the
   stack. A card with no entry never gets a pipeline, so nothing ever announces
@@ -768,15 +927,31 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **No bootstrap**: nothing turns `GameConfig` + `base-game-cards.ts` (136
   cards) into a playable GameState — no deck build/shuffle/deal.
   `defaultGameConfig` has zero consumers.
-- **Seven card ids declare an ability** — `hero-028` (Wise Shield), `hero-036`
+- **53 card ids declare an ability** — 3 heroes, 3 items, 2 magic, all 6
+  leaders, all 25 modifiers (one declaration between them) and all 14
+  challenges (another). Every printed leader is written.
+- **The thirteen one-off declarations** — `hero-028` (Wise Shield), `hero-036`
   (Wiggles), `hero-040` (Snowball), Critical Boost (`magic-053`, `magic-054` —
   two printed copies sharing one declaration), Really Big Ring (`item-064`,
-  `item-065`) and Suspiciously Shiny Coin (`item-073`).
+  `item-065`), Suspiciously Shiny Coin (`item-073`) and all six leaders
+  (`leader-116` … `leader-121`). The Shadow Claw (`leader-117`) is the
+  reference ACTIVATED card: it declares none of "once per turn on your turn,
+  you may spend an action point", because every clause of that is a guard in
+  `RollOnLeaderAction`.
   Critical Boost is the reference MAGIC card: one entry that pauses on a choice
   and finishes as a later step of the same run. Really Big Ring is the
   reference ITEM — an on-equip effect that ends with its carrier — and
   Suspiciously Shiny Coin the reference CURSED item, riding an opponent's hero
-  and taxing that opponent on `CarrierCard` scope.
+  and taxing that opponent on `CarrierCard` scope. The Cloaked Sage
+  (`leader-120`) is the reference for a leader reacting to a card its owner
+  plays: `MagicPlayed` scoped `OwnerEvent`, because `FrameResolved` carries no
+  playerId and names the played card rather than the leader.
+  `abilityRegistry` is sectioned by card type and sorted by id inside each
+  section, so a card has one obvious home.
+- **Attack rolls open no modifier window.** `AttackMonsterAction` throws the
+  dice inline, adds the standing `Attack` bonuses and resolves against the
+  monster, so no modifier card can be spent on one and the roll is announced by
+  no event. `RollResult.FightBack` is unimplemented on that path too.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
   passes the suite silently.
 - **`npm ci` is incomplete in some checkouts** — `@nestjs/testing` and eslint's

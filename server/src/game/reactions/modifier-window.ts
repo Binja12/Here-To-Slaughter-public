@@ -4,8 +4,9 @@ import {
   IGameEventEmitter,
   PassiveType,
   ReactionWindowType,
+  RollContext,
 } from 'shared'
-import { IModifiableWindow } from '../interfaces'
+import { IModifiableWindow, ValueBias } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 import { GameEvent } from '../events/game-event'
@@ -36,10 +37,14 @@ export class ModifierWindow implements IModifiableWindow {
   ) {
     // Seeded at OPEN, not at settlement: a player deciding whether to spend a
     // modifier card must already see the standing bonus counted.
+    //
+    // HeroEffect: `rollOnHero` is the only thing that opens this window, so
+    // every roll it covers is a roll to use a hero card's effect.
     for (const effect of gs.getEffects(
       PassiveType.RollBonus,
       rollerId,
       heroId,
+      RollContext.HeroEffect,
     )) {
       this.bonuses.push({
         cardSource: effect.sourceCardId,
@@ -80,6 +85,21 @@ export class ModifierWindow implements IModifiableWindow {
   /** One roll here, so only the roller. Asked by PlayModifierReaction. */
   acceptsModifierFor(playerId: string): boolean {
     return playerId === this.rollerId
+  }
+
+  /** The roll waits for a card already committed to it. */
+  cardSpent(): void {
+    this.resetTimer()
+  }
+
+  /**
+   * One roll, so the question is only whose it is: a player who walked away
+   * from a modifier on their OWN roll meant to help it, and one who spent a
+   * card on somebody else's meant to hurt it. There is no third case here —
+   * `acceptsModifierFor` has already refused anything but the roller.
+   */
+  valueBiasFor(playerId: string, targetPlayerId: string): ValueBias {
+    return targetPlayerId === playerId ? 'highest' : 'lowest'
   }
 
   /** Lets later steps branch on the roll — crit bonuses and the like. */

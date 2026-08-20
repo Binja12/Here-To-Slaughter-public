@@ -8,6 +8,8 @@ import {
   filterCards,
   filterPlayers,
 } from '../reactions/choice-filters'
+import { ModifierCard } from '../cards/modifier-card'
+import { CTX_MODIFIER_TARGET } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // Choose tasks — resolve candidates from GameState, open a choice window and
@@ -56,6 +58,46 @@ export class ChooseCardTask implements ITask {
 
     // Suspends even on an empty option set: ChoiceWindow settles that on a
     // 0ms timer, so the frame is still live here.
+    return frameId
+  }
+}
+
+/**
+ * ChooseValueTask — pick one of a printed list of numbers.
+ *
+ * With no argument it offers its OWN card's printed values, which is what a
+ * modifier card wants: one declaration serves all 25 copies, whatever numbers
+ * each is printed with. A card that grants a bonus it did not print — the
+ * Protecting Horn's "+1 or -1" — passes its own list instead.
+ */
+export class ChooseValueTask implements ITask {
+  /** Values to offer. Absent = the printed values of the entry's own card. */
+  constructor(private readonly values?: number[]) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    _em: IGameEventEmitter,
+    rm: IReactionManager,
+  ): string | void {
+    const source = gs.getCard(ctx.sourceCardId)
+    const options =
+      this.values ??
+      (source instanceof ModifierCard ? source.getValues() : [])
+
+    // Which way silence falls is the window-being-modified's rule, not this
+    // step's and not the choice window's: only the roll knows whose it is.
+    // Read here because this is the last point that can see both.
+    const [targetPlayerId] = ctx.get<string[]>(CTX_MODIFIER_TARGET) ?? []
+    const bias = gs.valueBiasFor(ctx.ownerId, targetPlayerId ?? ctx.ownerId)
+
+    const frameId = rm.openFrame()
+    rm.openWindow(frameId, ReactionWindowType.ValueChoice, ctx.ownerId, {
+      options,
+      bias,
+    })
+
+    // Suspends even on an empty list, for the reason ChooseCardTask does.
     return frameId
   }
 }

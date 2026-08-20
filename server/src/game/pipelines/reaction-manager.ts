@@ -1,4 +1,5 @@
 import { ReactionWindowType } from 'shared'
+import type { ValueBias } from '../interfaces'
 import { GameState } from './game-state'
 import { IReaction, IReactionManager, IReactionWindow } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -6,6 +7,7 @@ import { ModifierWindow } from '../reactions/modifier-window'
 import { ChallengeWindow } from '../reactions/challenge-window'
 import { PlayerChoiceWindow } from '../reactions/player-choice-window'
 import { CardChoiceWindow } from '../reactions/card-choice-window'
+import { ValueChoiceWindow } from '../reactions/value-choice-window'
 import { TaskChoiceWindow } from '../reactions/task-choice-window'
 
 export class ReactionManager implements IReactionManager {
@@ -99,6 +101,23 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+      )
+    }
+
+    if (type === ReactionWindowType.ValueChoice) {
+      return new ValueChoiceWindow(
+        crypto.randomUUID(),
+        respondent,
+        (config['options'] as number[]) ?? [],
+        // SHORTER than a roll's. This window opens over a roll that is already
+        // running and is a question ABOUT it, so it has to settle first — with
+        // the same 5s both would fall due on the same tick and the roll, whose
+        // timer was reset first, would win and settle without the bonus.
+        3000,
+        this.gs,
+        frameId,
+        this.em,
+        (config['bias'] as ValueBias) ?? 'highest',
       )
     }
 

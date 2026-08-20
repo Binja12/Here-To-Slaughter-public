@@ -116,6 +116,12 @@ export class DisposeInstanceCardTask implements ITask {
     const party = gs.getParty(ctx.ownerId)
     if (!party.getInstanceCardIds().includes(ctx.sourceCardId)) return
 
+    // A card spent INTO a window belongs to that window's frame until it
+    // settles — releaseFrame discards it, a rollback has it in the discard
+    // already. Its own run finishing is not the same as its time on the table
+    // being over, which is the only thing AbilityDone can know about.
+    if (gs.isSpentInOpenFrame(ctx.sourceCardId)) return
+
     party.removeInstanceCard(ctx.sourceCardId)
     gs.getDiscardPile().add(ctx.sourceCardId)
   }

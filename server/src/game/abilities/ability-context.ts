@@ -4,6 +4,9 @@ export const CTX_DRAWN_CARD_IDS = "drawnCardIds";
 /** string[] — written by StealFromPartyTask. */
 export const CTX_STOLEN_HERO_ID = "stolenHeroId";
 
+/** string[] — written by PullCardTask: what came out of the other hand. */
+export const CTX_PULLED_CARD_IDS = "pulledCardIds";
+
 // ---------------------------------------------------------------------------
 // Frame result keys. A window names one via IReactionWindow.resultKey, and
 // TaskManager writes the value there on resume.
@@ -17,6 +20,16 @@ export const CTX_CHOSEN_PLAYER = "chosenPlayer";
 
 /** number — written by ModifierWindow. Scalar; only set on a successful roll. */
 export const CTX_FINAL_ROLL = "finalRoll";
+
+/** number[] — written by ValueChoiceWindow. */
+export const CTX_CHOSEN_VALUE = "chosenValue";
+
+/**
+ * string[] — whose roll a modifier is aimed at. Seeded from ModifierPlayed,
+ * because the reaction knew the target and the entry that lands the bonus runs
+ * with a fresh context.
+ */
+export const CTX_MODIFIER_TARGET = "modifierTarget";
 
 /** Returned by resultKey() when a window's outcome is not an ability input. */
 export const NO_CONTEXT_RESULT = Symbol("noContextResult");
@@ -58,4 +71,8 @@ export function chosenPlayers(ctx: AbilityContext): string[] {
 /** Already scalar on the context — no unwrapping needed. */
 export function finalRoll(ctx: AbilityContext): number | undefined {
   return ctx.get<number>(CTX_FINAL_ROLL);
+}
+
+export function chosenValues(ctx: AbilityContext): number[] {
+  return ctx.get<number[]>(CTX_CHOSEN_VALUE) ?? [];
 }

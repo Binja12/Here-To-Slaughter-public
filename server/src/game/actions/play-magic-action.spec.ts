@@ -229,7 +229,7 @@ describe('PlayMagicAction', () => {
       makeAction().execute(gs)
       const window = openChallenge(gs)
       expect(window).toBeDefined()
-      expect((window as unknown as { getCardId(): string }).getCardId()).toBe(
+      expect(window!.subjectCardId!()).toBe(
         'magic-1',
       )
     })

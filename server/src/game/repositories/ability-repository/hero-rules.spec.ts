@@ -28,6 +28,11 @@ import { PlayHeroAction } from '../../actions/play-hero-action'
 import { PlayHeroTask } from '../../tasks/play-hero-task'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { PlayChallengeReaction } from '../../reactions/play-challenge-reaction'
+
+import { ChallengeAbility } from './challenge-ability'
+
+/** A real printed id: contesting a play is the challenge card's own entry. */
+const CHAL = 'challenge-102'
 import { CONFIRM } from '../../reactions/task-choice-window'
 import { IAbilityRule, IReactionWindow } from '../../interfaces'
 
@@ -120,7 +125,12 @@ function setup(withDriver = false) {
   em.addListener({ onEvent: (e) => events.push(e) })
 
   const rm = new ReactionManager(gs, em)
-  const registry = new Map<string, IAbilityRule[]>([['wiggles', WigglesAbility]])
+  const registry = new Map<string, IAbilityRule[]>([
+    ['wiggles', WigglesAbility],
+    // Contesting the play is the challenge card's own entry, so a spec that
+    // challenges anything has to carry it.
+    [CHAL, ChallengeAbility],
+  ])
   if (withDriver) registry.set(DRIVER, DriverAbility)
   // Before TurnManager's listener would matter, and the hero rules come from
   // the real table — this is what production wires.
@@ -128,12 +138,12 @@ function setup(withDriver = false) {
   const tm = new TurnManager(gs, em)
 
   seat(gs, 'p1', ['wiggles'])
-  seat(gs, 'p2', ['chal-1'], ['victim'])
+  seat(gs, 'p2', [CHAL], ['victim'])
   gs.registerCard(makeHero('wiggles'))
   gs.registerCard(makeHero('victim'))
   gs.registerCard(
     new ChallengeCard({
-      id: 'chal-1',
+      id: CHAL,
       name: 'Challenge',
       type: CardType.Challenge,
       image: '',
@@ -290,7 +300,7 @@ describe('hero rules — the roll a played hero is offered', () => {
         .mockReturnValueOnce(HIGH) // challenger 11
         .mockReturnValueOnce(LOW) // challenged 1
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', 'chal-1', 'wiggles'))
+      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'wiggles'))
       jest.advanceTimersByTime(5000)
 
       // Rolled back out of the party before FrameResolved, so it was not among
@@ -419,7 +429,7 @@ describe('hero rules — the roll a played hero is offered', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', 'chal-1', 'wiggles'))
+      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'wiggles'))
       jest.advanceTimersByTime(5000)
 
       expect(gs.getParty('p1').getHeroIds()).not.toContain('wiggles')

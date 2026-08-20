@@ -6,6 +6,7 @@ import {
   PassiveType,
   ReactionType,
   ReactionWindowType,
+  RollContext,
   RollResult,
   TriggerScope,
 } from 'shared'
@@ -125,9 +126,15 @@ export interface IEffect {
   value?: number
   /**
    * Narrows it to rolls ABOUT this card — absent means it applies to
-   * everything the owner rolls. Read at the two roll sites, not here.
+   * everything the owner rolls. Read at the three roll sites, not here.
    */
   cardId?: string
+  /**
+   * Narrows it to one KIND of roll — absent means every kind. Independent of
+   * `cardId`: that says which card the roll is about, this says what the roll
+   * is FOR. "+1 when you roll to ATTACK" needs the second and not the first.
+   */
+  rollContext?: RollContext
   /** Absent = permanent. Multiple entries = first match ends it. */
   expiry?: EffectExpiry[]
 }
@@ -149,12 +156,32 @@ export interface IRollResolver {
 // ---------------------------------------------------------------------------
 
 /**
+ * Which way an unanswered value choice should fall. The window being modified
+ * decides, because only it knows what the roll is and whose it is.
+ */
+export type ValueBias = 'highest' | 'lowest'
+
+/**
  * A window a modifier card can be spent into. PlayModifierReaction probes for
  * this method rather than testing instanceof.
  */
 export interface IModifiableWindow extends IReactionWindow {
   /** True when a modifier aimed at `playerId` belongs in this window. */
   acceptsModifierFor(playerId: string): boolean
+  /**
+   * A card has been committed to this window and is working out what it is
+   * worth. Keeps the window alive until it lands: the bonus arrives from the
+   * card's own entry now, one or more choices later, so the submission can no
+   * longer be the only thing that says "somebody is still acting".
+   */
+  cardSpent(): void
+  /**
+   * Which way to fall when `playerId` never answers the value choice for a
+   * bonus aimed at `targetPlayerId`. Each window has its own rule, the way
+   * each has its own `acceptsModifierFor` — a plain roll asks whether you are
+   * helping yourself, a challenge asks which side of the contest you pushed.
+   */
+  valueBiasFor(playerId: string, targetPlayerId: string): ValueBias
 }
 
 /** Base interface for any timed reaction window. */
@@ -172,4 +199,13 @@ export interface IReactionWindow {
    * it on resume. NO_CONTEXT_RESULT when the outcome is not an ability input.
    */
   resultKey(): string | typeof NO_CONTEXT_RESULT
+  /**
+   * The card this window is ABOUT, for the windows that settle on one — the
+   * same thing `FrameResolved` carries as its `cardId`. A challenge is about
+   * the card it contests; a roll and a choice are about no card at all.
+   *
+   * It is what separates a card the frame CONTESTS from the cards spent INTO
+   * it, which is how the instance zone tells a play from a payment.
+   */
+  subjectCardId?(): string | undefined
 }

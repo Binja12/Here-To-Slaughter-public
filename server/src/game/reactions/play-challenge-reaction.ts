@@ -1,6 +1,12 @@
 import { IGameEventEmitter, ReactionType, ReactionWindowType } from 'shared'
 import { IReaction } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
+import { GameEventFactory } from '../events/game-event-factory'
+
+// ---------------------------------------------------------------------------
+// The play, and only the play. Contesting the card is StartChallengeTask, run
+// from the challenge card's own registry entry — the same split a modifier has.
+// ---------------------------------------------------------------------------
 
 export class PlayChallengeReaction implements IReaction {
   constructor(
@@ -30,12 +36,20 @@ export class PlayChallengeReaction implements IReaction {
     return !!gs.getFrameByWindowType(ReactionWindowType.Challenge)
   }
 
-  execute(gs: GameState, _em: IGameEventEmitter): void {
-    const entry = gs.getFrameByWindowType(ReactionWindowType.Challenge)
-    if (!entry) return
-    gs.burnCard(entry.frameId, this.playerId, this.cardId)
-    entry.frame.windows
-      .find((w) => w.getType() === ReactionWindowType.Challenge)
-      ?.submitReaction(this.playerId, { type: 'challenge', challengerId: this.playerId })
+  execute(gs: GameState, em: IGameEventEmitter): void {
+    if (!gs.getFrameByWindowType(ReactionWindowType.Challenge)) return
+
+    // Into the instance pile, so the card is on the table for as long as the
+    // contest is. Keeping the contest alive until the card's entry starts it
+    // is part of spending, and happens in there.
+    gs.spendCard(this.playerId, this.cardId)
+
+    em.emit(
+      GameEventFactory.challengePlayed(
+        this.playerId,
+        this.cardId,
+        this.targetedCardId,
+      ),
+    )
   }
 }

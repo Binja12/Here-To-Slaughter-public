@@ -1,6 +1,13 @@
-import { ICard } from 'shared'
-import type { IEffect, IAction, IReactionWindow, ITask } from '../interfaces'
-import type { PassiveType } from 'shared'
+import { ICard, ReactionWindowType } from 'shared'
+import type {
+  IEffect,
+  IAction,
+  IModifiableWindow,
+  IReactionWindow,
+  ITask,
+  ValueBias,
+} from '../interfaces'
+import type { PassiveType, RollContext } from 'shared'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
@@ -11,6 +18,14 @@ import type { AbilityContext } from '../abilities/ability-context'
 // GameFrame — snapshot taken just before the frame was opened, plus any
 // reaction windows the caller inserted. Released on success, restored on rollback.
 // ---------------------------------------------------------------------------
+
+/**
+ * Capability probe, not instanceof — this file names no concrete window class
+ * (§9). `acceptsModifierFor` is what "a bonus can go in here" means.
+ */
+function isModifiable(w: IReactionWindow): w is IModifiableWindow {
+  return typeof (w as IModifiableWindow).acceptsModifierFor === 'function'
+}
 
 export type GameFrame = {
   snapshot: GameState
@@ -75,10 +90,36 @@ export class GameState {
   }
 
   /**
-   * Release a frame after successful resolution. Discards its snapshot.
+   * Release a frame after successful resolution. Discards its snapshot, and
+   * puts away whatever was spent into it.
    */
   releaseFrame(frameId: string): void {
+    const frame = this.frames.get(frameId)
+    if (!frame) return
+    const spent = this.spentInto(frame)
     this.frames.delete(frameId)
+
+    // Still sitting in the zone, so this is where they leave it.
+    for (const { cardId, playerId } of spent) {
+      this.parties.get(playerId)?.removeInstanceCard(cardId)
+      this.discardPile.add(cardId)
+    }
+  }
+
+  /**
+   * True while `cardId` is committed to a frame that has not settled.
+   *
+   * Read by DisposeInstanceCardTask: a card spent into a window belongs to
+   * that window until it closes, so its own ability finishing does not mean it
+   * has left the table.
+   */
+  isSpentInOpenFrame(cardId: string): boolean {
+    for (const frame of this.frames.values()) {
+      if (this.spentInto(frame).some((spent) => spent.cardId === cardId)) {
+        return true
+      }
+    }
+    return false
   }
 
   /**
@@ -88,8 +129,50 @@ export class GameState {
   restoreFrame(frameId: string): void {
     const frame = this.frames.get(frameId)
     if (!frame) return
+    // BEFORE the swap: the snapshot predates every burn, so restoring is what
+    // erases the record of what was spent.
+    const spent = this.spentInto(frame)
     this.frames.delete(frameId)
     this.copyFrom(frame.snapshot)
+
+    // The snapshot handed them back to their owners' hands. Spent is spent,
+    // whichever way the window went.
+    for (const { cardId, playerId } of spent) {
+      this.players.get(playerId)?.removeFromHand(cardId)
+      this.discardPile.add(cardId)
+    }
+  }
+
+  /**
+   * What was SPENT into this frame: every card that entered an instance pile
+   * inside it, except the one the frame is about.
+   *
+   * Derived from the zone against the frame's own snapshot, so nothing has to
+   * be tracked as it happens — a card's position is the record (§11.3). The
+   * exception is the whole of the distinction: a challenge frame is ABOUT the
+   * card it contests, and that card is put away by whatever played it (its own
+   * run on the way through, or ChallengeWindow on a defeat), while everything
+   * else in the pile was thrown INTO the contest and is spent.
+   *
+   * MUST be read before `copyFrom` on the rollback path: restoring is what
+   * destroys the evidence.
+   */
+  private spentInto(frame: GameFrame): { cardId: string; playerId: string }[] {
+    const subject = frame.windows
+      .map((w) => w.subjectCardId?.())
+      .find((cardId) => !!cardId)
+
+    const spent: { cardId: string; playerId: string }[] = []
+    for (const [playerId, party] of this.parties) {
+      const before = new Set(
+        frame.snapshot.parties.get(playerId)?.getInstanceCardIds() ?? [],
+      )
+      for (const cardId of party.getInstanceCardIds()) {
+        if (before.has(cardId) || cardId === subject) continue
+        spent.push({ cardId, playerId })
+      }
+    }
+    return spent
   }
 
   // ---------------------------------------------------------------------------
@@ -97,19 +180,29 @@ export class GameState {
   // ---------------------------------------------------------------------------
 
   /**
-   * Permanently spend a card during a frame — removes it from the current
-   * player's hand AND from the snapshot's hand, so rollback doesn't restore it.
-   * Also adds it to both discard piles so the card survives either path.
+   * Hand -> instance zone: the whole of paying a card into an open window.
+   *
+   * Called by the two REACTIONS and by nothing else — it is their half of what
+   * `playMagic` / `playItem` / `playHero` do for an action. Silent: the
+   * reaction announces the play itself (`ModifierPlayed`, `ChallengePlayed`).
+   *
+   * It takes no frame, because it writes nothing about one. The card's
+   * POSITION is the record that it was spent — it is in play for as long as
+   * the window is open, the table can see what is riding on the roll, and
+   * `abilitySources` finds the card's own entry there. Settlement works out
+   * what was spent by comparing the zone with the frame's own "before"
+   * picture; see `spentInto`.
+   *
+   * Telling the window is part of the same act, and belongs here rather than
+   * in the callers: the bonus now arrives from the card's own entry a choice
+   * or two later, so the window has to be told at the SPEND that somebody is
+   * still acting, or it lapses. A reaction that had to reach for the window
+   * to say so would be holding one for no other reason.
    */
-  burnCard(frameId: string, playerId: string, cardId: string): void {
+  spendCard(playerId: string, cardId: string): void {
     this.getPlayer(playerId)?.removeFromHand(cardId)
-    this.discardPile.add(cardId)
-
-    const snapshot = this.frames.get(frameId)?.snapshot
-    if (snapshot) {
-      snapshot.getPlayer(playerId)?.removeFromHand(cardId)
-      snapshot.getDiscardPile().add(cardId)
-    }
+    this.getParty(playerId).addInstanceCard(cardId)
+    this.findOpenModifiableWindow()?.window.cardSpent()
   }
 
   getFrameByWindowId(
@@ -119,6 +212,88 @@ export class GameState {
       if (frame.windows.some((w) => w.getId() === windowId)) return { frameId, frame }
     }
     return undefined
+  }
+
+  /**
+   * The open window a bonus can go into — a plain roll or a challenge.
+   *
+   * PRIVATE, and the three methods below are the whole of what the rest of the
+   * engine may ask about it. Handing a window out would make every caller
+   * depend on this shape and on the wire format a submission takes; asking a
+   * question instead leaves both free to change.
+   *
+   * OPEN means open: a window that has resolved is skipped even while its
+   * frame is briefly still there, which it is between `resolve` setting the
+   * flag and the release that follows its first emission.
+   */
+  private findOpenModifiableWindow():
+    | { frameId: string; window: IModifiableWindow }
+    | undefined {
+    for (const type of [
+      ReactionWindowType.Modifier,
+      ReactionWindowType.Challenge,
+    ]) {
+      const entry = this.getFrameByWindowType(type)
+      const window = entry?.frame.windows.find((w) => w.getType() === type)
+      if (entry && window && window.isOpen() && isModifiable(window)) {
+        return { frameId: entry.frameId, window }
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Whether a bonus aimed at `targetPlayerId` belongs in the window that is
+   * open — no window at all and the answer is simply no.
+   *
+   * The two halves of playing a modifier both ask it: the reaction, to refuse
+   * a card the window would not take while it is still in hand, and its own
+   * guard before spending. Asked of the board because that is what holds the
+   * windows; a caller that had to fetch one to ask would be holding a window
+   * for no other reason.
+   */
+  acceptsModifierFor(targetPlayerId: string): boolean {
+    return (
+      this.findOpenModifiableWindow()?.window.acceptsModifierFor(
+        targetPlayerId,
+      ) ?? false
+    )
+  }
+
+  /**
+   * Land a bonus in the window that is open.
+   *
+   * Does nothing when there is nothing to land it in, or when that window
+   * would refuse the target. A card whose value arrives after its roll has
+   * settled is simply late — it was spent when it was played, and there is
+   * nothing to undo.
+   *
+   * The wire format stays in here with the windows: `ChallengeWindow` takes
+   * challenges and modifiers through one method, so the kind has to be named,
+   * and no caller should have to know that.
+   */
+  applyModifier(
+    playerId: string,
+    bonus: { value: number; cardId: string; targetPlayerId: string },
+  ): void {
+    const open = this.findOpenModifiableWindow()
+    if (!open?.window.acceptsModifierFor(bonus.targetPlayerId)) return
+
+    open.window.submitReaction(playerId, { type: 'modifier', ...bonus })
+  }
+
+  /**
+   * Which way an unanswered value choice should fall, for a bonus `playerId`
+   * aimed at `targetPlayerId`. Absent when no window is open to have a rule.
+   */
+  valueBiasFor(
+    playerId: string,
+    targetPlayerId: string,
+  ): ValueBias | undefined {
+    return this.findOpenModifiableWindow()?.window.valueBiasFor(
+      playerId,
+      targetPlayerId,
+    )
   }
 
   getFrameByWindowType(
@@ -331,20 +506,26 @@ export class GameState {
   }
 
   /**
-   * Every effect of this type on `playerId` that applies to `cardId`.
+   * Every effect of this type on `playerId` that applies to the roll being
+   * asked about — which card it is on, and what kind of roll it is.
    *
-   * An unscoped effect applies to everything; one that names a card applies
-   * only when the caller is asking about that card. Asking about nothing —
-   * a challenge roll is not a roll on a hero — therefore excludes the scoped
-   * ones rather than including them.
+   * Two narrowings, one rule: an effect that names neither applies to
+   * everything, and one that names either applies only when the caller asks
+   * about that. Asking about nothing — a challenge roll is not a roll on a
+   * hero — therefore leaves the scoped ones OUT rather than letting them in.
    */
   getEffects(
     type: PassiveType,
     playerId: string,
     cardId?: string,
+    rollContext?: RollContext,
   ): IEffect[] {
     const effects = this.players.get(playerId)?.getEffects(type) ?? []
-    return effects.filter((effect) => !effect.cardId || effect.cardId === cardId)
+    return effects.filter(
+      (effect) =>
+        (!effect.cardId || effect.cardId === cardId) &&
+        (!effect.rollContext || effect.rollContext === rollContext),
+    )
   }
 
 

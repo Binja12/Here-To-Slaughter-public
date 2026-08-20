@@ -4,8 +4,9 @@ import {
   IGameEventEmitter,
   PassiveType,
   ReactionWindowType,
+  RollContext,
 } from 'shared'
-import { IModifiableWindow } from '../interfaces'
+import { IModifiableWindow, ValueBias } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
@@ -66,7 +67,8 @@ export class ChallengeWindow implements IModifiableWindow {
     return !this._resolved
   }
 
-  getCardId(): string {
+  /** What this window contests. Everything else in the frame was spent INTO it. */
+  subjectCardId(): string {
     return this.cardId
   }
 
@@ -74,6 +76,22 @@ export class ChallengeWindow implements IModifiableWindow {
   acceptsModifierFor(playerId: string): boolean {
     if (!this.challenged) return false
     return playerId === this.challengerId || playerId === this.challengedId
+  }
+
+  /** The contest waits for a card already committed to it. */
+  cardSpent(): void {
+    this.resetTimer()
+  }
+
+  /**
+   * Two rolls, so the question is which side was pushed, and the answer is
+   * read against the card being contested rather than against the player who
+   * spent the modifier: a bonus aimed at the DEFENDER falls low, one aimed at
+   * the challenger falls high. An unanswered challenge therefore tips toward
+   * the play being defeated.
+   */
+  valueBiasFor(_playerId: string, targetPlayerId: string): ValueBias {
+    return targetPlayerId === this.challengedId ? 'lowest' : 'highest'
   }
 
   submitReaction(playerId: string, payload: unknown): void {
@@ -172,8 +190,8 @@ export class ChallengeWindow implements IModifiableWindow {
       // PlayHeroAction removes the card from hand BEFORE opening the frame, so
       // the rollback leaves it in no zone — this is what puts it somewhere.
       // No CardDiscarded event; ChallengeResolved already reported the defeat.
-      // Cards spent during the window need nothing: burnCard already wrote
-      // them into the snapshot's pile.
+      // Cards spent during the window need nothing here: restoreFrame put them
+      // away already, from the list the frame kept.
       this.gs.getDiscardPile().add(this.cardId)
     }
 
@@ -197,10 +215,20 @@ export class ChallengeWindow implements IModifiableWindow {
    * Standing RollBonus effects a player carries into a roll, as sourced
    * entries. "+3 to all of your rolls" means all of them — a challenge roll is
    * a roll, and each side brings its own.
+   *
+   * Only the CHALLENGER's roll is a roll to challenge, so only that side is
+   * asked with the context; the defender is asked about no kind at all and so
+   * gets the unscoped effects alone. Defending is not challenging — the Fist
+   * of Reason (leader-118) is printed "each time you roll to CHALLENGE".
+   * A bonus for defending would be a fourth RollContext, and no card wants one
+   * yet.
    */
-  private standingBonuses(playerId: string): RollBonus[] {
+  private standingBonuses(
+    playerId: string,
+    rollContext?: RollContext,
+  ): RollBonus[] {
     return this.gs
-      .getEffects(PassiveType.RollBonus, playerId)
+      .getEffects(PassiveType.RollBonus, playerId, undefined, rollContext)
       .map((effect) => ({
         cardSource: effect.sourceCardId,
         amount: effect.value ?? 0,
@@ -216,7 +244,10 @@ export class ChallengeWindow implements IModifiableWindow {
     // Both sides arrive with whatever standing bonuses they already hold, so
     // the opening totals are the real ones and nobody has to wait for
     // settlement to learn a +3 was in play.
-    this.challengerBonuses = this.standingBonuses(challengerId)
+    this.challengerBonuses = this.standingBonuses(
+      challengerId,
+      RollContext.Challenge,
+    )
     this.challengedBonuses = this.standingBonuses(this.challengedId)
 
     this.emitter.emit(

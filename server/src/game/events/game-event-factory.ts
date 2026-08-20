@@ -5,6 +5,7 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { GameEvent } from './game-event'
+import { CTX_MODIFIER_TARGET } from '../abilities/ability-context'
 
 export class GameEventFactory {
   // --- Dice ---
@@ -211,17 +212,44 @@ export class GameEventFactory {
     )
   }
 
-  /** burnCard moves the card silently, so this is the only record it was spent. */
+  /**
+   * spendCard moves the card silently, so this is the only record it was spent.
+   *
+   * The card's own entry triggers on it and lands the bonus, so the target
+   * rides along as `ctxSeed`: that entry runs with a fresh context and the
+   * reaction is the only thing that knew whose roll was aimed at.
+   */
   static modifierPlayed(
     playerId: string,
     cardId: string,
-    value: number,
     targetPlayerId: string,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.ModifierPlayed,
       playerId,
-      { cardId, value, targetPlayerId },
+      {
+        cardId,
+        targetPlayerId,
+        ctxSeed: { [CTX_MODIFIER_TARGET]: [targetPlayerId] },
+      },
+      Audience.All,
+    )
+  }
+
+  /**
+   * A challenge card was spent. The card's own entry starts the challenge on
+   * this; before it, `PlayChallengeReaction` announced nothing at all and the
+   * only record was the window's own ChallengeStarted.
+   */
+  static challengePlayed(
+    playerId: string,
+    cardId: string,
+    targetedCardId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.ChallengePlayed,
+      playerId,
+      { cardId, targetedCardId },
       Audience.All,
     )
   }
@@ -249,6 +277,24 @@ export class GameEventFactory {
       GameEventType.CardDiscarded,
       playerId,
       { cardId },
+      Audience.All,
+    )
+  }
+
+  /**
+   * `playerId` is the player who TOOK it. Audience.All with the card named:
+   * events state the full truth and the projection layer in front of the API
+   * decides who may see which id (§5).
+   */
+  static cardPulled(
+    toPlayerId: string,
+    fromPlayerId: string,
+    cardId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.CardPulled,
+      toPlayerId,
+      { cardId, fromPlayerId, toPlayerId },
       Audience.All,
     )
   }
