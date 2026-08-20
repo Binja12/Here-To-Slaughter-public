@@ -4,6 +4,7 @@ import { GameState } from './game-state'
 import { IReaction, IReactionManager, IReactionWindow } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from '../reactions/modifier-window'
+import { AttackWindow } from '../reactions/attack-window'
 import { ChallengeWindow } from '../reactions/challenge-window'
 import { PlayerChoiceWindow } from '../reactions/player-choice-window'
 import { CardChoiceWindow } from '../reactions/card-choice-window'
@@ -61,6 +62,19 @@ export class ReactionManager implements IReactionManager {
         config['baseRoll'] as number,
         config['rollReq'] as number,
         config['heroId'] as string,
+        5000,
+        this.gs,
+        frameId,
+        this.em,
+      )
+    }
+
+    if (type === ReactionWindowType.Attack) {
+      return new AttackWindow(
+        crypto.randomUUID(),
+        respondent,
+        config['baseRoll'] as number,
+        config['monsterId'] as string,
         5000,
         this.gs,
         frameId,

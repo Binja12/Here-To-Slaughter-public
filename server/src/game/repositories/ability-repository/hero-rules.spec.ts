@@ -241,7 +241,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
 
       const rolled = events.find((e) => e.getType() === GameEventType.DiceRolled)
-      expect((rolled!.getPayload() as { heroId: string }).heroId).toBe('wiggles')
+      expect((rolled!.getPayload() as { cardId: string }).cardId).toBe('wiggles')
       expect(modifierWindow(gs)).toBeDefined()
       // One point, spent on the play. The roll is a task and costs nothing.
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)

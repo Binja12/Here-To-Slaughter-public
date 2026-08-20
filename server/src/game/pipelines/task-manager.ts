@@ -21,16 +21,21 @@ import {
   instanceRules,
 } from '../repositories/ability-repository'
 import {
+  ownerFor,
   sweepExpired,
   triggerMatches,
 } from '../abilities/ability-lifecycle'
 import { GameEventFactory } from '../events/game-event-factory'
+
+/** A monster in the pile is nobody's; TriggerScope.Attacker names the player. */
+const NO_OWNER = ''
 
 /** One ability to check this event, and who owns it. Gathered fresh per event. */
 type AbilitySource = {
   trigger: AbilityTrigger
   steps: ITask[]
   sourceCardId: string
+  /** Empty for a monster still in the pile — see NO_OWNER and ownerFor. */
   ownerId: string
   /** Printed on the card, or a rule of the game — see AbilityPipeline.system. */
   system: boolean
@@ -101,7 +106,10 @@ export class TaskManager implements IGameEventListener {
     for (const source of this.abilitySources()) {
       if (!triggerMatches(this.gs, source, source.trigger, event)) continue
 
-      const ctx = new AbilityContext(source.sourceCardId, source.ownerId)
+      const ctx = new AbilityContext(
+        source.sourceCardId,
+        ownerFor(source, source.trigger, event),
+      )
       // Continuations run with a fresh context, so what they need travels on
       // the event — see ConfirmTask and CardTypeCondition.
       const { ctxSeed } = (event.getPayload() ?? {}) as {
@@ -164,6 +172,22 @@ export class TaskManager implements IGameEventListener {
         this.pushRules(out, this.instanceEntries, instanceId, pid)
       }
 
+    }
+
+    // --- The monster pile: cards in play that belong to nobody ---
+    //
+    // A monster is on the table from the first turn, not from the moment
+    // somebody wins it, so its printed rules are live while it still sits in
+    // the pile — that is where a fight-back is written. Derived per event like
+    // every other position, so a monster slain into a party simply stops being
+    // found here and starts being found above, owned.
+    //
+    // NO_OWNER because there is nothing true to put there. Only
+    // TriggerScope.Attacker takes its owner from the event, so that is the
+    // only scope a pile monster can usefully declare; anything else it
+    // declared would resolve against nobody and never fire.
+    for (const monsterId of this.gs.getMonsterPile().getAll()) {
+      this.pushCardAbility(out, monsterId, NO_OWNER)
     }
 
     return out

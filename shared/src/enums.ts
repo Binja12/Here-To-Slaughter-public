@@ -38,6 +38,8 @@ export enum ReactionWindowType {
   TaskChoice = "TaskChoice",
   /** Pick one number — a modifier card's printed values. */
   ValueChoice = "ValueChoice",
+  /** A roll to slay a monster. Modifiable, like Modifier and Challenge. */
+  Attack = "Attack",
 }
 
 export enum RollContext {
@@ -91,6 +93,12 @@ export enum GameEventType {
 
   // Monster events
   MonsterSlain = "MonsterSlain",
+  /**
+   * An attack roll landed in the monster's fight-back band. `{ cardId }`, and
+   * the event's playerId is the attacker; the monster's own entries trigger on
+   * it under TriggerScope.Attacker. A MISS emits nothing at all.
+   */
+  MonsterFoughtBack = "MonsterFoughtBack",
   MonsterFlipped = "MonsterFlipped",
 
   // Turn events
@@ -241,6 +249,13 @@ export enum TriggerScope {
   OwnerEvent = "OwnerEvent",
   /** Only while it is my owner's turn. */
   OwnerTurn = "OwnerTurn",
+  /**
+   * The event is an attack on this card, and the run belongs to whoever made
+   * it. A monster in the monster pile sits in no party, so it has no owner to
+   * resolve the other scopes against — the attack names one, and `ownerFor`
+   * reads it off the event. That is the whole difference from SelfCard.
+   */
+  Attacker = "Attacker",
   /** Anyone's event — a table-wide passive. */
   Anyone = "Anyone",
 }

@@ -1,4 +1,4 @@
-import { ICard, ReactionWindowType } from 'shared'
+import { ICard, IGameEventEmitter, ReactionWindowType } from 'shared'
 import type {
   IEffect,
   IAction,
@@ -13,6 +13,9 @@ import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import type { AbilityContext } from '../abilities/ability-context'
+// Value import, not type-only: slayMonster announces. No cycle — the factory
+// reaches only shared, game-event.ts and ability-context.ts.
+import { GameEventFactory } from '../events/game-event-factory'
 
 // ---------------------------------------------------------------------------
 // GameFrame — snapshot taken just before the frame was opened, plus any
@@ -231,6 +234,7 @@ export class GameState {
     | undefined {
     for (const type of [
       ReactionWindowType.Modifier,
+      ReactionWindowType.Attack,
       ReactionWindowType.Challenge,
     ]) {
       const entry = this.getFrameByWindowType(type)
@@ -458,8 +462,49 @@ export class GameState {
   getDiscardPile(): CardPile {
     return this.discardPile
   }
+  /** The face-up row. Every monster a player may attack is one of these. */
   getMonsterPile(): CardPile {
     return this.monsterPile
+  }
+  /** Face down, and drawn from only to refill the pile — see slayMonster. */
+  getMonsterDeck(): CardStack {
+    return this.monsterDeck
+  }
+
+  /**
+   * Move a monster out of the face-up row and into the winner's party, then
+   * turn the next one up behind it.
+   *
+   * The whole of slaying, in one place, because the three parts are one act:
+   * the row is what a player attacks FROM, so it cannot be left one short.
+   * A caller that only removed the monster would silently shrink the game.
+   *
+   * THROWS on a monster that is not in the pile. Both wrappers of the attack
+   * check the pile before they roll — the action in `canExecute`, the task
+   * when it discovers its target — so arriving here with anything else is an
+   * engine mistake, not an illegal request, and it fails where the mistake was
+   * made (§11.2).
+   *
+   * An exhausted monster deck simply leaves the row shorter: nothing to draw
+   * is "ran and produced nothing", not a mis-declaration.
+   *
+   * Announces, for the reason `Party.addHero` does — a card changing zones
+   * cannot do it silently, and one choke point that emits is what stops the
+   * next mechanic that slays a monster from forgetting to.
+   */
+  slayMonster(cardId: string, playerId: string, em: IGameEventEmitter): void {
+    if (this.monsterPile.pick(cardId) === null) {
+      throw new Error(
+        `slayMonster: ${cardId} is not in the monster pile — a monster can ` +
+          'only be slain from the face-up row.',
+      )
+    }
+
+    const next = this.monsterDeck.draw()
+    if (next) this.monsterPile.add(next)
+
+    this.getParty(playerId).addMonster(cardId)
+    em.emit(GameEventFactory.monsterSlain(playerId, cardId))
   }
 
   // ---------------------------------------------------------------------------

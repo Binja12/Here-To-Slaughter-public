@@ -34,10 +34,15 @@ depends on (§9). Everything else lives in a folder:
   `IAbility[]`, plus `hero-rules.ts` (the entries every hero has, keyed to no
   card at all) and `index.ts`, the `abilityRegistry` that keys the rest by card
   id (§6). A mechanic shared by both pipelines gets a file of its own in
-  `tasks/` — `play-hero-task.ts`, `roll-on-hero-task.ts` — while `hero-tasks.ts`
+  `tasks/` — `play-hero-task.ts`, `roll-on-hero-task.ts`,
+  `attack-monster-task.ts` — while `hero-tasks.ts`
   keeps the steps that only ever move a hero already on the table. Card *data* lives in `shared/`; this is the lookup from one to the
   other, which is why it sits beside `in-memory-card-repository.ts`.
-- `state-structures/` — what `GameState` is made of: `card-pile.ts`,
+- `state-structures/` — what `GameState` is made of. A **stack is face down and
+  a pile is face up**, and that is the whole of why there are two: `CardStack`
+  offers `draw()` off the top and nothing else, because nobody can see into it;
+  `CardPile` offers `pick(cardId)` and no draw at all, because everything in it
+  is visible and a player names what they take. `card-pile.ts`,
   `card-stack.ts`, `player.ts`, `party.ts`.
 - `actions/`, `tasks/`, `reactions/`, `cards/`, `conditions/`, `events/`,
   `config/` — one folder per kind of thing.
@@ -240,18 +245,39 @@ slot spent and opens the modifier window. `markAbilityUsed` runs BEFORE the
 frame opens, so a failed roll still costs the slot; everything else the roll
 does is inside the frame and goes back with it.
 
-Four mechanics, four bases, two wrappers each. A wrapper is always pure
+**Attacking a monster is the fifth pair, and the one whose target belongs to
+nobody.** `attackMonster` (`tasks/attack-monster-task.ts`) throws the dice,
+announces `DiceRolled` and opens an `AttackWindow`. No `markAbilityUsed`:
+attacking is priced in action points, not in a card's once-per-turn slot, so a
+player with the points may swing again. Nothing happens inside the frame — the
+window decides the outcome and moves the monster on the branch that earns it,
+because the two failing bands leave the monster exactly where it was and there
+is no rollback to arrange.
+
+**The monster row is a PILE fed by a DECK, and slaying moves between both.**
+`GameState.slayMonster(cardId, playerId, em)` is the one way a monster leaves
+the row: it picks the monster out, draws the top of the monster deck up behind
+it and adds the monster to the winner's party. One function because the three
+are one act — the row is what a player attacks FROM, so a caller that only
+removed the monster would silently shrink the game. It THROWS on a monster that
+is not in the row, since both wrappers check the pile before they roll, and it
+lets the row shrink once the deck is spent: nothing to draw is "ran and produced
+nothing", not a mis-declaration. It announces `MonsterSlain` itself, for the
+reason `Party.addHero` announces (§7) — one choke point that emits is what
+stops the next mechanic that slays a monster from forgetting to.
+
+Five mechanics, five bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
 
-**A leader is never PLAYED, so there is no fifth mechanic.** `PartyData.leaderId`
+**A leader is never PLAYED, so there is no sixth mechanic.** `PartyData.leaderId`
 is set when the party is built and never changes: a party and its leader come
 into existence together, out of the game's configuration, before any turn
 exists. There is nothing to take out of a hand, nothing to contest, nothing to
 roll back and nothing to announce — party membership has a choke point because
 membership CHANGES, and this does not.
 
-**Activating a leader is a fifth pair with only one half.**
+**Activating a leader is a sixth pair with only one half.**
 `RollOnLeaderAction` is the ONLY way a leader's printed ability ever runs: no
 system rule reaches a leader, which is the point — a leader is never played,
 never rolled on by another card and never moves, so without a player asking,
@@ -453,6 +479,29 @@ either participant does (and neither before a challenge has actually started).
 `PlayModifierReaction` probes for the method rather than testing `instanceof`,
 so it names no concrete window (§9).
 
+**One roll and one requirement to beat is a BASE CLASS.** `ModifierWindow` (a
+hero's effect) and `AttackWindow` (slaying a monster) are the same mechanic
+pointed at different subjects, so the bonus list, the clock, `submitReaction`
+and all three `IModifiableWindow` methods live once in
+`ModifiableRollWindow`. Each subclass supplies only what its subject decides:
+which `RollContext` the standing bonuses are scoped to, what the payloads say,
+and what the final number MEANS. `ChallengeWindow` is deliberately not under
+it — two rolls make its bonus list, its bias rule and its settlement a
+different shape.
+
+The subclass calls `open()` as the last statement of its own constructor, never
+the base: `super()` runs before a subclass's fields are assigned, so a base that
+announced would emit a payload built out of `undefined`.
+
+**A monster answers with three outcomes, not two.** `MonsterCard.trySlay` holds
+the comparison and which way round it runs. SLAY releases and moves the monster
+into the roller's party, announcing `MonsterSlain` *before* `FrameResolved`, so
+the monster's own printed entries are live for the event that won it. FIGHT
+BACK and MISS both restore and leave it in the pile; they differ only in what
+the table is told. A fight-back names the attacker so the monster's entries can
+run against them (§6); a miss is announced by nothing beyond the window
+closing, exactly as a short hero roll is.
+
 The reaction asks **before** it burns the card, because `execute` spends the
 card before it submits — a target only the window would refuse has to be caught
 while the card is still in hand.
@@ -498,6 +547,13 @@ against the event:
   reads it fresh each event and looks the behaviour up in the registry. Nothing
   is stored, so nothing can go stale: a stolen hero's ability belongs to its new
   owner with zero bookkeeping. This is principle 3 — derive rather than pass.
+  The monster PILE is read the same way, and is the one position with no owner:
+  a monster is on the table from the first turn rather than from the moment
+  somebody wins it, so its printed rules are live while it still sits there —
+  which is where a fight-back is written. It is pushed with an empty ownerId,
+  because there is nothing true to put in one, and only `TriggerScope.Attacker`
+  takes its owner from the event instead. A monster slain into a party simply
+  stops being found in the pile and starts being found above, owned.
 - **Ongoing effects — STORED**, on the owning `Player`. "Your heroes cannot be
   stolen until your next turn" has no card position to derive from, so it lives
   on the player until an expiry event removes it (§7).
@@ -549,6 +605,7 @@ moment it confirmed a roll on its steal — pinned by a test.
 ```
 SelfCard     payload.cardId is this card   — a hero's own successful roll
 CarrierCard  payload.cardId is the hero I am equipped to — a cursed item
+Attacker     payload.cardId is this card AND the event names who swung
 OwnerEvent   the event is my owner's       — "each time YOU roll to CHALLENGE"
 OwnerTurn    only during my owner's turn
 Anyone       any player's event            — the -1 modifier card
@@ -561,6 +618,15 @@ derives the link from `gs.getEquippedItem`, so nothing is stored.
 
 `SelfCard` is load-bearing: Wiggles and Snowball both trigger on `RollSuccess`
 and can sit in the same party, so rolling on one must not fire the other.
+
+`Attacker` tests exactly what `SelfCard` tests, and is a separate scope for the
+OTHER half of what a scope decides: whose run it is. Every other scope resolves
+that against where the card sits, which `abilitySources` already worked out — a
+monster in the pile sits nowhere, so there is no owner to find and the attack
+names one. `ownerFor` in `ability-lifecycle.ts` is the single place that reads
+it off the event, and it sits beside `triggerMatches` because both are the
+question of what an event means. Ownership is not `TaskManager`'s to decide; it
+owns the stack.
 
 `when` is one string, matched against the payload's `label`. Scope answers
 *whose* event; `when` answers *which*. Deliberately narrow — it discriminates
@@ -841,6 +907,11 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 
 - **No failure branches.** `restoreFrame` couples "undo state" with "cancel
   the run", so "roll; if you fail, discard instead" is currently impossible.
+  A failing attack looks like an exception and is not one: the window emits
+  `MonsterFoughtBack` AFTER it restores, so what answers is a fresh pipeline
+  matched from the event, not the rolled-back one carrying on. Any "on failure"
+  wording has to be written that way — as somebody else's entry on an
+  announcement — and only the attack has such an announcement.
 - **`when` discriminates confirm/condition labels only.** A wording like "when a
   hero enters your party BY BEING STOLEN" has no matcher, even though `reason`
   is already in that payload.
@@ -926,7 +997,11 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 
 - **No bootstrap**: nothing turns `GameConfig` + `base-game-cards.ts` (136
   cards) into a playable GameState — no deck build/shuffle/deal.
-  `defaultGameConfig` has zero consumers.
+  `defaultGameConfig` has zero consumers. `CardStack.shuffle()` is called by
+  nothing outside its own spec, and nothing deals the opening monster row, so
+  the pile starts empty and `slayMonster` has nothing to refill from. Both
+  decks are meant to be shuffled at the start of the game and the row dealt
+  three wide; that is the bootstrap's job, and the bootstrap does not exist.
 - **53 card ids declare an ability** — 3 heroes, 3 items, 2 magic, all 6
   leaders, all 25 modifiers (one declaration between them) and all 14
   challenges (another). Every printed leader is written.
@@ -948,10 +1023,23 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   playerId and names the played card rather than the leader.
   `abilityRegistry` is sectioned by card type and sorted by id inside each
   section, so a card has one obvious home.
-- **Attack rolls open no modifier window.** `AttackMonsterAction` throws the
-  dice inline, adds the standing `Attack` bonuses and resolves against the
-  monster, so no modifier card can be spent on one and the roll is announced by
-  no event. `RollResult.FightBack` is unimplemented on that path too.
+- **No monster carries a fight-back wording yet.** The path is whole —
+  `MonsterFoughtBack` goes out naming the attacker, the pile is scanned for
+  sources, and `TriggerScope.Attacker` runs the monster's entry as that player
+  — but `abilityRegistry` holds no monster, so nothing answers it in a real
+  game. Pinned by tests with a stand-in registry.
+- **A monster's printed `skill` has no reader.** Every record in
+  `base-game-cards.ts` carries `{ condition: 'When face up', description: 'All
+  rolls -1' }`, and `GameEventType.MonsterFlipped` is declared with no emitter.
+  Nothing turns a monster face up, there is no face-up state to turn, and a
+  table-wide roll penalty has no home: `IEffect` names an `ownerId` and lives on
+  a `Player`.
+- **A card cannot ask a player to pick a monster.** `Zone` has no monster pile
+  member, so `ChooseCardTask` cannot offer one, and `DecisionType.PickMonster`
+  has no reader. `AttackMonsterTask` therefore has no way to be handed a target
+  by a choice yet — only by a slot some other step wrote.
+- **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
+  like `MonsterCard.trySlay`, and read by nothing.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
   passes the suite silently.
 - **`npm ci` is incomplete in some checkouts** — `@nestjs/testing` and eslint's

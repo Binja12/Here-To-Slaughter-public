@@ -26,10 +26,15 @@ export interface ICardStack {
   getSize(): number;
 }
 
+/**
+ * A face-up zone: everything in it is visible, and any of it can be taken by
+ * name. That is the whole difference from ICardStack, which is face down and
+ * so can only be drawn from the top.
+ */
 export interface ICardPile {
   getId(): string;
   getName(): string;
-  pick(cardId?: string): string | null;
+  pick(cardId: string): string | null;
   add(cardId: string): void;
   getAll(): string[];
   getSize(): number;

@@ -1,182 +1,59 @@
 import {
-  Audience,
-  GameEventType,
   IGameEventEmitter,
-  PassiveType,
   ReactionWindowType,
   RollContext,
 } from 'shared'
-import { IModifiableWindow, ValueBias } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
-import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
+import { ModifiableRollWindow } from './modifiable-roll-window'
 
-/** One contribution to a roll: standing effects and played cards share a list. */
-export type RollBonus = {
-  /** The effect's source card, or the modifier played. Card ids are per copy. */
-  cardSource: string
-  amount: number
-}
+// ---------------------------------------------------------------------------
+// The window over a roll to use a HERO card's effect. The bonus list, the
+// clock and everything a modifier card does to them are the base class; this
+// is the two things only a hero roll knows — what the standing bonuses are
+// scoped to, and what beating `rollReq` means.
+//
+// `rollOnHero` is the only thing that opens it, so every roll it covers is a
+// roll for a hero's effect: hence the HeroEffect narrowing below.
+// ---------------------------------------------------------------------------
 
-export class ModifierWindow implements IModifiableWindow {
-  private bonuses: RollBonus[] = []
-  private timer?: ReturnType<typeof setTimeout>
-  private _resolved = false
-
+export class ModifierWindow extends ModifiableRollWindow {
   constructor(
-    private readonly id: string,
-    private readonly rollerId: string,
-    private readonly baseRoll: number,
+    id: string,
+    rollerId: string,
+    baseRoll: number,
     private readonly rollReq: number,
     private readonly heroId: string,
-    private readonly timeoutMs: number,
-    private readonly gs: GameState,
-    private readonly frameId: string,
-    private readonly emitter: IGameEventEmitter,
+    timeoutMs: number,
+    gs: GameState,
+    frameId: string,
+    emitter: IGameEventEmitter,
   ) {
-    // Seeded at OPEN, not at settlement: a player deciding whether to spend a
-    // modifier card must already see the standing bonus counted.
-    //
-    // HeroEffect: `rollOnHero` is the only thing that opens this window, so
-    // every roll it covers is a roll to use a hero card's effect.
-    for (const effect of gs.getEffects(
-      PassiveType.RollBonus,
-      rollerId,
-      heroId,
-      RollContext.HeroEffect,
-    )) {
-      this.bonuses.push({
-        cardSource: effect.sourceCardId,
-        amount: effect.value ?? 0,
-      })
-    }
-
-    this.emitter.emit(
-      GameEventFactory.reactionWindowOpened(
-        this.getType(),
-        this.rollerId,
-        this.frameId,
-        undefined,
-        {
-          rollerId: this.rollerId,
-          baseRoll: this.baseRoll,
-          // Copied: an emitted payload must not change on a later submission.
-          bonuses: [...this.bonuses],
-          finalRoll: this.getFinalRoll(),
-          rollReq: this.rollReq,
-          heroId: this.heroId,
-        },
-      ),
-    )
-    this.resetTimer()
-  }
-
-  // --- IReactionWindow ---
-
-  getId(): string {
-    return this.id
+    super(id, rollerId, baseRoll, timeoutMs, gs, frameId, emitter)
+    // Last statement, and never in the base: the fields above have to exist
+    // before the opening payload is built out of them.
+    this.open(RollContext.HeroEffect, heroId, { rollReq, heroId })
   }
 
   getType(): ReactionWindowType {
     return ReactionWindowType.Modifier
   }
 
-  /** One roll here, so only the roller. Asked by PlayModifierReaction. */
-  acceptsModifierFor(playerId: string): boolean {
-    return playerId === this.rollerId
-  }
-
-  /** The roll waits for a card already committed to it. */
-  cardSpent(): void {
-    this.resetTimer()
+  protected closedDetail(): Record<string, unknown> {
+    return { rollReq: this.rollReq, heroId: this.heroId }
   }
 
   /**
-   * One roll, so the question is only whose it is: a player who walked away
-   * from a modifier on their OWN roll meant to help it, and one who spent a
-   * card on somebody else's meant to hurt it. There is no third case here —
-   * `acceptsModifierFor` has already refused anything but the roller.
+   * Short of the requirement rolls the frame back, which is also what cancels
+   * whatever paused on it (§3). Meeting it releases and announces the hit —
+   * the hero's own entries trigger on `RollSuccess`.
    */
-  valueBiasFor(playerId: string, targetPlayerId: string): ValueBias {
-    return targetPlayerId === playerId ? 'highest' : 'lowest'
-  }
-
-  /** Lets later steps branch on the roll — crit bonuses and the like. */
-  resultKey(): string | typeof NO_CONTEXT_RESULT {
-    return CTX_FINAL_ROLL
-  }
-
-  isOpen(): boolean {
-    return !this._resolved
-  }
-
-  /**
-   * payload: { value, cardId, targetPlayerId? }. `targetPlayerId` exists for
-   * challenges, which have two rolls; here only the roller is valid, and
-   * anything else is refused rather than thrown (player input off a socket).
-   */
-  submitReaction(playerId: string, payload: unknown): void {
-    const { value, cardId, targetPlayerId } = payload as {
-      value: number
-      cardId: string
-      targetPlayerId?: string
-    }
-    if (targetPlayerId !== undefined && targetPlayerId !== this.rollerId) return
-    this.bonuses.push({ cardSource: cardId, amount: value })
-    this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierApplied,
-        playerId,
-        { value, cardId, finalRoll: this.getFinalRoll() },
-        Audience.All,
-      ),
-    )
-    this.resetTimer()
-  }
-
-  getFinalRoll(): number {
-    return this.baseRoll + this.bonuses.reduce((sum, b) => sum + b.amount, 0)
-  }
-
-  resolve(): void {
-    if (this._resolved) return
-    this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
-
-    const finalRoll = this.getFinalRoll()
-
-    this.emitter.emit(
-      GameEventFactory.reactionWindowClosed(
-        this.getType(),
-        this.rollerId,
-        this.frameId,
-        finalRoll,
-        { finalRoll, rollReq: this.rollReq, heroId: this.heroId },
-      ),
-    )
-
+  protected settle(finalRoll: number): void {
     if (finalRoll < this.rollReq) {
       this.gs.restoreFrame(this.frameId)
-    } else {
-      this.gs.releaseFrame(this.frameId)
-      this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
+      return
     }
-
-    const key = this.resultKey()
-    this.emitter.emit(
-      GameEventFactory.frameResolved(
-        this.frameId,
-        [finalRoll],
-        key === NO_CONTEXT_RESULT ? undefined : { key, value: finalRoll },
-      ),
-    )
-  }
-
-  // --- Internal ---
-
-  private resetTimer(): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+    this.gs.releaseFrame(this.frameId)
+    this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
   }
 }

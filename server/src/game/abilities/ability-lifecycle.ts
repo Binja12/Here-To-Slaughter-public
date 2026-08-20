@@ -55,6 +55,12 @@ export function triggerMatches(
     case TriggerScope.OwnerTurn:
       return gs.getCurrentPlayerId() === source.ownerId
 
+    case TriggerScope.Attacker:
+      return (
+        (event.getPayload() as { cardId?: string })?.cardId ===
+        source.sourceCardId
+      )
+
     case TriggerScope.Anyone:
       return true
   }
@@ -63,6 +69,26 @@ export function triggerMatches(
   // than a rule that silently never fires.
   const unhandled: never = trigger.scope
   throw new Error(`Unhandled trigger scope ${String(unhandled)}`)
+}
+
+/**
+ * Whose run a matched rule is — the id its AbilityContext carries, and so the
+ * player every step acts for.
+ *
+ * Every scope but one resolves against where the CARD sits, which is what
+ * `abilitySources` already worked out. A monster still in the monster pile
+ * sits in no party and belongs to nobody, so there is no owner there to find;
+ * the attack names one, and Attacker reads it off the event. That, and not the
+ * match test, is the whole difference between Attacker and SelfCard.
+ */
+export function ownerFor(
+  source: { ownerId: string },
+  trigger: AbilityTrigger,
+  event: IGameEvent,
+): string {
+  return trigger.scope === TriggerScope.Attacker
+    ? event.getPlayerId()
+    : source.ownerId
 }
 
 // ---------------------------------------------------------------------------

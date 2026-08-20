@@ -244,7 +244,10 @@ describe('leader roll passives', () => {
   // =========================================================================
 
   describe('The Divine Arrow (leader-116)', () => {
-    /** Attack with a roll of `random`; returns whether the monster was slain. */
+    /**
+     * Attack with a roll of `random`, then let the attack window lapse — the
+     * outcome is settled by the window, not by `execute`.
+     */
     const attack = (leader: string, random: number) => {
       const ctx = setup(leader)
       jest.spyOn(Math, 'random').mockReturnValue(random)
@@ -255,6 +258,7 @@ describe('leader roll passives', () => {
         ctx.rm,
         ctx.em,
       ).execute(ctx.gs)
+      jest.advanceTimersByTime(5000)
       return ctx
     }
 

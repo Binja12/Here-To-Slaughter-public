@@ -1,4 +1,10 @@
-import { CardType, HeroClass, ReactionWindowType } from 'shared'
+import {
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+  ReactionWindowType,
+} from 'shared'
 import { GameState } from './game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
@@ -8,6 +14,7 @@ import { IAbilityRule, IModifiableWindow, IReactionWindow } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { GameEventEmitter } from '../events/game-event-emitter'
 
 const makePlayer = (id: string) =>
   new Player({
@@ -393,5 +400,103 @@ describe('GameState — the open modifiable window', () => {
         }),
       ).not.toThrow()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// slayMonster — the one way a monster leaves the face-up row
+// ---------------------------------------------------------------------------
+
+describe('GameState.slayMonster', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+  let emitted: IGameEvent[]
+
+  beforeEach(() => {
+    gs = new GameState(
+      new CardStack('deck-1', 'main-deck'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-p1'))
+
+    // The visible row of three, with two still face down behind it.
+    for (const id of ['m-3', 'm-2', 'm-1']) gs.getMonsterPile().add(id)
+    gs.getMonsterDeck().addToBottom('m-4')
+    gs.getMonsterDeck().addToBottom('m-5')
+
+    em = new GameEventEmitter()
+    emitted = []
+    em.addListener({ onEvent: (e) => emitted.push(e) })
+  })
+
+  it('takes the monster out of the pile', () => {
+    gs.slayMonster('m-2', 'p1', em)
+    expect(gs.getMonsterPile().getAll()).not.toContain('m-2')
+  })
+
+  it('adds it to the slayer party', () => {
+    gs.slayMonster('m-2', 'p1', em)
+    expect(gs.getParty('p1').getMonsterIds()).toEqual(['m-2'])
+  })
+
+  it('turns the next monster up behind it, keeping the row three wide', () => {
+    expect(gs.getMonsterPile().getSize()).toBe(3)
+
+    gs.slayMonster('m-2', 'p1', em)
+
+    expect(gs.getMonsterPile().getSize()).toBe(3)
+    expect(gs.getMonsterPile().getAll()).toContain('m-4')
+    expect(gs.getMonsterDeck().getSize()).toBe(1)
+  })
+
+  it('draws the TOP of the deck, not any of it', () => {
+    gs.slayMonster('m-1', 'p1', em)
+    gs.slayMonster('m-2', 'p1', em)
+    expect(gs.getMonsterPile().getAll()).toEqual(
+      expect.arrayContaining(['m-4', 'm-5']),
+    )
+  })
+
+  it('lets the row shrink once the deck is spent — nothing to draw is not a fault', () => {
+    for (const id of ['m-1', 'm-2', 'm-3']) gs.slayMonster(id, 'p1', em)
+
+    expect(gs.getMonsterDeck().getSize()).toBe(0)
+    expect(gs.getMonsterPile().getSize()).toBe(2)
+
+    const left = gs.getMonsterPile().getAll()
+    expect(() => gs.slayMonster(left[0], 'p1', em)).not.toThrow()
+    expect(gs.getMonsterPile().getSize()).toBe(1)
+  })
+
+  it('announces MonsterSlain, naming the monster and the slayer', () => {
+    gs.slayMonster('m-2', 'p1', em)
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].getType()).toBe(GameEventType.MonsterSlain)
+    expect(emitted[0].getPlayerId()).toBe('p1')
+    expect(emitted[0].getPayload()).toMatchObject({ cardId: 'm-2' })
+  })
+
+  it('THROWS on a monster that is not in the row — the row is what you attack', () => {
+    expect(() => gs.slayMonster('m-4', 'p1', em)).toThrow(
+      /not in the monster pile/,
+    )
+  })
+
+  it('a monster already won cannot be slain twice', () => {
+    gs.slayMonster('m-2', 'p1', em)
+    expect(() => gs.slayMonster('m-2', 'p1', em)).toThrow(
+      /not in the monster pile/,
+    )
+    expect(gs.getParty('p1').getMonsterIds()).toEqual(['m-2'])
+  })
+
+  it('draws nothing extra when it throws', () => {
+    expect(() => gs.slayMonster('m-4', 'p1', em)).toThrow()
+    expect(gs.getMonsterDeck().getSize()).toBe(2)
+    expect(emitted).toHaveLength(0)
   })
 })

@@ -231,7 +231,7 @@ describe('WigglesAbility', () => {
       ctxSeed: { stolenHeroId: ['victim'] },
     })
     const rolled = events.find((e) => e.getType() === GameEventType.DiceRolled)
-    expect((rolled!.getPayload() as { heroId: string }).heroId).toBe('victim')
+    expect((rolled!.getPayload() as { cardId: string }).cardId).toBe('victim')
   })
 
   it('DISMISS keeps the stolen hero and skips only the roll', () => {
@@ -271,7 +271,7 @@ describe('WigglesAbility', () => {
     answerRollPrompt(gs, CONFIRM)
 
     const rolled = events.find((e) => e.getType() === GameEventType.DiceRolled)
-    expect((rolled!.getPayload() as { heroId: string }).heroId).toBe('victim')
+    expect((rolled!.getPayload() as { cardId: string }).cardId).toBe('victim')
     expect(openWindows(gs)).toHaveLength(1)
   })
 

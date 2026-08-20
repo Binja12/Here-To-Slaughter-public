@@ -10,15 +10,21 @@ import { CTX_MODIFIER_TARGET } from '../abilities/ability-context'
 export class GameEventFactory {
   // --- Dice ---
 
+  /**
+   * The raw die, before any window can move it. `cardId` is what the roll is
+   * ABOUT — a hero for `rollOnHero`, a monster for `attackMonster` — under the
+   * key every other event names its subject with, so TriggerScope.SelfCard
+   * resolves against it like anything else.
+   */
   static diceRolled(
     playerId: string,
-    heroId: string,
+    cardId: string,
     baseRoll: number,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.DiceRolled,
       playerId,
-      { baseRoll, heroId },
+      { baseRoll, cardId },
       Audience.All,
     )
   }
@@ -350,6 +356,20 @@ export class GameEventFactory {
   static monsterSlain(playerId: string, cardId: string): IGameEvent {
     return new GameEvent(
       GameEventType.MonsterSlain,
+      playerId,
+      { cardId },
+      Audience.All,
+    )
+  }
+
+  /**
+   * An attack landed in the fight-back band. `playerId` is the ATTACKER, which
+   * is what TriggerScope.Attacker reads to own the monster's run — the monster
+   * is still in the pile and belongs to nobody.
+   */
+  static monsterFoughtBack(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.MonsterFoughtBack,
       playerId,
       { cardId },
       Audience.All,
