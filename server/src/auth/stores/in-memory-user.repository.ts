@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common'
+import {
+  AccountIdAlreadyExistsError,
+  UsernameAlreadyExistsError,
+} from '../auth.errors'
 import { IUserRepository } from '../auth.interfaces'
 import { UserAccount } from '../auth.types'
 
@@ -9,12 +13,12 @@ export class InMemoryUserRepository implements IUserRepository {
   async create(account: UserAccount): Promise<void> {
     // Do not allow two accounts to share the same id.
     if (this.accountsById.has(account.id)) {
-      throw new Error(`Account id already exists: ${account.id}`)
+      throw new AccountIdAlreadyExistsError(account.id)
     }
 
     // Usernames must also be unique.
     if (this.findStoredByUsername(account.username)) {
-      throw new Error(`Username already exists: ${account.username}`)
+      throw new UsernameAlreadyExistsError(account.username)
     }
 
     // Store one copy of the account, indexed by its id.
