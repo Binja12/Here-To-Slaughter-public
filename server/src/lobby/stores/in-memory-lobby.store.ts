@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common'
+import { LobbyFullError } from '../lobby.errors'
 import { ILobbyStore } from '../lobby.interfaces'
-import { LobbyPlayer } from '../lobby.types'
-
-export const DEFAULT_LOBBY_CAPACITY = 4
+import { LOBBY_CAPACITY, LobbyPlayer } from '../lobby.types'
 
 @Injectable()
 export class InMemoryLobbyStore implements ILobbyStore {
   private readonly readyPlayers: LobbyPlayer[] = []
-  private readonly capacity = DEFAULT_LOBBY_CAPACITY
 
   async getReadyPlayers(): Promise<LobbyPlayer[]> {
     // Preserve ready order while preventing callers from changing stored players.
@@ -25,8 +23,8 @@ export class InMemoryLobbyStore implements ILobbyStore {
     }
 
     // Do not accept more players than one game can hold.
-    if (this.readyPlayers.length >= this.capacity) {
-      throw new Error(`Lobby is full (maximum ${this.capacity} players)`)
+    if (this.readyPlayers.length >= LOBBY_CAPACITY) {
+      throw new LobbyFullError(LOBBY_CAPACITY)
     }
 
     // Append the player; the first entry in the ordered list is the host.
