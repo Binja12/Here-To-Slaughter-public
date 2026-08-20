@@ -10,14 +10,17 @@ import {
 } from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { AuthService } from './auth.service'
-import type { AuthSession } from './auth.service'
+import type { AuthSession } from './auth.types'
 import {
   InvalidAuthInputError,
   InvalidCredentialsError,
   UsernameAlreadyExistsError,
 } from './auth.errors'
-
-export const SESSION_COOKIE_NAME = 'htsr_session'
+import {
+  clearSessionCookie,
+  readSessionToken,
+  setSessionCookie,
+} from './session-cookie'
 
 type Credentials = {
   username: string
@@ -85,13 +88,10 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    const cookie = request.cookies?.[SESSION_COOKIE_NAME]
-    const token = typeof cookie === 'string' ? cookie : undefined
-
-    await this.authService.logout(token)
+    await this.authService.logout(readSessionToken(request))
 
     // Clear the browser cookie even when its server-side session is already gone.
-    response.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions())
+    clearSessionCookie(response)
   }
 }
 
@@ -113,22 +113,6 @@ function parseCredentials(body: unknown): Credentials {
   }
 
   return { username: body.username, password: body.password }
-}
-
-function setSessionCookie(response: Response, session: AuthSession): void {
-  response.cookie(SESSION_COOKIE_NAME, session.token, {
-    ...sessionCookieOptions(),
-    expires: session.expiresAt,
-  })
-}
-
-function sessionCookieOptions() {
-  return {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    path: '/',
-    secure: process.env.NODE_ENV === 'production',
-  }
 }
 
 function publicAccount(session: AuthSession) {

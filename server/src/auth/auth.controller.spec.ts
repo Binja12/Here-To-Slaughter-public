@@ -1,26 +1,44 @@
-import { INestApplication } from '@nestjs/common'
+import { Controller, Get, INestApplication, UseGuards } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import * as argon2 from 'argon2'
 import cookieParser from 'cookie-parser'
 import request, { Response as SupertestResponse } from 'supertest'
-import { AppModule } from '../app.module'
+import { AuthModule } from './auth.module'
 import {
   ISessionStore,
   IUserRepository,
   SESSION_STORE,
   USER_REPOSITORY,
 } from './auth.interfaces'
-import { SESSION_COOKIE_NAME } from './auth.controller'
+import {
+  GAME_ASSIGNMENT_STORE,
+  IGameAssignmentStore,
+} from '../lobby/lobby.interfaces'
 import { hashSessionToken } from './auth.service'
+import { CurrentAccount, SessionAuthGuard } from './session-auth.guard'
+import { SESSION_COOKIE_NAME } from './session-cookie'
+import type { AuthenticatedAccount } from './auth.types'
 
 const PASSWORD = 'correct horse battery staple'
+
+@Controller('test/protected')
+@UseGuards(SessionAuthGuard)
+class ProtectedTestController {
+  @Get()
+  getAccount(
+    @CurrentAccount() account: AuthenticatedAccount,
+  ): AuthenticatedAccount {
+    return account
+  }
+}
 
 describe('Auth HTTP contract', () => {
   let app: INestApplication
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [AuthModule],
+      controllers: [ProtectedTestController],
     }).compile()
 
     app = module.createNestApplication()
@@ -125,6 +143,70 @@ describe('Auth HTTP contract', () => {
       reason: 'Username and password are required',
     })
     expect(loginResponse.status).toBe(400)
+  })
+
+  it('guards protected API routes with the session cookie', async () => {
+    const unauthenticated = await request(app.getHttpServer()).get(
+      '/test/protected',
+    )
+    expect(unauthenticated.status).toBe(401)
+    expect(unauthenticated.body).toEqual({
+      reason: 'Authentication required',
+    })
+
+    const registration = await register(app, 'player-one')
+    const authenticated = await request(app.getHttpServer())
+      .get('/test/protected')
+      .set('Cookie', sessionCookie(registration).pair)
+
+    expect(authenticated.status).toBe(200)
+    expect(authenticated.body).toEqual({
+      accountId: registration.body.accountId,
+      username: 'player-one',
+    })
+  })
+
+  it('redirects page navigation based on authentication', async () => {
+    const unauthenticated = await request(app.getHttpServer())
+      .get('/any-application-page')
+      .set('Accept', 'text/html')
+    expect(unauthenticated.status).toBe(302)
+    expect(unauthenticated.headers.location).toBe('/login')
+
+    const rootNavigation = await request(app.getHttpServer())
+      .get('/')
+      .set('Accept', 'text/html')
+    expect(rootNavigation.status).toBe(302)
+    expect(rootNavigation.headers.location).toBe('/login')
+
+    const registration = await register(app, 'player-one')
+    const authenticated = await request(app.getHttpServer())
+      .get('/login')
+      .set('Accept', 'text/html')
+      .set('Cookie', sessionCookie(registration).pair)
+    expect(authenticated.status).toBe(302)
+    expect(authenticated.headers.location).toBe('/lobby')
+  })
+
+  it('redirects an assigned account to its active game', async () => {
+    const registration = await register(app, 'player-one')
+    const assignments = app.get<IGameAssignmentStore>(GAME_ASSIGNMENT_STORE)
+    await assignments.assign([
+      {
+        accountId: registration.body.accountId,
+        gameId: 'game-1',
+        webSocketUrl: 'http://localhost:3001',
+        assignedAt: new Date(),
+      },
+    ])
+
+    const response = await request(app.getHttpServer())
+      .get('/login')
+      .set('Accept', 'text/html')
+      .set('Cookie', sessionCookie(registration).pair)
+
+    expect(response.status).toBe(302)
+    expect(response.headers.location).toBe('/game/game-1')
   })
 })
 
