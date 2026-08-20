@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { SessionTokenHashAlreadyExistsError } from '../auth.errors'
 import { ISessionStore } from '../auth.interfaces'
 import { Session } from '../auth.types'
 
@@ -9,7 +10,7 @@ export class InMemorySessionStore implements ISessionStore {
   async create(session: Session): Promise<void> {
     // A token hash identifies exactly one session.
     if (this.sessionsByTokenHash.has(session.tokenHash)) {
-      throw new Error('Session token hash already exists')
+      throw new SessionTokenHashAlreadyExistsError()
     }
 
     // The map stores the token hash, never the browser's plaintext token.
