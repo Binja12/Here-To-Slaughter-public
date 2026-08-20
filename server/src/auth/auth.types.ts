@@ -11,3 +11,13 @@ export type Session = {
   createdAt: Date
   expiresAt: Date
 }
+
+export type AuthenticatedAccount = {
+  accountId: string
+  username: string
+}
+
+export type AuthSession = AuthenticatedAccount & {
+  token: string
+  expiresAt: Date
+}

@@ -3,7 +3,12 @@ import * as argon2 from 'argon2'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { ISessionStore, IUserRepository } from './auth.interfaces'
 import { SESSION_STORE, USER_REPOSITORY } from './auth.interfaces'
-import type { Session, UserAccount } from './auth.types'
+import type {
+  AuthenticatedAccount,
+  AuthSession,
+  Session,
+  UserAccount,
+} from './auth.types'
 import {
   InvalidAuthInputError,
   InvalidCredentialsError,
@@ -11,13 +16,6 @@ import {
 } from './auth.errors'
 
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000
-
-export type AuthSession = {
-  accountId: string
-  username: string
-  token: string
-  expiresAt: Date
-}
 
 @Injectable()
 export class AuthService {
@@ -66,6 +64,27 @@ export class AuthService {
     // Logout remains successful when the cookie is missing or already revoked.
     if (!token) return
     await this.sessions.revoke(hashSessionToken(token))
+  }
+
+  async resolveAccount(
+    token: string | undefined,
+  ): Promise<AuthenticatedAccount | undefined> {
+    if (!token) return undefined
+
+    // Resolve the opaque browser token to its unexpired server-side session.
+    const tokenHash = hashSessionToken(token)
+    const session = await this.sessions.findByTokenHash(tokenHash)
+    if (!session) return undefined
+
+    // Resolve the session's account id instead of trusting client account data.
+    const account = await this.users.findById(session.accountId)
+    if (!account) {
+      // Remove an orphaned session if its account no longer exists.
+      await this.sessions.revoke(tokenHash)
+      return undefined
+    }
+
+    return { accountId: account.id, username: account.username }
   }
 
   private async createSession(account: UserAccount): Promise<AuthSession> {
