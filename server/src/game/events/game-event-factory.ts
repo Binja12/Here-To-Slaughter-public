@@ -5,7 +5,10 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { GameEvent } from './game-event'
-import { CTX_MODIFIER_TARGET } from '../abilities/ability-context'
+import {
+  CTX_DRAWN_CARD_IDS,
+  CTX_MODIFIER_TARGET,
+} from '../abilities/ability-context'
 
 export class GameEventFactory {
   // --- Dice ---
@@ -305,8 +308,19 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * `ctxSeed` for the same reason ModifierPlayed carries one: an entry
+   * TRIGGERED by a draw runs with a fresh context, so without it a card like
+   * Orthus could not tell WHICH card was drawn. A card that draws for itself
+   * (Snowball) gets the slot from its own DrawTask and ignores this.
+   */
   static cardDrawn(playerId: string, cardId: string): IGameEvent {
-    return new GameEvent(GameEventType.CardDrawn, playerId, { cardId }, Audience.PlayerOnly)
+    return new GameEvent(
+      GameEventType.CardDrawn,
+      playerId,
+      { cardId, ctxSeed: { [CTX_DRAWN_CARD_IDS]: [cardId] } },
+      Audience.PlayerOnly,
+    )
   }
 
   static rollSuccess(playerId: string, heroId: string): IGameEvent {
@@ -323,6 +337,20 @@ export class GameEventFactory {
       GameEventType.HeroStolen,
       toPlayerId,
       { cardId: heroId, fromPlayerId, toPlayerId },
+      Audience.All,
+    )
+  }
+
+  /**
+   * A hero was given up by its own owner — a price a card charged, not a
+   * removal somebody else caused. `Party.removeHero` announces the canonical
+   * HeroRemovedFromParty alongside it, which is what expiries subscribe to.
+   */
+  static heroSacrificed(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroSacrificed,
+      playerId,
+      { cardId },
       Audience.All,
     )
   }

@@ -35,6 +35,11 @@ export type CardFilter = {
    * `heroClass` rejects non-heroes.
    */
   partyReqMet?: boolean
+  /**
+   * Heroes only: keep the ones carrying no item, so a card that plays an Item
+   * offers only heroes that can actually take it. Non-heroes never match.
+   */
+  unequipped?: boolean
   excludeIds?: string[]
 }
 
@@ -139,6 +144,11 @@ export function filterCards(
     if (filter.heroClass) {
       if (!(card instanceof HeroCard)) return false
       if (card.getHeroClass() !== filter.heroClass) return false
+    }
+
+    if (filter.unequipped) {
+      if (!(card instanceof HeroCard)) return false
+      if (gs.getEquippedItem(id)) return false
     }
 
     // Asked of the board rather than answered here: the same question the

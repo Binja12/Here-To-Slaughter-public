@@ -571,7 +571,11 @@ reaches only the pile: the monster deck is face down, and nothing face down is
 offerable. `partyReqMet` is the one axis that is not about position — it keeps
 the monsters the ability owner's party may legally attack, by asking the board
 the same question the action and the window ask. Non-monsters never match it,
-the way `heroClass` rejects non-heroes.
+the way `heroClass` rejects non-heroes. `unequipped` is the same shape for
+heroes: it keeps the ones carrying nothing, so Malamammoth offers only heroes
+that can actually take the item it just drew. A party with no legal hero offers
+NOTHING, the window settles on its 0ms empty-choice timer, and `PlayItemTask`
+reads the empty slot and skips — no branch anywhere says so.
 
 **Visibility is not the engine's concern.** Events state the full truth
 (options include opponents' card ids). A projection layer in front of the API
@@ -817,6 +821,56 @@ event says WHEN to look; the check says WHETHER it is really over. **No expiry
 at all means permanent** — monster passives are the canonical case (`Party` has
 no `removeMonster`).
 
+**A monster's PASSIVE installs on `MonsterSlain`; a monster's TRIGGER installs
+nothing.** Mega Slime and the Warworn Owlbear leave an effect behind, so they
+need the event that puts them in a party. Orthus and Malamammoth do not: "each
+time you DRAW a Magic card" is a live trigger, and entries are re-derived from
+the monster's position on every event (§7), so sitting in the party is the whole
+of what keeps them running. Asking which of the two a wording is — does
+something READ a value, or does something RUN steps — is the same question §7
+asks of every card.
+
+**A monster reacting to a draw reads the event's `ctxSeed`.** `CardDrawn` carries
+`{ [CTX_DRAWN_CARD_IDS]: [cardId] }` for the reason `ModifierPlayed` carries its
+target: a TRIGGERED entry runs with a fresh context, so without it Orthus could
+not tell which card was drawn. Snowball is the contrast — it draws for itself,
+fills the slot from its own `DrawTask`, and ignores the seed entirely.
+
+**A monster's passive installs on `MonsterSlain`, and never expires.**
+`slayMonster` puts the monster in the party BEFORE it announces, so the monster
+is among the sources when its own entry is matched — and a monster still in the
+row has no owner to install on. Nothing removes a monster from a party
+(`Party` has no `removeMonster`), so no expiry is declared: absent means
+permanent. Mega Slime (monster-123) and the Warworn Owlbear (monster-135) are
+the two references, and differ only in which `PassiveType` they install.
+
+**`ModifierCounterBonus` is an effect for the third time the same argument
+lands.** The Abyss Queen (monster-129) answers a modifier ANOTHER player put on
+one of its owner's rolls, and that number has to arrive inside a window which is
+already open — no pipeline is running at the moment a bonus is submitted, so
+there is nothing to trigger.
+
+`GameState.counterBonusesFor(targetPlayerId, byPlayerId)` is the whole rule,
+and it sits on the BOARD rather than in a window because both window shapes
+need it and only the pushing differs — a plain roll has one bonus list, a
+challenge has two and picks the side that was aimed at. "ANOTHER player" is the
+guard inside it, in one place: no trigger scope says it, because the effect has
+no trigger at all. Both windows push the result before their announcement, so
+the `finalRoll` the table is told already counts it.
+
+`RollBonus` moved to `interfaces.ts` for the same reason. It is the shape
+`GameState`, both window kinds and the emitted payloads all share, so it
+belongs in the contract layer rather than on whichever class happened to
+declare it first.
+
+**`ActionPointBonus` is an effect for the same reason `RollBonus` is.** The
+turn's budget is settled inside `TurnManager.startTurn`, right after
+`resetActionPoints` and before `TurnStarted` is even emitted — there is no
+pipeline around at that moment to ask, which is exactly the case effects exist
+for. An entry triggered on `TurnStarted` would arrive after the budget was
+already fixed. Read as ENTRIES and summed, so two monsters grant two points and
+each keeps its source.
+
 **Wise Shield (hero-028)** — the reference effect. *"+3 to all of your rolls
 until the end of your turn."*
 
@@ -915,6 +969,16 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   canonical pair, so a new mechanic is one new `reason`. Making the emitter a
   parameter turns this from a convention into a compile error.
 - **A steal is remove-then-add**, so both halves are announced.
+- **Three removals, and the ZONE and REACH are what tell them apart.**
+  `SacrificeTask` takes a hero out of the ability owner's OWN party;
+  `DestroyTask` takes one out of ANY party, so it finds the party from the hero
+  via `getCardOwner` the way `StealFromPartyTask` does, rather than assuming the
+  owner's; `DiscardTask` takes a card out of the owner's own HAND and touches no
+  party at all. All three read a context slot and default to `CTX_CHOSEN_CARD`,
+  because the card is always somebody's pick. `HeroDestroyed` names the party
+  that LOST the hero rather than the one that caused it — Dracos (monster-126)
+  is printed "a Hero card in YOUR Party is destroyed" and needs the loser to
+  scope against.
 - **A defeated play is DISCARDED at settlement, not restored.** The card was
   taken out of hand *before* the snapshot, so rollback alone leaves it in no zone
   at all. `ChallengeWindow` adds it to the discard on the challenger-wins branch,
@@ -1002,8 +1066,14 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   mutation of a `HeroCard` or `ItemCard` outlives a rollback. Equipment moved to
   `Party` for that reason; anything else that ever needs to change on a card has
   the same problem waiting.
-- **`CantChallenge` / `CantBeChallenged` have no readers.** Declared, installable
-  and inert until a card needs them.
+- **`CantBeChallenged` is wired; `CantChallenge` was never declared.** The
+  Warworn Owlbear (monster-135) is the reader's only user: `IEffect.cardTypes`
+  narrows it to Items, `GameState.canBeChallenged` answers, and
+  `ChallengeWindow` asks at construction and runs a **0ms clock** when the
+  answer is no. The frame still opens and still settles — a played card's own
+  steps trigger on the settled frame (§1), so skipping it would silently kill
+  the item's ability. What the protection removes is the time anyone had to
+  answer, not the frame.
 - **`CantBeStolen` guards the steal but does not filter choices** — a protected
   hero can still be *offered* by a `ChooseCardTask`; the steal then no-ops.
 - **`TaskManager` must be added to the emitter before `GameEngine`.** Nothing
@@ -1045,6 +1115,13 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   the pile starts empty and `slayMonster` has nothing to refill from. Both
   decks are meant to be shuffled at the start of the game and the row dealt
   three wide; that is the bootstrap's job, and the bootstrap does not exist.
+- **No `TriggerScope` matches "the event TARGETS my owner".** `ModifierPlayed`
+  names the player who spent the card, and `targetPlayerId` — whose roll it was
+  aimed at — is readable only from the payload. The Abyss Queen wanted it and
+  no longer needs it, since the bonus became an effect the windows read; a
+  future steal or challenge wording may bring it back.
+- **Ten of the fifteen monsters are unwritten.** The five that are done
+  (`monster-123`, `129`, `131`, `134`, `135`) are the pattern for the rest.
 - **53 card ids declare an ability** — 3 heroes, 3 items, 2 magic, all 6
   leaders, all 25 modifiers (one declaration between them) and all 14
   challenges (another). Every printed leader is written.

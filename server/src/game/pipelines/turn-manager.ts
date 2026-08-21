@@ -1,4 +1,4 @@
-import { GameEventType, TurnPhase } from 'shared'
+import { GameEventType, PassiveType, TurnPhase } from 'shared'
 import { IAction } from '../interfaces'
 import { GameState } from './game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -52,6 +52,17 @@ export class TurnManager {
     this.gs.clearUsedAbilities()
     this.gs.clearChallengedCards()
     player.resetActionPoints()
+
+    // AFTER the reset, which sets the printed per-turn budget: a standing
+    // ActionPointBonus is extra on top of it, every turn, for as long as the
+    // effect stands. Read here rather than run as an ability because the
+    // budget is settled before TurnStarted goes out — there is no pipeline
+    // around to ask, which is what makes it an effect at all (§7).
+    const extra = this.gs
+      .getEffects(PassiveType.ActionPointBonus, playerId)
+      .reduce((sum, effect) => sum + (effect.value ?? 0), 0)
+    if (extra) player.increaseActionPoints(extra)
+
     this.phase = TurnPhase.ActionWindow
     this.emitter.emit(
       new GameEvent(GameEventType.TurnStarted, playerId, { playerId }),

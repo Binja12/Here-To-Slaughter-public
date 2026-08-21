@@ -1,4 +1,4 @@
-import { IGameEventEmitter, PassiveType, RollContext } from 'shared'
+import { CardType, IGameEventEmitter, PassiveType, RollContext } from 'shared'
 import {
   IEffect,
   EffectExpiry,
@@ -152,6 +152,8 @@ export type EffectSpec = {
   value?: number
   /** Which kind of roll this applies to. Absent = every kind. */
   rollContext?: RollContext
+  /** Which card types being PLAYED this applies to. Absent = every type. */
+  cardTypes?: CardType[]
   /** Absent = permanent. One entry or several — first match ends the effect. */
   expiry?: EffectExpiry | EffectExpiry[]
   /**

@@ -6,18 +6,11 @@ import {
   ReactionWindowType,
   RollContext,
 } from 'shared'
-import { IModifiableWindow, ValueBias } from '../interfaces'
+import { IModifiableWindow, RollBonus, ValueBias } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
-
-/** One contribution to a roll: standing effects and played cards share a list. */
-export type RollBonus = {
-  /** The effect's source card, or the modifier played. Card ids are per copy. */
-  cardSource: string
-  amount: number
-}
 
 // ---------------------------------------------------------------------------
 // One roll, one requirement to beat, and a window modifier cards can be spent
@@ -145,6 +138,10 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
     }
     if (targetPlayerId !== undefined && targetPlayerId !== this.rollerId) return
     this.bonuses.push({ cardSource: cardId, amount: value })
+    // What the roller gets back for being modified by somebody else — the
+    // Abyss Queen. Pushed BEFORE the announcement, so the finalRoll the table
+    // is told already counts it. One roll here, so one list to push into.
+    this.bonuses.push(...this.gs.counterBonusesFor(this.rollerId, playerId))
     this.emitter.emit(
       new GameEvent(
         GameEventType.ModifierApplied,

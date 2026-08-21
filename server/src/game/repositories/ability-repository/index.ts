@@ -1,13 +1,18 @@
 import { IAbilityRule } from '../../interfaces'
 import { ChallengeAbility } from './challenge-ability'
 import { CharismaticSongAbility } from './charismatic-song-ability'
+import { AbyssQueenAbility } from './abyss-queen-ability'
 import { CloakedSageAbility } from './cloaked-sage-ability'
 import { CriticalBoostAbility } from './critical-boost-ability'
 import { DivineArrowAbility } from './divine-arrow-ability'
 import { FistOfReasonAbility } from './fist-of-reason-ability'
+import { MalamammothAbility } from './malamammoth-ability'
+import { MegaSlimeAbility } from './mega-slime-ability'
+import { OrthusAbility } from './orthus-ability'
 import { ModifierAbility } from './modifier-ability'
 import { ProtectingHornAbility } from './protecting-horn-ability'
 import { ShadowClawAbility } from './shadow-claw-ability'
+import { WarwornOwlbearAbility } from './warworn-owlbear-ability'
 import { ReallyBigRingAbility } from './really-big-ring-ability'
 import { SuspiciouslyShinyCoinAbility } from './suspiciously-shiny-coin-ability'
 import { SnowballAbility } from './snowball-ability'
@@ -65,7 +70,13 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // =========================================================================
   // MONSTERS — monster-122 … monster-136
   // =========================================================================
-  // (none yet)
+  // Every monster passive installs on MonsterSlain and never expires: the
+  // monster is in the party before that event goes out, and it never leaves.
+  ['monster-123', MegaSlimeAbility], // Mega Slime — +1 action point each turn
+  ['monster-129', AbyssQueenAbility], // Abyss Queen — +1 answering a hostile Modifier
+  ['monster-131', OrthusAbility], // Orthus — DRAW a Magic card, may play it at once
+  ['monster-134', MalamammothAbility], // Malamammoth — DRAW an Item card, may play it at once
+  ['monster-135', WarwornOwlbearAbility], // Warworn Owlbear — your Items cannot be challenged
 
   // =========================================================================
   // ITEMS — item-062 … item-076

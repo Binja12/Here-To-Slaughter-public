@@ -14,11 +14,21 @@ import { GameEventFactory } from '../events/game-event-factory'
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// DestroyTask — remove a hero from the owner's party to the discard pile
+// DestroyTask — remove a hero from ANY party to the discard pile
+//
+// The reach is the whole difference from SacrificeTask: destroy crosses the
+// table, sacrifice does not. So the party is found from the HERO
+// (`getCardOwner`), the way StealFromPartyTask finds the one it takes from,
+// rather than assumed to be the ability owner's.
+//
+// `playerId` on the announcement is the party that LOST the hero, not the one
+// that caused it — Dracos (monster-126) is printed "each time a Hero card in
+// YOUR Party is destroyed", and that wording needs the loser to scope against.
 // ---------------------------------------------------------------------------
 
 export class DestroyTask implements ITask {
-  constructor(private readonly heroId?: string) {}
+  /** Slot holding the hero to destroy. Defaults to the choice slot. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
 
   execute(
     gs: GameState,
@@ -26,15 +36,78 @@ export class DestroyTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const targetId = this.heroId ?? ctx.sourceCardId
-    const party = gs.getParty(ctx.ownerId)
-    if (!party.getHeroIds().includes(targetId)) return
+    const heroes = ctx.get<string[]>(this.fromKey)
 
-    const carriedItemId = party.removeHero(targetId, em, 'Destroyed')
-    gs.getDiscardPile().add(targetId)
+    // Absent = no step ahead was declared to supply a hero.
+    if (heroes === undefined) {
+      throw new Error(
+        `DestroyTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a hero.',
+      )
+    }
+
+    // Empty = the player was asked and picked nothing.
+    const [heroId] = heroes
+    if (!heroId) return
+
+    const ownerId = gs.getCardOwner(heroId)
+    if (!ownerId) return
+
+    const party = gs.getParty(ownerId)
+    if (!party.getHeroIds().includes(heroId)) return
+
+    const carriedItemId = party.removeHero(heroId, em, 'Destroyed')
+    gs.getDiscardPile().add(heroId)
     // The gear goes down with its carrier rather than vanishing from every zone.
     if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
-    em.emit(GameEventFactory.heroDestroyed(ctx.ownerId, targetId))
+    em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SacrificeTask — the owner gives up one of their own heroes
+//
+// DestroyTask with a different reason and a different announcement, and they
+// stay two tasks because the REASON is what a card wording keys off: a hero
+// lost to a monster's fight-back was sacrificed, not destroyed by an opponent,
+// and Party.removeHero makes every caller say which.
+//
+// Reads a slot rather than taking an id, because the hero is the player's own
+// pick — a ChooseCardTask over Zone.Party runs ahead of it.
+// ---------------------------------------------------------------------------
+
+export class SacrificeTask implements ITask {
+  /** Slot holding the hero to give up. Defaults to the choice slot. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const heroes = ctx.get<string[]>(this.fromKey)
+
+    // Absent = no step ahead was declared to supply a hero.
+    if (heroes === undefined) {
+      throw new Error(
+        `SacrificeTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a hero.',
+      )
+    }
+
+    // Empty = the player was asked and picked nothing, or has no heroes at all.
+    const [heroId] = heroes
+    if (!heroId) return
+
+    const party = gs.getParty(ctx.ownerId)
+    if (!party.getHeroIds().includes(heroId)) return
+
+    const carriedItemId = party.removeHero(heroId, em, 'Sacrificed')
+    gs.getDiscardPile().add(heroId)
+    // The gear goes down with its carrier rather than vanishing from every zone.
+    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
+    em.emit(GameEventFactory.heroSacrificed(ctx.ownerId, heroId))
   }
 }
 

@@ -5,9 +5,11 @@ import type {
   IModifiableWindow,
   IReactionWindow,
   ITask,
+  RollBonus,
   ValueBias,
 } from '../interfaces'
-import type { PassiveType, RollContext } from 'shared'
+import { PassiveType } from 'shared'
+import type { RollContext } from 'shared'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
@@ -494,6 +496,28 @@ export class GameState {
     return monster.canBeAttackedBy(this.getPartyHeroClasses(playerId))
   }
 
+  /**
+   * Whether a card `playerId` is playing may be contested at all.
+   *
+   * The reader for `CantBeChallenged`, narrowed by the effect's `cardTypes` —
+   * the Warworn Owlbear (monster-135) protects Items and nothing else, so the
+   * card's own type is the question. An effect naming no types covers every
+   * type, the same way an absent `rollContext` covers every kind of roll (§7).
+   *
+   * Asked by ChallengeWindow at construction: the frame still opens and still
+   * settles, because a played card's own steps trigger on the settled frame
+   * (§1). What changes is that nobody is given time to contest it.
+   */
+  canBeChallenged(playerId: string, cardId: string): boolean {
+    const cardType = this.getCard(cardId)?.getType()
+    if (!cardType) return true
+
+    return !this.players
+      .get(playerId)
+      ?.getEffects(PassiveType.CantBeChallenged)
+      .some((effect) => !effect.cardTypes || effect.cardTypes.includes(cardType))
+  }
+
   /** The classes standing in a party, one entry per hero. Leaders excluded. */
   getPartyHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
@@ -605,6 +629,26 @@ export class GameState {
     )
   }
 
+
+  /**
+   * What `targetPlayerId` gets back when `byPlayerId` lands a modifier on one
+   * of their rolls — the Abyss Queen (monster-129).
+   *
+   * Here rather than in a window because it is a question about the BOARD, and
+   * because the two window shapes would otherwise each hold a copy: a plain
+   * roll has one bonus list, a challenge has two, and only the pushing differs.
+   * The guard is what "ANOTHER player" means, and it lives in one place.
+   */
+  counterBonusesFor(targetPlayerId: string, byPlayerId: string): RollBonus[] {
+    if (byPlayerId === targetPlayerId) return []
+    return this.getEffects(
+      PassiveType.ModifierCounterBonus,
+      targetPlayerId,
+    ).map((effect) => ({
+      cardSource: effect.sourceCardId,
+      amount: effect.value ?? 0,
+    }))
+  }
 
   getCardsChallengedThisTurn(): string[] {
     return [...this.cardsChallengedThisTurn]

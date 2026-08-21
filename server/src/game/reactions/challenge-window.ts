@@ -6,14 +6,25 @@ import {
   ReactionWindowType,
   RollContext,
 } from 'shared'
-import { IModifiableWindow, ValueBias } from '../interfaces'
+import { IModifiableWindow, RollBonus, ValueBias } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
-import { RollBonus } from './modifiable-roll-window'
+
 
 export class ChallengeWindow implements IModifiableWindow {
+  /**
+   * The clock this window actually runs on. Zero when nothing may contest the
+   * card — see GameState.canBeChallenged.
+   *
+   * A 0ms TIMER rather than resolving inline, for the reason an empty
+   * ChoiceWindow uses one: the play that opened this has not returned yet, so
+   * settling here would send FrameResolved before anything was parked on it.
+   * One tick puts the case back on the ordinary suspend → resolve → resume
+   * path, and the card's own steps still fire off the settled frame (§1).
+   */
+  private readonly clockMs: number
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
   private challenged: boolean = false
@@ -36,13 +47,20 @@ export class ChallengeWindow implements IModifiableWindow {
     private readonly frameId: string,
     private readonly emitter: IGameEventEmitter,
   ) {
+    this.clockMs = gs.canBeChallenged(challengedId, cardId) ? timeoutMs : 0
+
     this.emitter.emit(
       GameEventFactory.reactionWindowOpened(
         this.getType(),
         this.challengedId,
         this.frameId,
         undefined,
-        { defenderId: this.challengedId, cardId: this.cardId },
+        {
+          defenderId: this.challengedId,
+          cardId: this.cardId,
+          // So the table can see WHY it had no chance to answer.
+          challengeable: this.clockMs > 0,
+        },
       ),
     )
     this.resetTimer()
@@ -110,13 +128,18 @@ export class ChallengeWindow implements IModifiableWindow {
         targetPlayerId: string
       }
       const entry: RollBonus = { cardSource: cardId, amount: value }
-      if (targetPlayerId === this.challengerId) {
-        this.challengerBonuses.push(entry)
-      } else if (targetPlayerId === this.challengedId) {
-        this.challengedBonuses.push(entry)
-      } else {
-        return // names neither side of this challenge
-      }
+      const side =
+        targetPlayerId === this.challengerId
+          ? this.challengerBonuses
+          : targetPlayerId === this.challengedId
+            ? this.challengedBonuses
+            : undefined
+      if (!side) return // names neither side of this challenge
+      side.push(entry)
+
+      // Same derivation the roll windows use. Two rolls here, so the only
+      // difference is which list it lands in: whichever side was aimed at.
+      side.push(...this.gs.counterBonusesFor(targetPlayerId, playerId))
       this.emitter.emit(
         GameEventFactory.modifierAppliedToChallenge(
           playerId,
@@ -266,6 +289,6 @@ export class ChallengeWindow implements IModifiableWindow {
 
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+    this.timer = setTimeout(() => this.resolve(), this.clockMs)
   }
 }

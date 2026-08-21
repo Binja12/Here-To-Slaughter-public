@@ -1,5 +1,6 @@
 import {
   ActionType,
+  CardType,
   GameEventType,
   IGameEvent,
   IGameEventEmitter,
@@ -135,6 +136,12 @@ export interface IEffect {
    * is FOR. "+1 when you roll to ATTACK" needs the second and not the first.
    */
   rollContext?: RollContext
+  /**
+   * Narrows it to plays of these card types — absent means every type. The
+   * third narrowing, and the only one about a CARD BEING PLAYED rather than a
+   * roll: "Item cards you play cannot be challenged" is this and nothing else.
+   */
+  cardTypes?: CardType[]
   /** Absent = permanent. Multiple entries = first match ends it. */
   expiry?: EffectExpiry[]
 }
@@ -154,6 +161,13 @@ export interface IRollResolver {
 // ---------------------------------------------------------------------------
 // Reaction windows
 // ---------------------------------------------------------------------------
+
+/** One contribution to a roll: standing effects and played cards share a list. */
+export type RollBonus = {
+  /** The effect's source card, or the modifier played. Card ids are per copy. */
+  cardSource: string
+  amount: number
+}
 
 /**
  * Which way an unanswered value choice should fall. The window being modified

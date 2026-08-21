@@ -267,12 +267,21 @@ export enum TriggerScope {
 /**
  * Which standing rule an IEffect is. A rule does nothing until something
  * reads it.
- *   RollBonus     — read by ModifierWindow and ChallengeWindow
- *   CantBeStolen  — read by StealFromPartyTask
- *   CantChallenge, CantBeChallenged — NOT wired; no reader yet.
+ *   RollBonus         — read by ModifierWindow, AttackWindow, ChallengeWindow
+ *   ActionPointBonus  — read by TurnManager.startTurn
+ *   ModifierCounterBonus — read by ModifiableRollWindow and ChallengeWindow
+ *   CantBeStolen      — read by StealFromPartyTask
+ *   CantBeChallenged  — read by ChallengeWindow, narrowed by IEffect.cardTypes
  */
 export enum PassiveType {
   RollBonus = "RollBonus",
+  /** Extra action points at the start of the owner's turn. */
+  ActionPointBonus = "ActionPointBonus",
+  /**
+   * Answers a modifier ANOTHER player lands on one of the owner's rolls, with
+   * a bonus to that same roll. Read by the windows a modifier is spent into.
+   */
+  ModifierCounterBonus = "ModifierCounterBonus",
   CantBeStolen = "CantBeStolen",
   CantBeChallenged = "CantBeChallenged",
 }
