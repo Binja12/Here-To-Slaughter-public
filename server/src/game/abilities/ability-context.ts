@@ -4,6 +4,15 @@ export const CTX_DRAWN_CARD_IDS = "drawnCardIds";
 /** string[] — written by StealFromPartyTask. */
 export const CTX_STOLEN_HERO_ID = "stolenHeroId";
 
+/**
+ * string[] — the player StealFromPartyTask actually took FROM, written on the
+ * same paths as CTX_STOLEN_HERO_ID and empty whenever the steal produced
+ * nothing. That is what lets a later step be conditional on the steal without
+ * asking about it: an empty slot is "ran and produced nothing", and the step
+ * reading it skips itself (§2).
+ */
+export const CTX_STOLEN_FROM_PLAYER = "stolenFromPlayer";
+
 /** string[] — written by PullCardTask: what came out of the other hand. */
 export const CTX_PULLED_CARD_IDS = "pulledCardIds";
 

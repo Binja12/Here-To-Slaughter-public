@@ -41,7 +41,21 @@ export class ChoosePlayerTask implements ITask {
 }
 
 export class ChooseCardTask implements ITask {
-  constructor(private readonly filter: CardFilter) {}
+  constructor(
+    private readonly filter: CardFilter,
+    /**
+     * A slot that must hold something before this choice is worth asking.
+     *
+     * Not a filter — the question is whether the choice has a POINT, not which
+     * cards qualify. Forced Exchange asks "which of yours do you hand over?"
+     * only once there is somebody to hand it to; without this the player is
+     * prompted and the step behind then skips on the same empty slot, which
+     * reads as a bug from the table.
+     *
+     * Absent slot = mis-declared, empty slot = a step ahead produced nothing.
+     */
+    private readonly requiresKey?: string,
+  ) {}
 
   execute(
     gs: GameState,
@@ -49,6 +63,17 @@ export class ChooseCardTask implements ITask {
     _em: IGameEventEmitter,
     rm: IReactionManager,
   ): string | void {
+    if (this.requiresKey) {
+      const required = ctx.get<unknown[]>(this.requiresKey)
+      if (required === undefined) {
+        throw new Error(
+          `ChooseCardTask: nothing has written ${this.requiresKey} — the ` +
+            'ability named it as a precondition but no step ahead fills it.',
+        )
+      }
+      if (required.length === 0) return
+    }
+
     const options = filterCards(gs, ctx, this.filter)
 
     const frameId = rm.openFrame()

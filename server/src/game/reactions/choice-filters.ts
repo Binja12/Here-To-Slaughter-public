@@ -19,6 +19,13 @@ import { HeroCard } from '../cards/hero-card'
 
 export type PlayerFilter = {
   owner?: Owner
+  /**
+   * Keep only players fielding at least one hero. For a wording whose SECOND
+   * clause is about that player's party — Forced Exchange takes one and hands
+   * one back — offering an empty seat would offer a choice that cannot be
+   * carried out.
+   */
+  hasHeroes?: boolean
   excludeIds?: string[]
 }
 
@@ -92,9 +99,13 @@ export function filterPlayers(
   filter: PlayerFilter = {},
 ): string[] {
   const exclude = new Set(filter.excludeIds ?? [])
-  return playersFor(gs, ctx, filter.owner ?? Owner.Others).filter(
-    (id) => !exclude.has(id),
-  )
+  return playersFor(gs, ctx, filter.owner ?? Owner.Others).filter((id) => {
+    if (exclude.has(id)) return false
+    if (filter.hasHeroes && gs.getParty(id).getHeroIds().length === 0) {
+      return false
+    }
+    return true
+  })
 }
 
 // ---------------------------------------------------------------------------

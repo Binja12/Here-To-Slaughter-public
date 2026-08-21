@@ -5,6 +5,7 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
+  CTX_STOLEN_FROM_PLAYER,
   CTX_STOLEN_HERO_ID,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
@@ -198,9 +199,10 @@ export class StealFromPartyTask implements ITask {
       )
     }
 
-    // Declared up front, empty: every no-steal path leaves it that way, and
+    // Declared up front, empty: every no-steal path leaves them that way, and
     // later steps read the empty slot and skip themselves.
     ctx.set(CTX_STOLEN_HERO_ID, [])
+    ctx.set(CTX_STOLEN_FROM_PLAYER, [])
 
     const [heroId] = chosen
     if (!heroId) return
@@ -222,6 +224,7 @@ export class StealFromPartyTask implements ITask {
     // Recorded so later steps can still reach this hero after a second card
     // choice has overwritten CTX_CHOSEN_CARD.
     ctx.set(CTX_STOLEN_HERO_ID, [heroId])
+    ctx.set(CTX_STOLEN_FROM_PLAYER, [fromPlayerId])
     em.emit(GameEventFactory.heroStolen(ctx.ownerId, fromPlayerId, heroId))
   }
 }

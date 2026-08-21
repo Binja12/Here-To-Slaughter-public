@@ -494,19 +494,68 @@ describe('magic abilities', () => {
 
     // --- edges ---
 
-    it('still gives one away when the chosen party had nothing to take', () => {
+    it('never OFFERS a player with an empty party', () => {
       const ctx = setup(SPELL)
       ctx.gs.getParty('p2').removeHero('p2-hero', ctx.em, 'Destroyed')
+      ctx.events.length = 0
+
+      cast(ctx, SPELL)
+
+      // Both clauses are about that player's party, so a seat with nobody in
+      // it is a choice that could not be carried out.
+      const [offered] = optionsOffered(
+        ctx.gs,
+        ReactionWindowType.PlayerChoice,
+        ctx.events,
+      )
+      expect(offered).toEqual(['p3'])
+    })
+
+    it('offers nobody at all when every opponent party is empty', () => {
+      const ctx = setup(SPELL)
+      ctx.gs.getParty('p2').removeHero('p2-hero', ctx.em, 'Destroyed')
+      ctx.gs.getParty('p3').removeHero('p3-hero', ctx.em, 'Destroyed')
+      ctx.events.length = 0
+
+      cast(ctx, SPELL)
+      // Two empty choices settle back to back, each on its own 0ms timer, and
+      // the second is scheduled from inside the first one's callback.
+      jest.advanceTimersByTime(1)
+      jest.advanceTimersByTime(1)
+
+      const [offered] = optionsOffered(
+        ctx.gs,
+        ReactionWindowType.PlayerChoice,
+        ctx.events,
+      )
+      expect(offered).toEqual([])
+      // Nothing was taken, so nothing is handed back.
+      expect(ctx.gs.getParty('p1').getHeroIds()).toEqual(['p1-hero'])
+      expect(ctx.gs.hasOpenFrames()).toBe(false)
+    })
+
+    it('CANCELS the give when the steal was refused', () => {
+      const ctx = setup(SPELL)
+      // p2 is protected, so the steal produces nothing even though the choice
+      // was legal when it was offered.
+      ctx.gs.addEffect({
+        id: 'guard',
+        sourceCardId: 'some-card',
+        ownerId: 'p2',
+        type: PassiveType.CantBeStolen,
+      })
 
       cast(ctx, SPELL)
       playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2' })
-      jest.advanceTimersByTime(1)
-      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p1-hero' })
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2-hero' })
 
-      // Printed as two clauses joined by "then", not as a conditional: the
-      // give does not ask whether the steal found anything.
-      expect(ctx.gs.getParty('p1').getHeroIds()).toEqual([])
-      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p1-hero'])
+      // "you may give" is only reachable through "you stole": both the prompt
+      // and the move read the slot the steal fills, and an unmade steal leaves
+      // it empty. The caster is never even asked.
+      expect(cardChoice(ctx.gs)).toBeUndefined()
+      expect(ctx.gs.getParty('p1').getHeroIds()).toEqual(['p1-hero'])
+      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
+      expect(ctx.gs.hasOpenFrames()).toBe(false)
     })
 
     it('offers the just-stolen hero back — it is in your party by then', () => {
@@ -524,6 +573,16 @@ describe('magic abilities', () => {
         'p1-hero',
         'p3-hero',
       ])
+    })
+
+    it('hands back to the player it STOLE from, not merely the one chosen', () => {
+      const ctx = setup(SPELL)
+      cast(ctx, SPELL)
+
+      exchange(ctx, 'p3', 'p3-hero', 'p1-hero')
+
+      expect(ctx.gs.getParty('p3').getHeroIds()).toEqual(['p1-hero'])
+      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
     })
 
     it('an empty caster party can only hand back what it just took', () => {

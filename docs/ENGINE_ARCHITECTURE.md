@@ -753,6 +753,28 @@ Three things fall out of this shape:
   blackboard: the gap between entries is unbounded (a player may sit on a prompt
   for the full timeout) and the event is the record.
 
+**A conditional second clause needs no condition when it can read the FIRST
+clause's output.** Forced Exchange is printed "STEAL a Hero card from that
+player's Party, then move a Hero card from your Party to that player's Party" —
+you may only give because you took. Both remaining steps therefore read
+`CTX_STOLEN_FROM_PLAYER`, which `StealFromPartyTask` fills only when it actually
+took somebody, rather than `CTX_CHOSEN_PLAYER`, which is filled either way. A
+refused steal (a hero under `CantBeStolen`) leaves it empty and both steps skip
+on their own missing input — no `ConditionMet`, no second entry, and no step
+asking about a sibling.
+
+`ChooseCardTask`'s `requiresKey` is the same idea applied to the PROMPT. It is
+not a filter: the question is whether the choice has a point at all, not which
+cards qualify. Without it the player is asked which hero to hand over and the
+step behind then skips on the same empty slot, which reads as a bug from the
+table.
+
+**A choice must not offer what cannot be carried out.** `PlayerFilter.hasHeroes`
+exists because both of Forced Exchange's clauses are about the chosen player's
+party, so an empty seat is a legal pick that leads nowhere. The rule is the one
+`partyReqMet` follows for monsters: an option offered is an option that can be
+acted on.
+
 **A confirm must be the last step of its entry — by discipline, not by check.**
 Anything after it would run on "no" as well as "yes", because the window
 releases either way.
