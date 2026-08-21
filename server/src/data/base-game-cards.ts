@@ -536,9 +536,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 9,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card and DRAW a card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -552,9 +552,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card and DRAW 2 cards.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -568,9 +568,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 7,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -585,9 +585,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 10,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -602,9 +602,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 5,
     lowerReq: 8,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -619,9 +619,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 9,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -636,9 +636,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 10,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -653,9 +653,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 5,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -669,9 +669,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 11,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -686,9 +686,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -703,9 +703,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -720,9 +720,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -737,9 +737,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -753,9 +753,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -769,9 +769,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
 ]
