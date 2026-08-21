@@ -2,10 +2,14 @@ import { IGameEventEmitter, PartyData } from 'shared'
 import { GameEventFactory } from '../events/game-event-factory'
 
 /** Why a hero entered a party. */
-export type HeroAddReason = 'Played' | 'Stolen' | 'Reborn'
+export type HeroAddReason = 'Played' | 'Stolen' | 'Reborn' | 'Given'
 
 /** Why a hero left a party. */
-export type HeroRemovalReason = 'Stolen' | 'Destroyed' | 'Sacrificed'
+export type HeroRemovalReason =
+  | 'Stolen'
+  | 'Destroyed'
+  | 'Sacrificed'
+  | 'Given'
 
 // ---------------------------------------------------------------------------
 // Party — membership, and the choke point for changing it.

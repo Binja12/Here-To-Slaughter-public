@@ -999,7 +999,11 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   alongside whatever specific event the caller emits. Expiries subscribe to the
   canonical pair, so a new mechanic is one new `reason`. Making the emitter a
   parameter turns this from a convention into a compile error.
-- **A steal is remove-then-add**, so both halves are announced.
+- **A steal is remove-then-add**, so both halves are announced. `GiveHeroTask`
+  is the same movement pointed the other way — out of the ability owner's party
+  instead of into it — and is a new REASON (`Given`) rather than a new event,
+  which is the extension point membership was built with. Forced Exchange
+  (`magic-057`) runs both in one entry.
 - **Three removals, and the ZONE and REACH are what tell them apart.**
   `SacrificeTask` takes a hero out of the ability owner's OWN party;
   `DestroyTask` takes one out of ANY party, so it finds the party from the hero
@@ -1155,9 +1159,10 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   future steal or challenge wording may bring it back.
 - **Ten of the fifteen monsters are unwritten.** The five that are done
   (`monster-123`, `129`, `131`, `134`, `135`) are the pattern for the rest.
-- **53 card ids declare an ability** — 3 heroes, 3 items, 2 magic, all 6
-  leaders, all 25 modifiers (one declaration between them) and all 14
-  challenges (another). Every printed leader is written.
+- **68 card ids declare an ability** — 3 heroes, 8 items, 7 magic, 5 monsters,
+  all 6 leaders, all 25 modifiers (one declaration between them) and all 14
+  challenges (another). Every printed leader is written; every printed
+  modifier and challenge shares one declaration with its copies.
 - **The thirteen one-off declarations** — `hero-028` (Wise Shield), `hero-036`
   (Wiggles), `hero-040` (Snowball), Critical Boost (`magic-053`, `magic-054` —
   two printed copies sharing one declaration), Really Big Ring (`item-064`,
@@ -1167,7 +1172,19 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   you may spend an action point", because every clause of that is a guard in
   `RollOnLeaderAction`.
   Critical Boost is the reference MAGIC card: one entry that pauses on a choice
-  and finishes as a later step of the same run. Really Big Ring is the
+  and finishes as a later step of the same run. The Destructive Spell
+  (`magic-049`/`050`) is the same shape stretched over TWO choices — price then
+  payoff, in printed order, with each acting step directly behind its own
+  choice because the second pick overwrites `CTX_CHOSEN_CARD`. Forced Exchange
+  (`magic-057`) is the only reader of `Owner.Chosen`: it picks a player, then
+  reads THAT player's party, which is the late binding §5 exists for — and it
+  keeps reading it across two more windows, because only a player choice
+  writes `CTX_CHOSEN_PLAYER` while the card choices overwrite
+  `CTX_CHOSEN_CARD` around it. Three windows, one entry, and the gear travels
+  both ways for free. The
+  Enchanted Spell (`magic-055`/`056`) is Wise Shield's wording on a magic card
+  and shares its declaration exactly — what a card IS has no bearing on the
+  shape of what it does. Really Big Ring is the
   reference ITEM — an on-equip effect that ends with its carrier — and
   Suspiciously Shiny Coin the reference CURSED item, riding an opponent's hero
   and taxing that opponent on `CarrierCard` scope. The Cloaked Sage

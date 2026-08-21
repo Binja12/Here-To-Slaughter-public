@@ -4,6 +4,7 @@ import { GameState } from '../pipelines/game-state'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
+  CTX_CHOSEN_PLAYER,
   CTX_STOLEN_HERO_ID,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
@@ -61,6 +62,66 @@ export class DestroyTask implements ITask {
     // The gear goes down with its carrier rather than vanishing from every zone.
     if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
     em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GiveHeroTask — hand one of your own heroes to somebody else
+//
+// StealFromPartyTask pointed the other way: that one takes FROM a party the
+// context named, this one gives FROM the ability owner's. Both are
+// remove-then-add through Party's choke point, so both announce the canonical
+// pair and both carry the hero's gear along — `removeHero` returns what it was
+// wearing and `addHero` puts it back on in the new party, which is also what
+// re-installs any effect the item granted (§7).
+//
+// A new REASON rather than a new event: that is the extension point party
+// membership was built with, so nothing listening has to change.
+// ---------------------------------------------------------------------------
+
+export class GiveHeroTask implements ITask {
+  constructor(
+    /** Slot holding the hero to give away. Defaults to the choice slot. */
+    private readonly heroKey: string = CTX_CHOSEN_CARD,
+    /** Slot naming who receives it. Defaults to a ChoosePlayerTask's. */
+    private readonly toKey: string = CTX_CHOSEN_PLAYER,
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const heroes = this.read(ctx, this.heroKey)
+    const recipients = this.read(ctx, this.toKey)
+
+    // Empty = a step ahead ran and produced nothing.
+    const [heroId] = heroes
+    const [toPlayerId] = recipients
+    if (!heroId || !toPlayerId) return
+
+    // Giving to yourself is a no-op, not an error: a choice can land there.
+    if (toPlayerId === ctx.ownerId) return
+    if (!gs.getPlayer(toPlayerId)) return
+
+    const fromParty = gs.getParty(ctx.ownerId)
+    if (!fromParty.getHeroIds().includes(heroId)) return
+
+    const carriedItemId = fromParty.removeHero(heroId, em, 'Given')
+    gs.getParty(toPlayerId).addHero(heroId, em, 'Given', carriedItemId)
+  }
+
+  /** Absent = no step ahead was declared to fill this slot. */
+  private read(ctx: AbilityContext, key: string): string[] {
+    const value = ctx.get<string[]>(key)
+    if (value === undefined) {
+      throw new Error(
+        `GiveHeroTask: nothing has written ${key} — expected a preceding ` +
+          'step to supply it.',
+      )
+    }
+    return value
   }
 }
 

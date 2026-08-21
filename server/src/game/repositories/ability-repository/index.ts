@@ -5,6 +5,9 @@ import { AbyssQueenAbility } from './abyss-queen-ability'
 import { CloakedSageAbility } from './cloaked-sage-ability'
 import { CurseOfTheSnakesEyesAbility } from './curse-of-the-snakes-eyes-ability'
 import { CriticalBoostAbility } from './critical-boost-ability'
+import { DestructiveSpellAbility } from './destructive-spell-ability'
+import { EnchantedSpellAbility } from './enchanted-spell-ability'
+import { ForcedExchangeAbility } from './forced-exchange-ability'
 import { DivineArrowAbility } from './divine-arrow-ability'
 import { FistOfReasonAbility } from './fist-of-reason-ability'
 import { MalamammothAbility } from './malamammoth-ability'
@@ -98,8 +101,13 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // =========================================================================
   // MAGIC — magic-049 … magic-061
   // =========================================================================
+  ['magic-049', DestructiveSpellAbility], // Destructive Spell — DISCARD 1, then DESTROY a hero
+  ['magic-050', DestructiveSpellAbility],
   ['magic-053', CriticalBoostAbility], // Critical Boost — DRAW 3, DISCARD 1
   ['magic-054', CriticalBoostAbility],
+  ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to all your rolls this turn
+  ['magic-056', EnchantedSpellAbility],
+  ['magic-057', ForcedExchangeAbility], // Forced Exchange — choose a player, STEAL from them
 
   // =========================================================================
   // MODIFIERS — modifier-077 … modifier-101
