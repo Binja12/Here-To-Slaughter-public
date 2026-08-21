@@ -30,23 +30,24 @@ export const untilSourceLeavesParty: EffectExpiry = {
 }
 
 /**
- * "...while the hero carrying the card that granted this is still in play."
- * The item's own ability ends with its carrier for free (it is derived from the
- * hero's position); an effect the item installed needs this.
+ * "...until this item comes off." ONE event, because taking gear off a hero has
+ * one door: `Party.unequipItem` announces it, and `Party.removeHero` announces
+ * it for a carrier leaving play. Nothing drops equipment silently any more.
+ *
+ * Named for what ENDS it rather than for the state it holds under, like every
+ * other lifetime here. The old name said "while equipped", which read as a
+ * standing condition and hid the fact that a steal — remove then add — passes
+ * through the ending event on its way to re-installing.
+ *
+ * The check reads the EVENT's item id rather than asking the board whether the
+ * item is still worn anywhere: during a steal it is momentarily on nobody and
+ * about to be on somebody, and only the event says which item just came off.
  */
-const noLongerWorn: EffectExpiry['shouldExpire'] = (gs, effect) =>
-  !gs.getItemCarrier(effect.sourceCardId)
-
-/**
- * "...while the item that granted this is still worn." Two ways that ends —
- * the carrier leaves play, or the item is replaced — and one question answers
- * both: is it still on anybody? Asked of the ITEM rather than the event's
- * subject, because both callers drop the gear before they announce.
- */
-export const whileEquipped: EffectExpiry[] = [
-  { on: GameEventType.HeroRemovedFromParty, shouldExpire: noLongerWorn },
-  { on: GameEventType.ItemUnequipped, shouldExpire: noLongerWorn },
-]
+export const untilUnequipped: EffectExpiry = {
+  on: GameEventType.ItemUnequipped,
+  shouldExpire: (_gs, effect, event) =>
+    (event.getPayload() as { cardId?: string })?.cardId === effect.sourceCardId,
+}
 
 /**
  * "...while you have a <class> in your party." The check matters: losing one of

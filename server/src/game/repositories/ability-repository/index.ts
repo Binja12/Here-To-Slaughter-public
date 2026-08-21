@@ -3,12 +3,15 @@ import { ChallengeAbility } from './challenge-ability'
 import { CharismaticSongAbility } from './charismatic-song-ability'
 import { AbyssQueenAbility } from './abyss-queen-ability'
 import { CloakedSageAbility } from './cloaked-sage-ability'
+import { CurseOfTheSnakesEyesAbility } from './curse-of-the-snakes-eyes-ability'
 import { CriticalBoostAbility } from './critical-boost-ability'
 import { DivineArrowAbility } from './divine-arrow-ability'
 import { FistOfReasonAbility } from './fist-of-reason-ability'
 import { MalamammothAbility } from './malamammoth-ability'
 import { MegaSlimeAbility } from './mega-slime-ability'
 import { OrthusAbility } from './orthus-ability'
+import { ParticularlyRustyCoinAbility } from './particularly-rusty-coin-ability'
+import { SealingKeyAbility } from './sealing-key-ability'
 import { ModifierAbility } from './modifier-ability'
 import { ProtectingHornAbility } from './protecting-horn-ability'
 import { ShadowClawAbility } from './shadow-claw-ability'
@@ -82,10 +85,15 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // ITEMS — item-062 … item-076
   // =========================================================================
   // Card ids are per COPY: two printed Really Big Rings are two entries.
+  ['item-062', ParticularlyRustyCoinAbility], // Particularly Rusty Coin — DRAW on a failed roll
+  ['item-063', ParticularlyRustyCoinAbility],
   ['item-064', ReallyBigRingAbility], // Really Big Ring — +2 to the carrier's rolls
   ['item-065', ReallyBigRingAbility],
   // Cursed: played onto an opponent's hero, and it taxes THEIR roll.
   ['item-073', SuspiciouslyShinyCoinAbility], // Suspiciously Shiny Coin — DISCARD on a successful roll
+  ['item-074', CurseOfTheSnakesEyesAbility], // Curse of the Snake's Eyes — -2 to the carrier's rolls
+  ['item-075', CurseOfTheSnakesEyesAbility],
+  ['item-076', SealingKeyAbility], // Sealing Key — the carrier's effect cannot be used
 
   // =========================================================================
   // MAGIC — magic-049 … magic-061

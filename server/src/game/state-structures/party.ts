@@ -49,10 +49,23 @@ export class Party {
     carriedItemId?: string,
   ): void {
     this.data.heroIds.push(heroId)
-    if (carriedItemId) this.equipItem(heroId, carriedItemId)
     em.emit(
       GameEventFactory.heroAddedToParty(this.getPlayerId(), heroId, reason),
     )
+    // AFTER the hero is in and announced: the item's own entry triggers on
+    // this, and it has to find its carrier standing in THIS party to scope
+    // itself to. Announced, because gear cannot move silently either — an
+    // effect the item installed is re-installed by exactly this event.
+    if (carriedItemId) {
+      this.equipItem(heroId, carriedItemId)
+      em.emit(
+        GameEventFactory.itemEquipedToHero(
+          this.getPlayerId(),
+          carriedItemId,
+          heroId,
+        ),
+      )
+    }
   }
 
   /**
@@ -69,8 +82,22 @@ export class Party {
     reason: HeroRemovalReason,
   ): string | undefined {
     const carriedItemId = this.getEquippedItem(heroId)
-    this.data.heroIds = this.data.heroIds.filter((id) => id !== heroId)
+
+    // The gear comes off FIRST, and says so. That is what makes ItemUnequipped
+    // the one door every installed effect can hang its lifetime on: a carrier
+    // leaving play and an item being replaced are now the same announcement.
     if (this.data.equipment) delete this.data.equipment[heroId]
+    if (carriedItemId) {
+      em.emit(
+        GameEventFactory.itemUnequipped(
+          this.getPlayerId(),
+          carriedItemId,
+          heroId,
+        ),
+      )
+    }
+
+    this.data.heroIds = this.data.heroIds.filter((id) => id !== heroId)
     em.emit(
       GameEventFactory.heroRemovedFromParty(this.getPlayerId(), heroId, reason),
     )

@@ -40,6 +40,8 @@ export class RollOnHeroAction extends RollOnHero implements IAction {
     const party = gs.getParty(this.playerId)
     if (!party?.getHeroIds().includes(this.cardId)) return false
     if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) return false
+    // A sealed hero has no effect to roll for — the Sealing Key (item-076).
+    if (!gs.canUseHeroEffect(this.playerId, this.cardId)) return false
     return true
   }
 

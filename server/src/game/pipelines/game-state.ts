@@ -518,6 +518,21 @@ export class GameState {
       .some((effect) => !effect.cardTypes || effect.cardTypes.includes(cardType))
   }
 
+  /**
+   * Whether `heroId`'s printed effect may be rolled for at all.
+   *
+   * The reader for `CantUseHeroEffect` — the Sealing Key (item-076), a cursed
+   * item played onto somebody else's hero. Scoped to the carrier at install
+   * time (`scopedToCarrier`), so it seals ONE hero rather than every hero its
+   * owner fields; asked by both halves of rolling on a hero.
+   */
+  canUseHeroEffect(playerId: string, heroId: string): boolean {
+    return (
+      this.getEffects(PassiveType.CantUseHeroEffect, playerId, heroId)
+        .length === 0
+    )
+  }
+
   /** The classes standing in a party, one entry per hero. Leaders excluded. */
   getPartyHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)

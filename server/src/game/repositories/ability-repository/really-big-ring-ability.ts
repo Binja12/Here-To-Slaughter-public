@@ -1,7 +1,7 @@
 import { GameEventType, PassiveType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
-import { whileEquipped } from '../../abilities/expiries'
+import { untilUnequipped } from '../../abilities/expiries'
 
 // Really Big Ring (item-064, item-065): "Each time you roll to use the equipped
 // Hero card's effect, +2 to your roll."
@@ -25,7 +25,7 @@ const BONUS = 2
 export const ReallyBigRingAbility: IAbilityRule[] = [
   {
     trigger: {
-      on: GameEventType.FrameResolved,
+      on: GameEventType.ItemEquippedToHero,
       scope: TriggerScope.SelfCard,
     },
     steps: [
@@ -33,7 +33,7 @@ export const ReallyBigRingAbility: IAbilityRule[] = [
         type: PassiveType.RollBonus,
         value: BONUS,
         scopedToCarrier: true,
-        expiry: whileEquipped,
+        expiry: untilUnequipped,
       }),
     ],
   },

@@ -107,9 +107,11 @@ describe('ReallyBigRingAbility', () => {
     jest.useRealTimers()
   })
 
-  it('is one entry, triggered by the settled challenge', () => {
+  it('is one entry, triggered by the EQUIP', () => {
     expect(ReallyBigRingAbility).toHaveLength(1)
-    expect(ReallyBigRingAbility[0].trigger.on).toBe(GameEventType.FrameResolved)
+    expect(ReallyBigRingAbility[0].trigger.on).toBe(
+      GameEventType.ItemEquippedToHero,
+    )
   })
 
   it('installs a +2 roll bonus once the play survives', () => {
@@ -139,11 +141,16 @@ describe('ReallyBigRingAbility', () => {
     expect(bonuses(gs, 'hero-1')).toHaveLength(0)
   })
 
-  it('installs nothing while the challenge is still open', () => {
+  it('installs at the EQUIP, inside the challenge frame', () => {
     const ctx = setup()
     new PlayItemAction('a1', 'p1', RING, 'hero-1', ctx.rm, ctx.em).execute(ctx.gs)
 
-    expect(bonuses(ctx.gs, 'hero-1')).toHaveLength(0)
+    // Install and expiry hang off the same pair of events the item's POSITION
+    // changes on, which is what makes a steal carry the bonus across. A
+    // defeated play is undone by the rollback instead — see the test below,
+    // "is not installed at all when the challenge is lost".
+    expect(bonuses(ctx.gs, 'hero-1')).toHaveLength(1)
+    expect(ctx.gs.hasOpenFrames()).toBe(true)
   })
 
   // --- Scope: "the equipped Hero card's" roll, not every roll ---
@@ -169,7 +176,7 @@ describe('ReallyBigRingAbility', () => {
     gs.getParty('p1').removeHero('hero-1', em, 'Destroyed')
 
     // The item's own ability dies with the hero's position for free; the
-    // effect it installed needs whileEquipped to go with it.
+    // effect it installed needs untilUnequipped to go with it.
     expect(bonuses(gs, 'hero-1')).toHaveLength(0)
   })
 

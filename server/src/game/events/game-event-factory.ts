@@ -332,6 +332,20 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * The roll came up short. Emitted after the rollback, so anything it fires
+   * runs on live state rather than being undone with the frame — see
+   * MonsterFoughtBack, which is the same shape on the attack path.
+   */
+  static rollFailed(playerId: string, heroId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.RollFailed,
+      playerId,
+      { cardId: heroId },
+      Audience.All,
+    )
+  }
+
   static heroStolen(toPlayerId: string, fromPlayerId: string, heroId: string): IGameEvent {
     return new GameEvent(
       GameEventType.HeroStolen,

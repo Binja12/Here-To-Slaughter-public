@@ -871,6 +871,20 @@ for. An entry triggered on `TurnStarted` would arrive after the budget was
 already fixed. Read as ENTRIES and summed, so two monsters grant two points and
 each keeps its source.
 
+**A prohibition is an effect like any other, and can be scoped to one CARD.**
+The Sealing Key (item-076) installs `CantUseHeroEffect` with `scopedToCarrier`,
+so it seals the hero it rides rather than every hero its owner fields.
+`GameState.canUseHeroEffect` is the reader, asked by both halves of rolling on
+a hero — the action in `canExecute` before the point is spent, the task when it
+discovers its target. The universal roll offer in `hero-rules.ts` needs no third
+guard: it fires on `FrameResolved` naming the HERO, which only a hero's own play
+produces, and a hero cannot already be wearing a key when it is played.
+
+**A number does not care which way it points.** The Curse of the Snake's Eyes
+(item-074/075) is the Really Big Ring with `value: -2`, and shares its whole
+declaration shape. That is what keeps "+2 to the carrier" and "-2 to the
+carrier" one mechanism instead of a bonus system and a penalty system.
+
 **Wise Shield (hero-028)** — the reference effect. *"+3 to all of your rolls
 until the end of your turn."*
 
@@ -891,18 +905,35 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   never as a method on a card class.
 - **Every expiry lives in `abilities/expiries.ts`**, which holds only the
   vocabulary a declaration imports — `untilEndOfTurn`,
-  `untilOwnersNextTurn`, `untilSourceLeavesParty`, `whileEquipped`,
-  `whileClassInParty(cls)` — so all card wordings read in one place.
+  `untilOwnersNextTurn`, `untilSourceLeavesParty`, `untilUnequipped`,
+  `whileClassInParty(cls)` — so all card wordings read in one place. Each is
+  named for what ENDS it, not for the state it holds under: "while equipped"
+  read as a standing condition and hid the fact that a steal passes THROUGH the
+  ending event on its way to re-installing.
 - **An item's ABILITY ends with its position for free; an effect it installed
   does not.** The ability is derived from the item sitting on a hero, so it
   stops being scanned the moment that stops being true. Anything the item put on
-  the player is stored, and needs `whileEquipped` to go with it — Really Big
+  the player is stored, and needs `untilUnequipped` to go with it — Really Big
   Ring is the reference.
-- **One wording, every way it can end.** `whileEquipped` is TWO entries —
-  `HeroRemovedFromParty` and `ItemUnequipped` — sharing one check: is the source
-  item still on anybody? Asked of the item rather than of the event's subject,
-  because both callers drop the gear before they announce, so the departing
-  hero's own equipment is already gone by the time the sweep runs.
+- **An item's effect INSTALLS and EXPIRES on the two events its POSITION changes
+  on**: `ItemEquippedToHero` and `ItemUnequipped`. One door each, and the
+  symmetry is the point — it is what carries a bonus across a STEAL. A steal is
+  unequip → move → re-equip, each half announced, so the effect retires from the
+  loser and installs on the thief with no bookkeeping. Before this an item
+  installed off its own settled challenge frame while expiring on the carrier
+  leaving, and a stolen hero kept the item but silently lost everything it
+  granted.
+- **`Party` announces both halves; nothing moves gear silently.** `removeHero`
+  takes the item off and emits `ItemUnequipped` BEFORE it announces the removal;
+  `addHero` re-equips and emits `ItemEquippedToHero` AFTER the hero is in, so
+  the item's own entry finds its carrier standing in the new party. That is why
+  `untilUnequipped` needs one event and no state check — it reads the event's
+  own item id, the only reliable answer while the item is momentarily on nobody.
+- **A defeated play is undone by the ROLLBACK, not by never installing.** The
+  effect lands inside the challenge frame, and effects are stored on `Player`,
+  which frames snapshot, so a lost challenge takes it back out. The end state is
+  what it always was; what changed is that the install point now matches the
+  expiry point.
 - **The sweep runs before trigger matching**, so an effect ending at the start of
   your turn is already gone for anything that same `TurnStarted` fires. It is a
   function `TaskManager` calls rather than a listener of its own, precisely so
@@ -1014,11 +1045,13 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 
 - **No failure branches.** `restoreFrame` couples "undo state" with "cancel
   the run", so "roll; if you fail, discard instead" is currently impossible.
-  A failing attack looks like an exception and is not one: the window emits
-  `MonsterFoughtBack` AFTER it restores, so what answers is a fresh pipeline
-  matched from the event, not the rolled-back one carrying on. Any "on failure"
-  wording has to be written that way — as somebody else's entry on an
-  announcement — and only the attack has such an announcement.
+  What IS possible is somebody else's entry on the announcement: both failing
+  paths emit AFTER the restore — `RollFailed` from `ModifierWindow`,
+  `MonsterFoughtBack` from `AttackWindow` — so what answers is a fresh pipeline
+  on live state, not the rolled-back one carrying on. The Particularly Rusty
+  Coin (item-062) keeps the card it drew for exactly that reason. The
+  limitation is that the failing run itself cannot continue, not that failure
+  is invisible.
 - **`when` discriminates confirm/condition labels only.** A wording like "when a
   hero enters your party BY BEING STOLEN" has no matcher, even though `reason`
   is already in that payload.

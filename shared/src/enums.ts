@@ -120,6 +120,12 @@ export enum GameEventType {
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
   RollSuccess = "RollSuccess",
+  /**
+   * A roll to use a hero's effect came up short. `{ cardId }` names the hero.
+   * Emitted AFTER the rollback, so what it fires runs on live state — the same
+   * shape MonsterFoughtBack uses on a failed attack.
+   */
+  RollFailed = "RollFailed",
 
   // Ongoing effects — installed by an ability, removed when their lifetime ends
   EffectApplied = "EffectApplied",
@@ -272,6 +278,7 @@ export enum TriggerScope {
  *   ModifierCounterBonus — read by ModifiableRollWindow and ChallengeWindow
  *   CantBeStolen      — read by StealFromPartyTask
  *   CantBeChallenged  — read by ChallengeWindow, narrowed by IEffect.cardTypes
+ *   CantUseHeroEffect — read by RollOnHeroAction and RollOnHeroTask
  */
 export enum PassiveType {
   RollBonus = "RollBonus",
@@ -284,6 +291,8 @@ export enum PassiveType {
   ModifierCounterBonus = "ModifierCounterBonus",
   CantBeStolen = "CantBeStolen",
   CantBeChallenged = "CantBeChallenged",
+  /** The equipped hero's effect cannot be rolled for at all. Sealing Key. */
+  CantUseHeroEffect = "CantUseHeroEffect",
 }
 
 export enum ChallengeResult {

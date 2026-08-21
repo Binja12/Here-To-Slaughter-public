@@ -67,6 +67,10 @@ export class RollOnHeroTask extends RollOnHero implements ITask {
     // Empty = the step ahead ran and produced nothing.
     if (!heroId) return
 
+    // Discovered at runtime, so the hero may have been sealed since the slot
+    // was written — the action's equivalent guard lives in canExecute.
+    if (!gs.canUseHeroEffect(ctx.ownerId, heroId)) return
+
     // Returned, so the rest of the declaring card's entry waits on the roll.
     return this.rollOnHero(gs, ctx.ownerId, heroId, em, rm)
   }

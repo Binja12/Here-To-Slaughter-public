@@ -51,6 +51,12 @@ export class ModifierWindow extends ModifiableRollWindow {
   protected settle(finalRoll: number): void {
     if (finalRoll < this.rollReq) {
       this.gs.restoreFrame(this.frameId)
+      // AFTER the restore, so what it fires runs on live state instead of
+      // going back with the frame — the Particularly Rusty Coin's draw has to
+      // survive the roll that earned it. Same shape as MonsterFoughtBack.
+      this.emitter.emit(
+        GameEventFactory.rollFailed(this.rollerId, this.heroId),
+      )
       return
     }
     this.gs.releaseFrame(this.frameId)
