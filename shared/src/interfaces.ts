@@ -1,5 +1,6 @@
 import { Audience, CardType, GameEventType, HeroClass } from "./enums";
 import { CardBase } from "./types";
+import { CardData } from "./views";
 
 export interface ICard {
   getId(): string;
@@ -7,6 +8,12 @@ export interface ICard {
   getType(): CardType;
   getImage(): string;
   getDescription(): string;
+  /**
+   * The printed record, for the projection layer to put on the wire (§5).
+   * Implementations narrow the return type and hand back a COPY: `createGame`
+   * builds every game's cards from the same module-level records.
+   */
+  getData(): CardData;
 }
 export interface ICardRepository {
   getById(id: string): CardBase | null;

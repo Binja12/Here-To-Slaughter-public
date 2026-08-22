@@ -5,6 +5,10 @@ import { HeroCardData, HeroClass, CardType } from 'shared'
 export class HeroCard implements ICard {
   constructor(private data: HeroCardData) {}
 
+  getData(): HeroCardData {
+    return { ...this.data }
+  }
+
   getId(): string {
     return this.data.id
   }

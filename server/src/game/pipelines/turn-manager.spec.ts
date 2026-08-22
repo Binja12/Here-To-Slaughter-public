@@ -139,6 +139,25 @@ describe('TurnManager', () => {
       expect(executed).toHaveLength(0)
     })
 
+    it('should ignore an action from a player whose turn it is not', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+      const executed: boolean[] = []
+      // Same seat's own budget, and still refused: action points are spent on
+      // YOUR turn, and everybody else answers with reactions.
+      const action = { ...makeAction(1), getPlayerId: () => 'p2' }
+      action.execute = () => {
+        executed.push(true)
+        return []
+      }
+      tm.enqueue(action)
+
+      expect(executed).toHaveLength(0)
+      expect(gs.actionQueue).toHaveLength(0)
+      expect(tm.getActionPoints()).toBe(3)
+    })
+
     it('should execute a valid action', () => {
       const gs = makeGs(3)
       const tm = new TurnManager(gs, new GameEventEmitter())
@@ -206,7 +225,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
@@ -238,7 +257,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           executed.push('window-action')
           return []
@@ -436,7 +455,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },

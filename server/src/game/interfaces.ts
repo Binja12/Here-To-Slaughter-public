@@ -202,6 +202,12 @@ export interface IModifiableWindow extends IReactionWindow {
 export interface IReactionWindow {
   getId(): string
   getType(): ReactionWindowType
+  /** The roller for a roll, the defender for a challenge, the one player who
+   * may answer a choice. */
+  getRespondentId(): string
+  /** What may be picked. Empty for a roll or a challenge — those are answered
+   * by spending a card. */
+  getOptions(): readonly unknown[]
   /** True while the window is waiting for responses; false after it resolves. */
   isOpen(): boolean
   /** Route a player's reaction payload into the window. */

@@ -91,12 +91,6 @@ describe('RollOnLeaderAction', () => {
       expect(action(em, 'p2').canExecute(gs)).toBe(false)
     })
 
-    it('refuses off your turn', () => {
-      const { gs, em } = setup()
-      gs.setCurrentPlayerId('p2')
-      expect(action(em).canExecute(gs)).toBe(false)
-    })
-
     it('refuses without the action point', () => {
       const { gs, em } = setup(CLAW, 0)
       expect(action(em).canExecute(gs)).toBe(false)

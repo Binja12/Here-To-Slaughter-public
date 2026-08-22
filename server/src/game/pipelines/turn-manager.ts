@@ -11,8 +11,9 @@ import { GameEvent } from '../events/game-event'
 // starts for itself is a TASK, and goes to TaskManager — which is why there is
 // no way to put an action at the front of this queue.
 //
-// The turn is not over while an ability is still resolving, so `busy()` reads
-// TaskManager's stack off GameState rather than holding a TaskManager (§9).
+// The turn is not over while an ability is still resolving, so the drain asks
+// `GameState.isBusy()` — the stack read off the board rather than off a
+// TaskManager this would otherwise have to hold (§9).
 // ---------------------------------------------------------------------------
 
 export class TurnManager {
@@ -35,7 +36,11 @@ export class TurnManager {
 
   enqueue(action: IAction): void {
     if (this.phase !== TurnPhase.ActionWindow) return
-    if (action.isReactable() && this.busy()) return
+    // Only the active player spends action points; everybody else answers with
+    // REACTIONS, which go to ReactionManager and never touch this queue. Here
+    // rather than in each action's canExecute, so an action cannot forget it.
+    if (action.getPlayerId() !== this.gs.getCurrentPlayerId()) return
+    if (action.isReactable() && this.gs.isBusy()) return
     this.gs.actionQueue.push(action)
     this.drain()
   }
@@ -82,20 +87,9 @@ export class TurnManager {
   // Internal
   // ---------------------------------------------------------------------------
 
-  /**
-   * True while a reaction window is open or an ability still has steps to run.
-   *
-   * The stack, not the frames: a window releases its frame BEFORE it emits
-   * `FrameResolved`, so between the two there is no open frame and the paused
-   * pipeline has not woken yet.
-   */
-  private busy(): boolean {
-    return this.gs.hasOpenFrames() || this.gs.abilityPipelines.length > 0
-  }
-
   private drain(): void {
     while (this.gs.actionQueue.length > 0) {
-      if (this.busy()) return
+      if (this.gs.isBusy()) return
 
       const action = this.gs.actionQueue[0]
 
@@ -107,12 +101,12 @@ export class TurnManager {
       this.gs.actionQueue.shift()
       action.execute(this.gs)
 
-      if (this.busy()) return
+      if (this.gs.isBusy()) return
     }
 
     // Reached again on every FrameResolved via GameEngine.resumeDrain, which
     // is what ends a turn whose last act was an ability.
-    if (this.getActionPoints() <= 0 && !this.busy()) {
+    if (this.getActionPoints() <= 0 && !this.gs.isBusy()) {
       this.endTurn()
     }
   }

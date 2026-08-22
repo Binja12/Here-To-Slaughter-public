@@ -65,6 +65,8 @@ const makeStubWindow = (): IModifiableWindow & {
 } => ({
   getId: () => 'w1',
   getType: () => ReactionWindowType.Challenge,
+  getRespondentId: () => 'defender',
+  getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},

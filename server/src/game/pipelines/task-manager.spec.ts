@@ -64,6 +64,16 @@ const makeFakeCard = (id: string, ability?: IAbilityRule): ICard => {
     getType: () => CardType.Hero,
     getImage: () => '',
     getDescription: () => '',
+    getData: () => ({
+      id,
+      name: id,
+      type: CardType.Hero,
+      image: '',
+      description: '',
+      set: 'test',
+      heroClass: HeroClass.Fighter,
+      rollReq: 5,
+    }),
   }
 }
 

@@ -321,6 +321,26 @@ export class GameState {
     return false
   }
 
+  /** Every open window on the table, in no particular order. */
+  openWindows(): IReactionWindow[] {
+    const open: IReactionWindow[] = []
+    for (const frame of this.frames.values()) {
+      open.push(...frame.windows.filter((w) => w.isOpen()))
+    }
+    return open
+  }
+
+  /**
+   * True while a window is open or an ability still has steps to run.
+   *
+   * The STACK as well as the frames: a window releases its frame before it
+   * announces the outcome (§4), so between the two there is no open frame and
+   * the paused pipeline has not woken yet.
+   */
+  isBusy(): boolean {
+    return this.hasOpenFrames() || this.abilityPipelines.length > 0
+  }
+
   // ---------------------------------------------------------------------------
   // Deep clone
   // ---------------------------------------------------------------------------

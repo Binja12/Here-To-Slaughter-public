@@ -44,6 +44,9 @@ depends on (§9). Everything else lives in a folder:
   `CardPile` offers `pick(cardId)` and no draw at all, because everything in it
   is visible and a player names what they take. `card-pile.ts`,
   `card-stack.ts`, `player.ts`, `party.ts`.
+- `views/` — the projection in front of the API (§5). `player-view.ts` builds
+  one player's screen out of the board; the SHAPE it builds lives in
+  `shared/src/views.ts`, because it is the client's half of the contract.
 - `actions/`, `tasks/`, `reactions/`, `cards/`, `conditions/`, `events/`,
   `config/` — one folder per kind of thing.
 
@@ -285,6 +288,15 @@ Five mechanics, five bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
 
+**Only the ACTIVE player spends action points; everybody else answers with
+REACTIONS.** Off-turn play is the reaction system in its entirety — a challenge
+card, a modifier, an answer to a window — and every one of those goes to
+`ReactionManager` and never touches the action queue. So "on your turn" is a
+property of the QUEUE, not of any action: `TurnManager.enqueue` refuses an
+action whose `getPlayerId` is not the current player, and no `canExecute`
+mentions the turn at all. Eight copies of one rule is eight chances to forget
+it, and the next action written would have been the ninth.
+
 **A leader is never PLAYED, so there is no sixth mechanic.** `PartyData.leaderId`
 is set when the party is built and never changes: a party and its leader come
 into existence together, out of the game's configuration, before any turn
@@ -384,6 +396,14 @@ rollback cannot undo is the `MagicPlayed` it emitted, which is why that event
 means "this play is being attempted" and the card's own steps hang off the
 settled frame instead (§1).
 
+**"Is the board mid-resolution" is ONE question, on the board.**
+`GameState.isBusy()` is an open window or a pipeline with steps left — the
+stack and not just the frames, because a window releases its frame before it
+announces (§4). `TurnManager.drain` asks it to decide whether an action may
+run, and the projection asks it to tell a client whether to accept input (§5).
+Two copies of that could disagree, and the client's would be the one that was
+wrong.
+
 **A pausing step RETURNS its frameId.** `ITask.execute` returns
 `string | void`, and that return value is the only channel — the processor
 marks the running pipeline as paused on whatever comes back. It throws if the
@@ -471,6 +491,21 @@ stop, carry on when it resolves.
   with `windowType` in the payload — plus true domain events
   (`ModifierApplied`, `ChallengeStarted/Resolved`, `HeroStolen`,
   `TaskConfirmed`, `ConditionMet`).
+
+**Player input arrives by TWO routes, because they are two acts.**
+`ReactionManager.submitReaction(reaction)` PLAYS a card into an open window and
+is refused when the board says no; `submitChoice(windowId, playerId, choice)`
+names one of the options the engine itself put in front of exactly one player,
+so it only has to find the window and hand the pick over. The window owns the
+rest — a wrong respondent and an option never offered are dropped in silence, a
+stale pick throws — which is why the route is three lines and holds no rules of
+its own. A window that has already lapsed is not an error either: the player is
+late, and there is nothing left to answer.
+
+Finding the window is what `IReactionWindow.getRespondentId()` and
+`getOptions()` are for, together with the projection that shows a player what
+they are being asked (§5). Both are plain readers of fields every window
+already had.
 
 **A choice window refuses a STALE pick loudly, and a wrong one quietly.**
 `canSubmit(choice)` runs the moment an answer arrives and THROWS when it fails;
@@ -581,6 +616,43 @@ reads the empty slot and skips — no branch anywhere says so.
 (options include opponents' card ids). A projection layer in front of the API
 decides what each client sees — it must filter **event payloads**, not just
 state snapshots, or the same information leaks by another route.
+
+**That layer is `views/player-view.ts`, and its shape is a TYPE in `shared`.**
+`PlayerView` (`shared/src/views.ts`) is what one screen is drawn from, and
+`playerView(game, playerId)` is the only thing that builds it. The type is the
+enforcement: filtering written as a convention gets forgotten a field at a
+time, while a field that does not exist cannot be filled with a card nobody may
+see.
+
+One rule, applied everywhere: **a face-up card is NAMED, a face-down one is
+COUNTED**. Your hand is `CardView[]`, everybody else's is `SeatView.handCount`;
+the two decks are `{ count }` and hold no other field. That asymmetry is the
+whole of what separates two players' views of one table, which is why there is
+no `gameView` — a table has no shared screen, and a function that built one
+would be the thing that leaked.
+
+**A card crossing the line is its printed DATA, not its object.** `ICard.getData()`
+returns the record the card was built from, so the projection is plain
+serialisable data with no behaviour attached (§1). It hands back a copy:
+`createGame` builds every game's cards from the same module-level records, and
+a shared object would let one table's screen be mutated into another's.
+
+**Three questions the view answers so the client cannot** —
+`attackableMonsterIds`, `HeroInPlayView.canRollOn` and `busy`. Each is a rule
+the engine already owns (`canAttackMonster`, `canUseHeroEffect` plus the
+once-per-turn slot, `GameState.isBusy`), and a screen that worked them out for
+itself would be that rule implemented twice, in two languages, free to
+disagree. `busy` is the same question `TurnManager.drain` asks before it runs
+an action, which is exactly why a client greying out its buttons must not ask
+a different one.
+
+**Every open window is listed for everyone; only its own respondent is told the
+OPTIONS.** A window stops the game, so the table has to see what it is waiting
+for — but a choice over somebody's hand lists card ids, and handing those round
+would leak the same information the hand counts exist to withhold.
+
+Event payloads still carry the whole truth and are still unfiltered — the other
+half of this section, and it belongs with the transport on `HTSR-4`.
 
 ## 6. Abilities: entry lists, event hand-offs
 
@@ -1167,13 +1239,22 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 
 ## 10. Repo gaps blocking play
 
-- **No bootstrap**: nothing turns `GameConfig` + `base-game-cards.ts` (136
-  cards) into a playable GameState — no deck build/shuffle/deal.
-  `defaultGameConfig` has zero consumers. `CardStack.shuffle()` is called by
-  nothing outside its own spec, and nothing deals the opening monster row, so
-  the pile starts empty and `slayMonster` has nothing to refill from. Both
-  decks are meant to be shuffled at the start of the game and the row dealt
-  three wide; that is the bootstrap's job, and the bootstrap does not exist.
+- **The deck never runs back.** `DrawTask` and `DrawCardAction` stop when the
+  main deck is empty; nothing shuffles the discard pile back into it. 115 deck
+  cards across 2-4 players is probably a whole session, but the end state is
+  unhandled.
+- **There is no PASS, so a turn can fail to END.** `TurnManager` ends a turn
+  when the budget reaches zero and nothing else, and every action costs points
+  and needs something to spend them on: a hand of ten refuses a draw, an empty
+  deck refuses one, and a player holding no playable card with a point left is
+  stuck. Reached in practice — the play-through hits the hand limit on the
+  fourth turn of an ordinary game and has to find another way to spend the
+  point. An `EndTurnAction` costing nothing is the obvious fix and is not
+  written.
+- **`CONFIRM` / `DISMISS` live in `reactions/task-choice-window.ts`.** They are
+  wire vocabulary — the options a `TaskChoice` window offers and the value a
+  client sends back — so they belong in `shared` beside the rest of it. Left
+  where they are because moving them touches 95 call sites.
 - **No `TriggerScope` matches "the event TARGETS my owner".** `ModifierPlayed`
   names the player who spent the card, and `targetPlayerId` — whose roll it was
   aimed at — is readable only from the payload. The Abyss Queen wanted it and
@@ -1229,11 +1310,10 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **`DecisionType.PickMonster` still has no reader.** `ChooseMonsterTask` and
   `ReactionWindowType.MonsterChoice` cover the mechanic; the `DecisionType`
   enum is a parallel vocabulary nothing consults.
-- **Nothing catches what `canSubmit` throws.** No code outside tests routes a
-  choice submission — `getFrameByWindowId` has no non-spec caller, and the
-  socket layer lives on `HTSR-4`. The throw is an engine contract today; the
-  API layer has to turn it into a client error when it arrives, or one bad
-  packet kills the request.
+- **Nothing catches what `canSubmit` throws.** `ReactionManager.submitChoice`
+  is the route a choice submission takes (§4) and it does not catch: the throw
+  is an engine contract, and the API layer has to turn it into a client error
+  when it arrives, or one bad packet kills the request.
 - **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
   like `MonsterCard.trySlay`, and read by nothing.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
@@ -1241,7 +1321,86 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **`npm ci` is incomplete in some checkouts** — `@nestjs/testing` and eslint's
   deps are declared but unresolvable. Unrelated to engine code.
 
-## 11. Working principles
+## 11. Setup
+
+`setup/create-game.ts` turns `GameConfig` plus a list of player ids into a
+dealt, wired game. It is the only thing that builds a `GameState` — everything
+else receives one — and it sits below the transport deliberately: how the
+request arrived is not the engine's business, so it takes player IDS and
+nothing else.
+
+**Card DATA becomes card OBJECTS in one place.** `cards/card-factory.ts` holds
+the only switch from `CardType` to a card class, and it is exhaustive, so a new
+card type is a compile error rather than a card that never reaches the table.
+That is two of a card's three tables meeting (§1); the third — its BEHAVIOUR —
+is joined at runtime through `ctx.sourceCardId`, which is how one modifier
+declaration reads whichever printed copy's `values` it is running for.
+
+**Every card in the pool is registered, wherever it starts.** A card the engine
+cannot resolve by id is a card no rule can act on. Leaders beyond the seat count
+stay registered and sit in no zone: `abilitySources` scans positions, so nothing
+scans them.
+
+**Dealing and starting are separate.** `createGame` deals; `startGame()` emits
+`GameStarted` and opens the first turn. The split exists because the first
+`TurnStarted` is a point of no return, and a caller may want to hold a dealt
+table while the last player connects.
+
+**Three ordering rules the setup encodes, every one of which fails SILENTLY:**
+
+- `TaskManager` joins the emitter BEFORE `GameEngine` (§8).
+- Leaders are seated BEFORE `GameStarted`, or the three leaders carrying a
+  passive install nothing.
+- `GameStarted` goes out before the first `TurnStarted`.
+
+**A window's countdown is CONFIG, and each window takes a share of it.**
+`TimeControl.reactionCountdownMs` is the base; `WINDOW_SHARE` in
+`reaction-manager.ts` gives each kind its slice. A share rather than a number,
+so one value moves them all together and the RELATIONSHIP survives — a
+`ValueChoice` is 0.6 of a roll's because it opens over a roll already running
+and must settle first, and at equal countdowns both fall due on the same tick
+and the roll wins without the bonus. The two ZERO cases are not shares: an
+empty `ChoiceWindow` and an unchallengeable `ChallengeWindow` settle at 0ms
+whatever the countdown.
+
+`setup/play-through.spec.ts` drives real turns on a real dealt table for exactly
+that reason: wiring order, cross-pipeline event ordering, frames that never
+settle and turns that never end are all invisible to a unit test. It runs on a
+**150ms countdown and a real clock**, not on fake timers. Advancing fake timers
+means guessing how many windows a move opens, and guessing low reads as a
+passing test — which is how a fight-back's choice window went unnoticed there.
+Polling until the board reports itself idle, with a deadline that throws, cannot
+make that mistake — and it asks `PlayerView.busy`, so it cannot disagree with
+the drain about whether anything is still running.
+
+**It reaches the engine only where a PLAYER does.** Four doors: `enqueue` an
+action, `submitReaction` a card, `submitChoice` an answer, and read
+`playerView`. `GameState` is never touched — not to stack a board, not to
+decide a move, not to check a result. That is the constraint doing the work
+rather than a style rule: every position it reaches is one the API can reach,
+so a case that cannot be written here is a case a real client cannot play, and
+a field missing from `PlayerView` shows up as a test nobody can express.
+
+**A case that needs particular cards STACKS THE DEAL, it does not write to the
+board.** `Math.random` is pinned across `createGame` only, which makes
+Fisher-Yates the identity: the seat order, the leaders and the main deck all
+come out in the order the test wrote them, and the deal becomes a fact rather
+than a coincidence. Two details ride with it — the three leaders carrying a
+`RollBonus` are kept out of stacked tables so the dice mean what they say, and
+the win conditions are pushed out of reach because `AllClassesInParty` asks the
+POOL which classes exist, so a stacked deck of two Fighters makes "every class"
+mean "one Fighter" and the first hero played wins the game.
+
+**A turn cannot always be ended by drawing.** A hand of ten refuses a draw and
+so does an empty deck, and there is no PASS action, so the drive loop has to
+find something else to spend the last point on (§10). Without that a long run
+deadlocks on the hand limit rather than on anything a test meant to exercise.
+
+`Game` is data — the pieces a caller drives — so `startGame(game)` is a
+function OVER it rather than a method on it. A closure in the bag would be the
+one thing in it that could not be inspected or handed across a boundary.
+
+## 12. Working principles
 
 1. Delete anything with no readers — unreferenced scaffolding gets designed
    around later.

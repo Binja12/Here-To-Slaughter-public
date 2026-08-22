@@ -145,11 +145,6 @@ describe('PlayItemAction', () => {
       expect(action.canExecute(emptyGs)).toBe(false)
     })
 
-    it('returns false when player is not the current player', () => {
-      gs.setCurrentPlayerId('p2')
-      expect(makeAction().canExecute(gs)).toBe(false)
-    })
-
     it('returns false when player has insufficient action points', () => {
       const gs2 = makeGs()
       gs2.registerPlayer(makePlayer('p1', ['item-1'], 0))

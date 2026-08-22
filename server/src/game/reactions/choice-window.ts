@@ -66,6 +66,14 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return this.id
   }
 
+  getRespondentId(): string {
+    return this.respondentId
+  }
+
+  getOptions(): readonly unknown[] {
+    return [...this.options]
+  }
+
   isOpen(): boolean {
     return !this._resolved
   }

@@ -36,7 +36,6 @@ export class AttackMonsterAction extends AttackMonster implements IAction {
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    if (gs.getCurrentPlayerId() !== this.playerId) return false
     if (player.getActionPoints() < COST) return false
     // In the row AND the party fields what the monster asks for.
     if (!gs.canAttackMonster(this.playerId, this.cardId)) return false

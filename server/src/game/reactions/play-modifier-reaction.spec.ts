@@ -79,6 +79,8 @@ const makeStubWindow = (
 } => ({
   getId: () => 'w1',
   getType: () => ReactionWindowType.Modifier,
+  getRespondentId: () => rollerId,
+  getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},

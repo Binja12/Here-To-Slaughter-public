@@ -76,6 +76,14 @@ export class ChallengeWindow implements IModifiableWindow {
     return ReactionWindowType.Challenge
   }
 
+  getRespondentId(): string {
+    return this.challengedId
+  }
+
+  getOptions(): readonly unknown[] {
+    return []
+  }
+
   /** None: a lost challenge restores the frame, so a survivor necessarily won. */
   resultKey(): string | typeof NO_CONTEXT_RESULT {
     return NO_CONTEXT_RESULT

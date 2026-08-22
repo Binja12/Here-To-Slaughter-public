@@ -12,8 +12,9 @@ const COST = 1
 // A player asks for it and nothing else can: no system rule reaches a leader,
 // because a leader is never played, never rolled on by another card and never
 // moves. The wording it serves is "once per turn on your turn, you may spend an
-// action point to …", and each clause is one line of `canExecute` plus the
-// `markAbilityUsed` below.
+// action point to …" — the price and the once-per-turn slot are `canExecute`
+// and the `markAbilityUsed` below; "on your turn" is `TurnManager.enqueue`,
+// for every action at once.
 //
 // Same STRUCTURE as RollOnHeroAction — price, guards, mark, announce — with the
 // dice taken out. There is no roll requirement to beat and no modifier window,
@@ -60,8 +61,6 @@ export class RollOnLeaderAction implements IAction {
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    // "on your turn"
-    if (gs.getCurrentPlayerId() !== this.playerId) return false
     // "spend an action point"
     if (player.getActionPoints() < COST) return false
     // The leader has to be standing in the slot — an unassigned one has no

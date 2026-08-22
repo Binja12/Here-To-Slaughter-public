@@ -4,6 +4,10 @@ import { MonsterCardData, CardType, HeroClass, PartyReq } from 'shared'
 export class MonsterCard implements ICard {
   constructor(private data: MonsterCardData) {}
 
+  getData(): MonsterCardData {
+    return { ...this.data }
+  }
+
   getId(): string {
     return this.data.id
   }

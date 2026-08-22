@@ -47,7 +47,6 @@ export class PlayHeroAction extends PlayHero implements IAction {
   canExecute(gs: GameState): boolean {
     const player = gs.getPlayer(this.playerId)
     if (!player) return false
-    if (gs.getCurrentPlayerId() !== this.playerId) return false
     if (player.getActionPoints() < COST) return false
     if (!player.getHand().includes(this.cardId)) return false
     return true

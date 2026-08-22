@@ -85,6 +85,7 @@ describe('RollOnHeroAction', () => {
     gs.registerPlayer(player)
     gs.registerParty(party)
     gs.registerCard(makeHeroCard('hero-1'))
+    gs.setCurrentPlayerId('p1')
   })
 
   afterEach(() => {

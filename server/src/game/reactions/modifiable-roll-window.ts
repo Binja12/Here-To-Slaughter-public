@@ -94,6 +94,14 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
     return this.id
   }
 
+  getRespondentId(): string {
+    return this.rollerId
+  }
+
+  getOptions(): readonly unknown[] {
+    return []
+  }
+
   abstract getType(): ReactionWindowType
 
   /** One roll here, so only the roller. Asked by PlayModifierReaction. */

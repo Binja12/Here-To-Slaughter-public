@@ -98,6 +98,7 @@ describe('DrawCardAction', () => {
     it('returns true when all conditions are met', () => {
       const gs = makeGs(['card-1'])
       gs.registerPlayer(makePlayer('p1'))
+      gs.setCurrentPlayerId('p1')
       const action = new DrawCardAction('a1', 'p1', emitter)
       expect(action.canExecute(gs)).toBe(true)
     })

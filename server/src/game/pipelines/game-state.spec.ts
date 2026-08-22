@@ -152,6 +152,8 @@ describe('GameState', () => {
     const stubWindow = (isOpen = true): IReactionWindow => ({
       getId: () => 'w1',
       getType: () => ReactionWindowType.Modifier,
+      getRespondentId: () => 'p1',
+      getOptions: () => [],
       isOpen: () => isOpen,
       submitReaction: () => {},
       resolve: () => {},
@@ -311,6 +313,8 @@ describe('GameState — the open modifiable window', () => {
   ): IModifiableWindow & { submitReaction: jest.Mock } => ({
     getId: () => 'w1',
     getType: () => ReactionWindowType.Modifier,
+    getRespondentId: () => rollerId,
+    getOptions: () => [],
     isOpen: () => isOpen,
     submitReaction: jest.fn(),
     resolve: () => {},

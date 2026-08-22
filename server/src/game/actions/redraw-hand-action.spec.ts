@@ -84,6 +84,7 @@ describe('redrawHandAction (exported as DrawCardAction from redraw-hand-action.t
     it('returns true when deck has exactly 5 cards', () => {
       const gs = makeGs(['c1', 'c2', 'c3', 'c4', 'c5'])
       gs.registerPlayer(makePlayer('p1', 3))
+      gs.setCurrentPlayerId('p1')
       const action = new redrawHandAction('a1', 'p1', emitter)
       expect(action.canExecute(gs)).toBe(true)
     })
@@ -91,6 +92,7 @@ describe('redrawHandAction (exported as DrawCardAction from redraw-hand-action.t
     it('returns true when deck has more than 5 cards', () => {
       const gs = makeGs(['c1', 'c2', 'c3', 'c4', 'c5', 'c6'])
       gs.registerPlayer(makePlayer('p1', 3))
+      gs.setCurrentPlayerId('p1')
       const action = new redrawHandAction('a1', 'p1', emitter)
       expect(action.canExecute(gs)).toBe(true)
     })
