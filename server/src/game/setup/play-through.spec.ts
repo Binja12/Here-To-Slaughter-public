@@ -81,9 +81,24 @@ const QUIET_LEADERS = ['leader-117', 'leader-120', 'leader-121'].map(printed)
  * deal — a deck that runs dry leaves a player unable to end their turn (§10).
  */
 const FILLER = [
-  'hero-001', 'hero-002', 'hero-003', 'hero-004', 'hero-005', 'hero-006',
-  'hero-008', 'hero-009', 'hero-010', 'hero-011', 'hero-012', 'hero-013',
-  'hero-014', 'hero-015', 'hero-016', 'hero-017', 'hero-018', 'hero-019',
+  'hero-001',
+  'hero-002',
+  'hero-003',
+  'hero-004',
+  'hero-005',
+  'hero-006',
+  'hero-008',
+  'hero-009',
+  'hero-010',
+  'hero-011',
+  'hero-012',
+  'hero-013',
+  'hero-014',
+  'hero-015',
+  'hero-016',
+  'hero-017',
+  'hero-018',
+  'hero-019',
 ]
 
 function padded(deck: string[], need: number): string[] {
@@ -126,7 +141,10 @@ function config(overrides: Partial<GameConfig> = {}): GameConfig {
 }
 
 /** An ordinary game off the full 136 cards, shuffled for real. */
-function table(seats: string[] = SEATS, overrides: Partial<GameConfig> = {}): Table {
+function table(
+  seats: string[] = SEATS,
+  overrides: Partial<GameConfig> = {},
+): Table {
   return started(createGame(seats, { config: config(overrides) }))
 }
 
@@ -149,7 +167,9 @@ function stacked(spec: Deal): Table {
   const cards = [
     ...QUIET_LEADERS,
     ...monsters,
-    ...ALL_MONSTERS.filter((m) => !monsters.some((chosen) => chosen.id === m.id)),
+    ...ALL_MONSTERS.filter(
+      (m) => !monsters.some((chosen) => chosen.id === m.id),
+    ),
     ...deck.map(printed),
   ]
 
@@ -227,11 +247,16 @@ const payloads = (t: Table, type: GameEventType) =>
 // What a player does
 // ---------------------------------------------------------------------------
 
-const enqueue = (t: Table, action: IAction) => t.game.turnManager.enqueue(action)
+const enqueue = (t: Table, action: IAction) =>
+  t.game.turnManager.enqueue(action)
 const react = (t: Table, reaction: IReaction) =>
   t.game.reactionManager.submitReaction(reaction)
 const answer = (t: Table, window: PendingWindowView, choice: unknown) =>
-  t.game.reactionManager.submitChoice(window.windowId, window.respondentId, choice)
+  t.game.reactionManager.submitChoice(
+    window.windowId,
+    window.respondentId,
+    choice,
+  )
 
 const draw = (t: Table, playerId: string) =>
   enqueue(t, new DrawCardAction(actionId(), playerId, t.game.emitter))
@@ -239,13 +264,25 @@ const draw = (t: Table, playerId: string) =>
 const playHero = (t: Table, playerId: string, cardId: string) =>
   enqueue(
     t,
-    new PlayHeroAction(actionId(), playerId, cardId, t.game.reactionManager, t.game.emitter),
+    new PlayHeroAction(
+      actionId(),
+      playerId,
+      cardId,
+      t.game.reactionManager,
+      t.game.emitter,
+    ),
   )
 
 const playMagic = (t: Table, playerId: string, cardId: string) =>
   enqueue(
     t,
-    new PlayMagicAction(actionId(), playerId, cardId, t.game.reactionManager, t.game.emitter),
+    new PlayMagicAction(
+      actionId(),
+      playerId,
+      cardId,
+      t.game.reactionManager,
+      t.game.emitter,
+    ),
   )
 
 const playItem = (t: Table, playerId: string, cardId: string, heroId: string) =>
@@ -264,11 +301,20 @@ const playItem = (t: Table, playerId: string, cardId: string, heroId: string) =>
 const rollOnHero = (t: Table, playerId: string, cardId: string) =>
   enqueue(
     t,
-    new RollOnHeroAction(actionId(), playerId, cardId, t.game.emitter, t.game.reactionManager),
+    new RollOnHeroAction(
+      actionId(),
+      playerId,
+      cardId,
+      t.game.emitter,
+      t.game.reactionManager,
+    ),
   )
 
 const rollOnLeader = (t: Table, playerId: string, cardId: string) =>
-  enqueue(t, new RollOnLeaderAction(actionId(), playerId, cardId, t.game.emitter))
+  enqueue(
+    t,
+    new RollOnLeaderAction(actionId(), playerId, cardId, t.game.emitter),
+  )
 
 const attack = (t: Table, playerId: string, monsterId: string) =>
   enqueue(
@@ -391,7 +437,8 @@ const LOWEST = 0.0001
 /** A hero / attack roll of 8. */
 const MIDDLING = 0.6
 
-const fixDice = (value: number) => jest.spyOn(Math, 'random').mockReturnValue(value)
+const fixDice = (value: number) =>
+  jest.spyOn(Math, 'random').mockReturnValue(value)
 
 /** A fixed sequence, then `rest` for everything after it. */
 function scriptDice(sequence: number[], rest: number): void {
@@ -533,7 +580,9 @@ describe('a game played through', () => {
   // --- Playing a hero -----------------------------------------------------
 
   it('plays a hero nobody contests, and it joins the party', async () => {
-    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -559,7 +608,15 @@ describe('a game played through', () => {
 
     // Challenger rolls 11, defender rolls 1 — the play is defeated.
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    react(t, new PlayChallengeReaction(actionId(), challenger, 'challenge-102', 'hero-044'))
+    react(
+      t,
+      new PlayChallengeReaction(
+        actionId(),
+        challenger,
+        'challenge-102',
+        'hero-044',
+      ),
+    )
     await settle(t)
 
     const view = see(t, defender)
@@ -567,7 +624,9 @@ describe('a game played through', () => {
     expect(inDiscard(view, 'hero-044')).toBe(true)
     // The challenge card was spent either way — its own frame put it away.
     expect(inDiscard(view, 'challenge-102')).toBe(true)
-    expect(see(t, challenger).hand.map((c) => c.id)).not.toContain('challenge-102')
+    expect(see(t, challenger).hand.map((c) => c.id)).not.toContain(
+      'challenge-102',
+    )
 
     const resolved = payloads(t, GameEventType.ChallengeResolved)
     expect(resolved).toHaveLength(1)
@@ -587,7 +646,15 @@ describe('a game played through', () => {
 
     // Challenger rolls 1, defender rolls 11.
     scriptDice([LOWEST, HIGHEST], HIGHEST)
-    react(t, new PlayChallengeReaction(actionId(), challenger, 'challenge-102', 'hero-044'))
+    react(
+      t,
+      new PlayChallengeReaction(
+        actionId(),
+        challenger,
+        'challenge-102',
+        'hero-044',
+      ),
+    )
     await settle(t)
 
     const view = see(t, defender)
@@ -596,9 +663,9 @@ describe('a game played through', () => {
     ])
     expect(inDiscard(view, 'hero-044')).toBe(false)
     expect(inDiscard(view, 'challenge-102')).toBe(true)
-    expect(payloads(t, GameEventType.ChallengeResolved)[0]['defenderWins']).toBe(
-      true,
-    )
+    expect(
+      payloads(t, GameEventType.ChallengeResolved)[0]['defenderWins'],
+    ).toBe(true)
   })
 
   it('only one challenge lands on a card, and the second is spent for nothing', async () => {
@@ -611,8 +678,24 @@ describe('a game played through', () => {
     await windowFor(t, defender, ReactionWindowType.Challenge)
 
     fixDice(HIGHEST)
-    react(t, new PlayChallengeReaction(actionId(), challenger, 'challenge-102', 'hero-044'))
-    react(t, new PlayChallengeReaction(actionId(), challenger, 'challenge-103', 'hero-044'))
+    react(
+      t,
+      new PlayChallengeReaction(
+        actionId(),
+        challenger,
+        'challenge-102',
+        'hero-044',
+      ),
+    )
+    react(
+      t,
+      new PlayChallengeReaction(
+        actionId(),
+        challenger,
+        'challenge-103',
+        'hero-044',
+      ),
+    )
     await settle(t)
 
     expect(ofType(t, GameEventType.ChallengeStarted)).toHaveLength(1)
@@ -633,7 +716,15 @@ describe('a game played through', () => {
     await windowFor(t, defender, ReactionWindowType.Challenge)
 
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    react(t, new PlayChallengeReaction(actionId(), challenger, 'challenge-102', 'hero-044'))
+    react(
+      t,
+      new PlayChallengeReaction(
+        actionId(),
+        challenger,
+        'challenge-102',
+        'hero-044',
+      ),
+    )
     await settle(t)
 
     // The offer is matched from the hero's position in the party, and a
@@ -651,7 +742,9 @@ describe('a game played through', () => {
   // --- Answering a confirm ------------------------------------------------
 
   it('takes up the roll a played hero is offered, for free', async () => {
-    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -675,7 +768,9 @@ describe('a game played through', () => {
   })
 
   it('lets the offer lapse when the player says nothing', async () => {
-    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -688,7 +783,9 @@ describe('a game played through', () => {
   // --- Rolling on a hero --------------------------------------------------
 
   it('spends the slot on a successful roll, and the screen stops offering it', async () => {
-    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -708,7 +805,9 @@ describe('a game played through', () => {
 
   it('spends the slot and the point on a failed roll too', async () => {
     // Whiskers asks for 11; a middling roll of 8 comes up short.
-    const t = stacked({ deck: ['hero-037', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-037', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-037')
@@ -753,7 +852,10 @@ describe('a game played through', () => {
 
     // The play spends the card; what it is WORTH is the card's own entry, and
     // arrives as a value the player picks off its printed face (§7).
-    react(t, new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId))
+    react(
+      t,
+      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId),
+    )
     const values = await windowFor(t, playerId, ReactionWindowType.ValueChoice)
     expect(values.options).toEqual([3, -1])
     answer(t, values, 3)
@@ -785,7 +887,10 @@ describe('a game played through', () => {
     rollOnHero(t, playerId, 'hero-037')
     await windowFor(t, playerId, ReactionWindowType.Modifier)
 
-    react(t, new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId))
+    react(
+      t,
+      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId),
+    )
     const values = await windowFor(t, playerId, ReactionWindowType.ValueChoice)
     answer(t, values, -1)
     await settle(t)
@@ -799,7 +904,9 @@ describe('a game played through', () => {
   })
 
   it('will not roll on a hero twice in one turn', async () => {
-    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -838,7 +945,9 @@ describe('a game played through', () => {
   // --- The leader ---------------------------------------------------------
 
   it('activates a leader without dice and without a window', async () => {
-    const t = stacked({ deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'] })
+    const t = stacked({
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+    })
     const playerId = active(t)
     const leaderId = partyOf(see(t, playerId), playerId).leader.id
 
@@ -852,7 +961,9 @@ describe('a game played through', () => {
   })
 
   it('activates a leader once a turn', async () => {
-    const t = stacked({ deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'] })
+    const t = stacked({
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+    })
     const playerId = active(t)
     const leaderId = partyOf(see(t, playerId), playerId).leader.id
 
@@ -867,7 +978,9 @@ describe('a game played through', () => {
   // --- Items --------------------------------------------------------------
 
   it('equips an item onto a hero already in the party', async () => {
-    const t = stacked({ deck: ['hero-044', 'item-067', 'hero-001', 'hero-002'] })
+    const t = stacked({
+      deck: ['hero-044', 'item-067', 'hero-001', 'hero-002'],
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -882,7 +995,10 @@ describe('a game played through', () => {
   })
 
   it('refuses a second item on the same hero', async () => {
-    const t = stacked({ deck: ['hero-044', 'item-067', 'item-068'], handSize: 3 })
+    const t = stacked({
+      deck: ['hero-044', 'item-067', 'item-068'],
+      handSize: 3,
+    })
     const playerId = active(t)
 
     playHero(t, playerId, 'hero-044')
@@ -904,8 +1020,13 @@ describe('a game played through', () => {
     // Critical Boost: DRAW 3 and DISCARD a card.
     const t = stacked({
       deck: [
-        'magic-053', 'hero-001', 'hero-002', 'hero-003',
-        'hero-004', 'hero-005', 'hero-006',
+        'magic-053',
+        'hero-001',
+        'hero-002',
+        'hero-003',
+        'hero-004',
+        'hero-005',
+        'hero-006',
       ],
     })
     const playerId = active(t)
@@ -933,8 +1054,13 @@ describe('a game played through', () => {
   it('rolls a defeated magic card back before its ability can run', async () => {
     const t = stacked({
       deck: [
-        'magic-053', 'hero-001', 'challenge-102', 'hero-002',
-        'hero-003', 'hero-004', 'hero-005',
+        'magic-053',
+        'hero-001',
+        'challenge-102',
+        'hero-002',
+        'hero-003',
+        'hero-004',
+        'hero-005',
       ],
     })
     const [caster, challenger] = t.game.playerOrder
@@ -944,7 +1070,15 @@ describe('a game played through', () => {
     await windowFor(t, caster, ReactionWindowType.Challenge)
 
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    react(t, new PlayChallengeReaction(actionId(), challenger, 'challenge-102', 'magic-053'))
+    react(
+      t,
+      new PlayChallengeReaction(
+        actionId(),
+        challenger,
+        'challenge-102',
+        'magic-053',
+      ),
+    )
     await settle(t)
 
     const view = see(t, caster)
@@ -1117,51 +1251,49 @@ describe('a game played through', () => {
 
   // --- Nothing gets stuck -------------------------------------------------
 
-  it(
-    'survives a long run of turns with no window or pipeline left behind',
-    async () => {
-      const t = table()
+  it('survives a long run of turns with no window or pipeline left behind', async () => {
+    const t = table()
 
-      for (let turn = 0; turn < 9; turn++) {
-        const playerId = active(t)
-        const view = see(t, playerId)
+    for (let turn = 0; turn < 9; turn++) {
+      const playerId = active(t)
+      const view = see(t, playerId)
 
-        const heroId = heldOfType(view, CardType.Hero)
-        if (heroId && seatOf(view, playerId).actionPoints > 0) {
-          playHero(t, playerId, heroId)
-          await settle(t)
-        }
-
-        const rollable = partyOf(see(t, playerId), playerId).heroes.find(
-          (h) => h.canRollOn,
-        )
-        if (rollable && seatOf(see(t, playerId), playerId).actionPoints > 0) {
-          rollOnHero(t, playerId, rollable.card.id)
-          await settle(t)
-        }
-
-        const attackable = see(t, playerId).attackableMonsterIds[0]
-        if (attackable && seatOf(see(t, playerId), playerId).actionPoints >= 2) {
-          attack(t, playerId, attackable)
-          await settle(t)
-        }
-
-        if (ofType(t, GameEventType.GameEnded).length > 0) break
-
-        await endTurn(t)
-
-        const between = board(t)
-        expect(between.pendingWindows).toEqual([])
-        expect(between.busy).toBe(false)
+      const heroId = heldOfType(view, CardType.Hero)
+      if (heroId && seatOf(view, playerId).actionPoints > 0) {
+        playHero(t, playerId, heroId)
+        await settle(t)
       }
 
-      expect(board(t).currentPlayerId).toBeDefined()
-    },
-    60000,
-  )
+      const rollable = partyOf(see(t, playerId), playerId).heroes.find(
+        (h) => h.canRollOn,
+      )
+      if (rollable && seatOf(see(t, playerId), playerId).actionPoints > 0) {
+        rollOnHero(t, playerId, rollable.card.id)
+        await settle(t)
+      }
+
+      const attackable = see(t, playerId).attackableMonsterIds[0]
+      if (attackable && seatOf(see(t, playerId), playerId).actionPoints >= 2) {
+        attack(t, playerId, attackable)
+        await settle(t)
+      }
+
+      if (ofType(t, GameEventType.GameEnded).length > 0) break
+
+      await endTurn(t)
+
+      const between = board(t)
+      expect(between.pendingWindows).toEqual([])
+      expect(between.busy).toBe(false)
+    }
+
+    expect(board(t).currentPlayerId).toBeDefined()
+  }, 60000)
 
   it('finishes its turns even when nobody answers anything', async () => {
-    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
     const playerId = active(t)
 
     // Play, then walk away: the challenge lapses, the roll offer lapses, and
@@ -1212,8 +1344,6 @@ describe('a game played through', () => {
       (c) => c.id === first.id,
     )
     if (same) expect(same.name).not.toBe('tampered')
-    expect(
-      see(one, one.game.playerOrder[0]).hand[0].name,
-    ).not.toBe('tampered')
+    expect(see(one, one.game.playerOrder[0]).hand[0].name).not.toBe('tampered')
   })
 })
