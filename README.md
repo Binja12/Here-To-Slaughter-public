@@ -1,15 +1,9 @@
 # Here to Slaughter
 
-A server-authoritative multiplayer card game engine in TypeScript, built around
-one hard problem: a card play that can be interrupted, contested, modified by
-any player at the table, and then either confirmed or fully undone.
-
-> **Unofficial, non-commercial implementation of the *Here to Slay* ruleset.**
-> Not affiliated with, endorsed by, or connected to the game's publisher or
-> designers. This repository contains **no original artwork and no original
-> card text**. Card names appear only as identifiers for the rules being
-> modelled; every rule description is written in the author's own words. *Here
-> to Slay* is a trademark of its respective owner.
+A server-authoritative, event-driven state engine for a real-time multiplayer
+application, in TypeScript on Node.js. The domain is a card game; the problems
+are backend problems: **interruptible transactions over shared state,
+atomic rollback, rules as data, and information hiding enforced by types.**
 
 [![Engine tests](https://github.com/Binja12/Here-To-Slaughter-public/actions/workflows/engine-tests.yml/badge.svg)](https://github.com/Binja12/Here-To-Slaughter-public/actions/workflows/engine-tests.yml)
 
@@ -18,96 +12,122 @@ Test Suites: 75 passed, 75 total
 Tests:       1162 passed, 1162 total
 ```
 
-Stack: TypeScript, Node.js, NestJS, Jest. Transport (Socket.IO) and a React
-client live on their own branches; see [Branches](#branches).
+## What this demonstrates
+
+- **Server authority.** All state lives on the server. Clients send intents
+  and receive a projection; nothing a client sends is trusted as fact.
+- **Interruptible transactions.** A request can be paused mid-resolution by
+  input from *other* users, with timeouts, and those interruptions nest. A
+  transaction that is invalidated rolls back atomically, including work done
+  by rules that fired inside it.
+- **Snapshot-based rollback, chosen over an undo log.** One serialized state
+  serves as both the rollback point and the authoritative broadcast, so there
+  is one definition of "the state" and it runs on every event, not only on the
+  rare failure path. The trade-offs are documented, not hidden.
+- **Two schedulers, one contract.** User requests and rule execution run on
+  separate pipelines that share nothing but events and state, so neither can
+  reach into the other.
+- **Rules as data.** The domain is 136 records plus declarative
+  `{ trigger, steps }` entries in one registry. No file in the engine core
+  names a domain object; adding a rule is data, not an engine change.
+- **Information hiding at the type level.** Each user gets a projection built
+  by one function whose *type* cannot hold what that user may not see. A
+  visible object is named; a hidden one is counted.
+- **Dependency direction.** An interface layer sits at the top and imports no
+  implementation. Type-only cycles were measured and removed. Every design
+  decision, and every alternative that was tried and deleted, is written down
+  in [docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md).
+- **Testing as a design constraint.** Unit specs sit beside their subject. A
+  real-clock integration test drives whole sessions through the same four
+  entry points a client has and never touches internal state, so any case it
+  cannot express is a case no client can reach. CI runs typecheck and suite
+  on every push.
+
+> **Unofficial, non-commercial implementation of the *Here to Slay* ruleset.**
+> Not affiliated with, endorsed by, or connected to the game's publisher or
+> designers. This repository contains **no original artwork and no original
+> card text**; every rule description is written in the author's own words.
+> *Here to Slay* is a trademark of its respective owner.
 
 ---
 
-## Why reactions are hard
+## The core problem: a transaction that other users can interrupt
 
-In this ruleset almost nothing resolves immediately. Playing a hero looks like
-one move, but the table gets a say at every step:
+In most backends a request either commits or fails inside one handler. Here a
+request opens, waits on other users, may be interrupted again while waiting,
+and only then commits or rolls back. In the game's terms:
 
-1. The hero is played. **Any opponent** may play a challenge card against it.
-2. A challenge is a dice roll-off. **Any player** may throw modifier cards onto
-   either side of that roll, each one a choice of two values.
-3. If the challenge succeeds, the play never happened. If it fails, the hero
-   stands and its owner may now roll for its ability.
-4. That ability might draw a card, play the card it drew, and open a *new*
-   challenge window on that play, nested inside the first ability's run.
+1. A user plays a card. **Any other user** may contest it within a time limit.
+2. A contest is resolved by a dice roll. **Any user** may modify that roll
+   while it is open, each modification itself a choice.
+3. If the contest succeeds, the original request never happened. If it fails,
+   the request stands and triggers the card's own rule.
+4. That rule may draw a card, play it, and open a *new* contest on that play,
+   nested inside the first rule's execution.
 
-So the engine has to pause an action mid-resolution and wait on input from
-players who are not the active player, with timeouts. It has to accept those
-interruptions **nested**. And when a contested play is defeated, it has to
-undo everything that happened downstream of it, including work done by
-abilities that fired in between.
+So the engine has to suspend a request, accept nested suspensions, time out
+silent users without deadlocking, and, on failure, undo everything downstream
+of the request including side effects of rules that ran in between.
 
 ### Two ways to undo
 
-**Per-effect inverse operations.** Every mutation records how to reverse
-itself; a failed play walks its log backwards. Every effect has to be written
-twice and both halves have to agree, and a nested reaction means the log is a
-tree, not a list.
+**Undo log (per-effect inverse operations).** Every mutation records how to
+reverse itself; a failed request walks its log backwards. Every effect has to
+be written twice and both halves have to agree, and nested interruptions turn
+the log into a tree.
 
-**Snapshot and restore.** Cloning the whole game state when a contest opens,
-and either discarding the clone (play stands) or swapping it back in (play
-defeated).
+**Snapshot and restore.** Clone the state when a contest opens; discard the
+clone on success, swap it back in on failure.
 
-This engine takes the second route, and the reason is not only that it is
-simpler. The engine already has to **serialize the full game state** to send
-authoritative snapshots to clients. The same clone does both jobs, so there is
-exactly one notion of "what the state is" in the codebase and it is exercised
-on every event, not only on the rare rollback path.
+This engine takes the second route, and the reason is not only simplicity.
+The engine already has to serialize the full state to broadcast it. The same
+clone does both jobs, so "what the state is" has one definition that is
+exercised constantly rather than a second one that runs only on rollback.
 
-Three consequences fall out of that choice, and they shape most of the engine:
+Three consequences shape most of the engine:
 
-- **Cancellation is rollback.** Ability pipelines that are paused waiting on a
-  window live *inside* the game state, so they are inside the snapshot. When a
-  contested play is rolled back, the continuation of whatever it started is
-  discarded with it. There is no cancel flag anywhere in the engine.
+- **Cancellation is rollback.** Suspended rule pipelines live *inside* the
+  state, so they are inside the snapshot. Rolling back a contested request
+  discards the continuation of whatever it started. There is no cancel flag
+  anywhere.
 - **Where the snapshot is taken decides what a rollback keeps.** A played card
-  leaves the hand *before* the frame opens and joins the party *inside* it, so
-  a defeated play is undone but the card is still spent. That is the rule of
-  the game, expressed purely by snapshot timing rather than by an
-  "already paid" flag.
+  leaves the hand *before* the frame opens and joins the table *inside* it, so
+  a defeated play is undone but the card is still spent. That business rule is
+  expressed purely by snapshot timing, with no "already paid" flag.
 - **A frame is a scope.** Steps that ran before a frame opened survive its
-  rollback; steps that ran inside it do not. An ability that wants an earlier
-  step undone opens its frame earlier.
+  rollback; steps that ran inside it do not. A rule that wants an earlier step
+  undone opens its frame earlier.
 
-The cost is documented rather than hidden: a run cannot continue *after* its
-own rollback (so "roll; if you fail, do X instead" is expressed as a separate
-rule reacting to the failure event), and card objects are shared by reference
-across snapshots, which is why anything that changes during play is stored on
-the board and not on a card. Both are recorded in
+The costs are recorded rather than hidden: a run cannot continue *after* its
+own rollback (so "try; on failure do X" is a separate rule reacting to the
+failure event), and domain objects are shared by reference across snapshots,
+which is why everything that changes during play is stored on the board and
+not on the object. Both are in
 [docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md), section 8.
 
 ---
 
 ## Architecture in one screen
 
-The whole design rationale, including approaches that were built and then
-deliberately deleted, is in
-[docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md). The short version:
-
 **Two pipelines that never call each other.**
-`TurnManager` drains *actions*: player requests that arrive over the API, cost
-action points, and carry their targets. `TaskManager` drains *tasks*: the steps
-of card abilities, declared once at module load, which discover their targets
-at runtime. Work the engine starts for itself is always a task, so nothing can
-sneak a player-priced action onto the queue.
+`TurnManager` drains *actions*: user requests that arrive over the API, are
+priced, and carry their targets. `TaskManager` drains *tasks*: the steps of
+rules, declared once at module load, which discover their targets at runtime.
+Work the engine starts for itself is always a task, so nothing can put a
+user-priced request on the queue from the inside.
 
 **Frames and windows.** `ReactionManager` opens a *frame* (the snapshot) and a
-*window* on it: challenge, modifier, attack, or one of several choice windows.
+*window* on it: a contest, a modification, or one of several choice windows.
 Every window settles the same way: release the frame or restore it, then
-announce the outcome as an event. Timeouts always release. A player's answer
-arrives by one of two routes, playing a card into a window or naming one of
+announce the outcome as an event. Timeouts always release. A user's answer
+arrives by one of two routes, committing a card into a window or naming one of
 the options the engine offered.
 
-**Abilities are data, not code.** A card's behaviour is a list of entries,
-each `{ trigger, steps }`, keyed by card id in one registry file. A step that
-has to ask a question is the *last* step of its entry; what follows is a
-separate entry triggered by the answer's event. "No" is the absence of an
-event, so nothing has to be cancelled:
+**Rules are data, not code.** A card's behaviour is a list of entries, each
+`{ trigger, steps }`, keyed by id in one registry. A step that has to ask a
+question is the *last* step of its entry; what follows is a separate entry
+triggered by the answer's event. "No" is the absence of an event, so nothing
+has to be cancelled:
 
 ```ts
 // Snowball: draw a card; if it is a magic card, you may play it and draw again.
@@ -121,22 +141,21 @@ event, so nothing has to be cancelled:
 ]
 ```
 
-**Which abilities are live is derived, never stored.** On every event the
-engine scans the board (leaders, party heroes, equipped items, monsters, cards
-in play) and looks each one up in the registry. A stolen hero's ability belongs
-to its new owner with zero bookkeeping. The only stored things are *effects*:
-standing rules with a lifetime ("+3 to your rolls until your turn ends"),
-expired by events rather than by polling.
+**Which rules are live is derived, never stored.** On every event the engine
+scans the board and looks each object up in the registry. An object that
+changes owner takes its rules with it with zero bookkeeping. The only stored
+things are *effects*: standing rules with a lifetime, expired by events rather
+than by polling.
 
-**Clients hold no game state.** They send intents and receive a per-player
-projection built by one function. A face-up card is *named*; a face-down card
-is *counted*. There is no "table view", because a function that built one
-would be the thing that leaked hidden information.
+**Clients hold no state.** They send intents and receive a per-user projection
+built by one function. A visible object is *named*; a hidden one is *counted*.
+There is no shared "table view", because a function that built one would be
+the thing that leaked.
 
-**The card set is data.** No file in the engine core names a card. The base
-set is 136 records in `server/src/data/base-game-cards.ts` plus one ability
-declaration per card that has behaviour. Adding a card is a record and an
-entry, not an engine change.
+**Principles the code is held to** (from section 12 of the design record):
+delete anything with no readers; fail loudly at the point of the mistake;
+derive rather than pass; data over closures; one mechanism, not two; a step
+decides about itself, never about its siblings.
 
 ---
 
@@ -149,23 +168,18 @@ server/src/game/
   pipelines/                turn-manager, task-manager, reaction-manager, game-state
   abilities/                trigger matching, effect lifecycle, expiry vocabulary
   repositories/
-    ability-repository/     one file per card with behaviour + the registry
+    ability-repository/     one file per rule + the registry
   actions/  tasks/          the two pipelines' units of work
   reactions/                the window classes
   state-structures/         player, party, face-down stack, face-up pile
-  views/                    the per-player projection
-  setup/                    createGame, plus a real-clock play-through test
+  views/                    the per-user projection
+  setup/                    createGame, plus the real-clock integration test
   conditions/ events/ config/ cards/
-server/src/data/            the card set, as data
+server/src/data/            the domain records
 shared/                     types shared with any client
 docs/ENGINE_ARCHITECTURE.md the design record
 client/                     placeholder on this branch; see Branches
 ```
-
-Specs sit beside their subject (`*.spec.ts`). The play-through test in
-`setup/` drives whole turns on a dealt table through the same four doors a real
-client has (enqueue an action, submit a reaction, submit a choice, read the
-view) and never touches internal state.
 
 ## Running the tests
 
@@ -190,7 +204,7 @@ step.
 |---|---|
 | `main` | The engine. This README describes it. |
 | `HTSR-6-Auth-And-Lobby` | Registration, sessions, and the lobby service, per `docs/API_AND_SOCKETS_CONTRACT.md` on that branch. |
-| `HTSR-5-Frontend` | A React board and a thin Socket.IO gateway used to play-test the engine by hand. **The client on this branch was generated with AI tooling as a reference harness**; it is not part of the engine and is not representative of the design work above. Its image assets have been removed from the repository, so it renders without card art. |
+| `HTSR-5-Frontend` | A React board and a thin Socket.IO gateway used to exercise the engine by hand. **The client on this branch was generated with AI tooling as a reference harness**; it is not part of the engine and is not representative of the design work above. Its image assets have been removed from the repository, so it renders without card art. |
 
 ## About this repository
 
