@@ -11,7 +11,7 @@ any player at the table, and then either confirmed or fully undone.
 > modelled; every rule description is written in the author's own words. *Here
 > to Slay* is a trademark of its respective owner.
 
-[![Engine tests](https://github.com/Binja12/Here-To-Slaughter/actions/workflows/engine-tests.yml/badge.svg)](https://github.com/Binja12/Here-To-Slaughter/actions/workflows/engine-tests.yml)
+[![Engine tests](https://github.com/Binja12/Here-To-Slaughter-public/actions/workflows/engine-tests.yml/badge.svg)](https://github.com/Binja12/Here-To-Slaughter-public/actions/workflows/engine-tests.yml)
 
 ```
 Test Suites: 75 passed, 75 total
