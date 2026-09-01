@@ -6,8 +6,10 @@ import {
   HttpException,
   HttpStatus,
   Post,
+  Sse,
   UseGuards,
 } from '@nestjs/common'
+import type { Observable } from 'rxjs'
 import { CurrentAccount, SessionAuthGuard } from '../auth/session-auth.guard'
 import type { AuthenticatedAccount } from '../auth/auth.types'
 import {
@@ -19,7 +21,11 @@ import {
   OnlyHostCanStartError,
 } from './lobby.errors'
 import { LobbyService } from './lobby.service'
-import type { LobbySnapshot, StartGameResponse } from './lobby.types'
+import type {
+  LobbySnapshot,
+  LobbySseEvent,
+  StartGameResponse,
+} from './lobby.types'
 
 @Controller('lobby')
 @UseGuards(SessionAuthGuard)
@@ -31,6 +37,13 @@ export class LobbyController {
     @CurrentAccount() account: AuthenticatedAccount,
   ): Promise<LobbySnapshot> {
     return this.lobbyService.getSnapshot(account)
+  }
+
+  @Sse('events')
+  events(
+    @CurrentAccount() account: AuthenticatedAccount,
+  ): Observable<LobbySseEvent> {
+    return this.lobbyService.events(account)
   }
 
   @Post('ready')

@@ -42,6 +42,15 @@ describe('Lobby HTTP contract', () => {
     expect(response.body).toEqual({ reason: 'Authentication required' })
   })
 
+  it('protects the lobby SSE stream with the session guard', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/lobby/events')
+      .set('Accept', 'text/event-stream')
+
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({ reason: 'Authentication required' })
+  })
+
   it('returns the caller snapshot and supports ready and unready', async () => {
     const first = await register(app, 'player-one')
     const firstCookie = sessionCookie(first)

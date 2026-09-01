@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
+import type { Observable } from 'rxjs'
 import type { AuthenticatedAccount } from '../auth/auth.types'
 import {
   AccountAlreadyInGameError,
@@ -18,10 +19,13 @@ import type {
   IGameServerClient,
   ILobbyStore,
 } from './lobby.interfaces'
+import { LobbyEventStreamService } from './lobby-event-stream.service'
 import { LOBBY_CAPACITY, MIN_GAME_PLAYERS } from './lobby.types'
 import type {
+  GameAssignment,
   LobbyPlayer,
   LobbySnapshot,
+  LobbySseEvent,
   StartGameResponse,
 } from './lobby.types'
 
@@ -36,7 +40,32 @@ export class LobbyService {
     private readonly assignments: IGameAssignmentStore,
     @Inject(GAME_SERVER_CLIENT)
     private readonly gameServer: IGameServerClient,
+    private readonly eventStream: LobbyEventStreamService,
   ) {}
+
+  events(account: AuthenticatedAccount): Observable<LobbySseEvent> {
+    return this.eventStream.open(account, async () => {
+      const [snapshot, assignment] = await Promise.all([
+        this.getSnapshot(account),
+        this.assignments.findByAccountId(account.accountId),
+      ])
+      const events: LobbySseEvent[] = [
+        { type: 'lobby-updated', data: snapshot },
+      ]
+
+      // Replay an active assignment when a browser reconnects to SSE.
+      if (assignment) {
+        events.push({
+          type: 'game-assigned',
+          data: {
+            gameId: assignment.gameId,
+            webSocketUrl: assignment.webSocketUrl,
+          },
+        })
+      }
+      return events
+    })
+  }
 
   async getSnapshot(account: AuthenticatedAccount): Promise<LobbySnapshot> {
     const [readyPlayers, settings, assignment] = await Promise.all([
@@ -87,13 +116,17 @@ export class LobbyService {
       })
     }
 
-    return this.getSnapshot(account)
+    const snapshot = await this.getSnapshot(account)
+    if (!alreadyReady) await this.publishLobbyUpdated()
+    return snapshot
   }
 
   async unready(account: AuthenticatedAccount): Promise<LobbySnapshot> {
     // Removing a missing player is idempotent.
-    await this.lobby.removeReadyPlayer(account.accountId)
-    return this.getSnapshot(account)
+    const removed = await this.lobby.removeReadyPlayer(account.accountId)
+    const snapshot = await this.getSnapshot(account)
+    if (removed) await this.publishLobbyUpdated()
+    return snapshot
   }
 
   async getStartPlayers(hostAccountId: string): Promise<LobbyPlayer[]> {
@@ -147,20 +180,28 @@ export class LobbyService {
       }
 
       const assignedAt = new Date()
-      await this.assignments.assign(
-        accountIds.map((accountId) => ({
-          accountId,
-          gameId: game.gameId,
-          webSocketUrl: game.webSocketUrl,
-          assignedAt,
-        })),
-      )
+      const newAssignments: GameAssignment[] = accountIds.map((accountId) => ({
+        accountId,
+        gameId: game.gameId,
+        webSocketUrl: game.webSocketUrl,
+        assignedAt,
+      }))
+      await this.assignments.assign(newAssignments)
 
       // Free the ready list only after every selected account is assigned.
       await this.lobby.removeReadyPlayers(accountIds)
+      await this.publishLobbyUpdated()
+      await this.eventStream.publishGameAssignments(newAssignments)
       return { gameId: game.gameId, status: 'STARTING' }
     } finally {
       this.gameStartInProgress = false
     }
+  }
+
+  private publishLobbyUpdated(): Promise<void> {
+    // Build a caller-specific snapshot for each connected account.
+    return this.eventStream.publishLobbyUpdated((account) =>
+      this.getSnapshot(account),
+    )
   }
 }

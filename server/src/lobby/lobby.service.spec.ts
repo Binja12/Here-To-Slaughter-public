@@ -1,4 +1,5 @@
 import type { AuthenticatedAccount } from '../auth/auth.types'
+import { filter, firstValueFrom, take } from 'rxjs'
 import {
   AccountAlreadyInGameError,
   GameServerUnavailableError,
@@ -7,7 +8,9 @@ import {
   OnlyHostCanStartError,
 } from './lobby.errors'
 import type { IGameServerClient } from './lobby.interfaces'
+import { LobbyEventStreamService } from './lobby-event-stream.service'
 import { LobbyService } from './lobby.service'
+import type { LobbySseEvent } from './lobby.types'
 import { InMemoryGameAssignmentStore } from './stores/in-memory-game-assignment.store'
 import { InMemoryLobbyStore } from './stores/in-memory-lobby.store'
 
@@ -33,7 +36,12 @@ describe('LobbyService', () => {
         webSocketUrl: 'http://localhost:3001',
       }),
     }
-    service = new LobbyService(lobbyStore, assignmentStore, gameServer)
+    service = new LobbyService(
+      lobbyStore,
+      assignmentStore,
+      gameServer,
+      new LobbyEventStreamService(),
+    )
   })
 
   it('keeps an ordered ready list and makes the first player host', async () => {
@@ -148,4 +156,91 @@ describe('LobbyService', () => {
     ])
     await expect(assignmentStore.findByGameId('game-1')).resolves.toEqual([])
   })
+
+  it('sends caller-specific lobby updates to every connected account', async () => {
+    const firstEvents: LobbySseEvent[] = []
+    const secondEvents: LobbySseEvent[] = []
+    const firstConnection = service
+      .events(account(1))
+      .subscribe((event) => firstEvents.push(event))
+    const secondConnection = service
+      .events(account(2))
+      .subscribe((event) => secondEvents.push(event))
+
+    try {
+      await service.ready(account(1))
+
+      const firstUpdate = latestLobbyUpdate(firstEvents)
+      const secondUpdate = latestLobbyUpdate(secondEvents)
+      expect(firstUpdate.data.readyPlayers).toEqual([account(1)])
+      expect(firstUpdate.data.self.state).toBe('READY')
+      expect(secondUpdate.data.readyPlayers).toEqual([account(1)])
+      expect(secondUpdate.data.self.state).toBe('IDLE')
+    } finally {
+      firstConnection.unsubscribe()
+      secondConnection.unsubscribe()
+    }
+  })
+
+  it('sends game assignments only to selected accounts', async () => {
+    await service.ready(account(1))
+    await service.ready(account(2))
+    const selectedEvents: LobbySseEvent[] = []
+    const outsiderEvents: LobbySseEvent[] = []
+    const selectedConnection = service
+      .events(account(2))
+      .subscribe((event) => selectedEvents.push(event))
+    const outsiderConnection = service
+      .events(account(3))
+      .subscribe((event) => outsiderEvents.push(event))
+
+    try {
+      await service.startGame(account(1).accountId)
+
+      expect(selectedEvents).toContainEqual({
+        type: 'game-assigned',
+        data: {
+          gameId: 'game-1',
+          webSocketUrl: 'http://localhost:3001',
+        },
+      })
+      expect(
+        outsiderEvents.some((event) => event.type === 'game-assigned'),
+      ).toBe(false)
+      expect(latestLobbyUpdate(outsiderEvents).data.readyPlayers).toEqual([])
+    } finally {
+      selectedConnection.unsubscribe()
+      outsiderConnection.unsubscribe()
+    }
+  })
+
+  it('replays an active game assignment after SSE reconnects', async () => {
+    await service.ready(account(1))
+    await service.ready(account(2))
+    await service.startGame(account(1).accountId)
+
+    const assignmentEvent = await firstValueFrom(
+      service.events(account(1)).pipe(
+        filter((event) => event.type === 'game-assigned'),
+        take(1),
+      ),
+    )
+
+    expect(assignmentEvent.data).toEqual({
+      gameId: 'game-1',
+      webSocketUrl: 'http://localhost:3001',
+    })
+  })
 })
+
+function latestLobbyUpdate(
+  events: readonly LobbySseEvent[],
+): Extract<LobbySseEvent, { type: 'lobby-updated' }> {
+  const event = [...events]
+    .reverse()
+    .find((candidate) => candidate.type === 'lobby-updated')
+  if (!event || event.type !== 'lobby-updated') {
+    throw new Error('No lobby-updated event was received')
+  }
+  return event
+}

@@ -34,3 +34,18 @@ export type StartGameResponse = {
   gameId: string
   status: 'STARTING'
 }
+
+export type GameAssignedEventData = {
+  gameId: string
+  webSocketUrl: string
+}
+
+export type LobbySseEvent =
+  | {
+      type: 'lobby-updated'
+      data: LobbySnapshot
+    }
+  | {
+      type: 'game-assigned'
+      data: GameAssignedEventData
+    }
