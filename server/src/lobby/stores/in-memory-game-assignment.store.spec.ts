@@ -23,6 +23,22 @@ describe('InMemoryGameAssignmentStore', () => {
     await expect(store.findByGameId('game-1')).resolves.toEqual(assignments)
   })
 
+  it('keeps stored assignments isolated from caller mutations', async () => {
+    const store = new InMemoryGameAssignmentStore()
+    const original = assignment('account-1')
+    await store.assign([original])
+
+    original.webSocketUrl = 'changed-by-caller'
+    original.assignedAt.setFullYear(1999)
+    const firstRead = await store.findByAccountId('account-1')
+    firstRead!.webSocketUrl = 'changed-after-read'
+    firstRead!.assignedAt.setFullYear(1998)
+
+    await expect(store.findByAccountId('account-1')).resolves.toEqual(
+      assignment('account-1'),
+    )
+  })
+
   it('rejects the whole batch if an account already has an active game', async () => {
     const store = new InMemoryGameAssignmentStore()
     await store.assign([assignment('account-1')])

@@ -130,6 +130,30 @@ describe('Auth HTTP contract', () => {
     ).resolves.toBeUndefined()
   })
 
+  it('logs out only the presented session', async () => {
+    const registration = await register(app, 'player-one')
+    const firstCookie = sessionCookie(registration)
+    const secondLogin = await request(app.getHttpServer())
+      .post('/login')
+      .send({ username: 'player-one', password: PASSWORD })
+    const secondCookie = sessionCookie(secondLogin)
+
+    await request(app.getHttpServer())
+      .post('/logout')
+      .set('Cookie', firstCookie.pair)
+      .expect(204)
+
+    await request(app.getHttpServer())
+      .get('/test/protected')
+      .set('Cookie', firstCookie.pair)
+      .expect(401)
+    const stillAuthenticated = await request(app.getHttpServer())
+      .get('/test/protected')
+      .set('Cookie', secondCookie.pair)
+      .expect(200)
+    expect(stillAuthenticated.body.accountId).toBe(registration.body.accountId)
+  })
+
   it('rejects malformed registration and login bodies', async () => {
     const registerResponse = await request(app.getHttpServer())
       .post('/register')
