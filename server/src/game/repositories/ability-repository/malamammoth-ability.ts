@@ -7,10 +7,9 @@ import { DiscardTask } from '../../tasks/tasks'
 import { PlayItemTask } from '../../tasks/item-tasks'
 
 // Malamammoth (monster-134)
-//   Passive:       "Each time you DRAW an Item card, you may play it
-//                   immediately."
-//   Slay 8+:       SLAY this Monster card.
-//   Fight back 4-: DISCARD 2 cards.
+//   Passive:       "Whenever you draw an item, you may play it right away."
+//   Slay 8+:       On slaying: no extra reward.
+//   Fight back 4-: Discard two cards.
 //
 //   [0] CardDrawn, OwnerEvent                 → was it an Item?
 //   [1] ConditionMet 'MalamammothDrewItem'    → ask

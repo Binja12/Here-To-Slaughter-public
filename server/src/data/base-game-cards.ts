@@ -16,7 +16,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Bad Axe',
     type: CardType.Hero,
     image: 'heroes/bad-axe.png',
-    description: 'DESTROY a Hero card.',
+    description: 'Destroy one hero in any party.',
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 8,
@@ -27,7 +27,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/fury-knuckle.png',
     description:
-      "Pull a card from another player's hand. If it is a Challenge card, pull a second card from that player's hand.",
+      "Take a random card from an opponent's hand. If it turns out to be a challenge card, take one more from the same hand.",
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
@@ -38,7 +38,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/beary-wise.png',
     description:
-      'Each other player must DISCARD a card. Choose one of the discarded cards and add it to your hand.',
+      'Every opponent discards one card. Pick one of those discards and put it in your hand.',
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 7,
@@ -48,7 +48,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Heavy Bear',
     type: CardType.Hero,
     image: 'heroes/heavy-bear.png',
-    description: 'Choose a player. That player must DISCARD 2 cards.',
+    description: 'Pick an opponent. They discard two cards.',
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
@@ -59,7 +59,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/bear-claw.png',
     description:
-      "Pull a card from another player's hand. If it is a Hero card, pull a second card from that player's hand.",
+      "Take a random card from an opponent's hand. If it turns out to be a hero, take one more from the same hand.",
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 7,
@@ -70,7 +70,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/tough-teddy.png',
     description:
-      'Each other player with a Fighter in their Party must DISCARD a card.',
+      'Every opponent who has a Fighter in their party discards one card.',
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 4,
@@ -81,7 +81,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/qi-bear.png',
     description:
-      'DISCARD up to 3 cards. For each card discarded, DESTROY a Hero card.',
+      'Discard up to three cards, then destroy one hero for each card you discarded.',
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 10,
@@ -92,7 +92,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/pan-chucks.png',
     description:
-      'DRAW 2 cards. If at least one of those cards is a Challenge card, you may reveal it, then DESTROY a Hero card.',
+      'Draw two cards. If either is a challenge card, you may show it and destroy one hero.',
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 8,
@@ -102,7 +102,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Serious Grey',
     type: CardType.Hero,
     image: 'heroes/serious-grey.png',
-    description: 'DESTROY a Hero and DRAW a card.',
+    description: 'Destroy one hero, then draw a card.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 9,
@@ -113,7 +113,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/quick-draw.png',
     description:
-      'DRAW 2 cards. If at least one of those cards is an Item card, you may play one of them immediately.',
+      'Draw two cards. If either is an item, you may play it right away.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 8,
@@ -124,7 +124,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/lookie-rookie.png',
     description:
-      'Search the discard pile for an Item card and add it to your hand.',
+      'Take an item of your choice from the discard pile into your hand.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 5,
@@ -134,7 +134,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Wildshot',
     type: CardType.Hero,
     image: 'heroes/wildshot.png',
-    description: 'DRAW 3 cards and DISCARD a card.',
+    description: 'Draw three cards, then discard one.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 8,
@@ -144,8 +144,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Hook',
     type: CardType.Hero,
     image: 'heroes/hook.png',
-    description:
-      'Play an Item card from your hand immediately and DRAW a card.',
+    description: 'Play an item from your hand at no cost, then draw a card.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 6,
@@ -156,7 +155,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/bullseye.png',
     description:
-      'Look at the top 3 cards of the deck. Add one to your hand, then return the other two to the top of the deck in any order.',
+      'Peek at the top three cards of the deck. Keep one and put the other two back on top in the order you choose.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 7,
@@ -166,7 +165,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Wily Red',
     type: CardType.Hero,
     image: 'heroes/wily-red.png',
-    description: 'DRAW cards until you have 7 cards in your hand.',
+    description: 'Draw until you are holding seven cards.',
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 10,
@@ -176,7 +175,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Sharp Fox',
     type: CardType.Hero,
     image: 'heroes/sharp-fox.png',
-    description: "Look at another player's hand.",
+    description: "Look through one opponent's hand.",
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 5,
@@ -186,7 +185,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Kit Napper',
     type: CardType.Hero,
     image: 'heroes/kit-napper.png',
-    description: 'STEAL a Hero card.',
+    description: 'Steal one hero from another party.',
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 9,
@@ -197,7 +196,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/sly-pickings.png',
     description:
-      "Pull a card from another player's hand. If that card is an Item card, you may play it immediately.",
+      "Take a random card from an opponent's hand. If it is an item, you may play it right away.",
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 6,
@@ -208,7 +207,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/meowzio.png',
     description:
-      "Choose a player. STEAL a Hero from that player and pull a card from that player's hand.",
+      'Pick an opponent. Steal one hero from their party and take a random card from their hand.',
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 10,
@@ -219,7 +218,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/plundering-puma.png',
     description:
-      "Pull 2 cards from another player's hand. That player may DRAW a card.",
+      "Take two random cards from an opponent's hand. That opponent may then draw one card.",
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 6,
@@ -230,7 +229,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/silent-shadow.png',
     description:
-      "Look at another player's hand. Choose a card and add it to your hand.",
+      "Look through an opponent's hand and take any one card from it.",
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 8,
@@ -241,7 +240,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/slippery-paws.png',
     description:
-      "Pull 2 cards from another player's hand, then DISCARD one of those cards.",
+      "Take two random cards from an opponent's hand, then discard one of the two.",
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 6,
@@ -252,7 +251,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/shurikitty.png',
     description:
-      'DESTROY a Hero card. If that Hero card had an Item card equipped to it, add that Item card to your hand instead of moving it to the discard pile.',
+      'Destroy one hero. If it was wearing an item, that item goes to your hand instead of the discard pile.',
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 9,
@@ -263,7 +262,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/smooth-mimimeow.png',
     description:
-      'Pull a card from the hand of each other player with a Thief in their Party.',
+      'Take a random card from the hand of every opponent who has a Thief in their party.',
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 7,
@@ -274,7 +273,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/guiding-light.png',
     description:
-      'Search the discard pile for a Hero card and add it to your hand.',
+      'Take a hero of your choice from the discard pile into your hand.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 7,
@@ -285,7 +284,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/holy-curselifter.png',
     description:
-      'Return a Cursed Item card equipped to a Hero card in your Party to your hand.',
+      'Return a cursed item worn by one of your heroes to your hand.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 5,
@@ -296,7 +295,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/radiant-horn.png',
     description:
-      'Search the discard pile for a Modifier card and add it to your hand.',
+      'Take a modifier of your choice from the discard pile into your hand.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 6,
@@ -306,7 +305,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Wise Shield',
     type: CardType.Hero,
     image: 'heroes/wise-shield.png',
-    description: '+3 to all of your rolls until the end of your turn.',
+    description: 'Add 3 to every roll you make for the rest of this turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 6,
@@ -316,7 +315,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Vibrant Glow',
     type: CardType.Hero,
     image: 'heroes/vibrant-glow.png',
-    description: '+5 to all of your rolls until the end of your turn.',
+    description: 'Add 5 to every roll you make for the rest of this turn.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 9,
@@ -327,7 +326,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/iron-resolve.png',
     description:
-      'Cards you play cannot be challenged for the rest of your turn.',
+      'Nothing you play for the rest of this turn can be challenged.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 8,
@@ -337,8 +336,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Mighty Blade',
     type: CardType.Hero,
     image: 'heroes/mighty-blade.png',
-    description:
-      'Hero cards in your Party cannot be destroyed until your next turn.',
+    description: 'Your heroes cannot be destroyed until your next turn begins.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 8,
@@ -348,8 +346,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Calming Voice',
     type: CardType.Hero,
     image: 'heroes/calming-voice.png',
-    description:
-      'Hero cards in your Party cannot be stolen until your next turn.',
+    description: 'Your heroes cannot be stolen until your next turn begins.',
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 9,
@@ -359,7 +356,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Hopper',
     type: CardType.Hero,
     image: 'heroes/hopper.png',
-    description: 'Choose a player. That player must SACRIFICE a Hero card.',
+    description: 'Pick an opponent. They sacrifice one of their own heroes.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 7,
@@ -370,7 +367,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/buttons.png',
     description:
-      "Pull a card from another player's hand. If it is a Magic card, you may play it immediately.",
+      "Take a random card from an opponent's hand. If it is a magic card, you may play it right away.",
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 6,
@@ -380,7 +377,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Spooky',
     type: CardType.Hero,
     image: 'heroes/spooky.png',
-    description: 'Each other player must SACRIFICE a Hero card.',
+    description: 'Every opponent sacrifices one of their own heroes.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 10,
@@ -390,7 +387,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Wiggles',
     type: CardType.Hero,
     image: 'heroes/wiggles.png',
-    description: 'STEAL a Hero card and roll to use its effect immediately.',
+    description: 'Steal a hero and immediately roll for its ability.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 10,
@@ -400,7 +397,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Whiskers',
     type: CardType.Hero,
     image: 'heroes/whiskers.png',
-    description: 'STEAL a Hero card and DESTROY a Hero card.',
+    description: 'Steal one hero, then destroy one hero.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 11,
@@ -410,7 +407,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Fluffy',
     type: CardType.Hero,
     image: 'heroes/fluffy.png',
-    description: 'DESTROY 2 Hero cards.',
+    description: 'Destroy two heroes.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 10,
@@ -421,7 +418,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/bun-bun.png',
     description:
-      'Search the discard pile for a Magic card and add it to your hand.',
+      'Take a magic card of your choice from the discard pile into your hand.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 5,
@@ -432,7 +429,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/snowball.png',
     description:
-      'DRAW a card. If it is a Magic card, you may play it immediately and DRAW a second card.',
+      'Draw a card. If it is a magic card, you may play it right away and then draw again.',
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 6,
@@ -442,8 +439,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Mellow Dee',
     type: CardType.Hero,
     image: 'heroes/mellow-dee.png',
-    description:
-      'DRAW a card. If that card is a Hero card, you may play it immediately.',
+    description: 'Draw a card. If it is a hero, you may play it right away.',
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 7,
@@ -454,7 +450,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/lucky-bucky.png',
     description:
-      "Pull a card from another player's hand. If that card is a Hero card, you may play it immediately.",
+      "Take a random card from an opponent's hand. If it is a hero, you may play it right away.",
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 7,
@@ -464,7 +460,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Fuzzy Cheeks',
     type: CardType.Hero,
     image: 'heroes/fuzzy-cheeks.png',
-    description: 'DRAW a card and play a Hero card from your hand immediately.',
+    description: 'Draw a card, then play a hero from your hand at no cost.',
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 8,
@@ -474,7 +470,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Napping Nibbles',
     type: CardType.Hero,
     image: 'heroes/napping-nibbles.png',
-    description: 'Do nothing.',
+    description: 'No effect.',
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 2,
@@ -485,7 +481,7 @@ export const baseHeroes: HeroCardData[] = [
     type: CardType.Hero,
     image: 'heroes/tipsy-tootie.png',
     description:
-      "Choose a player. STEAL a Hero card from that player's Party and move Tipsy Tootie to that player's Party.",
+      'Pick an opponent. Steal a hero from their party, and this card moves into their party in exchange.',
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 6,
@@ -495,7 +491,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Dodgy Dealer',
     type: CardType.Hero,
     image: 'heroes/dodgy-dealer.png',
-    description: 'Trade hands with another player.',
+    description: "Swap your whole hand with another player's.",
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 9,
@@ -505,7 +501,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Greedy Cheeks',
     type: CardType.Hero,
     image: 'heroes/greedy-cheeks.png',
-    description: 'Each other player must give you a card from their hand.',
+    description: 'Every opponent hands you one card from their hand.',
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 8,
@@ -515,7 +511,7 @@ export const baseHeroes: HeroCardData[] = [
     name: 'Peanut',
     type: CardType.Hero,
     image: 'heroes/peanut.png',
-    description: 'DRAW 2 cards.',
+    description: 'Draw two cards.',
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 7,
@@ -529,16 +525,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Corrupted Sabretooth',
     type: CardType.Monster,
     image: 'monsters/corrupted-sabretooth.png',
-    description:
-      'Each time you would DESTROY a Hero card, you may STEAL that Hero card instead.',
+    description: 'Whenever you would destroy a hero, you may steal it instead.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any', 'Any'] },
     higherReq: 9,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card and DRAW a card.',
+    slay: 'On slaying: draw one card.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -546,15 +541,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Mega Slime',
     type: CardType.Monster,
     image: 'monsters/mega-slime.png',
-    description: 'You may spend an extra action point on each of your turns.',
+    description: 'You get one extra action point on each of your turns.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any', 'Any', 'Any'] },
     higherReq: 8,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card and DRAW 2 cards.',
+    slay: 'On slaying: draw two cards.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -562,15 +557,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Anuran Cauldron',
     type: CardType.Monster,
     image: 'monsters/anuran-cauldron.png',
-    description: 'Each time you roll, +1 to your roll.',
+    description: 'Add 1 to every roll you make.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any', 'Any'] },
     higherReq: 7,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -578,16 +573,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Crowned Serpent',
     type: CardType.Monster,
     image: 'monsters/crowned-serpent.png',
-    description:
-      'Each time any player (including you) plays a Modifier card, you may DRAW a card.',
+    description: 'Whenever anyone plays a modifier, you may draw a card.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any'] },
     higherReq: 10,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -596,15 +590,15 @@ export const baseMonsters: MonsterCardData[] = [
     type: CardType.Monster,
     image: 'monsters/dracos.png',
     description:
-      'Each time a Hero card in your Party is destroyed, you may DRAW a card.',
+      'Whenever one of your heroes is destroyed, you may draw a card.',
     set: 'base',
     partyReq: { classes: ['Any'] },
     higherReq: 5,
     lowerReq: 8,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -612,16 +606,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Bloodwing',
     type: CardType.Monster,
     image: 'monsters/bloodwing.png',
-    description:
-      'Each time another player CHALLENGES you, that player must DISCARD a card.',
+    description: 'Whenever an opponent challenges you, they discard a card.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any'] },
     higherReq: 9,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -630,15 +623,15 @@ export const baseMonsters: MonsterCardData[] = [
     type: CardType.Monster,
     image: 'monsters/arctic-aries.png',
     description:
-      "Each time you successfully roll to use a Hero card's effect, you may DRAW a card.",
+      'Whenever you succeed on a hero ability roll, you may draw a card.',
     set: 'base',
     partyReq: { classes: ['Any'] },
     higherReq: 10,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -647,15 +640,15 @@ export const baseMonsters: MonsterCardData[] = [
     type: CardType.Monster,
     image: 'monsters/abyss-queen.png',
     description:
-      'Each time another player plays a Modifier card on one of your rolls, +1 to your roll.',
+      'Whenever an opponent plays a modifier on one of your rolls, add 1 to that roll.',
     set: 'base',
     partyReq: { classes: ['Any', 'Any'] },
     higherReq: 8,
     lowerReq: 5,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -663,15 +656,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Terratuga',
     type: CardType.Monster,
     image: 'monsters/terratuga.png',
-    description: 'Your Hero cards cannot be destroyed.',
+    description: 'Your heroes cannot be destroyed.',
     set: 'base',
     partyReq: { classes: ['Any'] },
     higherReq: 11,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'SACRIFICE a Hero card.',
+      description: 'Sacrifice one of your heroes.',
     },
   },
   {
@@ -679,16 +672,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Orthus',
     type: CardType.Monster,
     image: 'monsters/orthus.png',
-    description:
-      'Each time you DRAW a Magic card, you may play it immediately.',
+    description: 'Whenever you draw a magic card, you may play it right away.',
     set: 'base',
     partyReq: { classes: [HeroClass.Wizard, 'Any'] },
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'DISCARD 2 cards.',
+      description: 'Discard two cards.',
     },
   },
   {
@@ -697,15 +689,15 @@ export const baseMonsters: MonsterCardData[] = [
     type: CardType.Monster,
     image: 'monsters/rex-major.png',
     description:
-      'Each time you DRAW a Modifier card, you may reveal it and DRAW a second card.',
+      'Whenever you draw a modifier, you may show it and draw another card.',
     set: 'base',
     partyReq: { classes: [HeroClass.Guardian, 'Any'] },
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'DISCARD 2 cards.',
+      description: 'Discard two cards.',
     },
   },
   {
@@ -713,16 +705,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Dark Dragon King',
     type: CardType.Monster,
     image: 'monsters/dark-dragon-king.png',
-    description:
-      "Each time you roll for a Hero card's effect, +1 to your roll.",
+    description: 'Add 1 to every hero ability roll you make.',
     set: 'base',
     partyReq: { classes: [HeroClass.Bard, 'Any'] },
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'DISCARD 2 cards.',
+      description: 'Discard two cards.',
     },
   },
   {
@@ -730,16 +721,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Malamammoth',
     type: CardType.Monster,
     image: 'monsters/malamammoth.png',
-    description:
-      'Each time you DRAW an Item card, you may play it immediately.',
+    description: 'Whenever you draw an item, you may play it right away.',
     set: 'base',
     partyReq: { classes: [HeroClass.Ranger, 'Any'] },
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'DISCARD 2 cards.',
+      description: 'Discard two cards.',
     },
   },
   {
@@ -747,15 +737,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Warworn Owlbear',
     type: CardType.Monster,
     image: 'monsters/warworn-owlbear.png',
-    description: 'Item cards you play cannot be challenged.',
+    description: 'Items you play cannot be challenged.',
     set: 'base',
     partyReq: { classes: [HeroClass.Thief, 'Any'] },
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'DISCARD 2 cards.',
+      description: 'Discard two cards.',
     },
   },
   {
@@ -763,15 +753,15 @@ export const baseMonsters: MonsterCardData[] = [
     name: 'Titan Wyvern',
     type: CardType.Monster,
     image: 'monsters/titan-wyvern.png',
-    description: 'Each time you roll for a Challenge card, +1 to your roll.',
+    description: 'Add 1 to every challenge roll you make.',
     set: 'base',
     partyReq: { classes: [HeroClass.Thief, 'Any'] },
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    slay: 'SLAY this Monster card.',
+    slay: 'On slaying: no extra reward.',
     fightBack: {
-      description: 'DISCARD 2 cards.',
+      description: 'Discard two cards.',
     },
   },
 ]
@@ -782,8 +772,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Particularly Rusty Coin',
     type: CardType.Item,
     image: 'items/particularly-rusty-coin.png',
-    description:
-      "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
+    description: 'When the wearer fails its ability roll, draw a card.',
     set: 'base',
 
     cursed: false,
@@ -793,8 +782,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Particularly Rusty Coin',
     type: CardType.Item,
     image: 'items/particularly-rusty-coin.png',
-    description:
-      "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
+    description: 'When the wearer fails its ability roll, draw a card.',
     set: 'base',
 
     cursed: false,
@@ -804,8 +792,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Really Big Ring',
     type: CardType.Item,
     image: 'items/really-big-ring.png',
-    description:
-      "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
+    description: "Add 2 to the wearer's ability rolls.",
     set: 'base',
 
     cursed: false,
@@ -815,8 +802,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Really Big Ring',
     type: CardType.Item,
     image: 'items/really-big-ring.png',
-    description:
-      "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
+    description: "Add 2 to the wearer's ability rolls.",
     set: 'base',
 
     cursed: false,
@@ -827,7 +813,7 @@ export const baseItems: ItemCardData[] = [
     type: CardType.Item,
     image: 'items/decoy-doll.png',
     description:
-      'If the equipped Hero card would be sacrificed or destroyed, move Decoy Doll to the discard pile instead.',
+      'If the wearer would be sacrificed or destroyed, discard this item instead.',
     set: 'base',
 
     cursed: false,
@@ -837,8 +823,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Fighter Mask',
     type: CardType.Item,
     image: 'items/fighter-mask.png',
-    description:
-      'The equipped Hero card is considered a Fighter instead of its original class.',
+    description: 'The wearer counts as a Fighter, whatever its printed class.',
     set: 'base',
 
     cursed: false,
@@ -849,8 +834,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Ranger Mask',
     type: CardType.Item,
     image: 'items/ranger-mask.png',
-    description:
-      'The equipped Hero card is considered a Ranger instead of its original class.',
+    description: 'The wearer counts as a Ranger, whatever its printed class.',
     set: 'base',
 
     cursed: false,
@@ -861,8 +845,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Thief Mask',
     type: CardType.Item,
     image: 'items/thief-mask.png',
-    description:
-      'The equipped Hero card is considered a Thief instead of its original class.',
+    description: 'The wearer counts as a Thief, whatever its printed class.',
     set: 'base',
 
     cursed: false,
@@ -873,8 +856,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Guardian Mask',
     type: CardType.Item,
     image: 'items/guardian-mask.png',
-    description:
-      'The equipped Hero card is considered a Guardian instead of its original class.',
+    description: 'The wearer counts as a Guardian, whatever its printed class.',
     set: 'base',
 
     cursed: false,
@@ -885,8 +867,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Wizard Mask',
     type: CardType.Item,
     image: 'items/wizard-mask.png',
-    description:
-      'The equipped Hero card is considered a Wizard instead of its original class.',
+    description: 'The wearer counts as a Wizard, whatever its printed class.',
     set: 'base',
 
     cursed: false,
@@ -897,8 +878,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Bard Mask',
     type: CardType.Item,
     image: 'items/bard-mask.png',
-    description:
-      'The equipped Hero card is considered a Bard instead of its original class.',
+    description: 'The wearer counts as a Bard, whatever its printed class.',
     set: 'base',
 
     cursed: false,
@@ -911,7 +891,7 @@ export const baseItems: ItemCardData[] = [
     type: CardType.Item,
     image: 'items/suspiciously-shiny-coin.png',
     description:
-      "If you successfully roll to use the equipped Hero card's effect, DISCARD a card.",
+      'When the wearer succeeds on its ability roll, discard a card.',
     set: 'base',
 
     cursed: true,
@@ -921,8 +901,7 @@ export const baseItems: ItemCardData[] = [
     name: "Curse of the Snake's Eyes",
     type: CardType.Item,
     image: 'items/curse-of-the-snakes-eyes.png',
-    description:
-      "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
+    description: "Subtract 2 from the wearer's ability rolls.",
     set: 'base',
 
     cursed: true,
@@ -932,8 +911,7 @@ export const baseItems: ItemCardData[] = [
     name: "Curse of the Snake's Eyes",
     type: CardType.Item,
     image: 'items/curse-of-the-snakes-eyes.png',
-    description:
-      "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
+    description: "Subtract 2 from the wearer's ability rolls.",
     set: 'base',
 
     cursed: true,
@@ -943,7 +921,7 @@ export const baseItems: ItemCardData[] = [
     name: 'Sealing Key',
     type: CardType.Item,
     image: 'items/sealing-key.png',
-    description: "You cannot use the equipped Hero card's effect.",
+    description: "The wearer's ability cannot be used.",
     set: 'base',
 
     cursed: true,
@@ -958,7 +936,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Destructive Spell',
     type: CardType.Magic,
     image: 'magic/destructive-spell.png',
-    description: 'DISCARD a card, then DESTROY a Hero card.',
+    description: 'Discard one card, then destroy one hero.',
     set: 'base',
   },
   {
@@ -966,7 +944,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Destructive Spell',
     type: CardType.Magic,
     image: 'magic/destructive-spell.png',
-    description: 'DISCARD a card, then DESTROY a Hero card.',
+    description: 'Discard one card, then destroy one hero.',
     set: 'base',
   },
   {
@@ -974,7 +952,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Entangling Trap',
     type: CardType.Magic,
     image: 'magic/entangling-trap.png',
-    description: 'DISCARD 2 cards, then STEAL a Hero card.',
+    description: 'Discard two cards, then steal one hero.',
     set: 'base',
   },
   {
@@ -982,7 +960,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Entangling Trap',
     type: CardType.Magic,
     image: 'magic/entangling-trap.png',
-    description: 'DISCARD 2 cards, then STEAL a Hero card.',
+    description: 'Discard two cards, then steal one hero.',
     set: 'base',
   },
   {
@@ -990,7 +968,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Critical Boost',
     type: CardType.Magic,
     image: 'magic/critical-boost.png',
-    description: 'DRAW 3 cards and DISCARD a card.',
+    description: 'Draw three cards, then discard one.',
     set: 'base',
   },
   {
@@ -998,7 +976,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Critical Boost',
     type: CardType.Magic,
     image: 'magic/critical-boost.png',
-    description: 'DRAW 3 cards and DISCARD a card.',
+    description: 'Draw three cards, then discard one.',
     set: 'base',
   },
   {
@@ -1006,7 +984,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Enchanted Spell',
     type: CardType.Magic,
     image: 'magic/enchanted-spell.png',
-    description: '+2 to all of your rolls until the end of your turn.',
+    description: 'Add 2 to every roll you make for the rest of this turn.',
     set: 'base',
   },
   {
@@ -1014,7 +992,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Enchanted Spell',
     type: CardType.Magic,
     image: 'magic/enchanted-spell.png',
-    description: '+2 to all of your rolls until the end of your turn.',
+    description: 'Add 2 to every roll you make for the rest of this turn.',
     set: 'base',
   },
   {
@@ -1023,7 +1001,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/forced-exchange.png',
     description:
-      "Choose a player. STEAL a Hero card from that player's Party, then move a Hero card from your Party to that player's Party.",
+      'Pick an opponent. Steal one of their heroes, then hand one of yours to them.',
     set: 'base',
   },
   {
@@ -1032,7 +1010,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/winds-of-change.png',
     description:
-      "Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",
+      "Return any equipped item to its owner's hand, then draw a card.",
     set: 'base',
   },
   {
@@ -1041,7 +1019,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/winds-of-change.png',
     description:
-      "Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",
+      "Return any equipped item to its owner's hand, then draw a card.",
     set: 'base',
   },
   {
@@ -1049,8 +1027,7 @@ export const baseMagic: MagicCardData[] = [
     name: 'Forceful Winds',
     type: CardType.Magic,
     image: 'magic/forceful-winds.png',
-    description:
-      "Return every equipped Item card to its respective player's hand.",
+    description: "Every equipped item goes back to its owner's hand.",
     set: 'base',
   },
   {
@@ -1059,7 +1036,7 @@ export const baseMagic: MagicCardData[] = [
     type: CardType.Magic,
     image: 'magic/call-to-the-fallen.png',
     description:
-      'Search the discard pile for a Hero card and add it to your hand.',
+      'Take a hero of your choice from the discard pile into your hand.',
     set: 'base',
   },
 
@@ -1073,7 +1050,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1083,7 +1060,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1093,7 +1070,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1103,7 +1080,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1113,7 +1090,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1123,7 +1100,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1133,7 +1110,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1143,7 +1120,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1153,7 +1130,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +2 or -2.',
     set: 'base',
     values: [2, -2],
   },
@@ -1164,7 +1141,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-alt.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +3 or -1 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +3 or -1.',
     set: 'base',
     values: [3, -1],
   },
@@ -1174,7 +1151,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-alt.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +3 or -1 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +3 or -1.',
     set: 'base',
     values: [3, -1],
   },
@@ -1184,7 +1161,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-alt.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +3 or -1 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +3 or -1.',
     set: 'base',
     values: [3, -1],
   },
@@ -1194,7 +1171,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-alt.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +3 or -1 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +3 or -1.',
     set: 'base',
     values: [3, -1],
   },
@@ -1204,7 +1181,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-neg.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +1 or -3 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +1 or -3.',
     set: 'base',
     values: [1, -3],
   },
@@ -1214,7 +1191,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-neg.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +1 or -3 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +1 or -3.',
     set: 'base',
     values: [1, -3],
   },
@@ -1224,7 +1201,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-neg.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +1 or -3 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +1 or -3.',
     set: 'base',
     values: [1, -3],
   },
@@ -1234,7 +1211,7 @@ export const baseModifiers: ModifierCardData[] = [
     type: CardType.Modifier,
     image: 'modifiers/modifier-neg.png',
     description:
-      'Play this card after any player (including you) rolls the dice. +1 or -3 to that roll.',
+      'Reaction: after any player rolls, adjust that roll by +1 or -3.',
     set: 'base',
     values: [1, -3],
   },
@@ -1244,8 +1221,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-plus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. +4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by +4.',
     set: 'base',
     values: [4],
   },
@@ -1254,8 +1230,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-plus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. +4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by +4.',
     set: 'base',
     values: [4],
   },
@@ -1264,8 +1239,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-plus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. +4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by +4.',
     set: 'base',
     values: [4],
   },
@@ -1274,8 +1248,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-plus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. +4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by +4.',
     set: 'base',
     values: [4],
   },
@@ -1284,8 +1257,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-minus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. -4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by -4.',
     set: 'base',
     values: [-4],
   },
@@ -1294,8 +1266,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-minus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. -4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by -4.',
     set: 'base',
     values: [-4],
   },
@@ -1304,8 +1275,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-minus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. -4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by -4.',
     set: 'base',
     values: [-4],
   },
@@ -1314,8 +1284,7 @@ export const baseModifiers: ModifierCardData[] = [
     name: 'Modifier',
     type: CardType.Modifier,
     image: 'modifiers/modifier-minus-4.png',
-    description:
-      'Play this card after any player (including you) rolls the dice. -4 to that roll.',
+    description: 'Reaction: after any player rolls, adjust that roll by -4.',
     set: 'base',
     values: [-4],
   },
@@ -1330,7 +1299,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1339,7 +1308,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1348,7 +1317,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1357,7 +1326,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1366,7 +1335,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1375,7 +1344,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1384,7 +1353,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1393,7 +1362,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1402,7 +1371,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1411,7 +1380,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1420,7 +1389,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1429,7 +1398,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1438,7 +1407,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   {
@@ -1447,7 +1416,7 @@ export const baseChallenges: ChallengeCardData[] = [
     type: CardType.Challenge,
     image: 'challenges/challenge.png',
     description:
-      'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',
+      'Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off.',
     set: 'base',
   },
   // add challenges...
@@ -1459,8 +1428,7 @@ export const baseLeaders: PartyLeaderData[] = [
     name: 'The Divine Arrow',
     type: CardType.Leader,
     image: 'leaders/the-divine-arrow.png',
-    description:
-      'Each time you roll to ATTACK a Monster card, +1 to your roll.',
+    description: 'Add 1 to your rolls when attacking a monster.',
     set: 'base',
     heroClass: HeroClass.Ranger,
   },
@@ -1470,7 +1438,7 @@ export const baseLeaders: PartyLeaderData[] = [
     type: CardType.Leader,
     image: 'leaders/the-shadow-claw.png',
     description:
-      "Once per turn on your turn, you may spend an action point to pull a card from another player's hand.",
+      "Once per turn, you may spend an action point to take a random card from an opponent's hand.",
     set: 'base',
     heroClass: HeroClass.Thief,
   },
@@ -1479,7 +1447,7 @@ export const baseLeaders: PartyLeaderData[] = [
     name: 'The Fist of Reason',
     type: CardType.Leader,
     image: 'leaders/the-fist-of-reason.png',
-    description: 'Each time you roll to CHALLENGE, +2 to your roll.',
+    description: 'Add 2 to your rolls when challenging.',
     set: 'base',
     heroClass: HeroClass.Fighter,
   },
@@ -1488,8 +1456,7 @@ export const baseLeaders: PartyLeaderData[] = [
     name: 'The Charismatic Song',
     type: CardType.Leader,
     image: 'leaders/the-charismatic-song.png',
-    description:
-      "Each time you roll to use a Hero card's effect, +1 to your roll.",
+    description: 'Add 1 to your hero ability rolls.',
     set: 'base',
     heroClass: HeroClass.Bard,
   },
@@ -1498,7 +1465,7 @@ export const baseLeaders: PartyLeaderData[] = [
     name: 'The Cloaked Sage',
     type: CardType.Leader,
     image: 'leaders/the-cloaked-sage.png',
-    description: 'Each time you play a Magic card, DRAW a card.',
+    description: 'Draw a card whenever you play a magic card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
   },
@@ -1508,7 +1475,7 @@ export const baseLeaders: PartyLeaderData[] = [
     type: CardType.Leader,
     image: 'leaders/the-protecting-horn.png',
     description:
-      'Each time you play a Modifier card on a roll, +1 or -1 to that roll.',
+      'Whenever you play a modifier, adjust that roll by a further +1 or -1.',
     set: 'base',
     heroClass: HeroClass.Guardian,
   },

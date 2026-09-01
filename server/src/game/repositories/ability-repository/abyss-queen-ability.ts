@@ -11,10 +11,9 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { SacrificeTask } from '../../tasks/hero-tasks'
 
 // Abyss Queen (monster-129)
-//   Passive:       "Each time another player plays a Modifier card on one of
-//                   your rolls, +1 to your roll."
-//   Slay 8+:       SLAY this Monster card.
-//   Fight back 5-: SACRIFICE a Hero card.
+//   Passive:       "Whenever an opponent plays a modifier on one of your rolls, add 1 to that roll."
+//   Slay 8+:       On slaying: no extra reward.
+//   Fight back 5-: Sacrifice one of your heroes.
 //
 //   [0] MonsterSlain on this card   → install the standing answer
 //   [1] MonsterFoughtBack, Attacker → the attacker gives up a hero

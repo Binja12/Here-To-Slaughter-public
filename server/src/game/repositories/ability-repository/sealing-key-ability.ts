@@ -3,7 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilUnequipped } from '../../abilities/expiries'
 
-// Sealing Key (item-076): "You cannot use the equipped Hero card's effect."
+// Sealing Key (item-076): "The wearer's ability cannot be used."
 //
 //   [0] FrameResolved on this card → install the seal
 //

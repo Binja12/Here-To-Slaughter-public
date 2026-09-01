@@ -17,7 +17,7 @@ import { PlayMagicAction } from '../../actions/play-magic-action'
 import { PlayChallengeReaction } from '../../reactions/play-challenge-reaction'
 
 // ---------------------------------------------------------------------------
-// The Cloaked Sage (leader-120) — "Each time you play a Magic card, DRAW a card."
+// The Cloaked Sage (leader-120) — "Draw a card whenever you play a magic card."
 //
 //   challenge roll = floor(random * 11) + 1  -> 0 => 1, 0.99 => 11
 // ---------------------------------------------------------------------------

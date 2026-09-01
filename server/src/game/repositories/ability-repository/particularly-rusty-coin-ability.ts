@@ -2,8 +2,7 @@ import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { DrawTask } from '../../tasks/draw-task'
 
-// Particularly Rusty Coin (item-062, item-063): "If you unsuccessfully roll to
-// use the equipped Hero card's effect, DRAW a card."
+// Particularly Rusty Coin (item-062, item-063): "When the wearer fails its ability roll, draw a card."
 //
 //   [0] RollFailed on the carrier → draw one
 //

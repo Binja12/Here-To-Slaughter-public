@@ -4,9 +4,7 @@ import { CTX_STOLEN_FROM_PLAYER } from '../../abilities/ability-context'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { StealFromPartyTask, GiveHeroTask } from '../../tasks/hero-tasks'
 
-// Forced Exchange (magic-057): "Choose a player. STEAL a Hero card from that
-// player's Party, then move a Hero card from your Party to that player's
-// Party."
+// Forced Exchange (magic-057): "Pick an opponent. Steal one of their heroes, then hand one of yours to them."
 //
 //   [0] FrameResolved on this card → take one from any other party, hand one back
 //

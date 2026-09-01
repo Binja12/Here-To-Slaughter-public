@@ -1084,14 +1084,13 @@ rolls back.
 **The condition hands on the cards that MATCHED, not everything it tested.**
 `ConditionMet` seeds the tested slot with the matching ids only, so the confirm
 behind it names one of them and the choice behind that offers them. Quick Draw
-(`hero-010`) is why: _"DRAW 2 cards. If at least one of those cards is an Item
-card, you may play one of them immediately"_ drew a Challenge first, the ask
-pointed at the Challenge, and the board glowed a card the offer could not be
-taken on. Pan Chucks' _"you may reveal it"_ reveals the Challenge for the same
-reason.
+(`hero-010`) is why: _draw two cards; if either is an item, you may play it
+right away_ drew a Challenge first, the ask pointed at the Challenge, and the
+board glowed a card the offer could not be taken on. Pan Chucks' _you may show
+it_ reveals the Challenge for the same reason.
 
-**Snowball (hero-040)** — the reference. _"DRAW a card. If it is a Magic card,
-you may play it immediately and DRAW a second card."_
+**Snowball (hero-040)** — the reference. _Draw a card; if it is a magic card,
+you may play it right away and then draw again._
 
 ```ts
 [0] { on: RollSuccess,   scope: SelfCard }
@@ -1115,7 +1114,7 @@ it happens before the second draw, in printed order.
 ```
 
 **Critical Boost (magic-053 / magic-054)** — the reference _magic_ card.
-_"DRAW 3 cards and DISCARD a card."_
+_Draw three cards, then discard one._
 
 ```ts
 [0] { on: MagicPlayed, scope: SelfCard }
@@ -1149,9 +1148,9 @@ Three things fall out of this shape:
   for the full timeout) and the event is the record.
 
 **A conditional second clause needs no condition when it can read the FIRST
-clause's output.** Forced Exchange is printed "STEAL a Hero card from that
-player's Party, then move a Hero card from your Party to that player's Party" —
-you may only give because you took. Both remaining steps therefore read
+clause's output.** Forced Exchange steals a hero from the chosen player's party
+and then hands one of yours back to that player — you may only give because
+you took. Both remaining steps therefore read
 `CTX_STOLEN_FROM_PLAYER`, which `StealFromPartyTask` fills only when it actually
 took somebody, rather than `CTX_CHOSEN_PLAYER`, which is filled either way. A
 refused steal (a hero under `CantBeStolen`) leaves it empty and both steps skip
@@ -1324,8 +1323,8 @@ produces, and a hero cannot already be wearing a key when it is played.
 declaration shape. That is what keeps "+2 to the carrier" and "-2 to the
 carrier" one mechanism instead of a bonus system and a penalty system.
 
-**Wise Shield (hero-028)** — the reference effect. _"+3 to all of your rolls
-until the end of your turn."_
+**Wise Shield (hero-028)** — the reference effect. _Add 3 to every roll you
+make for the rest of this turn._
 
 ```ts
 [0] { on: RollSuccess, scope: SelfCard }
@@ -1451,7 +1450,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   party at all. All three read a context slot and default to `CTX_CHOSEN_CARD`,
   because the card is always somebody's pick. `HeroDestroyed` names the party
   that LOST the hero rather than the one that caused it — Dracos (monster-126)
-  is printed "a Hero card in YOUR Party is destroyed" and needs the loser to
+  reacts to a hero in its OWNER's party being destroyed, and needs the loser to
   scope against.
 - **A defeated play is DISCARDED at settlement, not restored.** The card was
   taken out of hand _before_ the snapshot, so rollback alone leaves it in no zone
@@ -1650,9 +1649,9 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   sources, and `TriggerScope.Attacker` runs the monster's entry as that player
   — but `abilityRegistry` holds no monster, so nothing answers it in a real
   game. Pinned by tests with a stand-in registry.
-- **A monster's printed `skill` has no reader.** Every record in
-  `base-game-cards.ts` carries `{ condition: 'When face up', description: 'All
-rolls -1' }`, and `GameEventType.MonsterFlipped` is declared with no emitter.
+- **A monster's face-up penalty has no reader.** The ruleset gives every
+  monster a table-wide roll penalty while it sits face up in the row, and
+  `GameEventType.MonsterFlipped` is declared with no emitter.
   Nothing turns a monster face up, there is no face-up state to turn, and a
   table-wide roll penalty has no home: `IEffect` names an `ownerId` and lives on
   a `Player`.

@@ -23,7 +23,7 @@ import { PlayMagicAction } from '../../actions/play-magic-action'
 import { CONFIRM } from '../../reactions/task-choice-window'
 
 // ---------------------------------------------------------------------------
-// Critical Boost (magic-053) — "DRAW 3 cards and DISCARD a card."
+// Critical Boost (magic-053) — "Draw three cards, then discard one."
 // ---------------------------------------------------------------------------
 
 const BOOST = 'magic-053'

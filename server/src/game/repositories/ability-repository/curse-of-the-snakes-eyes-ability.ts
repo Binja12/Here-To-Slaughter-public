@@ -3,8 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilUnequipped } from '../../abilities/expiries'
 
-// Curse of the Snake's Eyes (item-074, item-075): "Each time you roll to use
-// the equipped Hero card's effect, -2 to your roll."
+// Curse of the Snake's Eyes (item-074, item-075): "Subtract 2 from the wearer's ability rolls."
 //
 //   [0] FrameResolved on this card → install the penalty
 //

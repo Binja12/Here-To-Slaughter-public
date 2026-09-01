@@ -2,8 +2,7 @@ import { GameEventType, PassiveType, RollContext, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 
-// The Charismatic Song (leader-119): "Each time you roll to use a Hero card's
-// effect, +1 to your roll."
+// The Charismatic Song (leader-119): "Add 1 to your hero ability rolls."
 //
 //   [0] GameStarted → install the bonus, permanently
 //

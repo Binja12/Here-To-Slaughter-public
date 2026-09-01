@@ -2,8 +2,7 @@ import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyModifierTask } from '../../tasks/modifier-tasks'
 
-// Modifier (modifier-077 … modifier-101): "Play this card after any player
-// (including you) rolls the dice. +2 or -2 to that roll."
+// Modifier (modifier-077 … modifier-101): "Reaction: after any player rolls, adjust that roll by +2 or -2."
 //
 //   [0] ModifierPlayed on this card → land the value that came with the play
 //

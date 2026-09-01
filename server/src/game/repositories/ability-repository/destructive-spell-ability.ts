@@ -4,8 +4,7 @@ import { DiscardTask } from '../../tasks/tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { DestroyTask } from '../../tasks/hero-tasks'
 
-// Destructive Spell (magic-049, magic-050): "DISCARD a card, then DESTROY a
-// Hero card."
+// Destructive Spell (magic-049, magic-050): "Discard one card, then destroy one hero."
 //
 //   [0] FrameResolved on this card → pay, then destroy
 //

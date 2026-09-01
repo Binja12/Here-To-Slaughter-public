@@ -3,8 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { PullCardTask } from '../../tasks/tasks'
 import { ChoosePlayerTask } from '../../tasks/choose-tasks'
 
-// The Shadow Claw (leader-117): "Once per turn on your turn, you may spend an
-// action point to pull a card from another player's hand."
+// The Shadow Claw (leader-117): "Once per turn, you may spend an action point to take a random card from an opponent's hand."
 //
 //   [0] LeaderActivated on the leader → choose whose hand, take one at random
 //

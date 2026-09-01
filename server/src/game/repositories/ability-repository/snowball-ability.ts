@@ -6,8 +6,7 @@ import { ConfirmTask } from '../../tasks/choose-tasks'
 import { CTX_DRAWN_CARD_IDS } from '../../abilities/ability-context'
 import { CardTypeCondition } from '../../tasks/conditions'
 
-// Snowball (hero-040): "DRAW a card. If it is a Magic card, you may play it
-// immediately and DRAW a second card."
+// Snowball (hero-040): "Draw a card. If it is a magic card, you may play it right away and then draw again."
 //
 //   [0] RollSuccess on Snowball      → draw, and test what came up
 //   [1] ConditionMet 'DrewMagic'     → ask

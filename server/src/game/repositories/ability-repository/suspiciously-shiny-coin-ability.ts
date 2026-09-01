@@ -3,8 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { DiscardTask } from '../../tasks/tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Suspiciously Shiny Coin (item-073): "If you successfully roll to use the
-// equipped Hero card's effect, DISCARD a card."
+// Suspiciously Shiny Coin (item-073): "When the wearer succeeds on its ability roll, discard a card."
 //
 //   [0] RollSuccess on the carrier → ask which card to lose, discard it
 //

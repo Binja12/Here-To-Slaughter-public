@@ -13,9 +13,9 @@ import { SacrificeTask } from '../../tasks/hero-tasks'
 import { GainActionPointsTask } from '../../tasks/action-point-tasks'
 
 // Mega Slime (monster-123)
-//   Passive:      "You may spend an extra action point on each of your turns."
-//   Slay 8+:      Slay this Monster card and DRAW 2 cards.
-//   Fight back 7-: SACRIFICE a Hero card.
+//   Passive:      "You get one extra action point on each of your turns."
+//   Slay 8+:      Slay this Monster card and Draw two cards.
+//   Fight back 7-: Sacrifice one of your heroes.
 //
 //   [0] MonsterSlain on this card   → draw the reward, install the passive
 //   [1] MonsterFoughtBack, Attacker → the attacker gives up a hero

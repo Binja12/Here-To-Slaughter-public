@@ -3,8 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilUnequipped } from '../../abilities/expiries'
 
-// Really Big Ring (item-064, item-065): "Each time you roll to use the equipped
-// Hero card's effect, +2 to your roll."
+// Really Big Ring (item-064, item-065): "Add 2 to the wearer's ability rolls."
 //
 //   [0] FrameResolved on this card → install the bonus
 //

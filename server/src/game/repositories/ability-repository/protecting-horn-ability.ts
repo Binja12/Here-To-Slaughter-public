@@ -3,8 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ChooseValueTask } from '../../tasks/choose-tasks'
 import { ApplyModifierTask } from '../../tasks/modifier-tasks'
 
-// The Protecting Horn (leader-121): "Each time you play a Modifier card on a
-// roll, +1 or -1 to that roll."
+// The Protecting Horn (leader-121): "Whenever you play a modifier, adjust that roll by a further +1 or -1."
 //
 //   [0] ModifierPlayed by my owner → offer 1 or -1, land the pick
 //

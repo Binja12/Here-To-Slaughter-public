@@ -4,7 +4,7 @@ import { DiscardTask } from '../../tasks/tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Critical Boost (magic-053, magic-054): "DRAW 3 cards and DISCARD a card."
+// Critical Boost (magic-053, magic-054): "Draw three cards, then discard one."
 //
 //   [0] FrameResolved on this card → draw 3, ask which card to lose, discard it
 //

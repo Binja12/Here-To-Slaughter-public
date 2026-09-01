@@ -405,7 +405,7 @@ describe('monster passives', () => {
 describe('every printed SACRIFICE fight-back is declared', () => {
   it('has a MonsterFoughtBack entry, scoped Attacker, ending in a sacrifice', () => {
     const sacrificers = baseGameCards.filter(
-      (c) => c.type === CardType.Monster && /SACRIFICE/.test((c as MonsterCardData).fightBack?.description ?? ''),
+      (c) => c.type === CardType.Monster && /sacrifice/i.test((c as MonsterCardData).fightBack?.description ?? ''),
     )
     expect(sacrificers.length).toBeGreaterThan(4) // Terratuga, Sabretooth, Serpent, Bloodwing, Mega Slime, ...
     for (const monster of sacrificers) {

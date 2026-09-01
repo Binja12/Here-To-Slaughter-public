@@ -25,8 +25,7 @@ import { ModifierWindow } from '../../reactions/modifier-window'
 import { ChallengeWindow } from '../../reactions/challenge-window'
 
 // ---------------------------------------------------------------------------
-// Abyss Queen (monster-129): "Each time another player plays a Modifier card on
-// one of your rolls, +1 to your roll."
+// Abyss Queen (monster-129): "Whenever an opponent plays a modifier on one of your rolls, add 1 to that roll."
 //
 // An IEffect, not an entry triggered on ModifierPlayed: the +1 has to land in a
 // window that is already open, and no pipeline is running at the moment a bonus

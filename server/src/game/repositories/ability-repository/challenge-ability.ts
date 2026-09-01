@@ -2,9 +2,7 @@ import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { StartChallengeTask } from '../../tasks/challenge-tasks'
 
-// Challenge (challenge-102 … challenge-115): "You may play this card when
-// another player attempts to play a Hero, Item, or Magic card. CHALLENGE that
-// card."
+// Challenge (challenge-102 … challenge-115): "Reaction: when an opponent plays a hero, item or magic card, contest it with a roll-off."
 //
 //   [0] ChallengePlayed on this card → contest the play
 //

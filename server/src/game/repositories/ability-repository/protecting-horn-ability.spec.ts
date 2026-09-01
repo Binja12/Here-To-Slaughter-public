@@ -23,8 +23,7 @@ import { RollOnHeroAction } from '../../actions/roll-on-hero-action'
 import { PlayModifierReaction } from '../../reactions/play-modifier-reaction'
 
 // ---------------------------------------------------------------------------
-// The Protecting Horn (leader-121) — "Each time you play a Modifier card on a
-// roll, +1 or -1 to that roll."
+// The Protecting Horn (leader-121) — "Whenever you play a modifier, adjust that roll by a further +1 or -1."
 //
 // The same two steps a modifier card runs, with the numbers passed in. Two
 // bonuses land on one roll: the card's and the leader's.

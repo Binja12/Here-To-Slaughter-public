@@ -7,10 +7,9 @@ import { DiscardTask } from '../../tasks/tasks'
 import { PlayMagicTask } from '../../tasks/magic-tasks'
 
 // Orthus (monster-131)
-//   Passive:       "Each time you DRAW a Magic card, you may play it
-//                   immediately."
-//   Slay 8+:       SLAY this Monster card.
-//   Fight back 4-: DISCARD 2 cards.
+//   Passive:       "Whenever you draw a magic card, you may play it right away."
+//   Slay 8+:       On slaying: no extra reward.
+//   Fight back 4-: Discard two cards.
 //
 //   [0] CardDrawn, OwnerEvent            → was it Magic?
 //   [1] ConditionMet 'OrthusDrewMagic'   → ask

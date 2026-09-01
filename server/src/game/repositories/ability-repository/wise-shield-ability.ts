@@ -3,7 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilEndOfTurn } from '../../abilities/expiries'
 
-// Wise Shield (hero-028): "+3 to all of your rolls until the end of your turn."
+// Wise Shield (hero-028): "Add 3 to every roll you make for the rest of this turn."
 //
 // One entry: nothing here pauses, so there is no follow-up to split off.
 // SelfCard, not OwnerEvent — rolling on another hero also emits RollSuccess.

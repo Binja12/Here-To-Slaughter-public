@@ -11,9 +11,9 @@ import { ApplyEffectTask, DiscardTask } from '../../tasks/tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
 // Warworn Owlbear (monster-135)
-//   Passive:       "Item cards you play cannot be challenged."
+//   Passive:       "Items you play cannot be challenged."
 //   Slay 8+:       Slay this Monster card.
-//   Fight back 4-: DISCARD 2 cards.
+//   Fight back 4-: Discard two cards.
 //
 //   [0] MonsterSlain on this card   → install the protection
 //   [1] MonsterFoughtBack, Attacker → the attacker discards two

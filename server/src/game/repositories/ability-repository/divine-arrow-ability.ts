@@ -2,8 +2,7 @@ import { GameEventType, PassiveType, RollContext, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 
-// The Divine Arrow (leader-116): "Each time you roll to ATTACK a Monster
-// card, +1 to your roll."
+// The Divine Arrow (leader-116): "Add 1 to your rolls when attacking a monster."
 //
 //   [0] GameStarted → install the bonus, permanently
 //

@@ -3,8 +3,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilEndOfTurn } from '../../abilities/expiries'
 
-// Enchanted Spell (magic-055, magic-056): "+2 to all of your rolls until the
-// end of your turn."
+// Enchanted Spell (magic-055, magic-056): "Add 2 to every roll you make for the rest of this turn."
 //
 //   [0] FrameResolved on this card → install the bonus
 //

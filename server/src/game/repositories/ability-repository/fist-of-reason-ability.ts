@@ -2,8 +2,7 @@ import { GameEventType, PassiveType, RollContext, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 
-// The Fist of Reason (leader-118): "Each time you roll to CHALLENGE, +2 to
-// your roll."
+// The Fist of Reason (leader-118): "Add 2 to your rolls when challenging."
 //
 //   [0] GameStarted → install the bonus, permanently
 //
