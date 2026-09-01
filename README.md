@@ -192,6 +192,19 @@ step.
 | `HTSR-6-Auth-And-Lobby` | Registration, sessions, and the lobby service, per `docs/API_AND_SOCKETS_CONTRACT.md` on that branch. |
 | `HTSR-5-Frontend` | A React board and a thin Socket.IO gateway used to play-test the engine by hand. **The client on this branch was generated with AI tooling as a reference harness**; it is not part of the engine and is not representative of the design work above. Its image assets have been removed from the repository, so it renders without card art. |
 
+## About this repository
+
+This is a public mirror of a private development repository. The development
+repository's frontend branch contains AI-generated card images derived from
+the published game's artwork. Those images were stripped from the history
+before publishing, which is why the client on `HTSR-5-Frontend` renders
+without card art and why the two repositories do not share commit ids on that
+branch. The engine branch and its full history are identical in both.
+
+The card descriptions in `server/src/data/base-game-cards.ts` are the
+author's own paraphrases of the rules, written so that no printed card text is
+reproduced here.
+
 ## Status
 
 Work in progress. The reaction system, both pipelines, effects, projection and
