@@ -198,6 +198,15 @@ export class LobbyService {
     }
   }
 
+  async completeGame(gameId: string): Promise<number> {
+    // One completion event clears every player assigned to this game.
+    const removed = await this.assignments.removeByGameId(gameId)
+
+    // Repeated completion events are harmless and do not create duplicate SSE.
+    if (removed > 0) await this.publishLobbyUpdated()
+    return removed
+  }
+
   private publishLobbyUpdated(): Promise<void> {
     // Build a caller-specific snapshot for each connected account.
     return this.eventStream.publishLobbyUpdated((account) =>

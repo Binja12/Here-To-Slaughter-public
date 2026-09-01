@@ -33,6 +33,13 @@ export class GameServerUnavailableError extends Error {
   }
 }
 
+export class InvalidGameCompletedEventError extends Error {
+  constructor() {
+    super('Invalid game-completed event')
+    this.name = 'InvalidGameCompletedEventError'
+  }
+}
+
 export class GameStartInProgressError extends Error {
   constructor() {
     super('A game is already being started')

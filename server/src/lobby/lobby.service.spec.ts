@@ -231,6 +231,32 @@ describe('LobbyService', () => {
       webSocketUrl: 'http://localhost:3001',
     })
   })
+
+  it('clears completed-game assignments and publishes the idle state', async () => {
+    await service.ready(account(1))
+    await service.ready(account(2))
+    await service.startGame(account(1).accountId)
+    const events: LobbySseEvent[] = []
+    const connection = service
+      .events(account(1))
+      .subscribe((event) => events.push(event))
+
+    try {
+      await expect(service.completeGame('game-1')).resolves.toBe(2)
+      const updateCount = events.filter(
+        (event) => event.type === 'lobby-updated',
+      ).length
+      await expect(service.completeGame('game-1')).resolves.toBe(0)
+
+      await expect(assignmentStore.findByGameId('game-1')).resolves.toEqual([])
+      expect(latestLobbyUpdate(events).data.self.state).toBe('IDLE')
+      expect(
+        events.filter((event) => event.type === 'lobby-updated'),
+      ).toHaveLength(updateCount)
+    } finally {
+      connection.unsubscribe()
+    }
+  })
 })
 
 function latestLobbyUpdate(

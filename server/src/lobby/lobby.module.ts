@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { AuthModule } from '../auth/auth.module'
 import { InMemoryStoresModule } from '../stores/in-memory-stores.module'
+import { InternalLobbyController } from './internal-lobby.controller'
 import { LobbyController } from './lobby.controller'
 import { LobbyEventStreamService } from './lobby-event-stream.service'
 import { GAME_SERVER_CLIENT } from './lobby.interfaces'
@@ -28,7 +29,7 @@ const gameServerPort = Number(process.env.GAME_SERVER_TCP_PORT ?? 4001)
       },
     ]),
   ],
-  controllers: [LobbyController],
+  controllers: [LobbyController, InternalLobbyController],
   providers: [
     LobbyService,
     LobbyEventStreamService,
