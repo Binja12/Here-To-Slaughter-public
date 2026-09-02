@@ -1,5 +1,6 @@
-import { CardType } from "./enums";
-import { SkillData } from "./types";
+import { Audience, CardType, GameEventType, HeroClass } from "./enums";
+import { CardBase } from "./types";
+import { CardData } from "./views";
 
 export interface ICard {
   getId(): string;
@@ -7,10 +8,19 @@ export interface ICard {
   getType(): CardType;
   getImage(): string;
   getDescription(): string;
+  /**
+   * The printed record, for the projection layer to put on the wire (§5).
+   * Implementations narrow the return type and hand back a COPY: `createGame`
+   * builds every game's cards from the same module-level records.
+   */
+  getData(): CardData;
 }
-
-export interface IBoardCard extends ICard {
-  getSkill(): SkillData;
+export interface ICardRepository {
+  getById(id: string): CardBase | null;
+  getByType(type: CardType): CardBase[];
+  getBySet(setName: string): CardBase[];
+  getAll(): CardBase[];
+  getAvailableClasses(): HeroClass[];
 }
 
 export interface ICardStack {
@@ -23,11 +33,33 @@ export interface ICardStack {
   getSize(): number;
 }
 
+/**
+ * A face-up zone: everything in it is visible, and any of it can be taken by
+ * name. That is the whole difference from ICardStack, which is face down and
+ * so can only be drawn from the top.
+ */
 export interface ICardPile {
   getId(): string;
   getName(): string;
-  pick(cardId?: string): string | null;
+  pick(cardId: string): string | null;
   add(cardId: string): void;
   getAll(): string[];
   getSize(): number;
+}
+
+export interface IGameEvent {
+  getType(): GameEventType;
+  getPlayerId(): string;
+  getPayload(): unknown;
+  getAudience(): Audience;
+}
+
+export interface IGameEventListener {
+  onEvent(event: IGameEvent): void;
+}
+
+export interface IGameEventEmitter {
+  emit(event: IGameEvent): void;
+  addListener(listener: IGameEventListener): void;
+  removeListener(listener: IGameEventListener): void;
 }

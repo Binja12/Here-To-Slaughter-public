@@ -11,5 +11,8 @@
     "client": "npm start --workspace=client",
     "server": "npm run start:dev --workspace=server",
     "test": "npm test --workspaces"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1"
   }
 }
