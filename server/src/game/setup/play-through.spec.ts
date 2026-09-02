@@ -582,6 +582,47 @@ describe('a game played through', () => {
     )
   })
 
+  it('shuffles the discard back in the moment the last card is drawn', async () => {
+    // Alice holds Critical Boost and a filler; four cards stay in the deck.
+    // Critical Boost draws three and discards one, and is discarded itself
+    // when its run ends — so the deck is down to one card and the discard
+    // holds two.
+    const t = stacked({
+      deck: ['magic-053', 'hero-001', 'hero-002', 'hero-003'],
+      slack: 4,
+    })
+    const playerId = active(t)
+
+    playMagic(t, playerId, 'magic-053')
+    const pick = await windowFor(t, playerId, ReactionWindowType.CardChoice)
+    answer(t, pick, 'hero-001')
+    await settle(t)
+
+    const before = see(t, playerId)
+    expect(before.mainDeck.count).toBe(1)
+    expect(before.discardPile.map((c) => c.id).sort()).toEqual([
+      'hero-001',
+      'magic-053',
+    ])
+
+    draw(t, playerId)
+    await settle(t)
+
+    // The last card came out, and the discard went in behind it at once.
+    const refilled = see(t, playerId)
+    expect(refilled.hand).toHaveLength(before.hand.length + 1)
+    expect(refilled.discardPile).toEqual([])
+    expect(refilled.mainDeck.count).toBe(2)
+
+    draw(t, playerId)
+    await settle(t)
+
+    const after = see(t, playerId)
+    expect(after.mainDeck.count).toBe(1)
+    const drawn = payloads(t, GameEventType.CardDrawn).map((p) => p['cardId'])
+    expect(['hero-001', 'magic-053']).toContain(drawn[drawn.length - 1])
+  })
+
   // --- Playing a hero -----------------------------------------------------
 
   it('plays a hero nobody contests, and it joins the party', async () => {

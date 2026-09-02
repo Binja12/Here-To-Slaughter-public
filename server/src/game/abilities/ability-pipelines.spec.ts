@@ -267,7 +267,7 @@ describe('ability pipelines — a played magic card', () => {
 
   /** Snowball rolls, draws magic-1, and is told to play it and draw again. */
   function playThroughSnowball() {
-    const ctx = setup(['magic-1', 'card-2', 'card-3'], ['snowball'])
+    const ctx = setup(['magic-1', 'card-2', 'card-3', 'card-4'], ['snowball'])
     ctx.gs.registerCard(makeMagic('magic-1'))
     new TaskManager(
       ctx.gs,

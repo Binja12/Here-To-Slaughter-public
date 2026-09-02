@@ -486,6 +486,24 @@ export class GameState {
   getDiscardPile(): CardPile {
     return this.discardPile
   }
+
+  /**
+   * The only way a card leaves the main deck. Once the last card is taken the
+   * whole discard pile is shuffled in behind it, so the deck is never left at
+   * zero while there is anything to refill it with. Null only when both are
+   * empty.
+   */
+  drawFromMainDeck(): string | null {
+    const cardId = this.mainDeck.draw()
+    if (this.mainDeck.getSize() === 0) {
+      for (const discarded of [...this.discardPile.getAll()]) {
+        this.discardPile.pick(discarded)
+        this.mainDeck.addToBottom(discarded)
+      }
+      this.mainDeck.shuffle()
+    }
+    return cardId
+  }
   /** The face-up row. Every monster a player may attack is one of these. */
   getMonsterPile(): CardPile {
     return this.monsterPile

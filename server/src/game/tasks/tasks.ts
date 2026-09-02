@@ -33,7 +33,7 @@ export class DrawTask implements ITask {
 
     const drawn: string[] = []
     for (let i = 0; i < this.count; i++) {
-      const cardId = gs.getMainDeck().draw()
+      const cardId = gs.drawFromMainDeck()
       if (!cardId) break
       player.addToHand(cardId)
       drawn.push(cardId)

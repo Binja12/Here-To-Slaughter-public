@@ -258,7 +258,7 @@ describe('SnowballAbility', () => {
   })
 
   it('asks before the second draw when the card is Magic', () => {
-    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, player, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
 
     fire(em)
@@ -269,7 +269,7 @@ describe('SnowballAbility', () => {
   })
 
   it('CONFIRM plays the magic card and draws the second', () => {
-    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, player, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
@@ -283,7 +283,7 @@ describe('SnowballAbility', () => {
   })
 
   it('plays the card BEFORE drawing the second — printed order', () => {
-    const { gs, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
@@ -304,7 +304,7 @@ describe('SnowballAbility', () => {
   it('the drawn card reaches the continuation across both hops', () => {
     // Fresh context per entry: the card only arrives as ctxSeed, seeded by the
     // condition and re-seeded by the confirm's subjectKey.
-    const { gs, em } = setup(['magic-1', 'card-2'])
+    const { gs, em } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
@@ -315,7 +315,7 @@ describe('SnowballAbility', () => {
   })
 
   it('waits on the challenge before playing the card or drawing again', () => {
-    const { gs, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
@@ -332,7 +332,7 @@ describe('SnowballAbility', () => {
   })
 
   it('the card Snowball played is disposed once ITS OWN run ends', () => {
-    const { gs, em } = setup(['magic-1', 'card-2'])
+    const { gs, em } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
@@ -347,7 +347,7 @@ describe('SnowballAbility', () => {
   })
 
   it('leaves Snowball itself alone — it was never in an instance pile', () => {
-    const { gs, em } = setup(['magic-1', 'card-2'])
+    const { gs, em } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
@@ -359,7 +359,7 @@ describe('SnowballAbility', () => {
   })
 
   it('a lost challenge cancels the play AND the draw behind it', () => {
-    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, player, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     seatOpponent(gs)
     fire(em)
@@ -385,7 +385,7 @@ describe('SnowballAbility', () => {
   })
 
   it('DISMISS draws nothing more, and emits no TaskConfirmed to trigger it', () => {
-    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, player, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
@@ -404,7 +404,7 @@ describe('SnowballAbility', () => {
   })
 
   it('an idle player plays and draws nothing more — timeout is a DISMISS', () => {
-    const { gs, player, em, events } = setup(['magic-1', 'card-2'])
+    const { gs, player, em, events } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 
@@ -415,7 +415,7 @@ describe('SnowballAbility', () => {
   })
 
   it('keeps the first draw when the prompt is declined', () => {
-    const { gs, player, em } = setup(['magic-1', 'card-2'])
+    const { gs, player, em } = setup(['magic-1', 'card-2', 'card-3'])
     gs.registerCard(makeMagicCard('magic-1'))
     fire(em)
 

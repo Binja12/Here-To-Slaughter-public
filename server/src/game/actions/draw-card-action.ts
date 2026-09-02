@@ -44,7 +44,7 @@ export class DrawCardAction implements IAction {
   execute(gs: GameState): void {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
-    const cardId = gs.getMainDeck().draw()!
+    const cardId = gs.drawFromMainDeck()!
     player.addToHand(cardId)
     this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId, cardId))
   }

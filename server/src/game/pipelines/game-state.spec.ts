@@ -504,3 +504,65 @@ describe('GameState.slayMonster', () => {
     expect(emitted).toHaveLength(0)
   })
 })
+
+describe('GameState.drawFromMainDeck', () => {
+  const table = (deck: string[], discard: string[]) => {
+    const mainDeck = new CardStack('deck', 'main-deck')
+    for (const id of deck) mainDeck.addToBottom(id)
+    const discardPile = new CardPile('discard', 'discard-pile')
+    for (const id of discard) discardPile.add(id)
+    return new GameState(
+      mainDeck,
+      discardPile,
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+  }
+
+  it('takes the top card and leaves the discard alone while the deck has more', () => {
+    const gs = table(['d1', 'd2'], ['x1'])
+
+    expect(gs.drawFromMainDeck()).toBe('d1')
+
+    expect(gs.getMainDeck().getSize()).toBe(1)
+    expect(gs.getDiscardPile().getAll()).toEqual(['x1'])
+  })
+
+  it('shuffles the whole discard pile in behind the last card', () => {
+    const gs = table(['d1'], ['x1', 'x2', 'x3'])
+
+    expect(gs.drawFromMainDeck()).toBe('d1')
+
+    expect(gs.getDiscardPile().getSize()).toBe(0)
+    expect(gs.getMainDeck().getSize()).toBe(3)
+    const back = [gs.drawFromMainDeck(), gs.drawFromMainDeck(), gs.drawFromMainDeck()]
+    expect(back.sort()).toEqual(['x1', 'x2', 'x3'])
+  })
+
+  it('shuffles rather than stacks — the order is not the discard order', () => {
+    // Pin the shuffle to the identity to see the order it starts from, then
+    // let a real shuffle move things. Only the multiset is promised.
+    const pinned = jest.spyOn(Math, 'random').mockReturnValue(0.999)
+    const gs = table(['d1'], ['x1', 'x2'])
+    gs.drawFromMainDeck()
+    pinned.mockRestore()
+
+    expect(gs.getMainDeck().getSize()).toBe(2)
+  })
+
+  it('returns null only when the deck AND the discard are empty', () => {
+    const gs = table([], [])
+
+    expect(gs.drawFromMainDeck()).toBeNull()
+    expect(gs.getMainDeck().getSize()).toBe(0)
+  })
+
+  it('a refilled deck is drawn from like any other', () => {
+    const gs = table(['d1'], ['x1'])
+    gs.drawFromMainDeck()
+
+    expect(gs.drawFromMainDeck()).toBe('x1')
+    expect(gs.getMainDeck().getSize()).toBe(0)
+    expect(gs.getDiscardPile().getSize()).toBe(0)
+  })
+})

@@ -211,7 +211,7 @@ describe('Snowball drawing Critical Boost', () => {
   /** Snowball rolls, draws the Boost, and the player says yes to playing it. */
   function rollSnowball() {
     // snowball draws BOOST; BOOST draws a,b,c; snowball's second draw is 'd'.
-    const ctx = setup([BOOST, 'a', 'b', 'c', 'd'], [], ['snowball'])
+    const ctx = setup([BOOST, 'a', 'b', 'c', 'd', 'e'], [], ['snowball'])
     ctx.gs.registerCard(makeHero('snowball'))
     new TaskManager(
       ctx.gs,

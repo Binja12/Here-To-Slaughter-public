@@ -288,6 +288,17 @@ Five mechanics, five bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
 
+**The deck runs back the moment it empties.** `GameState.drawFromMainDeck`
+is the only way a card leaves the main deck, and after every draw it asks one
+question: is the deck now at zero? If so the whole discard pile is shuffled in
+behind the card just taken, so the deck is never left sitting empty while
+there is anything to refill it with, and the next draw — from a player, a
+task, or a redraw half way through — finds a full deck without asking. A
+draw returns nothing only when deck and discard are BOTH empty, which is "ran
+and produced nothing": the drawing step skips, it does not throw. No event
+announces the refill; the deck and discard counts in `PlayerView` change
+together and are the record, and nothing else needs to know.
+
 **A PASS forfeits the budget, and that is all it does.** `EndTurnAction` costs
 nothing and spends every point its player has left; `TurnManager.drain` then
 ends the turn by the rule it already had — budget at zero, board idle. No
@@ -1248,10 +1259,6 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 
 ## 10. Repo gaps blocking play
 
-- **The deck never runs back.** `DrawTask` and `DrawCardAction` stop when the
-  main deck is empty; nothing shuffles the discard pile back into it. 115 deck
-  cards across 2-4 players is probably a whole session, but the end state is
-  unhandled.
 - **`CONFIRM` / `DISMISS` live in `reactions/task-choice-window.ts`.** They are
   wire vocabulary — the options a `TaskChoice` window offers and the value a
   client sends back — so they belong in `shared` beside the rest of it. Left

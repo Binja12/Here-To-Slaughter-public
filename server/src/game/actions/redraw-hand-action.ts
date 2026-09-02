@@ -44,7 +44,7 @@ export class redrawHandAction implements IAction {
     const player = gs.getPlayer(this.playerId)!
     player.decreaseActionPoints(COST)
     for (let i = 1; i <= 5; i++) {
-      const cardId = gs.getMainDeck().draw()!
+      const cardId = gs.drawFromMainDeck()!
       player.addToHand(cardId)
       this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId, cardId))
     }
