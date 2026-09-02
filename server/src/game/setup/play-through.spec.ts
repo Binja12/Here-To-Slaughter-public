@@ -23,6 +23,7 @@ import { PlayMagicAction } from '../actions/play-magic-action'
 import { RollOnHeroAction } from '../actions/roll-on-hero-action'
 import { RollOnLeaderAction } from '../actions/roll-on-leader-action'
 import { AttackMonsterAction } from '../actions/attack-monster-action'
+import { EndTurnAction } from '../actions/end-turn-action'
 import { PlayChallengeReaction } from '../reactions/play-challenge-reaction'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
 
@@ -328,6 +329,9 @@ const attack = (t: Table, playerId: string, monsterId: string) =>
     ),
   )
 
+const pass = (t: Table, playerId: string) =>
+  enqueue(t, new EndTurnAction(actionId(), playerId))
+
 // ---------------------------------------------------------------------------
 // Waiting
 // ---------------------------------------------------------------------------
@@ -370,47 +374,11 @@ async function windowFor(
   return found!
 }
 
-/**
- * Spends the active player's budget until the turn rolls over.
- *
- * A draw is the cheap way to burn a point, but a hand of ten refuses one and
- * so does an empty deck — and there is no PASS action (§10), so this needs a
- * second and a third thing to try or a long run deadlocks on the hand limit.
- */
+/** Passes, and waits for the turn to roll over. */
 async function endTurn(t: Table): Promise<void> {
   const playerId = active(t)
-
-  for (let guard = 0; guard < 20 && active(t) === playerId; guard++) {
-    const before = seatOf(see(t, playerId), playerId).actionPoints
-
-    draw(t, playerId)
-    await settle(t)
-    if (active(t) !== playerId) return
-    if (seatOf(see(t, playerId), playerId).actionPoints < before) continue
-
-    // The draw was refused. Whatever else is legal, then.
-    const view = see(t, playerId)
-    const heroId = heldOfType(view, CardType.Hero)
-    if (heroId) {
-      playHero(t, playerId, heroId)
-      await settle(t)
-      continue
-    }
-    const party = partyOf(view, playerId)
-    if (party.canRollOnLeader) {
-      rollOnLeader(t, playerId, party.leader.id)
-      await settle(t)
-      continue
-    }
-    break
-  }
-
-  if (active(t) === playerId) {
-    throw new Error(
-      `endTurn: ${playerId} has points left and nothing legal to spend them ` +
-        'on, so the turn cannot end.',
-    )
-  }
+  pass(t, playerId)
+  await until(() => active(t) !== playerId, `the turn of ${playerId} to end`)
 }
 
 /** Burns whole turns until `playerId`'s NEXT one, with a fresh budget. */
@@ -513,6 +481,45 @@ describe('a game played through', () => {
     expect(view.busy).toBe(false)
   })
 
+  // --- Passing ------------------------------------------------------------
+
+  it('passes with a full budget, and the next seat is up at once', async () => {
+    const t = table()
+    const [first, second] = t.game.playerOrder
+
+    pass(t, first)
+    await settle(t)
+
+    expect(active(t)).toBe(second)
+    expect(seatOf(board(t), second).actionPoints).toBe(3)
+    expect(ofType(t, GameEventType.TurnEnded)).toHaveLength(1)
+  })
+
+  it('a pass waits for an ability still resolving before the turn ends', async () => {
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
+    const playerId = active(t)
+
+    playHero(t, playerId, 'hero-044')
+    const offer = await windowFor(t, playerId, ReactionWindowType.TaskChoice)
+
+    // The pass is queued behind the open window, not run past it.
+    pass(t, playerId)
+    expect(active(t)).toBe(playerId)
+    expect(ofType(t, GameEventType.TurnEnded)).toEqual([])
+
+    fixDice(HIGHEST)
+    answer(t, offer, CONFIRM)
+    await until(() => active(t) !== playerId, 'the turn to end after the roll')
+
+    // The roll happened on this turn — the pass did not cut it off.
+    expect(
+      payloads(t, GameEventType.RollSuccess).map((p) => p['cardId']),
+    ).toContain('hero-044')
+    expect(board(t).pendingWindows).toEqual([])
+  })
+
   it('refuses a player who acts out of turn, at no cost to them', async () => {
     const t = table()
     const idle = t.game.playerOrder[1]
@@ -552,9 +559,7 @@ describe('a game played through', () => {
 
   it('stops at an empty deck instead of drawing past it', async () => {
     // Five cards, four dealt: one draw empties it and the next has nowhere to
-    // go. NOTE: the turn cannot end from here — there is no pass action and
-    // every other move needs a card — which is the deck-exhaustion gap of §10
-    // showing through, not a fault in the drive loop.
+    // go.
     const t = stacked({
       deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004', 'hero-005'],
       slack: 1,

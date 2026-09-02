@@ -316,6 +316,8 @@ export enum ActionType {
   PlayMagic = "PlayMagic",
   AttackMonster = "AttackMonster",
   ReDraw = "ReDraw",
+  /** A pass: forfeits the rest of the budget so the turn ends. */
+  EndTurn = "EndTurn",
 }
 
 export enum ReactionType {

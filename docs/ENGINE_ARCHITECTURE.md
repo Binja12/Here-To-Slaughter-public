@@ -288,6 +288,15 @@ Five mechanics, five bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
 
+**A PASS forfeits the budget, and that is all it does.** `EndTurnAction` costs
+nothing and spends every point its player has left; `TurnManager.drain` then
+ends the turn by the rule it already had — budget at zero, board idle. No
+flag, no phase change, no call into the turn manager: one rule decides when a
+turn is over, and a pass only satisfies it. It is not reactable, so it queues
+even while an ability is resolving, and the drain runs it once the board is
+idle — an ability the player set off finishes before the turn ends, exactly as
+it would for any other action.
+
 **Only the ACTIVE player spends action points; everybody else answers with
 REACTIONS.** Off-turn play is the reaction system in its entirety — a challenge
 card, a modifier, an answer to a window — and every one of those goes to
@@ -1243,14 +1252,6 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   main deck is empty; nothing shuffles the discard pile back into it. 115 deck
   cards across 2-4 players is probably a whole session, but the end state is
   unhandled.
-- **There is no PASS, so a turn can fail to END.** `TurnManager` ends a turn
-  when the budget reaches zero and nothing else, and every action costs points
-  and needs something to spend them on: a hand of ten refuses a draw, an empty
-  deck refuses one, and a player holding no playable card with a point left is
-  stuck. Reached in practice — the play-through hits the hand limit on the
-  fourth turn of an ordinary game and has to find another way to spend the
-  point. An `EndTurnAction` costing nothing is the obvious fix and is not
-  written.
 - **`CONFIRM` / `DISMISS` live in `reactions/task-choice-window.ts`.** They are
   wire vocabulary — the options a `TaskChoice` window offers and the value a
   client sends back — so they belong in `shared` beside the rest of it. Left
@@ -1391,10 +1392,9 @@ the win conditions are pushed out of reach because `AllClassesInParty` asks the
 POOL which classes exist, so a stacked deck of two Fighters makes "every class"
 mean "one Fighter" and the first hero played wins the game.
 
-**A turn cannot always be ended by drawing.** A hand of ten refuses a draw and
-so does an empty deck, and there is no PASS action, so the drive loop has to
-find something else to spend the last point on (§10). Without that a long run
-deadlocks on the hand limit rather than on anything a test meant to exercise.
+**Its `endTurn` helper is a pass.** It enqueues `EndTurnAction` and waits for
+the active seat to change, so a case that only wants the next turn does not
+have to find a legal way to spend the budget.
 
 `Game` is data — the pieces a caller drives — so `startGame(game)` is a
 function OVER it rather than a method on it. A closure in the bag would be the
