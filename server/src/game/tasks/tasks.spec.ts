@@ -1,5 +1,6 @@
 import { Audience, GameEventType, IGameEvent } from 'shared'
-import { DrawTask, DiscardTask, PullCardTask } from './tasks'
+import { DiscardTask, PullCardTask } from './tasks'
+import { DrawTask } from './draw-task'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'

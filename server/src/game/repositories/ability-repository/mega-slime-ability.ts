@@ -6,7 +6,8 @@ import {
   Zone,
 } from 'shared'
 import { IAbilityRule } from '../../interfaces'
-import { ApplyEffectTask, DrawTask } from '../../tasks/tasks'
+import { ApplyEffectTask } from '../../tasks/tasks'
+import { DrawTask } from '../../tasks/draw-task'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { SacrificeTask } from '../../tasks/hero-tasks'
 

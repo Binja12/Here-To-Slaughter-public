@@ -24,6 +24,7 @@ import { RollOnHeroAction } from '../actions/roll-on-hero-action'
 import { RollOnLeaderAction } from '../actions/roll-on-leader-action'
 import { AttackMonsterAction } from '../actions/attack-monster-action'
 import { EndTurnAction } from '../actions/end-turn-action'
+import { RedrawHandAction } from '../actions/redraw-hand-action'
 import { PlayChallengeReaction } from '../reactions/play-challenge-reaction'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
 
@@ -332,6 +333,9 @@ const attack = (t: Table, playerId: string, monsterId: string) =>
 const pass = (t: Table, playerId: string) =>
   enqueue(t, new EndTurnAction(actionId(), playerId))
 
+const redraw = (t: Table, playerId: string) =>
+  enqueue(t, new RedrawHandAction(actionId(), playerId, t.game.emitter))
+
 // ---------------------------------------------------------------------------
 // Waiting
 // ---------------------------------------------------------------------------
@@ -580,6 +584,45 @@ describe('a game played through', () => {
     expect(seatOf(afterTwo, playerId).actionPoints).toBe(
       seatOf(afterOne, playerId).actionPoints,
     )
+  })
+
+  it('redraws: every card discarded, then five drawn, and the budget is gone', async () => {
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+    })
+    const playerId = active(t)
+    const before = see(t, playerId)
+    const oldHand = before.hand.map((c) => c.id)
+
+    redraw(t, playerId)
+    await settle(t)
+
+    const mine = t.events.filter(
+      (e) =>
+        e.getPlayerId() === playerId &&
+        (e.getType() === GameEventType.CardDiscarded ||
+          e.getType() === GameEventType.CardDrawn),
+    )
+    // N discards, in hand order, then five draws — one event each.
+    expect(mine.map((e) => e.getType())).toEqual([
+      ...oldHand.map(() => GameEventType.CardDiscarded),
+      ...Array(5).fill(GameEventType.CardDrawn),
+    ])
+    expect(
+      mine
+        .slice(0, oldHand.length)
+        .map((e) => (e.getPayload() as { cardId: string }).cardId),
+    ).toEqual(oldHand)
+
+    // The turn ended on it, so read the seat from the board.
+    const view = see(t, playerId)
+    expect(view.hand).toHaveLength(5)
+    for (const id of oldHand) {
+      expect(view.hand.map((c) => c.id)).not.toContain(id)
+      expect(inDiscard(view, id)).toBe(true)
+    }
+    expect(view.mainDeck.count).toBe(before.mainDeck.count - 5)
+    expect(active(t)).not.toBe(playerId)
   })
 
   it('shuffles the discard back in the moment the last card is drawn', async () => {

@@ -1,6 +1,6 @@
 import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
-import { DrawTask } from '../../tasks/tasks'
+import { DrawTask } from '../../tasks/draw-task'
 
 // The Cloaked Sage (leader-120): "Each time you play a Magic card, DRAW a card."
 //

@@ -504,6 +504,41 @@ export class GameState {
     }
     return cardId
   }
+
+  /**
+   * Deck → hand, announced. Null when there was nothing to draw; nothing is
+   * announced then.
+   */
+  drawIntoHand(playerId: string, em: IGameEventEmitter): string | null {
+    const player = this.getPlayer(playerId)
+    if (!player) return null
+    const cardId = this.drawFromMainDeck()
+    if (!cardId) return null
+    player.addToHand(cardId)
+    em.emit(GameEventFactory.cardDrawn(playerId, cardId))
+    return cardId
+  }
+
+  /**
+   * Hand → discard, announced. THROWS on a card the player is not holding:
+   * every caller asks first, so reaching here with a card that is elsewhere
+   * is an engine mistake, not an illegal request.
+   */
+  discardFromHand(
+    playerId: string,
+    cardId: string,
+    em: IGameEventEmitter,
+  ): void {
+    const player = this.getPlayer(playerId)
+    if (!player?.getHand().includes(cardId)) {
+      throw new Error(
+        `discardFromHand: ${cardId} is not in ${playerId}'s hand.`,
+      )
+    }
+    player.removeFromHand(cardId)
+    this.discardPile.add(cardId)
+    em.emit(GameEventFactory.cardDiscarded(playerId, cardId))
+  }
   /** The face-up row. Every monster a player may attack is one of these. */
   getMonsterPile(): CardPile {
     return this.monsterPile

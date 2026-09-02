@@ -10,40 +10,9 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
-  CTX_DRAWN_CARD_IDS,
   CTX_PULLED_CARD_IDS,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
-
-// ---------------------------------------------------------------------------
-// DrawTask — draw N cards from the main deck into the owner's hand
-// ---------------------------------------------------------------------------
-
-export class DrawTask implements ITask {
-  constructor(private count: number) {}
-
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    _rm: IReactionManager,
-  ): void {
-    const player = gs.getPlayer(ctx.ownerId)
-    if (!player) return
-
-    const drawn: string[] = []
-    for (let i = 0; i < this.count; i++) {
-      const cardId = gs.drawFromMainDeck()
-      if (!cardId) break
-      player.addToHand(cardId)
-      drawn.push(cardId)
-      em.emit(GameEventFactory.cardDrawn(ctx.ownerId, cardId))
-    }
-    // Set even when the deck ran dry: readers tell "drew nothing" from "never
-    // drew" (see CardTypeCondition, RollOnHeroTask).
-    ctx.set(CTX_DRAWN_CARD_IDS, drawn)
-  }
-}
 
 // ---------------------------------------------------------------------------
 // DiscardTask — move a card from the owner's hand to the discard pile
@@ -75,13 +44,9 @@ export class DiscardTask implements ITask {
     const [cardId] = cards
     if (!cardId) return
 
-    const player = gs.getPlayer(ctx.ownerId)
-    if (!player) return
-    if (!player.getHand().includes(cardId)) return
+    if (!gs.getPlayer(ctx.ownerId)?.getHand().includes(cardId)) return
 
-    player.removeFromHand(cardId)
-    gs.getDiscardPile().add(cardId)
-    em.emit(GameEventFactory.cardDiscarded(ctx.ownerId, cardId))
+    gs.discardFromHand(ctx.ownerId, cardId, em)
   }
 }
 

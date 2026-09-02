@@ -8,7 +8,7 @@ import {
   TriggerScope,
 } from 'shared'
 import { SnowballAbility } from './snowball-ability'
-import { DrawTask } from '../../tasks/tasks'
+import { DrawTask } from '../../tasks/draw-task'
 import { GameState } from '../../pipelines/game-state'
 import { Player } from '../../state-structures/player'
 import { Party } from '../../state-structures/party'

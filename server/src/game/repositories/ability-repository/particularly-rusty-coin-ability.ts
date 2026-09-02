@@ -1,6 +1,6 @@
 import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
-import { DrawTask } from '../../tasks/tasks'
+import { DrawTask } from '../../tasks/draw-task'
 
 // Particularly Rusty Coin (item-062, item-063): "If you unsuccessfully roll to
 // use the equipped Hero card's effect, DRAW a card."

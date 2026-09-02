@@ -35,7 +35,7 @@ depends on (§9). Everything else lives in a folder:
   card at all) and `index.ts`, the `abilityRegistry` that keys the rest by card
   id (§6). A mechanic shared by both pipelines gets a file of its own in
   `tasks/` — `play-hero-task.ts`, `roll-on-hero-task.ts`,
-  `attack-monster-task.ts` — while `hero-tasks.ts`
+  `attack-monster-task.ts`, `draw-task.ts`, `redraw-hand-task.ts` — while `hero-tasks.ts`
   keeps the steps that only ever move a hero already on the table. Card *data* lives in `shared/`; this is the lookup from one to the
   other, which is why it sits beside `in-memory-card-repository.ts`.
 - `state-structures/` — what `GameState` is made of. A **stack is face down and
@@ -284,7 +284,28 @@ ordering is what makes one greedy pass correct, since `'Any'` can take any hero
 a named entry rejects. `AllClassesInParty` in `conditions/` looks similar and is
 not: it tests distinct classes with a Set, which answers a different question.
 
-Five mechanics, five bases, two wrappers each. A wrapper is always pure
+**Redrawing a hand is the sixth pair, and the one made of two doors the board
+already had.** `redrawHand` (`tasks/redraw-hand-task.ts`) discards every card
+in hand and then draws five, one card at a time, through
+`GameState.discardFromHand` and `GameState.drawIntoHand` — the same two
+functions `DiscardTask`, `DrawTask` and `DrawCardAction` go through, so a
+card cannot leave a hand or enter one without being announced, and there is
+one loop for "draw N" rather than one per caller. Every discard goes out
+before the first draw, in printed order, which is also why a deck that empties
+half way through refills from a discard already holding the old hand: the
+rule says DISCARD then DRAW, and the deck runs back the moment it empties.
+Nothing is contested and nothing rolls back, so no frame opens. The action
+costs the whole budget; the task, like every task, costs nothing and acts on
+its entry's owner.
+
+**Drawing is the seventh pair, and the smallest.** `Draw`
+(`tasks/draw-task.ts`) holds one loop over `GameState.drawIntoHand` that
+stops when the board gives nothing and returns what it drew. `DrawTask` hands
+the list to `CTX_DRAWN_CARD_IDS`; `DrawCardAction` asks for one and keeps the
+hand limit and the empty-deck refusal as guards of the PRICE — a player is not
+charged a point to draw nothing — which is why neither is in the base.
+
+Seven mechanics, seven bases, two wrappers each. A wrapper is always pure
 addition — the action adds a price, `canExecute` guards and a queue identity;
 the task adds a context slot read at runtime.
 
