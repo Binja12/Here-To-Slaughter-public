@@ -492,6 +492,15 @@ stop, carry on when it resolves.
   clears the mark. Asking whether the frame is still open would NOT do: a
   window releases its frame BEFORE it announces the outcome (§4), so the stack
   would carry on before the answer arrived.
+- **Lifting a pause edits every open snapshot, the way setting one does.** A
+  confirm's `TaskConfirmed` goes out before its `FrameResolved`, so the
+  continuation it starts can open its own frame while the offer is still
+  marked paused on the outer one — and that inner frame's snapshot holds a
+  copy of the offer, mark and all. When the outer frame resolves, the copies
+  inside every frame still open are unpaused too. Otherwise a rollback of the
+  inner frame restores a pipeline parked on a frame that no longer exists, and
+  the board stays busy for ever: an offered roll that FAILED used to end the
+  game that way. Pinned in `hero-rules.spec.ts`.
 - **The stack is game state, so frames snapshot it.** A pipeline started inside
   a frame is undone by its rollback; one already going when the frame opened
   survives. A pausing pipeline is also cut out of that frame's own snapshot,
@@ -1393,8 +1402,13 @@ empty `ChoiceWindow` and an unchallengeable `ChallengeWindow` settle at 0ms
 whatever the countdown.
 
 `setup/play-through.spec.ts` drives real turns on a real dealt table for exactly
-that reason: wiring order, cross-pipeline event ordering, frames that never
-settle and turns that never end are all invisible to a unit test. It runs on a
+that reason, and `setup/full-game.spec.ts` drives one whole game through the
+same harness — three seats, a stacked deal, scripted dice — from the first
+turn to `GameEnded`, and then checks that every card the deal put on the
+table is still in exactly one place. The harness itself is
+`setup/play-through-helpers.ts`. Wiring order, cross-pipeline event ordering,
+frames that never settle and turns that never end are all invisible to a unit
+test. It runs on a
 **150ms countdown and a real clock**, not on fake timers. Advancing fake timers
 means guessing how many windows a move opens, and guessing low reads as a
 passing test — which is how a fight-back's choice window went unnoticed there.

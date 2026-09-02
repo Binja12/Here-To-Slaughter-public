@@ -360,6 +360,22 @@ describe('hero rules — the roll a played hero is offered', () => {
       expect(gs.abilityPipelines).toHaveLength(0)
       expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
     })
+
+    it('ends after an offered roll that FAILS — the offer is not left parked', () => {
+      // The roll's frame opens while the offer is still marked paused on its
+      // own frame (TaskConfirmed goes out before FrameResolved), so the roll's
+      // snapshot holds the offer with that mark on it. The failed roll's
+      // rollback must not bring the mark back.
+      const { gs, tm } = lastPoint()
+      jest.advanceTimersByTime(5000) // challenge lapses -> offered
+
+      jest.spyOn(Math, 'random').mockReturnValue(LOW) // baseRoll 1 < 5
+      rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
+      jest.advanceTimersByTime(5000) // the roll lapses -> RollFailed, rollback
+
+      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+    })
   })
 
   // -------------------------------------------------------------------------

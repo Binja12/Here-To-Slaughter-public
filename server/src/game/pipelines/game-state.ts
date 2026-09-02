@@ -140,6 +140,11 @@ export class GameState {
     // erases the record of what was spent.
     const spent = this.spentInto(frame)
     this.frames.delete(frameId)
+    // Undoing a frame IS cancelling what waited on it. The stack is not in
+    // the snapshot, so this is the one place a rollback touches it.
+    this.abilityPipelines = this.abilityPipelines.filter(
+      (p) => p.pausedOn !== frameId,
+    )
     this.copyFrom(frame.snapshot)
 
     // The snapshot handed them back to their owners' hands. Spent is spent,
@@ -360,13 +365,9 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     copy.actionQueue = [...this.actionQueue]
-    // Copied, not shared: the live stack consumes steps and marks pipelines as
-    // it goes, and none of that may leak into a snapshot. `ctx` stays shared —
-    // it is the memory of one run, not part of the board.
-    copy.abilityPipelines = this.abilityPipelines.map((pipeline) => ({
-      ...pipeline,
-      steps: [...pipeline.steps],
-    }))
+    // Not the pipeline stack: it is work in progress ON the board, not the
+    // board. A rollback undoes what that work did and drops what was waiting
+    // on the frame (restoreFrame); it does not forget the work existed.
     // Installed abilities and effects ride along inside Player.clone() above.
     // Frames: shallow-copy entries. The snapshot inside each frame is already a
     // complete GameState root — we reference it without recursing into it.
@@ -386,7 +387,6 @@ export class GameState {
     this.monsterDeck = src.monsterDeck
     this.monsterPile = src.monsterPile
     this.actionQueue = src.actionQueue
-    this.abilityPipelines = src.abilityPipelines
     this.frames = src.frames // outer frames survive; restored frame entry is gone
   }
 

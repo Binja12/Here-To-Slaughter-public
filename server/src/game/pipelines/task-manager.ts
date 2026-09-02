@@ -88,9 +88,9 @@ export class TaskManager implements IGameEventListener {
         frameId: string
         result?: { key: string; value: unknown }
       }
-      // After a rollback nothing is paused on it any more — that pipeline went
-      // with the snapshot — but the ones underneath came back and still need
-      // to finish, so the drain below runs either way.
+      // After a rollback nothing is paused on it any more — restoreFrame
+      // dropped it — but the ones underneath still need to finish, so the
+      // drain below runs either way.
       for (const pipeline of this.gs.abilityPipelines) {
         if (pipeline.pausedOn !== frameId) continue
         pipeline.pausedOn = undefined
@@ -312,10 +312,7 @@ export class TaskManager implements IGameEventListener {
    *
    * It stays on the stack, because the pipelines under it are the ones that
    * must wait; lifting it off would let the next drain walk straight past
-   * them. It is also cut out of the frame's snapshot — that snapshot was taken
-   * by the step that just paused, so it still holds this pipeline, and a
-   * rollback would otherwise bring the rest of a failed run back to life.
-   * Undoing a frame IS cancelling what it waited for.
+   * them. A rollback of that frame drops it (GameState.restoreFrame).
    */
   private pauseOn(
     pipeline: AbilityPipeline,
@@ -331,12 +328,5 @@ export class TaskManager implements IGameEventListener {
     }
 
     pipeline.pausedOn = frameId
-
-    const snapshot = this.gs.frames.get(frameId)?.snapshot
-    if (!snapshot) return
-    // Identified by context: snapshots copy the record but share the context.
-    snapshot.abilityPipelines = snapshot.abilityPipelines.filter(
-      (p) => p.ctx !== pipeline.ctx,
-    )
   }
 }
