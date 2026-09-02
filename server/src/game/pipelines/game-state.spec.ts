@@ -158,6 +158,8 @@ describe('GameState', () => {
       submitReaction: () => {},
       resolve: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
+      getDetail: () => ({}),
+      getDeadline: () => 0,
     })
 
     it('frame is present after addFrame', () => {
@@ -319,6 +321,8 @@ describe('GameState — the open modifiable window', () => {
     submitReaction: jest.fn(),
     resolve: () => {},
     resultKey: () => NO_CONTEXT_RESULT,
+    getDetail: () => ({}),
+    getDeadline: () => 0,
     acceptsModifierFor: (playerId: string) => playerId === rollerId,
     cardSpent: () => {},
     valueBiasFor: (playerId: string, targetPlayerId: string) =>

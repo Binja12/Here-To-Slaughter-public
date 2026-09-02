@@ -238,6 +238,19 @@ describe('playerView', () => {
     expect(challenge).toBeDefined()
     expect(challenge.cardId).toBe(heroId)
     expect(challenge.isYours).toBe(true)
+    // A challenge is the table's business: everyone sees who defends what,
+    // and when the window lapses.
+    expect(challenge.detail).toMatchObject({
+      defenderId: playerId,
+      cardId: heroId,
+      challengeable: true,
+      challenged: false,
+    })
+    expect(challenge.deadline).toBeGreaterThan(Date.now() - 1000)
+    expect(
+      theirs.pendingWindows.find((w) => w.windowId === challenge.windowId)!
+        .detail,
+    ).toEqual(challenge.detail)
     // The same window, seen from the other side of the table.
     expect(theirs.pendingWindows).toHaveLength(mine.pendingWindows.length)
     expect(
@@ -274,6 +287,68 @@ describe('playerView', () => {
     ])
     expect(theirs.pendingWindows[0].options).toBeUndefined()
     expect(theirs.pendingWindows[0].respondentId).toBe(playerId)
+
+    await new Promise((done) => setTimeout(done, 200))
+  })
+
+  it('shows the whole table a roll as it stands, and when it lapses', async () => {
+    const game = dealt()
+    startGame(game)
+    const playerId = game.playerOrder[0]
+    const before = Date.now()
+
+    const frameId = game.reactionManager.openFrame()
+    game.reactionManager.openWindow(frameId, ReactionWindowType.Modifier, playerId, {
+      rollerId: playerId,
+      baseRoll: 8,
+      rollReq: 10,
+      heroId: 'hero-044',
+    })
+
+    const mine = playerView(game, playerId)
+    const theirs = playerView(game, game.playerOrder[1])
+
+    // Deciding whether to spend a modifier on somebody's roll needs the
+    // number, so the roll is not the roller's secret.
+    for (const view of [mine, theirs]) {
+      const roll = view.pendingWindows[0]
+      expect(roll.detail).toMatchObject({
+        rollerId: playerId,
+        baseRoll: 8,
+        finalRoll: 8,
+        rollReq: 10,
+        heroId: 'hero-044',
+        bonuses: [],
+      })
+      expect(roll.deadline).toBeGreaterThanOrEqual(before)
+      expect(roll.deadline).toBeLessThanOrEqual(
+        Date.now() + TEST_CONFIG.timeControl.reactionCountdownMs,
+      )
+    }
+
+    await new Promise((done) => setTimeout(done, 200))
+  })
+
+  it("keeps a choice's question to its respondent", async () => {
+    const game = dealt()
+    startGame(game)
+    const playerId = game.playerOrder[0]
+
+    // A confirm carries the slot its continuation needs — which can name a
+    // card only the respondent may know about.
+    const frameId = game.reactionManager.openFrame()
+    game.reactionManager.openWindow(frameId, ReactionWindowType.TaskChoice, playerId, {
+      confirms: 'PlayIt',
+      sourceCardId: 'hero-040',
+      ctxSeed: { drawn: ['secret-card-9'] },
+    })
+
+    const mine = playerView(game, playerId)
+    const theirs = playerView(game, game.playerOrder[1])
+
+    expect(mine.pendingWindows[0].detail).toMatchObject({ confirms: 'PlayIt' })
+    expect(theirs.pendingWindows[0].detail).toBeUndefined()
+    expect(theirs.pendingWindows[0].deadline).toBe(mine.pendingWindows[0].deadline)
 
     await new Promise((done) => setTimeout(done, 200))
   })

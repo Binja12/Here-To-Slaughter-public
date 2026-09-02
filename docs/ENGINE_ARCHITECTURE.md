@@ -707,6 +707,20 @@ OPTIONS.** A window stops the game, so the table has to see what it is waiting
 for — but a choice over somebody's hand lists card ids, and handing those round
 would leak the same information the hand counts exist to withhold.
 
+**A window's QUESTION is in the view, not only in the event that opened it.**
+`IReactionWindow.getDetail()` is what the window is asking, read live — a
+roll's base, the bonuses landed so far, the running total and the
+requirement; a challenge's defender, card and, once started, both rolls; a
+choice's question — and `getDeadline()` is when it lapses. `PendingWindowView`
+copies both, so a screen drawn from a snapshot alone, which is what a
+reconnecting client has, can show the dice and the countdown; the
+`ReactionWindowOpened` event carries the same fields but only once, and a
+bonus that lands after it changes the number. Who sees the detail follows the
+options rule with one difference: a roll or a challenge is the table's
+business, because deciding whether to spend a modifier on somebody else's
+roll needs the number, while a choice's question reaches its respondent only,
+since a confirm's `ctxSeed` can name a card nobody else may see.
+
 Event payloads still carry the whole truth and are still unfiltered — the other
 half of this section, and it belongs with the transport on `HTSR-4`.
 

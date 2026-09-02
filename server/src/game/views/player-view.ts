@@ -5,6 +5,7 @@ import {
   PartyView,
   PendingWindowView,
   PlayerView,
+  ReactionWindowType,
   SeatView,
 } from 'shared'
 import type { Game } from '../setup/create-game'
@@ -41,8 +42,14 @@ export function playerView(game: Game, playerId: string): PlayerView {
     parties: game.playerOrder.map((seatId) => partyView(gs, seatId)),
     mainDeck: { count: gs.getMainDeck().getSize() },
     monsterDeck: { count: gs.getMonsterDeck().getSize() },
-    discardPile: gs.getDiscardPile().getAll().map((id) => cardOf(gs, id)),
-    monsterRow: gs.getMonsterPile().getAll().map((id) => cardOf(gs, id)),
+    discardPile: gs
+      .getDiscardPile()
+      .getAll()
+      .map((id) => cardOf(gs, id)),
+    monsterRow: gs
+      .getMonsterPile()
+      .getAll()
+      .map((id) => cardOf(gs, id)),
     attackableMonsterIds: gs
       .getMonsterPile()
       .getAll()
@@ -120,18 +127,32 @@ function partyView(gs: GameState, playerId: string): PartyView {
   }
 }
 
-/** `options` goes only to the respondent: a choice over a hand lists card ids. */
+/** A roll or a challenge is watched by the whole table; a choice is one player's question. */
+const TABLE_WINDOWS = new Set<ReactionWindowType>([
+  ReactionWindowType.Challenge,
+  ReactionWindowType.Modifier,
+  ReactionWindowType.Attack,
+])
+
+/**
+ * `options` and a choice's `detail` go only to the respondent: a choice over a
+ * hand lists card ids. A roll's `detail` goes to everyone — deciding whether
+ * to spend a modifier on somebody else's roll needs the number.
+ */
 function pendingWindowView(
   window: IReactionWindow,
   playerId: string,
 ): PendingWindowView {
   const isYours = window.getRespondentId() === playerId
+  const shown = isYours || TABLE_WINDOWS.has(window.getType())
   return {
     windowId: window.getId(),
     type: window.getType(),
     respondentId: window.getRespondentId(),
     cardId: window.subjectCardId?.(),
     options: isYours ? [...window.getOptions()] : undefined,
+    detail: shown ? window.getDetail() : undefined,
+    deadline: window.getDeadline(),
     isYours,
   }
 }

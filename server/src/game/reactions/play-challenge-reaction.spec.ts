@@ -71,6 +71,8 @@ const makeStubWindow = (): IModifiableWindow & {
   submitReaction: jest.fn(),
   resolve: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
+  getDetail: () => ({}),
+  getDeadline: () => 0,
   acceptsModifierFor: () => true,
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,

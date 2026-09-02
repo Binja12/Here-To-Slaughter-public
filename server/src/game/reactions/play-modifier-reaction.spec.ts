@@ -85,6 +85,8 @@ const makeStubWindow = (
   submitReaction: jest.fn(),
   resolve: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
+  getDetail: () => ({}),
+  getDeadline: () => 0,
   acceptsModifierFor: (playerId: string) => playerId === rollerId,
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,

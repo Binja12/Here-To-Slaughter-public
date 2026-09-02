@@ -19,6 +19,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
   protected picked: unknown = undefined
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
+  private deadline = 0
 
   constructor(
     private readonly id: string,
@@ -32,7 +33,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
      * Extra fields for the ReactionWindowOpened payload. A constructor argument,
      * not an override: super() emits before subclass fields are assigned.
      */
-    openDetail?: Record<string, unknown>,
+    private readonly openDetail: Record<string, unknown> = {},
   ) {
     // Full option list; the projection layer in front of the API decides who
     // may see what.
@@ -49,10 +50,9 @@ export abstract class ChoiceWindow implements IReactionWindow {
     // Nothing to choose from settles at once, but on a 0ms TIMER — never
     // inline, or the frame would settle before the task that opened it
     // returned and TaskManager would have nothing parked to resume.
-    this.timer = setTimeout(
-      () => this.resolve(),
-      this.options.length === 0 ? 0 : this.timeoutMs,
-    )
+    const clockMs = this.options.length === 0 ? 0 : this.timeoutMs
+    this.deadline = Date.now() + clockMs
+    this.timer = setTimeout(() => this.resolve(), clockMs)
   }
 
   // --- IReactionWindow ---
@@ -72,6 +72,15 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   getOptions(): readonly unknown[] {
     return [...this.options]
+  }
+
+  /** A choice asks once and never changes: what it announced is what it asks. */
+  getDetail(): Record<string, unknown> {
+    return { ...this.openDetail }
+  }
+
+  getDeadline(): number {
+    return this.deadline
   }
 
   isOpen(): boolean {

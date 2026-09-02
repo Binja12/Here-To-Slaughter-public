@@ -109,6 +109,16 @@ export type PendingWindowView = {
   cardId?: string;
   /** Present only when `respondentId` is the viewer. */
   options?: unknown[];
+  /**
+   * What the window is asking, as the engine sees it now: a roll's base,
+   * bonuses and running total with its requirement, a challenge's two rolls,
+   * a choice's question. A roll or a challenge is the table's business and
+   * reaches everyone; a choice's question reaches its respondent only, like
+   * `options`, because it can name cards nobody else may see.
+   */
+  detail?: Record<string, unknown>;
+  /** When the window lapses, epoch ms. */
+  deadline: number;
   /** Whether this window is the viewer's to answer. */
   isYours: boolean;
 };

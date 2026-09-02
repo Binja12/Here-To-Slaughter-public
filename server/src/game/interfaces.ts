@@ -215,6 +215,15 @@ export interface IReactionWindow {
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
   /**
+   * What the window is asking, read LIVE: the fields it announced at open
+   * plus whatever moved since — a bonus that landed, a challenge that
+   * started. The view copies it, so a screen drawn from a snapshot alone can
+   * show the roll it is being asked about.
+   */
+  getDetail(): Record<string, unknown>
+  /** When the clock runs out, epoch ms. Moves when the window resets its timer. */
+  getDeadline(): number
+  /**
    * Context key this window's outcome is filed under; TaskManager writes
    * it on resume. NO_CONTEXT_RESULT when the outcome is not an ability input.
    */

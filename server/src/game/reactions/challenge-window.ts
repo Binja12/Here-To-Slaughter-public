@@ -27,6 +27,7 @@ export class ChallengeWindow implements IModifiableWindow {
   private readonly clockMs: number
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
+  private deadline = 0
   private challenged: boolean = false
   private challengerId?: string
   private challengerRoll: number = 0
@@ -295,8 +296,31 @@ export class ChallengeWindow implements IModifiableWindow {
     this.resetTimer()
   }
 
+  /**
+   * The contest as it stands: who is defending what, whether anyone may still
+   * answer, and — once somebody has — both rolls with their bonuses.
+   */
+  getDetail(): Record<string, unknown> {
+    return {
+      defenderId: this.challengedId,
+      cardId: this.cardId,
+      challengeable: this.clockMs > 0,
+      challenged: this.challenged,
+      challengerId: this.challengerId,
+      challengerRoll: this.challengerRoll,
+      challengedRoll: this.challengedRoll,
+      challengerBonuses: [...this.challengerBonuses],
+      challengedBonuses: [...this.challengedBonuses],
+    }
+  }
+
+  getDeadline(): number {
+    return this.deadline
+  }
+
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + this.clockMs
     this.timer = setTimeout(() => this.resolve(), this.clockMs)
   }
 }

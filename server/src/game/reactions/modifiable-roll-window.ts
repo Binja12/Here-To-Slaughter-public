@@ -27,6 +27,9 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
   protected bonuses: RollBonus[] = []
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
+  private deadline = 0
+  /** The subject's own fields, as handed to open(); reread by getDetail. */
+  private detail: Record<string, unknown> = {}
 
   constructor(
     private readonly id: string,
@@ -57,6 +60,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
     cardId: string | undefined,
     detail: Record<string, unknown>,
   ): void {
+    this.detail = detail
     for (const effect of this.gs.getEffects(
       PassiveType.RollBonus,
       this.rollerId,
@@ -96,6 +100,21 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
 
   getRespondentId(): string {
     return this.rollerId
+  }
+
+  /** The roll as it stands now — the bonuses played so far are counted. */
+  getDetail(): Record<string, unknown> {
+    return {
+      rollerId: this.rollerId,
+      baseRoll: this.baseRoll,
+      bonuses: [...this.bonuses],
+      finalRoll: this.getFinalRoll(),
+      ...this.detail,
+    }
+  }
+
+  getDeadline(): number {
+    return this.deadline
   }
 
   getOptions(): readonly unknown[] {
@@ -214,6 +233,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
 
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + this.timeoutMs
     this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
   }
 }
