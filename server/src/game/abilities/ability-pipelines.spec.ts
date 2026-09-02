@@ -402,7 +402,7 @@ describe('ability pipelines — rollback', () => {
 
     // Undoing the frame cancelled what it was waiting for...
     expect(log).not.toContain('nested-tail')
-    // ...but the pipeline underneath was in the snapshot, so it lives on.
+    // ...but the pipeline underneath was never waiting on it, so it lives on.
     expect(log).toEqual(['outer-1', 'outer-2'])
     expect(gs.abilityPipelines).toHaveLength(0)
   })

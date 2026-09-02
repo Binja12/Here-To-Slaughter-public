@@ -409,9 +409,11 @@ bad outcome  → restoreFrame → snapshot rollback
 always       → frameResolved(frameId, results, result?)
 ```
 
-**Paused pipelines live on GameState, inside the snapshot.** So rollback *is*
-cancellation: a failed roll or lost challenge discards the continuation
-together with the state it would have mutated. No cancel flag exists anywhere.
+**Rollback *is* cancellation.** `restoreFrame` puts the board back and drops
+every pipeline paused on that frame, in the same call: a failed roll or lost
+challenge discards the continuation together with the state it would have
+mutated. No cancel flag exists anywhere — `pausedOn` is the pause itself,
+read from the other side.
 
 **Rollback means an outcome FAILED**, never a player declining an offer. A
 declined confirm releases its frame like any other outcome (§4).
@@ -492,26 +494,30 @@ stop, carry on when it resolves.
   clears the mark. Asking whether the frame is still open would NOT do: a
   window releases its frame BEFORE it announces the outcome (§4), so the stack
   would carry on before the answer arrived.
-- **Lifting a pause edits every open snapshot, the way setting one does.** A
-  confirm's `TaskConfirmed` goes out before its `FrameResolved`, so the
-  continuation it starts can open its own frame while the offer is still
-  marked paused on the outer one — and that inner frame's snapshot holds a
-  copy of the offer, mark and all. When the outer frame resolves, the copies
-  inside every frame still open are unpaused too. Otherwise a rollback of the
-  inner frame restores a pipeline parked on a frame that no longer exists, and
-  the board stays busy for ever: an offered roll that FAILED used to end the
-  game that way. Pinned in `hero-rules.spec.ts`.
-- **The stack is game state, so frames snapshot it.** A pipeline started inside
-  a frame is undone by its rollback; one already going when the frame opened
-  survives. A pausing pipeline is also cut out of that frame's own snapshot,
-  or a rollback would bring the remainder of a failed pipeline back to life —
-  undoing a frame IS cancelling what it waited for. `FrameResolved` therefore
-  drains even when nothing was
-  paused on that frame: after a rollback the pipelines underneath came back
-  with the snapshot and still have to finish.
-- **Snapshots copy each pipeline**, because the live stack consumes `steps` and
-  sets `pausedOn` as it goes. The `ctx` is shared, and is what identifies a
-  pipeline.
+- **The stack is NOT in the snapshot.** A snapshot is the board — players,
+  parties, piles, hands, effects. Pipelines are work in progress ON the board,
+  and a rollback undoes what that work did without forgetting the work
+  existed: the live stack survives `restoreFrame` untouched except for the
+  pipelines paused on the restored frame, which it drops. That is the whole
+  cancellation rule, stated once, beside the rollback it belongs to. The
+  pipelines underneath could not have moved while the frame was open (only
+  the top of the stack runs, and the top was paused), so there is nothing a
+  copy could restore that the live record does not already hold. A copy
+  would be a second record of "P is waiting on F" beside `pausedOn`, and
+  the two can disagree: a confirm's `TaskConfirmed` goes out before its
+  `FrameResolved`, so a continuation opens its frame while the offer is
+  still marked paused on a frame already released, and a copy taken then
+  carried a mark nothing would ever clear. An offered roll that FAILED left
+  the board busy for ever that way. Pinned in `hero-rules.spec.ts` and in
+  the rollback case of `ability-pipelines.spec.ts`.
+- **`FrameResolved` drains even when nothing is paused on that frame.** After
+  a rollback the pipeline that waited is gone, and the ones underneath still
+  have to finish.
+- **A pipeline started inside a frame outlives its rollback.** It is on the
+  live stack, so it stays. The only way to be there at all is the timer race
+  of §8 — a modifier's value choice still open when the roll it was for
+  lapses — and `ApplyModifierTask` finds the roll settled and drops the
+  bonus. Not pinned.
 - **The declaration's `steps` are copied when matched.** That list is built
   once at module load (§1); the drain consumes what it is handed.
 

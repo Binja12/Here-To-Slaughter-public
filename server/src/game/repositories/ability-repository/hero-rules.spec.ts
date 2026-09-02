@@ -363,9 +363,9 @@ describe('hero rules — the roll a played hero is offered', () => {
 
     it('ends after an offered roll that FAILS — the offer is not left parked', () => {
       // The roll's frame opens while the offer is still marked paused on its
-      // own frame (TaskConfirmed goes out before FrameResolved), so the roll's
-      // snapshot holds the offer with that mark on it. The failed roll's
-      // rollback must not bring the mark back.
+      // own frame (TaskConfirmed goes out before FrameResolved). The failed
+      // roll's rollback must leave the offer's mark to FrameResolved(offer),
+      // and must not resurrect it afterwards.
       const { gs, tm } = lastPoint()
       jest.advanceTimersByTime(5000) // challenge lapses -> offered
 
