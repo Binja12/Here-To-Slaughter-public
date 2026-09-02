@@ -4,17 +4,30 @@ import {
   IGameEventEmitter,
   PassiveType,
   ReactionWindowType,
+  RollContext,
 } from 'shared'
-import { IModifiableWindow } from '../interfaces'
+import { IModifiableWindow, RollBonus, ValueBias } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
-import { RollBonus } from './modifier-window'
+
 
 export class ChallengeWindow implements IModifiableWindow {
+  /**
+   * The clock this window actually runs on. Zero when nothing may contest the
+   * card — see GameState.canBeChallenged.
+   *
+   * A 0ms TIMER rather than resolving inline, for the reason an empty
+   * ChoiceWindow uses one: the play that opened this has not returned yet, so
+   * settling here would send FrameResolved before anything was parked on it.
+   * One tick puts the case back on the ordinary suspend → resolve → resume
+   * path, and the card's own steps still fire off the settled frame (§1).
+   */
+  private readonly clockMs: number
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
+  private deadline = 0
   private challenged: boolean = false
   private challengerId?: string
   private challengerRoll: number = 0
@@ -35,13 +48,20 @@ export class ChallengeWindow implements IModifiableWindow {
     private readonly frameId: string,
     private readonly emitter: IGameEventEmitter,
   ) {
+    this.clockMs = gs.canBeChallenged(challengedId, cardId) ? timeoutMs : 0
+
     this.emitter.emit(
       GameEventFactory.reactionWindowOpened(
         this.getType(),
         this.challengedId,
         this.frameId,
         undefined,
-        { defenderId: this.challengedId, cardId: this.cardId },
+        {
+          defenderId: this.challengedId,
+          cardId: this.cardId,
+          // So the table can see WHY it had no chance to answer.
+          challengeable: this.clockMs > 0,
+        },
       ),
     )
     this.resetTimer()
@@ -57,6 +77,14 @@ export class ChallengeWindow implements IModifiableWindow {
     return ReactionWindowType.Challenge
   }
 
+  getRespondentId(): string {
+    return this.challengedId
+  }
+
+  getOptions(): readonly unknown[] {
+    return []
+  }
+
   /** None: a lost challenge restores the frame, so a survivor necessarily won. */
   resultKey(): string | typeof NO_CONTEXT_RESULT {
     return NO_CONTEXT_RESULT
@@ -66,7 +94,8 @@ export class ChallengeWindow implements IModifiableWindow {
     return !this._resolved
   }
 
-  getCardId(): string {
+  /** What this window contests. Everything else in the frame was spent INTO it. */
+  subjectCardId(): string {
     return this.cardId
   }
 
@@ -74,6 +103,22 @@ export class ChallengeWindow implements IModifiableWindow {
   acceptsModifierFor(playerId: string): boolean {
     if (!this.challenged) return false
     return playerId === this.challengerId || playerId === this.challengedId
+  }
+
+  /** The contest waits for a card already committed to it. */
+  cardSpent(): void {
+    this.resetTimer()
+  }
+
+  /**
+   * Two rolls, so the question is which side was pushed, and the answer is
+   * read against the card being contested rather than against the player who
+   * spent the modifier: a bonus aimed at the DEFENDER falls low, one aimed at
+   * the challenger falls high. An unanswered challenge therefore tips toward
+   * the play being defeated.
+   */
+  valueBiasFor(_playerId: string, targetPlayerId: string): ValueBias {
+    return targetPlayerId === this.challengedId ? 'lowest' : 'highest'
   }
 
   submitReaction(playerId: string, payload: unknown): void {
@@ -92,13 +137,18 @@ export class ChallengeWindow implements IModifiableWindow {
         targetPlayerId: string
       }
       const entry: RollBonus = { cardSource: cardId, amount: value }
-      if (targetPlayerId === this.challengerId) {
-        this.challengerBonuses.push(entry)
-      } else if (targetPlayerId === this.challengedId) {
-        this.challengedBonuses.push(entry)
-      } else {
-        return // names neither side of this challenge
-      }
+      const side =
+        targetPlayerId === this.challengerId
+          ? this.challengerBonuses
+          : targetPlayerId === this.challengedId
+            ? this.challengedBonuses
+            : undefined
+      if (!side) return // names neither side of this challenge
+      side.push(entry)
+
+      // Same derivation the roll windows use. Two rolls here, so the only
+      // difference is which list it lands in: whichever side was aimed at.
+      side.push(...this.gs.counterBonusesFor(targetPlayerId, playerId))
       this.emitter.emit(
         GameEventFactory.modifierAppliedToChallenge(
           playerId,
@@ -172,8 +222,8 @@ export class ChallengeWindow implements IModifiableWindow {
       // PlayHeroAction removes the card from hand BEFORE opening the frame, so
       // the rollback leaves it in no zone — this is what puts it somewhere.
       // No CardDiscarded event; ChallengeResolved already reported the defeat.
-      // Cards spent during the window need nothing: burnCard already wrote
-      // them into the snapshot's pile.
+      // Cards spent during the window need nothing here: restoreFrame put them
+      // away already, from the list the frame kept.
       this.gs.getDiscardPile().add(this.cardId)
     }
 
@@ -197,10 +247,20 @@ export class ChallengeWindow implements IModifiableWindow {
    * Standing RollBonus effects a player carries into a roll, as sourced
    * entries. "+3 to all of your rolls" means all of them — a challenge roll is
    * a roll, and each side brings its own.
+   *
+   * Only the CHALLENGER's roll is a roll to challenge, so only that side is
+   * asked with the context; the defender is asked about no kind at all and so
+   * gets the unscoped effects alone. Defending is not challenging — the Fist
+   * of Reason (leader-118) is printed "each time you roll to CHALLENGE".
+   * A bonus for defending would be a fourth RollContext, and no card wants one
+   * yet.
    */
-  private standingBonuses(playerId: string): RollBonus[] {
+  private standingBonuses(
+    playerId: string,
+    rollContext?: RollContext,
+  ): RollBonus[] {
     return this.gs
-      .getEffects(PassiveType.RollBonus, playerId)
+      .getEffects(PassiveType.RollBonus, playerId, undefined, rollContext)
       .map((effect) => ({
         cardSource: effect.sourceCardId,
         amount: effect.value ?? 0,
@@ -216,7 +276,10 @@ export class ChallengeWindow implements IModifiableWindow {
     // Both sides arrive with whatever standing bonuses they already hold, so
     // the opening totals are the real ones and nobody has to wait for
     // settlement to learn a +3 was in play.
-    this.challengerBonuses = this.standingBonuses(challengerId)
+    this.challengerBonuses = this.standingBonuses(
+      challengerId,
+      RollContext.Challenge,
+    )
     this.challengedBonuses = this.standingBonuses(this.challengedId)
 
     this.emitter.emit(
@@ -233,8 +296,31 @@ export class ChallengeWindow implements IModifiableWindow {
     this.resetTimer()
   }
 
+  /**
+   * The contest as it stands: who is defending what, whether anyone may still
+   * answer, and — once somebody has — both rolls with their bonuses.
+   */
+  getDetail(): Record<string, unknown> {
+    return {
+      defenderId: this.challengedId,
+      cardId: this.cardId,
+      challengeable: this.clockMs > 0,
+      challenged: this.challenged,
+      challengerId: this.challengerId,
+      challengerRoll: this.challengerRoll,
+      challengedRoll: this.challengedRoll,
+      challengerBonuses: [...this.challengerBonuses],
+      challengedBonuses: [...this.challengedBonuses],
+    }
+  }
+
+  getDeadline(): number {
+    return this.deadline
+  }
+
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+    this.deadline = Date.now() + this.clockMs
+    this.timer = setTimeout(() => this.resolve(), this.clockMs)
   }
 }

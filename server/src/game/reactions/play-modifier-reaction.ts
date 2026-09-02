@@ -1,14 +1,25 @@
-import { IGameEventEmitter, ReactionType, ReactionWindowType } from 'shared'
-import { IModifiableWindow, IReaction, IReactionWindow } from '../interfaces'
+import { IGameEventEmitter, ReactionType } from 'shared'
+import { IReaction } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
+
+// ---------------------------------------------------------------------------
+// The play, and only the play: spend the card and announce it. WHAT a modifier
+// is worth is the card's own entry in the abilityRegistry, the same split
+// every other card type has (§1).
+//
+// That is what makes the value unforgeable. It used to arrive here as a
+// constructor argument straight off a socket, and nothing compared it with the
+// `values` printed on the card; now the card offers its own numbers through a
+// ValueChoiceWindow and the player picks one of those.
+// ---------------------------------------------------------------------------
 
 export class PlayModifierReaction implements IReaction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
-    private readonly value: number,
+    /** Whose roll this is aimed at — a challenge has two. */
     private readonly targetPlayerId: string,
   ) {}
 
@@ -23,65 +34,33 @@ export class PlayModifierReaction implements IReaction {
   }
 
   canExecute(gs: GameState): boolean {
-    const open = this.openWindow(gs)
-    if (!open) return false
     if (!gs.getPlayer(this.playerId)?.getHand().includes(this.cardId))
       return false
 
-    // execute() burns the card before it submits, so a target the window
-    // would refuse must be caught while the card is still in hand.
-    return open.window.acceptsModifierFor(this.targetPlayerId)
+    // One question, and it covers both halves: is a window open, and would it
+    // take a bonus aimed at this player. execute() spends the card before the
+    // entry can land anything, so a target the window would refuse has to be
+    // caught while the card is still in hand.
+    return gs.acceptsModifierFor(this.targetPlayerId)
   }
 
   execute(gs: GameState, em: IGameEventEmitter): void {
-    const open = this.openWindow(gs)
-    if (!open) return
-    gs.burnCard(open.frameId, this.playerId, this.cardId)
+    // The same question canExecute asked. It has already said otherwise; this
+    // is what keeps the announcement below honest if it is ever skipped.
+    if (!gs.acceptsModifierFor(this.targetPlayerId)) return
 
-    // Before the submission, so the log reads played-then-applied. burnCard
-    // emits nothing, so this is the only record the card was spent.
+    // Hand -> the owner's instance pile, where it is a card in play for as
+    // long as the roll it was spent on is open. Keeping that roll alive is
+    // part of spending, and happens in there.
+    gs.spendCard(this.playerId, this.cardId)
+
+    // The card's entry triggers on this, and the target rides along on it.
     em.emit(
       GameEventFactory.modifierPlayed(
         this.playerId,
         this.cardId,
-        this.value,
         this.targetPlayerId,
       ),
     )
-
-    open.window.submitReaction(this.playerId, {
-      // ChallengeWindow takes challenges and modifiers on one method, so the
-      // kind is named; ModifierWindow ignores it.
-      type: 'modifier',
-      value: this.value,
-      cardId: this.cardId,
-      targetPlayerId: this.targetPlayerId,
-    })
   }
-
-  // ---------------------------------------------------------------------------
-  // Internal
-  // ---------------------------------------------------------------------------
-
-  /** The open window a modifier can go into — a plain roll or a challenge. */
-  private openWindow(
-    gs: GameState,
-  ): { frameId: string; window: IModifiableWindow } | undefined {
-    for (const type of [
-      ReactionWindowType.Modifier,
-      ReactionWindowType.Challenge,
-    ]) {
-      const entry = gs.getFrameByWindowType(type)
-      const window = entry?.frame.windows.find((w) => w.getType() === type)
-      if (entry && window && acceptsModifiers(window)) {
-        return { frameId: entry.frameId, window }
-      }
-    }
-    return undefined
-  }
-}
-
-/** Capability probe, not instanceof — keeps concrete window classes out. */
-function acceptsModifiers(w: IReactionWindow): w is IModifiableWindow {
-  return typeof (w as IModifiableWindow).acceptsModifierFor === 'function'
 }

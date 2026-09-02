@@ -4,6 +4,10 @@ import { PartyLeaderData, CardType, HeroClass } from 'shared'
 export class PartyLeaderCard implements ICard {
   constructor(private data: PartyLeaderData) {}
 
+  getData(): PartyLeaderData {
+    return { ...this.data }
+  }
+
   getId(): string {
     return this.data.id
   }

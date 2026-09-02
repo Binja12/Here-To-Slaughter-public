@@ -4,6 +4,10 @@ import { MagicCardData, CardType } from 'shared'
 export class MagicCard implements ICard {
   constructor(private data: MagicCardData) {}
 
+  getData(): MagicCardData {
+    return { ...this.data }
+  }
+
   getId(): string {
     return this.data.id
   }

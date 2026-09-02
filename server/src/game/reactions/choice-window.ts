@@ -19,6 +19,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
   protected picked: unknown = undefined
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
+  private deadline = 0
 
   constructor(
     private readonly id: string,
@@ -32,7 +33,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
      * Extra fields for the ReactionWindowOpened payload. A constructor argument,
      * not an override: super() emits before subclass fields are assigned.
      */
-    openDetail?: Record<string, unknown>,
+    private readonly openDetail: Record<string, unknown> = {},
   ) {
     // Full option list; the projection layer in front of the API decides who
     // may see what.
@@ -49,10 +50,9 @@ export abstract class ChoiceWindow implements IReactionWindow {
     // Nothing to choose from settles at once, but on a 0ms TIMER — never
     // inline, or the frame would settle before the task that opened it
     // returned and TaskManager would have nothing parked to resume.
-    this.timer = setTimeout(
-      () => this.resolve(),
-      this.options.length === 0 ? 0 : this.timeoutMs,
-    )
+    const clockMs = this.options.length === 0 ? 0 : this.timeoutMs
+    this.deadline = Date.now() + clockMs
+    this.timer = setTimeout(() => this.resolve(), clockMs)
   }
 
   // --- IReactionWindow ---
@@ -66,6 +66,23 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return this.id
   }
 
+  getRespondentId(): string {
+    return this.respondentId
+  }
+
+  getOptions(): readonly unknown[] {
+    return [...this.options]
+  }
+
+  /** A choice asks once and never changes: what it announced is what it asks. */
+  getDetail(): Record<string, unknown> {
+    return { ...this.openDetail }
+  }
+
+  getDeadline(): number {
+    return this.deadline
+  }
+
   isOpen(): boolean {
     return !this._resolved
   }
@@ -77,6 +94,21 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
     const { choice } = (payload ?? {}) as { choice?: unknown }
     if (!this.options.includes(choice)) return
+
+    // THROWS rather than returning, and the two guards above deliberately do
+    // not: those refuse noise off a socket, this one catches a pick that was
+    // legal when the options were built and is not legal now. The caller is
+    // told, and the window stays OPEN so the player can pick again.
+    //
+    // The clock is not touched. A ChoiceWindow sets its timer once in the
+    // constructor and never resets it, unlike the modifier windows, so a
+    // rejected submission cannot be used to stall the turn.
+    if (!this.canSubmit(choice)) {
+      throw new Error(
+        `${this.constructor.name}: ${String(choice)} is no longer a legal ` +
+          'choice — it was offered, but the board has moved since.',
+      )
+    }
 
     this.picked = choice
     this.resolve()
@@ -135,6 +167,18 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   /** Emit what this outcome means elsewhere. See TaskChoiceWindow. */
   protected announceOutcome(_picked: unknown): void {}
+
+  /**
+   * Re-check a pick at SUBMIT time. Distinct from `isStillValid`, which runs
+   * at resolve and quietly drops a stale pick: this one runs the moment the
+   * answer arrives and REFUSES it loudly, so the player can send another.
+   *
+   * Default yes — being one of the offered options is the whole test for most
+   * windows. MonsterChoiceWindow overrides it.
+   */
+  protected canSubmit(_choice: unknown): boolean {
+    return true
+  }
 
   /**
    * Re-check a pick at resolve time. Card/player choices override this to

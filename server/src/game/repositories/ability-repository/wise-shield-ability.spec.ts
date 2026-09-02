@@ -24,14 +24,15 @@ import { RollOnHeroAction } from '../../actions/roll-on-hero-action'
 import { PlayChallengeReaction } from '../../reactions/play-challenge-reaction'
 import { PlayModifierReaction } from '../../reactions/play-modifier-reaction'
 import { abilityRegistry } from './index'
+import { CONFIRM } from '../../reactions/task-choice-window'
 import { IReactionWindow } from '../../interfaces'
 
 // ---------------------------------------------------------------------------
 // Wise Shield (hero-028) — full life cycle, through the real wiring
 // (TurnManager, GameEngine and the real abilityRegistry).
 //
-//   play hero -> challenge -> free roll -> modifier window -> RollSuccess
-//   -> +3 installed -> next roll sees it -> TurnEnded sweeps it
+//   play hero -> challenge -> "roll?" offer -> roll -> modifier window
+//   -> RollSuccess -> +3 installed -> next roll sees it -> TurnEnded sweeps it
 //
 //   baseRoll       = ceil(random * 11) + 1   -> 0 => 1, 0.99 => 12
 //   challenge roll = floor(random * 11) + 1  -> 0 => 1, 0.99 => 11
@@ -40,6 +41,12 @@ import { IReactionWindow } from '../../interfaces'
 
 const WISE_SHIELD = 'hero-028'
 const ROLL_REQ = 6
+
+// Real printed ids, so the registry's ChallengeAbility and ModifierAbility run:
+// what these cards DO is their own entry now, not the reaction's argument. The
+// modifier's single printed value is the test's own — behaviour is keyed by id.
+const CHAL = 'challenge-102'
+const MOD = 'modifier-077'
 
 const LOW = 0 // baseRoll 1  — misses rollReq 6
 const HIGH = 0.99 // baseRoll 12 — clears rollReq 6
@@ -96,13 +103,13 @@ function setup() {
   const engine = new GameEngine(gs, tm, em, [])
 
   seat(gs, 'p1', [WISE_SHIELD, 'hero-777'])
-  seat(gs, 'p2', ['chal-1', 'mod-1'])
+  seat(gs, 'p2', [CHAL, MOD])
 
   gs.registerCard(makeHero(WISE_SHIELD))
   gs.registerCard(makeHero('hero-777'))
   gs.registerCard(
     new ChallengeCard({
-      id: 'chal-1',
+      id: CHAL,
       name: 'Challenge',
       type: CardType.Challenge,
       image: '',
@@ -112,7 +119,7 @@ function setup() {
   )
   gs.registerCard(
     new ModifierCard({
-      id: 'mod-1',
+      id: MOD,
       name: 'Modifier',
       type: CardType.Modifier,
       image: '',
@@ -138,8 +145,23 @@ const challengeWindow = (gs: GameState) =>
   windowOf(gs, ReactionWindowType.Challenge)
 const modifierWindow = (gs: GameState) =>
   windowOf(gs, ReactionWindowType.Modifier)
+const rollOffer = (gs: GameState) => windowOf(gs, ReactionWindowType.TaskChoice)
+
+/**
+ * Every hero offers a roll once a challenge on it settles (hero-rules.ts).
+ * Saying yes is what puts RollOnHeroTask on the stack.
+ */
+const acceptRollOffer = (gs: GameState) =>
+  rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
 
 const typesOf = (events: IGameEvent[]) => events.map((e) => e.getType())
+
+/**
+ * A played modifier now asks the player WHICH of its printed values to use, so
+ * the bonus lands a choice later rather than inside submitReaction. The window
+ * is deliberately shorter than the roll it is about.
+ */
+const settleValueChoice = () => jest.advanceTimersByTime(3000)
 
 /** Total RollBonus currently on a player — the entries, summed. */
 const rollBonus = (gs: GameState, playerId: string) =>
@@ -176,7 +198,7 @@ describe('Wise Shield — full life cycle', () => {
     em: GameEventEmitter,
     rm: ReactionManager,
     tm: TurnManager,
-  ) => tm.enqueue(new PlayHeroAction('a1', 'p1', WISE_SHIELD, rm, em, tm))
+  ) => tm.enqueue(new PlayHeroAction('a1', 'p1', WISE_SHIELD, rm, em))
 
   // =========================================================================
   // STAGE 1 — playing the hero opens a challenge window and parks the roll
@@ -197,11 +219,13 @@ describe('Wise Shield — full life cycle', () => {
       expect(challengeWindow(gs)).toBeDefined()
     })
 
-    it('parks the granted free roll — it must NOT run while the challenge is open', () => {
+    it('offers nothing yet — no roll and no prompt while the challenge is open', () => {
       const { gs, em, rm, tm } = setup()
       playWiseShield(gs, em, rm, tm)
-      expect(gs.actionQueue).toHaveLength(1)
-      expect(gs.actionQueue[0].getCost()).toBe(0)
+      // The offer hangs off the SETTLED challenge frame, and the play queues
+      // no action of its own — the roll it leads to is a task.
+      expect(gs.actionQueue).toHaveLength(0)
+      expect(rollOffer(gs)).toBeUndefined()
       expect(modifierWindow(gs)).toBeUndefined()
     })
 
@@ -219,7 +243,7 @@ describe('Wise Shield — full life cycle', () => {
   // =========================================================================
 
   describe('stage 2: challenge settles', () => {
-    it('uncontested: the roll runs and opens a modifier window', () => {
+    it('uncontested: the hero is asked whether to roll', () => {
       const { gs, em, rm, tm } = setup()
       playWiseShield(gs, em, rm, tm)
 
@@ -227,11 +251,36 @@ describe('Wise Shield — full life cycle', () => {
       jest.advanceTimersByTime(5000) // challenge lapses unchallenged
 
       expect(gs.getParty('p1').getHeroIds()).toContain(WISE_SHIELD)
+      expect(rollOffer(gs)).toBeDefined()
+      expect(modifierWindow(gs)).toBeUndefined()
+    })
+
+    it('uncontested: saying yes runs the roll and opens a modifier window', () => {
+      const { gs, em, rm, tm } = setup()
+      playWiseShield(gs, em, rm, tm)
+
+      jest.spyOn(Math, 'random').mockReturnValue(HIGH)
+      jest.advanceTimersByTime(5000)
+      acceptRollOffer(gs)
+
       expect(modifierWindow(gs)).toBeDefined()
       expect(gs.actionQueue).toHaveLength(0)
     })
 
-    it('challenged and WON: hero stays, roll still runs', () => {
+    it('uncontested: saying no leaves the hero in the party, unrolled', () => {
+      const { gs, em, rm, tm } = setup()
+      playWiseShield(gs, em, rm, tm)
+
+      jest.spyOn(Math, 'random').mockReturnValue(HIGH)
+      jest.advanceTimersByTime(5000)
+      jest.advanceTimersByTime(5000) // the offer lapses, which is a DISMISS
+
+      expect(gs.getParty('p1').getHeroIds()).toContain(WISE_SHIELD)
+      expect(modifierWindow(gs)).toBeUndefined()
+      expect(gs.getAbilitiesUsedThisTurn()).not.toContain(WISE_SHIELD)
+    })
+
+    it('challenged and WON: hero stays, and the roll is still offered', () => {
       const { gs, em, rm, tm } = setup()
       playWiseShield(gs, em, rm, tm)
 
@@ -242,15 +291,16 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValue(HIGH)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
       expect(gs.getParty('p1').getHeroIds()).toContain(WISE_SHIELD)
+      acceptRollOffer(gs)
       expect(modifierWindow(gs)).toBeDefined()
     })
 
-    it('challenged and LOST: hero un-played, roll un-granted, no modifier window', () => {
+    it('challenged and LOST: hero un-played, never offered a roll', () => {
       const { gs, em, rm, tm } = setup()
       playWiseShield(gs, em, rm, tm)
 
@@ -261,13 +311,15 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
       expect(gs.getParty('p1').getHeroIds()).not.toContain(WISE_SHIELD)
       expect(gs.getPlayer('p1')!.getHand()).not.toContain(WISE_SHIELD) // spent either way
-      expect(gs.actionQueue).toHaveLength(0)
+      // Rolled back out of the party before FrameResolved went out, so it was
+      // not among the sources the offer is matched against.
+      expect(rollOffer(gs)).toBeUndefined()
       expect(modifierWindow(gs)).toBeUndefined()
     })
 
@@ -281,14 +333,14 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
       // Removed from hand before the snapshot, so only an explicit discard
       // keeps it in the game.
       expect(gs.getDiscardPile().getAll()).toContain(WISE_SHIELD)
-      expect(gs.getDiscardPile().getAll()).toContain('chal-1')
+      expect(gs.getDiscardPile().getAll()).toContain(CHAL)
     })
 
     it('challenged and WON: the card is marked, so it cannot be challenged again', () => {
@@ -301,7 +353,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValue(HIGH)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
@@ -318,7 +370,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', 'chal-1', WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
       )
       jest.advanceTimersByTime(5000)
 
@@ -338,6 +390,7 @@ describe('Wise Shield — full life cycle', () => {
       playWiseShield(ctx.gs, ctx.em, ctx.rm, ctx.tm)
       jest.spyOn(Math, 'random').mockReturnValue(baseRollRandom)
       jest.advanceTimersByTime(5000) // challenge lapses
+      acceptRollOffer(ctx.gs)
       return ctx
     }
 
@@ -361,7 +414,8 @@ describe('Wise Shield — full life cycle', () => {
 
     it('FAILED roll rescued by a modifier: RollSuccess fires and the effect installs', () => {
       const { gs, rm, events } = toModifierWindow(LOW) // baseRoll 1
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', 'mod-1', 5, 'p1')) // 1 + 5 = 6
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1')) // 1 + 5 = 6
+      settleValueChoice()
       jest.advanceTimersByTime(5000)
 
       expect(typesOf(events)).toContain(GameEventType.RollSuccess)
@@ -388,11 +442,12 @@ describe('Wise Shield — full life cycle', () => {
 
     it('a played modifier is recorded against the card that paid for it', () => {
       const { rm, events } = toModifierWindow(LOW)
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', 'mod-1', 5, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1'))
+      settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
       expect(applied).toHaveLength(1)
-      expect(applied[0]['cardId']).toBe('mod-1')
+      expect(applied[0]['cardId']).toBe(MOD)
       expect(applied[0]['finalRoll']).toBe(6) // 1 + 5
     })
   })
@@ -407,7 +462,8 @@ describe('Wise Shield — full life cycle', () => {
       const ctx = setup()
       playWiseShield(ctx.gs, ctx.em, ctx.rm, ctx.tm)
       jest.spyOn(Math, 'random').mockReturnValue(HIGH)
-      jest.advanceTimersByTime(5000) // challenge lapses -> roll runs
+      jest.advanceTimersByTime(5000) // challenge lapses -> the roll is offered
+      acceptRollOffer(ctx.gs) // yes -> the roll runs
       jest.advanceTimersByTime(5000) // modifier window settles -> +3 installed
       expect(rollBonus(ctx.gs, 'p1')).toBe(3)
 
@@ -435,13 +491,13 @@ describe('Wise Shield — full life cycle', () => {
       const { gs, em, rm, tm, events } = armed(10)
 
       // Play a second hero; p2 challenges it.
-      tm.enqueue(new PlayHeroAction('a3', 'p1', 'hero-777', rm, em, tm))
+      tm.enqueue(new PlayHeroAction('a3', 'p1', 'hero-777', rm, em))
       jest
         .spyOn(Math, 'random')
         .mockReturnValueOnce(0.5) // challenger p2 rolls 6
         .mockReturnValueOnce(0.4) // challenged p1 rolls 5
         .mockReturnValue(LOW) // whatever the granted roll needs afterwards
-      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', 'chal-1', 'hero-777'))
+      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
       jest.advanceTimersByTime(5000)
 
       const resolved = payloadsOf(events, GameEventType.ChallengeResolved)
@@ -458,16 +514,17 @@ describe('Wise Shield — full life cycle', () => {
     it('a modifier card can be spent on a CHALLENGE roll', () => {
       const { gs, em, rm, tm, events } = armed(10)
 
-      tm.enqueue(new PlayHeroAction('a3', 'p1', 'hero-777', rm, em, tm))
+      tm.enqueue(new PlayHeroAction('a3', 'p1', 'hero-777', rm, em))
       jest
         .spyOn(Math, 'random')
         .mockReturnValueOnce(0.5) // challenger p2 rolls 6
         .mockReturnValueOnce(0) // challenged p1 rolls 1
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', 'chal-1', 'hero-777'))
+      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
 
       // p2 pushes their OWN challenge roll with a +5 modifier.
-      rm.submitReaction(new PlayModifierReaction('r4', 'p2', 'mod-1', 5, 'p2'))
+      rm.submitReaction(new PlayModifierReaction('r4', 'p2', MOD, 'p2'))
+      settleValueChoice()
       jest.advanceTimersByTime(5000)
 
       const resolved = payloadsOf(events, GameEventType.ChallengeResolved)
@@ -476,7 +533,7 @@ describe('Wise Shield — full life cycle', () => {
         defenderFinal: 4, // 1 + 3 from Wise Shield
         defenderWins: false,
       })
-      expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+      expect(gs.getDiscardPile().getAll()).toContain(MOD)
     })
 
     it('a standing effect and a played card sit in ONE list, each with its source', () => {
@@ -484,11 +541,12 @@ describe('Wise Shield — full life cycle', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(LOW) // baseRoll 1
       tm.enqueue(new RollOnHeroAction('a2', 'p1', 'hero-099', em, rm))
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', 'mod-1', 5, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1'))
+      settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
       const last = applied[applied.length - 1]
-      expect(last['cardId']).toBe('mod-1')
+      expect(last['cardId']).toBe(MOD)
       expect(last['finalRoll']).toBe(9) // 1 base + 3 Wise Shield + 5 card
     })
 
@@ -514,8 +572,9 @@ describe('Wise Shield — full life cycle', () => {
       const { gs, em, rm, tm, events } = setup()
       playWiseShield(gs, em, rm, tm)
       jest.spyOn(Math, 'random').mockReturnValue(HIGH)
-      jest.advanceTimersByTime(5000)
-      jest.advanceTimersByTime(5000)
+      jest.advanceTimersByTime(5000) // challenge lapses -> the roll is offered
+      acceptRollOffer(gs)
+      jest.advanceTimersByTime(5000) // modifier window settles
       expect(rollBonus(gs, 'p1')).toBe(3)
 
       tm.endTurn()

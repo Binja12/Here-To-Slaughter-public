@@ -105,15 +105,24 @@ export class PlayMagicTask extends PlayMagic implements ITask {
 }
 
 /**
- * The last step of every played magic card's entry: instance pile → discard.
+ * Instance pile → discard, for the entry's own source card. Silent.
  *
- * Acts on the entry's own source card, so it takes no argument. Silent —
- * PlayMagiced already told the table the card was spent. A magic card whose
- * entry omits it is left sitting in the instance pile.
+ * Not a declared step: it is the whole of
+ * `repositories/ability-repository/instance-rules.ts`, run on `AbilityDone`.
+ * Idempotent, so a card already out of the pile is left alone.
  */
-export class DisposeMagicTask implements ITask {
+export class DisposeInstanceCardTask implements ITask {
   execute(gs: GameState, ctx: AbilityContext): void {
-    gs.getParty(ctx.ownerId).removeInstanceCard(ctx.sourceCardId)
+    const party = gs.getParty(ctx.ownerId)
+    if (!party.getInstanceCardIds().includes(ctx.sourceCardId)) return
+
+    // A card spent INTO a window belongs to that window's frame until it
+    // settles — releaseFrame discards it, a rollback has it in the discard
+    // already. Its own run finishing is not the same as its time on the table
+    // being over, which is the only thing AbilityDone can know about.
+    if (gs.isSpentInOpenFrame(ctx.sourceCardId)) return
+
+    party.removeInstanceCard(ctx.sourceCardId)
     gs.getDiscardPile().add(ctx.sourceCardId)
   }
 }

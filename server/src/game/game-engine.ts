@@ -18,8 +18,22 @@ export class GameEngine implements IGameEventListener {
     this.emitter.addListener(this)
   }
 
+  /**
+   * `GameStarted` goes out BEFORE the first turn. A passive printed on a
+   * leader has no card movement to hang off — a leader is never played and
+   * never leaves — so this is what installs it, and it has to be standing
+   * before anything can be rolled.
+   *
+   * TaskManager must already be listening, which the emitter ordering in §8
+   * requires anyway.
+   */
   start(playerOrder: string[]): void {
     this.playerOrder = playerOrder
+    // No playerId: the event belongs to the table, and every leader matches it
+    // through TriggerScope.Anyone, installing on its own owner.
+    this.emitter.emit(
+      new GameEvent(GameEventType.GameStarted, '', { playerOrder }),
+    )
     if (playerOrder.length > 0) {
       this.turnManager.startTurn(playerOrder[0])
     }

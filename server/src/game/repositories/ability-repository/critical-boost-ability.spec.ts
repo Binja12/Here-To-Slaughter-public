@@ -14,7 +14,7 @@ import { CardStack } from '../../state-structures/card-stack'
 import { CardPile } from '../../state-structures/card-pile'
 import { HeroCard } from '../../cards/hero-card'
 import { MagicCard } from '../../cards/magic-card'
-import { IAbility, IReactionWindow } from '../../interfaces'
+import { IAbilityRule, IReactionWindow } from '../../interfaces'
 import { GameEventEmitter } from '../../events/game-event-emitter'
 import { GameEventFactory } from '../../events/game-event-factory'
 import { ReactionManager } from '../../pipelines/reaction-manager'
@@ -211,13 +211,13 @@ describe('Snowball drawing Critical Boost', () => {
   /** Snowball rolls, draws the Boost, and the player says yes to playing it. */
   function rollSnowball() {
     // snowball draws BOOST; BOOST draws a,b,c; snowball's second draw is 'd'.
-    const ctx = setup([BOOST, 'a', 'b', 'c', 'd'], [], ['snowball'])
+    const ctx = setup([BOOST, 'a', 'b', 'c', 'd', 'e'], [], ['snowball'])
     ctx.gs.registerCard(makeHero('snowball'))
     new TaskManager(
       ctx.gs,
       ctx.em,
       ctx.rm,
-      new Map<string, IAbility[]>([
+      new Map<string, IAbilityRule[]>([
         ['snowball', SnowballAbility],
         [BOOST, CriticalBoostAbility],
       ]),
@@ -237,7 +237,7 @@ describe('Snowball drawing Critical Boost', () => {
       ctx.gs,
       ctx.em,
       ctx.rm,
-      new Map<string, IAbility[]>([['snowball', SnowballAbility]]),
+      new Map<string, IAbilityRule[]>([['snowball', SnowballAbility]]),
     )
 
     ctx.em.emit(GameEventFactory.rollSuccess('p1', 'snowball'))

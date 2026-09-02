@@ -4,6 +4,10 @@ import { ChallengeCardData, CardType } from 'shared'
 export class ChallengeCard implements ICard {
   constructor(private data: ChallengeCardData) {}
 
+  getData(): ChallengeCardData {
+    return { ...this.data }
+  }
+
   getId(): string {
     return this.data.id
   }

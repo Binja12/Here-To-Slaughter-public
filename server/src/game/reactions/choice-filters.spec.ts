@@ -1,4 +1,11 @@
-import { CardType, HeroClass, Owner, Zone } from 'shared'
+import {
+  CardType,
+  HeroClass,
+  HeroClassReq,
+  Owner,
+  RollCompareMode,
+  Zone,
+} from 'shared'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { filterCards, filterPlayers } from './choice-filters'
 import { GameState } from '../pipelines/game-state'
@@ -8,6 +15,7 @@ import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
+import { MonsterCard } from '../cards/monster-card'
 import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
@@ -287,6 +295,128 @@ describe('filterCards', () => {
 
     expect(
       filterCards(gs, ctxFor('p1'), { zone: Zone.Party, owner: Owner.Others }),
+    ).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Zone.MonsterPile — the face-up row, shared like Discard
+// ---------------------------------------------------------------------------
+
+/** The Dark Dragon King's shape: a Bard plus one more hero. */
+const monsterCard = (id: string, classes: HeroClassReq[]) =>
+  new MonsterCard({
+    id,
+    name: id,
+    type: CardType.Monster,
+    image: '',
+    description: '',
+    set: 'test',
+    partyReq: { classes },
+    higherReq: 8,
+    lowerReq: 4,
+    rollCompareMode: RollCompareMode.HighToWin,
+  })
+
+function giveParty(gs: GameState, playerId: string, classes: HeroClass[]) {
+  classes.forEach((cls, i) => {
+    const id = `${playerId}-hero-${i}`
+    gs.registerCard(hero(id, cls))
+    gs.getParty(playerId).addHero(id, silentEm, 'Played')
+  })
+}
+
+describe('filterCards — Zone.MonsterPile', () => {
+  it('reads the row once, not once per seated player', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    seat(gs, 'p2')
+    gs.registerCard(monsterCard('m-1', []))
+    gs.getMonsterPile().add('m-1')
+
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile }),
+    ).toEqual(['m-1'])
+  })
+
+  it('ignores owner, the way Discard does', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    seat(gs, 'p2')
+    gs.registerCard(monsterCard('m-1', []))
+    gs.getMonsterPile().add('m-1')
+
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile, owner: Owner.Others }),
+    ).toEqual(['m-1'])
+  })
+
+  it('does not reach the monster DECK — face down is not offerable', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    gs.registerCard(monsterCard('m-hidden', []))
+    gs.getMonsterDeck().addToBottom('m-hidden')
+
+    expect(filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile })).toEqual([])
+  })
+})
+
+describe('filterCards — partyReqMet', () => {
+  const rowOf = (...reqs: HeroClassReq[][]) => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    reqs.forEach((classes, i) => {
+      gs.registerCard(monsterCard(`m-${i}`, classes))
+      gs.getMonsterPile().add(`m-${i}`)
+    })
+    return gs
+  }
+
+  it('offers every monster when the flag is off', () => {
+    const gs = rowOf([HeroClass.Bard, 'Any'], [])
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile }).sort(),
+    ).toEqual(['m-0', 'm-1'])
+  })
+
+  it('drops the ones the party cannot field', () => {
+    const gs = rowOf([HeroClass.Bard, 'Any'], [])
+    // No heroes at all: only the monster asking for nothing survives.
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile, partyReqMet: true }),
+    ).toEqual(['m-1'])
+  })
+
+  it('keeps one the party grew into', () => {
+    const gs = rowOf([HeroClass.Bard, 'Any'])
+    giveParty(gs, 'p1', [HeroClass.Bard, HeroClass.Thief])
+
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile, partyReqMet: true }),
+    ).toEqual(['m-0'])
+  })
+
+  it('is answered against the ABILITY OWNER party, not the table', () => {
+    const gs = rowOf([HeroClass.Bard, 'Any'])
+    seat(gs, 'p2')
+    giveParty(gs, 'p2', [HeroClass.Bard, HeroClass.Thief])
+
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.MonsterPile, partyReqMet: true }),
+    ).toEqual([])
+    expect(
+      filterCards(gs, ctxFor('p2'), { zone: Zone.MonsterPile, partyReqMet: true }),
+    ).toEqual(['m-0'])
+  })
+
+  it('never matches a non-monster, the way heroClass rejects non-heroes', () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    gs.registerCard(magic('magic-1'))
+    gs.getDiscardPile().add('magic-1')
+
+    expect(
+      filterCards(gs, ctxFor('p1'), { zone: Zone.Discard, partyReqMet: true }),
     ).toEqual([])
   })
 })

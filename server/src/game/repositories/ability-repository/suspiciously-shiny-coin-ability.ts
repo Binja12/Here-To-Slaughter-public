@@ -1,5 +1,5 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { IAbility } from '../../interfaces'
+import { IAbilityRule } from '../../interfaces'
 import { DiscardTask } from '../../tasks/tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
@@ -18,7 +18,7 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 //
 // A cost, not an offer: an idle player still pays, because a card choice
 // defaults to a random one of its options (§4).
-export const SuspiciouslyShinyCoinAbility: IAbility[] = [
+export const SuspiciouslyShinyCoinAbility: IAbilityRule[] = [
   {
     trigger: {
       on: GameEventType.RollSuccess,

@@ -12,7 +12,10 @@ import { CardPile } from '../state-structures/card-pile'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
-import { AbilityContext } from '../abilities/ability-context'
+import {
+  AbilityContext,
+  CTX_CHOSEN_CARD,
+} from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
 
@@ -62,7 +65,7 @@ const makeEmitter = () => {
   return { emitter, emitted }
 }
 
-/** Stub ReactionManager — the task under test does not open frames. */
+/** Stub ReactionManager — DestroyTask does not open frames. */
 const stubRm = null as unknown as ReactionManager
 
 // ---------------------------------------------------------------------------
@@ -70,14 +73,21 @@ const stubRm = null as unknown as ReactionManager
 // ---------------------------------------------------------------------------
 
 describe('DestroyTask', () => {
-  it('removes the explicit heroId from party and adds it to the discard pile', () => {
+  /** Puts the chosen hero on the context, the way a ChooseCardTask would. */
+  const chose = (heroId: string, ownerId = 'p1') => {
+    const ctx = makeCtx('src-card', ownerId)
+    ctx.set(CTX_CHOSEN_CARD, [heroId])
+    return ctx
+  }
+
+  it('removes the chosen hero from the party and adds it to the discard pile', () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', ['hero-1', 'hero-2']))
     gs.registerCard(makeHeroCard('hero-1'))
     const { emitter } = makeEmitter()
 
-    new DestroyTask('hero-1').execute(gs, makeCtx(), emitter, stubRm)
+    new DestroyTask().execute(gs, chose('hero-1'), emitter, stubRm)
 
     expect(gs.getParty('p1').getHeroIds()).not.toContain('hero-1')
     expect(gs.getParty('p1').getHeroIds()).toContain('hero-2')
@@ -90,7 +100,7 @@ describe('DestroyTask', () => {
     gs.registerParty(makeParty('p1', ['hero-1']))
     const { emitter, emitted } = makeEmitter()
 
-    new DestroyTask('hero-1').execute(gs, makeCtx(), emitter, stubRm)
+    new DestroyTask().execute(gs, chose('hero-1'), emitter, stubRm)
 
     // Canonical first (Party.removeHero announces the moment of removal),
     // specific second (the completed operation, with its richer payload).
@@ -102,26 +112,99 @@ describe('DestroyTask', () => {
     expect((emitted[1].getPayload() as any).cardId).toBe('hero-1')
   })
 
-  it('defaults to ctx.sourceCardId when no explicit heroId is given', () => {
+  // --- reach: ANY party, which is the whole difference from a sacrifice ---
+
+  it("destroys a hero in ANOTHER player's party", () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
-    gs.registerParty(makeParty('p1', ['src-card']))
+    gs.registerParty(makeParty('p1', []))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['victim']))
+    gs.registerCard(makeHeroCard('victim'))
     const { emitter } = makeEmitter()
 
-    new DestroyTask().execute(gs, makeCtx('src-card'), emitter, stubRm)
+    new DestroyTask().execute(gs, chose('victim'), emitter, stubRm)
 
-    expect(gs.getParty('p1').getHeroIds()).not.toContain('src-card')
-    expect(gs.getDiscardPile().getAll()).toContain('src-card')
+    expect(gs.getParty('p2').getHeroIds()).toEqual([])
+    expect(gs.getDiscardPile().getAll()).toContain('victim')
   })
 
-  it('emits nothing when the hero is not in the party', () => {
+  it('announces the party that LOST the hero, not the one that caused it', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', []))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['victim']))
+    const { emitter, emitted } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('victim'), emitter, stubRm)
+
+    // Dracos is printed "a Hero card in YOUR Party is destroyed" and needs the
+    // loser to scope against.
+    expect(emitted[1].getPlayerId()).toBe('p2')
+  })
+
+  it('takes the gear down with the hero', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['hero-1']))
+    gs.getParty('p1').equipItem('hero-1', 'item-1')
+    const { emitter } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('hero-1'), emitter, stubRm)
+
+    expect(gs.getDiscardPile().getAll()).toEqual(
+      expect.arrayContaining(['hero-1', 'item-1']),
+    )
+  })
+
+  // --- the slot contract ---
+
+  it('throws when the slot it was named holds nothing', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', []))
+    const { emitter } = makeEmitter()
+
+    expect(() =>
+      new DestroyTask().execute(gs, makeCtx(), emitter, stubRm),
+    ).toThrow(/nothing has written/)
+  })
+
+  it('skips an empty slot — the step ahead produced nothing', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['hero-1']))
+    const { emitter, emitted } = makeEmitter()
+    const ctx = makeCtx()
+    ctx.set(CTX_CHOSEN_CARD, [])
+
+    new DestroyTask().execute(gs, ctx, emitter, stubRm)
+
+    expect(emitted).toHaveLength(0)
+    expect(gs.getParty('p1').getHeroIds()).toContain('hero-1')
+  })
+
+  it('emits nothing when the hero is in no party at all', () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', []))
     const { emitter, emitted } = makeEmitter()
 
-    new DestroyTask('missing').execute(gs, makeCtx(), emitter, stubRm)
+    new DestroyTask().execute(gs, chose('missing'), emitter, stubRm)
 
     expect(emitted).toHaveLength(0)
+  })
+
+  it('leaves a card sitting in a HAND alone — destroy is about parties', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['in-hand']))
+    gs.registerParty(makeParty('p1', []))
+    const { emitter, emitted } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('in-hand'), emitter, stubRm)
+
+    expect(emitted).toHaveLength(0)
+    expect(gs.getPlayer('p1')!.getHand()).toContain('in-hand')
   })
 })

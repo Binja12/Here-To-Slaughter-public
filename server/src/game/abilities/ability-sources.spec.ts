@@ -3,6 +3,7 @@ import {
   GameEventType,
   HeroClass,
   IGameEvent,
+  RollCompareMode,
   TriggerScope,
 } from 'shared'
 import { GameState } from '../pipelines/game-state'
@@ -11,12 +12,13 @@ import { CardPile } from '../state-structures/card-pile'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
+import { MonsterCard } from '../cards/monster-card'
 import { GameEvent } from '../events/game-event'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { TaskManager } from '../pipelines/task-manager'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
-import { IAbility } from '../interfaces'
+import { IAbilityRule } from '../interfaces'
 import { StealFromPartyTask } from '../tasks/hero-tasks'
 
 // ---------------------------------------------------------------------------
@@ -69,7 +71,7 @@ function seat(gs: GameState, playerId: string, heroIds: string[] = []): void {
   )
 }
 
-function setup(abilities: Map<string, IAbility[]> = new Map()) {
+function setup(abilities: Map<string, IAbilityRule[]> = new Map()) {
   const gs = makeGs()
   const em = new GameEventEmitter()
   const events: IGameEvent[] = []
@@ -84,7 +86,7 @@ const spyAbility = (
   on: GameEventType,
   scope: TriggerScope,
   ranFor: string[],
-): IAbility => ({
+): IAbilityRule => ({
   trigger: { on, scope },
   steps: [{ execute: (_gs, ctx) => {
         ranFor.push(ctx.ownerId)
@@ -231,5 +233,133 @@ describe('a card ability is live because the card is in play', () => {
 
     em.emit(rolled('p1'))
     expect(ranFor).toEqual(['p1']) // now the thief's, derived from the party
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The monster pile — cards in play that belong to nobody
+// ---------------------------------------------------------------------------
+
+const monster = (id: string) =>
+  new MonsterCard({
+    id,
+    name: id,
+    type: CardType.Monster,
+    image: '',
+    description: '',
+    set: 'test',
+    partyReq: { classes: [] },
+    higherReq: 9,
+    lowerReq: 3,
+    rollCompareMode: RollCompareMode.HighToWin,
+  })
+
+const foughtBack = (attackerId: string, cardId: string) =>
+  new GameEvent(GameEventType.MonsterFoughtBack, attackerId, { cardId })
+
+describe('a monster still in the pile', () => {
+  it('is a live ability source — its rules do not wait to be won', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    em.emit(foughtBack('p1', 'monster-1'))
+
+    expect(ranFor).toEqual(['p1'])
+  })
+
+  it('runs for whoever attacked it — the pile has no owner to inherit', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    seat(gs, 'p2')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    em.emit(foughtBack('p2', 'monster-1'))
+
+    // Once, owned by the attacker — not once per seated player.
+    expect(ranFor).toEqual(['p2'])
+  })
+
+  it('Attacker ignores a fight-back that names another monster', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    em.emit(foughtBack('p1', 'monster-2'))
+
+    expect(ranFor).toHaveLength(0)
+  })
+
+  it('stops being found in the pile once it is slain into a party', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    gs.getMonsterPile().pick('monster-1')
+    gs.getParty('p1').addMonster('monster-1')
+
+    // Found once now, as p1's — the party source, not the pile one.
+    em.emit(foughtBack('p1', 'monster-1'))
+    expect(ranFor).toEqual(['p1'])
   })
 })

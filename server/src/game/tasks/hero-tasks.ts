@@ -1,28 +1,36 @@
-import {
-  IGameEventEmitter,
-  PassiveType,
-  ReactionWindowType,
-} from 'shared'
+import { IGameEventEmitter, PassiveType } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
+  CTX_CHOSEN_PLAYER,
+  CTX_STOLEN_FROM_PLAYER,
   CTX_STOLEN_HERO_ID,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
-import { HeroCard } from '../cards/hero-card'
 
 // ---------------------------------------------------------------------------
-// Hero tasks — steps that act on a hero in a party.
+// Hero tasks — steps that move a hero already on the table. The mechanics both
+// pipelines share are in `play-hero-task.ts` and `roll-on-hero-task.ts`.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// DestroyTask — remove a hero from the owner's party to the discard pile
+// DestroyTask — remove a hero from ANY party to the discard pile
+//
+// The reach is the whole difference from SacrificeTask: destroy crosses the
+// table, sacrifice does not. So the party is found from the HERO
+// (`getCardOwner`), the way StealFromPartyTask finds the one it takes from,
+// rather than assumed to be the ability owner's.
+//
+// `playerId` on the announcement is the party that LOST the hero, not the one
+// that caused it — Dracos (monster-126) is printed "each time a Hero card in
+// YOUR Party is destroyed", and that wording needs the loser to scope against.
 // ---------------------------------------------------------------------------
 
 export class DestroyTask implements ITask {
-  constructor(private readonly heroId?: string) {}
+  /** Slot holding the hero to destroy. Defaults to the choice slot. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
 
   execute(
     gs: GameState,
@@ -30,15 +38,138 @@ export class DestroyTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const targetId = this.heroId ?? ctx.sourceCardId
-    const party = gs.getParty(ctx.ownerId)
-    if (!party.getHeroIds().includes(targetId)) return
+    const heroes = ctx.get<string[]>(this.fromKey)
 
-    const carriedItemId = party.removeHero(targetId, em, 'Destroyed')
-    gs.getDiscardPile().add(targetId)
+    // Absent = no step ahead was declared to supply a hero.
+    if (heroes === undefined) {
+      throw new Error(
+        `DestroyTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a hero.',
+      )
+    }
+
+    // Empty = the player was asked and picked nothing.
+    const [heroId] = heroes
+    if (!heroId) return
+
+    const ownerId = gs.getCardOwner(heroId)
+    if (!ownerId) return
+
+    const party = gs.getParty(ownerId)
+    if (!party.getHeroIds().includes(heroId)) return
+
+    const carriedItemId = party.removeHero(heroId, em, 'Destroyed')
+    gs.getDiscardPile().add(heroId)
     // The gear goes down with its carrier rather than vanishing from every zone.
     if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
-    em.emit(GameEventFactory.heroDestroyed(ctx.ownerId, targetId))
+    em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GiveHeroTask — hand one of your own heroes to somebody else
+//
+// StealFromPartyTask pointed the other way: that one takes FROM a party the
+// context named, this one gives FROM the ability owner's. Both are
+// remove-then-add through Party's choke point, so both announce the canonical
+// pair and both carry the hero's gear along — `removeHero` returns what it was
+// wearing and `addHero` puts it back on in the new party, which is also what
+// re-installs any effect the item granted (§7).
+//
+// A new REASON rather than a new event: that is the extension point party
+// membership was built with, so nothing listening has to change.
+// ---------------------------------------------------------------------------
+
+export class GiveHeroTask implements ITask {
+  constructor(
+    /** Slot holding the hero to give away. Defaults to the choice slot. */
+    private readonly heroKey: string = CTX_CHOSEN_CARD,
+    /** Slot naming who receives it. Defaults to a ChoosePlayerTask's. */
+    private readonly toKey: string = CTX_CHOSEN_PLAYER,
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const heroes = this.read(ctx, this.heroKey)
+    const recipients = this.read(ctx, this.toKey)
+
+    // Empty = a step ahead ran and produced nothing.
+    const [heroId] = heroes
+    const [toPlayerId] = recipients
+    if (!heroId || !toPlayerId) return
+
+    // Giving to yourself is a no-op, not an error: a choice can land there.
+    if (toPlayerId === ctx.ownerId) return
+    if (!gs.getPlayer(toPlayerId)) return
+
+    const fromParty = gs.getParty(ctx.ownerId)
+    if (!fromParty.getHeroIds().includes(heroId)) return
+
+    const carriedItemId = fromParty.removeHero(heroId, em, 'Given')
+    gs.getParty(toPlayerId).addHero(heroId, em, 'Given', carriedItemId)
+  }
+
+  /** Absent = no step ahead was declared to fill this slot. */
+  private read(ctx: AbilityContext, key: string): string[] {
+    const value = ctx.get<string[]>(key)
+    if (value === undefined) {
+      throw new Error(
+        `GiveHeroTask: nothing has written ${key} — expected a preceding ` +
+          'step to supply it.',
+      )
+    }
+    return value
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SacrificeTask — the owner gives up one of their own heroes
+//
+// DestroyTask with a different reason and a different announcement, and they
+// stay two tasks because the REASON is what a card wording keys off: a hero
+// lost to a monster's fight-back was sacrificed, not destroyed by an opponent,
+// and Party.removeHero makes every caller say which.
+//
+// Reads a slot rather than taking an id, because the hero is the player's own
+// pick — a ChooseCardTask over Zone.Party runs ahead of it.
+// ---------------------------------------------------------------------------
+
+export class SacrificeTask implements ITask {
+  /** Slot holding the hero to give up. Defaults to the choice slot. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const heroes = ctx.get<string[]>(this.fromKey)
+
+    // Absent = no step ahead was declared to supply a hero.
+    if (heroes === undefined) {
+      throw new Error(
+        `SacrificeTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a hero.',
+      )
+    }
+
+    // Empty = the player was asked and picked nothing, or has no heroes at all.
+    const [heroId] = heroes
+    if (!heroId) return
+
+    const party = gs.getParty(ctx.ownerId)
+    if (!party.getHeroIds().includes(heroId)) return
+
+    const carriedItemId = party.removeHero(heroId, em, 'Sacrificed')
+    gs.getDiscardPile().add(heroId)
+    // The gear goes down with its carrier rather than vanishing from every zone.
+    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
+    em.emit(GameEventFactory.heroSacrificed(ctx.ownerId, heroId))
   }
 }
 
@@ -68,9 +199,10 @@ export class StealFromPartyTask implements ITask {
       )
     }
 
-    // Declared up front, empty: every no-steal path leaves it that way, and
+    // Declared up front, empty: every no-steal path leaves them that way, and
     // later steps read the empty slot and skip themselves.
     ctx.set(CTX_STOLEN_HERO_ID, [])
+    ctx.set(CTX_STOLEN_FROM_PLAYER, [])
 
     const [heroId] = chosen
     if (!heroId) return
@@ -92,61 +224,7 @@ export class StealFromPartyTask implements ITask {
     // Recorded so later steps can still reach this hero after a second card
     // choice has overwritten CTX_CHOSEN_CARD.
     ctx.set(CTX_STOLEN_HERO_ID, [heroId])
+    ctx.set(CTX_STOLEN_FROM_PLAYER, [fromPlayerId])
     em.emit(GameEventFactory.heroStolen(ctx.ownerId, fromPlayerId, heroId))
-  }
-}
-
-// ---------------------------------------------------------------------------
-// RollOnHeroTask — roll on a hero and open a modifier window; the pipeline
-// suspends here. ModifierWindow owns settlement and emits RollSuccess.
-//
-// Its snapshot is taken HERE, so a failed roll undoes nothing before it.
-// ---------------------------------------------------------------------------
-
-export class RollOnHeroTask implements ITask {
-  /**
-   * Hero to roll on. Defaults to the card a ChooseCardTask put on the context.
-   */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
-
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    rm: IReactionManager,
-  ): string | void {
-    const chosen = ctx.get<string[]>(this.fromKey)
-
-    // Absent = no step ahead was declared to supply a hero.
-    if (chosen === undefined) {
-      throw new Error(
-        `RollOnHeroTask: nothing has written ${this.fromKey} — expected a ` +
-          'preceding step to supply a hero.',
-      )
-    }
-
-    const [heroId] = chosen
-    if (!heroId) return
-
-    const hero = gs.getCard(heroId)
-    if (!(hero instanceof HeroCard)) return
-
-    const rollReq = hero.getRollReq()
-    const baseRoll = Math.ceil(Math.random() * 11) + 1
-
-    em.emit(GameEventFactory.diceRolled(ctx.ownerId, heroId, baseRoll))
-
-    // Mark ability used before the snapshot so rollback doesn't undo it —
-    // the hero's ability slot is consumed whether the roll succeeds or fails.
-    gs.markAbilityUsed(heroId)
-
-    const frameId = rm.openFrame()
-    rm.openWindow(frameId, ReactionWindowType.Modifier, ctx.ownerId, {
-      rollerId: ctx.ownerId,
-      baseRoll,
-      rollReq,
-      heroId,
-    })
-    return frameId
   }
 }

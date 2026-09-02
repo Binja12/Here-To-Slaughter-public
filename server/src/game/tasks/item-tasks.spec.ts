@@ -128,7 +128,7 @@ describe('PlayItemTask', () => {
   it('records the carrier, readable from either end', () => {
     run(play(), bothSlots('item-1', 'hero-1'))
 
-    // TriggerScope.CarrierCard reads hero -> item; whileEquipped
+    // TriggerScope.CarrierCard reads hero -> item; untilUnequipped
     // reads item -> hero. Both come off the party record.
     expect(gs.getItemCarrier('item-1')).toBe('hero-1')
   })

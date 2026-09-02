@@ -1,4 +1,10 @@
-import { CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
+import {
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+  ReactionWindowType,
+} from 'shared'
 import { WigglesAbility } from './wiggles-ability'
 import { TaskManager } from '../../pipelines/task-manager'
 import { GameState } from '../../pipelines/game-state'
@@ -10,6 +16,8 @@ import { HeroCard } from '../../cards/hero-card'
 import { GameEventEmitter } from '../../events/game-event-emitter'
 import { GameEventFactory } from '../../events/game-event-factory'
 import { ReactionManager } from '../../pipelines/reaction-manager'
+import { TurnManager } from '../../pipelines/turn-manager'
+import { RollOnHeroAction } from '../../actions/roll-on-hero-action'
 import { CONFIRM, DISMISS } from '../../reactions/task-choice-window'
 import { IReactionWindow } from '../../interfaces'
 import { CTX_CHOSEN_CARD, CTX_FINAL_ROLL } from '../../abilities/ability-context'
@@ -223,7 +231,7 @@ describe('WigglesAbility', () => {
       ctxSeed: { stolenHeroId: ['victim'] },
     })
     const rolled = events.find((e) => e.getType() === GameEventType.DiceRolled)
-    expect((rolled!.getPayload() as { heroId: string }).heroId).toBe('victim')
+    expect((rolled!.getPayload() as { cardId: string }).cardId).toBe('victim')
   })
 
   it('DISMISS keeps the stolen hero and skips only the roll', () => {
@@ -263,8 +271,71 @@ describe('WigglesAbility', () => {
     answerRollPrompt(gs, CONFIRM)
 
     const rolled = events.find((e) => e.getType() === GameEventType.DiceRolled)
-    expect((rolled!.getPayload() as { heroId: string }).heroId).toBe('victim')
+    expect((rolled!.getPayload() as { cardId: string }).cardId).toBe('victim')
     expect(openWindows(gs)).toHaveLength(1)
+  })
+
+  // -------------------------------------------------------------------------
+  // Both ways in. Wiggles reaches RollOnHero from either pipeline: entry [1] is
+  // a TASK rolling on the stolen hero, and the roll that starts the whole thing
+  // is an ACTION the player paid for. Everything above fires the trigger by
+  // hand; these two drive the real classes.
+  // -------------------------------------------------------------------------
+
+  describe('driven by the real roll paths', () => {
+    /** Wiggles in p1's party with a turn running, so an action can be queued. */
+    const seated = () => {
+      const ctx = setup()
+      const tm = new TurnManager(ctx.gs, ctx.em)
+      tm.startTurn('p1')
+      return { ...ctx, tm }
+    }
+
+    it('RollOnHeroAction on Wiggles starts the ability when the roll lands', () => {
+      const { gs, em, rm, tm } = seated()
+
+      jest.spyOn(Math, 'random').mockReturnValue(0.99) // baseRoll 12 >= 5
+      tm.enqueue(new RollOnHeroAction('a1', 'p1', 'wiggles', em, rm))
+      expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2) // the roll is paid for
+      jest.advanceTimersByTime(5000) // modifier window settles -> RollSuccess
+
+      // The ability is under way: it is asking which hero to steal.
+      expect(openWindows(gs)).toHaveLength(1)
+      chooseVictim(gs)
+      expect(gs.getParty('p1').getHeroIds()).toContain('victim')
+    })
+
+    it('RollOnHeroTask on the stolen hero needs no action point of its own', () => {
+      const { gs, em, rm, tm } = seated()
+
+      jest.spyOn(Math, 'random').mockReturnValue(0.99)
+      tm.enqueue(new RollOnHeroAction('a1', 'p1', 'wiggles', em, rm))
+      jest.advanceTimersByTime(5000)
+      chooseVictim(gs)
+      answerRollPrompt(gs, CONFIRM) // entry [1] — the TASK half
+
+      // One point spent in total, on the action; the granted roll is free.
+      expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
+      expect(openWindows(gs)[0].getType()).toBe(ReactionWindowType.Modifier)
+      // Both heroes have now spent their ability slot for the turn.
+      expect(gs.getAbilitiesUsedThisTurn()).toEqual(['wiggles', 'victim'])
+    })
+
+    it('rolling on Wiggles opens no roll OFFER — that belongs to a played hero', () => {
+      const { gs, em, rm, tm } = seated()
+
+      jest.spyOn(Math, 'random').mockReturnValue(0.99)
+      tm.enqueue(new RollOnHeroAction('a1', 'p1', 'wiggles', em, rm))
+      jest.advanceTimersByTime(5000)
+
+      // A modifier frame resolves without naming a card, so the hero rules
+      // cannot mistake it for a settled challenge.
+      expect(
+        openWindows(gs).filter(
+          (w) => w.getType() === ReactionWindowType.TaskChoice,
+        ),
+      ).toHaveLength(0)
+    })
   })
 
   // -------------------------------------------------------------------------

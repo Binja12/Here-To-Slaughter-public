@@ -5,19 +5,29 @@ import {
   ReactionWindowType,
 } from 'shared'
 import { GameEvent } from './game-event'
+import {
+  CTX_DRAWN_CARD_IDS,
+  CTX_MODIFIER_TARGET,
+} from '../abilities/ability-context'
 
 export class GameEventFactory {
   // --- Dice ---
 
+  /**
+   * The raw die, before any window can move it. `cardId` is what the roll is
+   * ABOUT — a hero for `rollOnHero`, a monster for `attackMonster` — under the
+   * key every other event names its subject with, so TriggerScope.SelfCard
+   * resolves against it like anything else.
+   */
   static diceRolled(
     playerId: string,
-    heroId: string,
+    cardId: string,
     baseRoll: number,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.DiceRolled,
       playerId,
-      { baseRoll, heroId },
+      { baseRoll, cardId },
       Audience.All,
     )
   }
@@ -211,17 +221,44 @@ export class GameEventFactory {
     )
   }
 
-  /** burnCard moves the card silently, so this is the only record it was spent. */
+  /**
+   * spendCard moves the card silently, so this is the only record it was spent.
+   *
+   * The card's own entry triggers on it and lands the bonus, so the target
+   * rides along as `ctxSeed`: that entry runs with a fresh context and the
+   * reaction is the only thing that knew whose roll was aimed at.
+   */
   static modifierPlayed(
     playerId: string,
     cardId: string,
-    value: number,
     targetPlayerId: string,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.ModifierPlayed,
       playerId,
-      { cardId, value, targetPlayerId },
+      {
+        cardId,
+        targetPlayerId,
+        ctxSeed: { [CTX_MODIFIER_TARGET]: [targetPlayerId] },
+      },
+      Audience.All,
+    )
+  }
+
+  /**
+   * A challenge card was spent. The card's own entry starts the challenge on
+   * this; before it, `PlayChallengeReaction` announced nothing at all and the
+   * only record was the window's own ChallengeStarted.
+   */
+  static challengePlayed(
+    playerId: string,
+    cardId: string,
+    targetedCardId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.ChallengePlayed,
+      playerId,
+      { cardId, targetedCardId },
       Audience.All,
     )
   }
@@ -253,8 +290,37 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * `playerId` is the player who TOOK it. Audience.All with the card named:
+   * events state the full truth and the projection layer in front of the API
+   * decides who may see which id (§5).
+   */
+  static cardPulled(
+    toPlayerId: string,
+    fromPlayerId: string,
+    cardId: string,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.CardPulled,
+      toPlayerId,
+      { cardId, fromPlayerId, toPlayerId },
+      Audience.All,
+    )
+  }
+
+  /**
+   * `ctxSeed` for the same reason ModifierPlayed carries one: an entry
+   * TRIGGERED by a draw runs with a fresh context, so without it a card like
+   * Orthus could not tell WHICH card was drawn. A card that draws for itself
+   * (Snowball) gets the slot from its own DrawTask and ignores this.
+   */
   static cardDrawn(playerId: string, cardId: string): IGameEvent {
-    return new GameEvent(GameEventType.CardDrawn, playerId, { cardId }, Audience.PlayerOnly)
+    return new GameEvent(
+      GameEventType.CardDrawn,
+      playerId,
+      { cardId, ctxSeed: { [CTX_DRAWN_CARD_IDS]: [cardId] } },
+      Audience.PlayerOnly,
+    )
   }
 
   static rollSuccess(playerId: string, heroId: string): IGameEvent {
@@ -266,11 +332,39 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * The roll came up short. Emitted after the rollback, so anything it fires
+   * runs on live state rather than being undone with the frame — see
+   * MonsterFoughtBack, which is the same shape on the attack path.
+   */
+  static rollFailed(playerId: string, heroId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.RollFailed,
+      playerId,
+      { cardId: heroId },
+      Audience.All,
+    )
+  }
+
   static heroStolen(toPlayerId: string, fromPlayerId: string, heroId: string): IGameEvent {
     return new GameEvent(
       GameEventType.HeroStolen,
       toPlayerId,
       { cardId: heroId, fromPlayerId, toPlayerId },
+      Audience.All,
+    )
+  }
+
+  /**
+   * A hero was given up by its own owner — a price a card charged, not a
+   * removal somebody else caused. `Party.removeHero` announces the canonical
+   * HeroRemovedFromParty alongside it, which is what expiries subscribe to.
+   */
+  static heroSacrificed(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HeroSacrificed,
+      playerId,
+      { cardId },
       Audience.All,
     )
   }
@@ -310,6 +404,20 @@ export class GameEventFactory {
     )
   }
 
+  /**
+   * An attack landed in the fight-back band. `playerId` is the ATTACKER, which
+   * is what TriggerScope.Attacker reads to own the monster's run — the monster
+   * is still in the pile and belongs to nobody.
+   */
+  static monsterFoughtBack(playerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.MonsterFoughtBack,
+      playerId,
+      { cardId },
+      Audience.All,
+    )
+  }
+
   // --- Ongoing effects ---
 
   /**
@@ -341,6 +449,20 @@ export class GameEventFactory {
       ownerId,
       { effectId, sourceCardId },
       Audience.All,
+    )
+  }
+
+  /**
+   * Emitted by TaskManager.announceIfCardIsDone as a pipeline leaves the stack.
+   * PlayerOnly: nothing off-server acts on it, and Audience has no server-only
+   * member.
+   */
+  static abilityDone(ownerId: string, cardId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.AbilityDone,
+      ownerId,
+      { cardId },
+      Audience.PlayerOnly,
     )
   }
 

@@ -1,13 +1,20 @@
-import { CardType, HeroClass, ReactionWindowType } from 'shared'
+import {
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+  ReactionWindowType,
+} from 'shared'
 import { GameState } from './game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { IAbility, IReactionWindow } from '../interfaces'
+import { IAbilityRule, IModifiableWindow, IReactionWindow } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { GameEventEmitter } from '../events/game-event-emitter'
 
 const makePlayer = (id: string) =>
   new Player({
@@ -24,7 +31,7 @@ const makeParty = (
   heroIds: string[] = [],
 ) => new Party({ playerId, leaderId, heroIds, monsterIds: [] })
 
-const makeHeroCard = (id: string, ability?: IAbility) =>
+const makeHeroCard = (id: string, ability?: IAbilityRule) =>
   new HeroCard({
     id,
     name: `Hero ${id}`,
@@ -145,10 +152,14 @@ describe('GameState', () => {
     const stubWindow = (isOpen = true): IReactionWindow => ({
       getId: () => 'w1',
       getType: () => ReactionWindowType.Modifier,
+      getRespondentId: () => 'p1',
+      getOptions: () => [],
       isOpen: () => isOpen,
       submitReaction: () => {},
       resolve: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
+      getDetail: () => ({}),
+      getDeadline: () => 0,
     })
 
     it('frame is present after addFrame', () => {
@@ -210,7 +221,7 @@ describe('GameState', () => {
       expect(gs.getFrameByWindowId('no-such-window')).toBeUndefined()
     })
 
-    describe('burnCard', () => {
+    describe('spendCard', () => {
       beforeEach(() => {
         const player = makePlayer('p1')
         player.addToHand('mod-1')
@@ -220,26 +231,48 @@ describe('GameState', () => {
       })
 
       it('removes the card from the current player hand', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
+        gs.spendCard('p1', 'mod-1')
         expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
       })
 
-      it('adds the card to the current discard pile', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
+      it('puts the card in the INSTANCE pile, not the discard', () => {
+        gs.spendCard('p1', 'mod-1')
+        // Live, it is a card in play for as long as the window it was spent
+        // into is open. releaseFrame is what puts it away.
+        expect(gs.getParty('p1').getInstanceCardIds()).toContain('mod-1')
+        expect(gs.getDiscardPile().getAll()).not.toContain('mod-1')
+      })
+
+      it('records it on the frame, and releasing the frame discards it', () => {
+        gs.spendCard('p1', 'mod-1')
+        expect(gs.isSpentInOpenFrame('mod-1')).toBe(true)
+
+        gs.releaseFrame('f1')
+
+        expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('mod-1')
+        expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+        expect(gs.isSpentInOpenFrame('mod-1')).toBe(false)
+      })
+
+      it('leaves the SNAPSHOT alone — it predates the burn', () => {
+        gs.spendCard('p1', 'mod-1')
+        const snap = gs.frames.get('f1')!.snapshot
+        // The frame records what was spent instead of reaching back into a
+        // past GameState to describe a decision the present just made.
+        expect(snap.getPlayer('p1')!.getHand()).toContain('mod-1')
+        expect(snap.getDiscardPile().getAll()).not.toContain('mod-1')
+      })
+
+      it('a ROLLBACK still keeps it spent', () => {
+        gs.spendCard('p1', 'mod-1')
+        gs.restoreFrame('f1')
+
+        // The snapshot handed the card back to the hand; disposeSpent takes it
+        // away again, so both settlement paths end the same way.
+        expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
         expect(gs.getDiscardPile().getAll()).toContain('mod-1')
       })
 
-      it('removes the card from the snapshot player hand', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
-        expect(snap.getPlayer('p1')!.getHand()).not.toContain('mod-1')
-      })
-
-      it('adds the card to the snapshot discard pile', () => {
-        gs.burnCard('f1', 'p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
-        expect(snap.getDiscardPile().getAll()).toContain('mod-1')
-      })
     })
   })
 
@@ -254,5 +287,286 @@ describe('GameState', () => {
     expect(active).toContain('hero-2')
     expect(active).toContain('leader-2')
     expect(active).toContain('hero-3')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The modifiable-window surface
+//
+// GameState holds the windows, so it answers the questions about them and
+// performs the one act. Nothing outside gets a window: callers would end up
+// depending on the shape it is handed in and on the wire format a submission
+// takes, and both are free to change while these three are not.
+// ---------------------------------------------------------------------------
+
+describe('GameState — the open modifiable window', () => {
+  const makeGs = () =>
+    new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+
+  /** Accepts bonuses aimed at `rollerId` only, and biases toward the roller. */
+  const modifiableStub = (
+    isOpen = true,
+    rollerId = 'p1',
+  ): IModifiableWindow & { submitReaction: jest.Mock } => ({
+    getId: () => 'w1',
+    getType: () => ReactionWindowType.Modifier,
+    getRespondentId: () => rollerId,
+    getOptions: () => [],
+    isOpen: () => isOpen,
+    submitReaction: jest.fn(),
+    resolve: () => {},
+    resultKey: () => NO_CONTEXT_RESULT,
+    getDetail: () => ({}),
+    getDeadline: () => 0,
+    acceptsModifierFor: (playerId: string) => playerId === rollerId,
+    cardSpent: () => {},
+    valueBiasFor: (playerId: string, targetPlayerId: string) =>
+      targetPlayerId === playerId ? 'highest' : 'lowest',
+  })
+
+  const withWindow = (window: IReactionWindow) => {
+    const gs = makeGs()
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [window] })
+    return gs
+  }
+
+  describe('acceptsModifierFor', () => {
+    it('is false with no window at all', () => {
+      expect(makeGs().acceptsModifierFor('p1')).toBe(false)
+    })
+
+    it('defers to the window rule', () => {
+      const gs = withWindow(modifiableStub())
+      expect(gs.acceptsModifierFor('p1')).toBe(true)
+      expect(gs.acceptsModifierFor('p2')).toBe(false)
+    })
+
+    it('is false once the window has RESOLVED, frame or no frame', () => {
+      // resolve() sets the flag and only then releases, so there is a moment
+      // where a closed window still sits in a live frame.
+      const gs = withWindow(modifiableStub(false))
+      expect(gs.acceptsModifierFor('p1')).toBe(false)
+    })
+  })
+
+  describe('valueBiasFor', () => {
+    it('is absent with no window to have a rule', () => {
+      expect(makeGs().valueBiasFor('p1', 'p1')).toBeUndefined()
+    })
+
+    it('defers to the window rule', () => {
+      const gs = withWindow(modifiableStub())
+      expect(gs.valueBiasFor('p1', 'p1')).toBe('highest')
+      expect(gs.valueBiasFor('p1', 'p2')).toBe('lowest')
+    })
+  })
+
+  describe('applyModifier', () => {
+    it('submits the bonus, naming the kind so a challenge can route it', () => {
+      const window = modifiableStub()
+      const gs = withWindow(window)
+
+      gs.applyModifier('p2', { value: 3, cardId: 'mod-1', targetPlayerId: 'p1' })
+
+      expect(window.submitReaction).toHaveBeenCalledWith('p2', {
+        type: 'modifier',
+        value: 3,
+        cardId: 'mod-1',
+        targetPlayerId: 'p1',
+      })
+    })
+
+    it('does nothing when the window would REFUSE the target', () => {
+      const window = modifiableStub(true, 'p1')
+      const gs = withWindow(window)
+
+      gs.applyModifier('p2', { value: 3, cardId: 'mod-1', targetPlayerId: 'p2' })
+
+      expect(window.submitReaction).not.toHaveBeenCalled()
+    })
+
+    it('does nothing once the window has resolved — a late bonus is just late', () => {
+      const window = modifiableStub(false)
+      const gs = withWindow(window)
+
+      gs.applyModifier('p2', { value: 3, cardId: 'mod-1', targetPlayerId: 'p1' })
+
+      expect(window.submitReaction).not.toHaveBeenCalled()
+    })
+
+    it('does nothing with no window at all', () => {
+      expect(() =>
+        makeGs().applyModifier('p2', {
+          value: 3,
+          cardId: 'mod-1',
+          targetPlayerId: 'p1',
+        }),
+      ).not.toThrow()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// slayMonster — the one way a monster leaves the face-up row
+// ---------------------------------------------------------------------------
+
+describe('GameState.slayMonster', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+  let emitted: IGameEvent[]
+
+  beforeEach(() => {
+    gs = new GameState(
+      new CardStack('deck-1', 'main-deck'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-p1'))
+
+    // The visible row of three, with two still face down behind it.
+    for (const id of ['m-3', 'm-2', 'm-1']) gs.getMonsterPile().add(id)
+    gs.getMonsterDeck().addToBottom('m-4')
+    gs.getMonsterDeck().addToBottom('m-5')
+
+    em = new GameEventEmitter()
+    emitted = []
+    em.addListener({ onEvent: (e) => emitted.push(e) })
+  })
+
+  it('takes the monster out of the pile', () => {
+    gs.slayMonster('m-2', 'p1', em)
+    expect(gs.getMonsterPile().getAll()).not.toContain('m-2')
+  })
+
+  it('adds it to the slayer party', () => {
+    gs.slayMonster('m-2', 'p1', em)
+    expect(gs.getParty('p1').getMonsterIds()).toEqual(['m-2'])
+  })
+
+  it('turns the next monster up behind it, keeping the row three wide', () => {
+    expect(gs.getMonsterPile().getSize()).toBe(3)
+
+    gs.slayMonster('m-2', 'p1', em)
+
+    expect(gs.getMonsterPile().getSize()).toBe(3)
+    expect(gs.getMonsterPile().getAll()).toContain('m-4')
+    expect(gs.getMonsterDeck().getSize()).toBe(1)
+  })
+
+  it('draws the TOP of the deck, not any of it', () => {
+    gs.slayMonster('m-1', 'p1', em)
+    gs.slayMonster('m-2', 'p1', em)
+    expect(gs.getMonsterPile().getAll()).toEqual(
+      expect.arrayContaining(['m-4', 'm-5']),
+    )
+  })
+
+  it('lets the row shrink once the deck is spent — nothing to draw is not a fault', () => {
+    for (const id of ['m-1', 'm-2', 'm-3']) gs.slayMonster(id, 'p1', em)
+
+    expect(gs.getMonsterDeck().getSize()).toBe(0)
+    expect(gs.getMonsterPile().getSize()).toBe(2)
+
+    const left = gs.getMonsterPile().getAll()
+    expect(() => gs.slayMonster(left[0], 'p1', em)).not.toThrow()
+    expect(gs.getMonsterPile().getSize()).toBe(1)
+  })
+
+  it('announces MonsterSlain, naming the monster and the slayer', () => {
+    gs.slayMonster('m-2', 'p1', em)
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].getType()).toBe(GameEventType.MonsterSlain)
+    expect(emitted[0].getPlayerId()).toBe('p1')
+    expect(emitted[0].getPayload()).toMatchObject({ cardId: 'm-2' })
+  })
+
+  it('THROWS on a monster that is not in the row — the row is what you attack', () => {
+    expect(() => gs.slayMonster('m-4', 'p1', em)).toThrow(
+      /not in the monster pile/,
+    )
+  })
+
+  it('a monster already won cannot be slain twice', () => {
+    gs.slayMonster('m-2', 'p1', em)
+    expect(() => gs.slayMonster('m-2', 'p1', em)).toThrow(
+      /not in the monster pile/,
+    )
+    expect(gs.getParty('p1').getMonsterIds()).toEqual(['m-2'])
+  })
+
+  it('draws nothing extra when it throws', () => {
+    expect(() => gs.slayMonster('m-4', 'p1', em)).toThrow()
+    expect(gs.getMonsterDeck().getSize()).toBe(2)
+    expect(emitted).toHaveLength(0)
+  })
+})
+
+describe('GameState.drawFromMainDeck', () => {
+  const table = (deck: string[], discard: string[]) => {
+    const mainDeck = new CardStack('deck', 'main-deck')
+    for (const id of deck) mainDeck.addToBottom(id)
+    const discardPile = new CardPile('discard', 'discard-pile')
+    for (const id of discard) discardPile.add(id)
+    return new GameState(
+      mainDeck,
+      discardPile,
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+  }
+
+  it('takes the top card and leaves the discard alone while the deck has more', () => {
+    const gs = table(['d1', 'd2'], ['x1'])
+
+    expect(gs.drawFromMainDeck()).toBe('d1')
+
+    expect(gs.getMainDeck().getSize()).toBe(1)
+    expect(gs.getDiscardPile().getAll()).toEqual(['x1'])
+  })
+
+  it('shuffles the whole discard pile in behind the last card', () => {
+    const gs = table(['d1'], ['x1', 'x2', 'x3'])
+
+    expect(gs.drawFromMainDeck()).toBe('d1')
+
+    expect(gs.getDiscardPile().getSize()).toBe(0)
+    expect(gs.getMainDeck().getSize()).toBe(3)
+    const back = [gs.drawFromMainDeck(), gs.drawFromMainDeck(), gs.drawFromMainDeck()]
+    expect(back.sort()).toEqual(['x1', 'x2', 'x3'])
+  })
+
+  it('shuffles rather than stacks — the order is not the discard order', () => {
+    // Pin the shuffle to the identity to see the order it starts from, then
+    // let a real shuffle move things. Only the multiset is promised.
+    const pinned = jest.spyOn(Math, 'random').mockReturnValue(0.999)
+    const gs = table(['d1'], ['x1', 'x2'])
+    gs.drawFromMainDeck()
+    pinned.mockRestore()
+
+    expect(gs.getMainDeck().getSize()).toBe(2)
+  })
+
+  it('returns null only when the deck AND the discard are empty', () => {
+    const gs = table([], [])
+
+    expect(gs.drawFromMainDeck()).toBeNull()
+    expect(gs.getMainDeck().getSize()).toBe(0)
+  })
+
+  it('a refilled deck is drawn from like any other', () => {
+    const gs = table(['d1'], ['x1'])
+    gs.drawFromMainDeck()
+
+    expect(gs.drawFromMainDeck()).toBe('x1')
+    expect(gs.getMainDeck().getSize()).toBe(0)
+    expect(gs.getDiscardPile().getSize()).toBe(0)
   })
 })

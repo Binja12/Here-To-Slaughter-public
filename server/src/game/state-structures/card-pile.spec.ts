@@ -22,13 +22,11 @@ describe('CardPile', () => {
     expect(cp.pick('2nd-card')).toBe('2nd-card')
     expect(cp.getSize()).toBe(2)
   })
-  it('should pick a random card', () => {
+  it('leaves the pile alone when the named card is not in it', () => {
     const cp = new CardPile('pile-1', 'hand-pile')
     cp.add('1st-card')
-    cp.add('2nd-card')
-    cp.add('3rd-card')
-    expect(cp.pick()).not.toBeNull()
-    expect(cp.getSize()).toBe(2)
+    expect(cp.pick('not-here')).toBe(null)
+    expect(cp.getAll()).toEqual(['1st-card'])
   })
   it('should return empty deck(null)', () => {
     const cp = new CardPile('pile-1', 'hand-pile')

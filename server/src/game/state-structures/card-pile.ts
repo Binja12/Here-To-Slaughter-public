@@ -16,19 +16,17 @@ export class CardPile implements ICardPile {
     return this.name
   }
 
-  pick(cardId?: string): string | null {
-    let pickedCard: string | null = null
-    if (cardId) {
-      pickedCard = this.cards.find((id) => id === cardId) ?? null
-      if (!pickedCard) return null
-      this.cards = this.cards.filter((id) => id !== cardId)
-    } else {
-      if (this.cards.length === 0) return null
-      const n = Math.floor(Math.random() * this.cards.length)
-      pickedCard = this.cards[n]
-      this.cards = this.cards.filter((id) => id !== pickedCard)
-    }
-    return pickedCard
+  /**
+   * Take one named card out. A pile is face up, so the caller can always name
+   * what it wants — there is no blind draw here, which is exactly what
+   * separates a pile from a CardStack.
+   *
+   * Null when the card is not in this pile.
+   */
+  pick(cardId: string): string | null {
+    if (!this.cards.includes(cardId)) return null
+    this.cards = this.cards.filter((id) => id !== cardId)
+    return cardId
   }
 
   add(cardId: string): void {

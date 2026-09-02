@@ -16,9 +16,8 @@ export type PartyReq = {
   classes: HeroClassReq[];
 };
 
-/** Secondary card text — a monster's face-up skill. Display data only. */
-export type SkillData = {
-  condition: string;
+/** Printed outcome when a monster's attack roll lands in its fight-back range. */
+export type FightBackData = {
   description: string;
 };
 
@@ -59,8 +58,8 @@ export type MonsterCardData = CardBase & {
   higherReq: number;
   rollCompareMode: RollCompareMode;
   partyReq: PartyReq;
-  /** Face-up skill text, e.g. "When face up — All rolls -1". */
-  skill?: SkillData;
+  slay?: string;
+  fightBack?: FightBackData;
 };
 
 export type PartyLeaderData = CardBase & {

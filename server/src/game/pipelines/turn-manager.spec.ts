@@ -7,7 +7,10 @@ import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { IAction, IReactionWindow } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
-import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import {
+  AbilityContext,
+  NO_CONTEXT_RESULT,
+} from '../abilities/ability-context'
 
 const makeGs = (actionPoints = 3) => {
   const deck = new CardStack('deck-1', 'main-deck')
@@ -136,6 +139,25 @@ describe('TurnManager', () => {
       expect(executed).toHaveLength(0)
     })
 
+    it('should ignore an action from a player whose turn it is not', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+      const executed: boolean[] = []
+      // Same seat's own budget, and still refused: action points are spent on
+      // YOUR turn, and everybody else answers with reactions.
+      const action = { ...makeAction(1), getPlayerId: () => 'p2' }
+      action.execute = () => {
+        executed.push(true)
+        return []
+      }
+      tm.enqueue(action)
+
+      expect(executed).toHaveLength(0)
+      expect(gs.actionQueue).toHaveLength(0)
+      expect(tm.getActionPoints()).toBe(3)
+    })
+
     it('should execute a valid action', () => {
       const gs = makeGs(3)
       const tm = new TurnManager(gs, new GameEventEmitter())
@@ -203,7 +225,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
@@ -235,7 +257,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           executed.push('window-action')
           return []
@@ -261,117 +283,129 @@ describe('TurnManager', () => {
     })
   })
 
-  describe('enqueueFirst()', () => {
-    it('runs the inserted action before actions already waiting', () => {
-      const gs = makeGs(3)
+  // ---------------------------------------------------------------------------
+  // The other pipeline. A turn is not over while an ability is still resolving,
+  // and TurnManager reads that off GameState rather than holding a TaskManager.
+  // ---------------------------------------------------------------------------
+
+  describe('a running ability holds the turn open', () => {
+    /** A pipeline parked on a frame, exactly as TaskManager.pauseOn leaves one. */
+    const parkAbility = (gs: GameState) => {
+      gs.abilityPipelines.push({
+        steps: [{ execute: () => {} }],
+        ctx: new AbilityContext('src-card', 'p1'),
+        pausedOn: 'f-ability',
+      })
+    }
+
+    it('does not end the turn at 0 AP while a pipeline is still on the stack', () => {
+      const gs = makeGs(1)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
 
-      const order: string[] = []
-      const record = (name: string, cost = 1): IAction => ({
-        ...makeAction(cost),
+      // The action spends the last point and sets an ability going, the way a
+      // played hero leads to a roll offer.
+      tm.enqueue({
+        ...makeAction(1),
         execute: (g) => {
-          g.getPlayer('p1')?.decreaseActionPoints(cost)
-          order.push(name)
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          parkAbility(g)
         },
       })
 
-      // 'spawner' queues a follow-up from inside its own execute, exactly as
-      // PlayHeroAction grants its roll, while 'later' is already waiting.
-      const later = record('later')
-      const spawner: IAction = {
+      expect(tm.getActionPoints()).toBe(0)
+      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+    })
+
+    it('ends it on the next drain, once the ability has run itself out', () => {
+      const gs = makeGs(1)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+      tm.enqueue({
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          order.push('spawner')
-          tm.enqueueFirst(record('granted', 0))
+          parkAbility(g)
         },
-      }
+      })
 
-      // Seed both directly so 'later' is genuinely waiting behind 'spawner' when...
-      gs.actionQueue.push(spawner, later)
+      // What TaskManager leaves behind when the last pipeline is spent; the
+      // FrameResolved that emptied it is the same one GameEngine resumes on.
+      gs.abilityPipelines.length = 0
       tm.resumeDrain()
 
-      expect(order).toEqual(['spawner', 'granted', 'later'])
+      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
     })
 
-    it('does not drain on its own — the outer loop picks the action up', () => {
+    it('holds a queued action back until the ability is done', () => {
       const gs = makeGs(3)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
 
       const executed: string[] = []
-      const granted: IAction = {
-        ...makeAction(0),
-        execute: () => {
-          executed.push('granted')
+      const later: IAction = {
+        ...makeAction(1),
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          executed.push('later')
         },
       }
 
-      // Called with nothing draining: the action is queued, not run.
-      tm.enqueueFirst(granted)
-      expect(executed).toHaveLength(0)
-      expect(gs.actionQueue[0]).toBe(granted)
+      gs.actionQueue.push(
+        {
+          ...makeAction(1),
+          execute: (g) => {
+            g.getPlayer('p1')?.decreaseActionPoints(1)
+            parkAbility(g)
+          },
+        },
+        later,
+      )
+      tm.resumeDrain()
+
+      expect(executed).toEqual([])
+      expect(gs.actionQueue).toEqual([later])
+
+      gs.abilityPipelines.length = 0
+      tm.resumeDrain()
+      expect(executed).toEqual(['later'])
     })
 
-    it('keeps a granted action queued while a window is open, then runs it', () => {
+    it('refuses a reactable request while an ability is resolving', () => {
       const gs = makeGs(3)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
+      parkAbility(gs)
 
       const executed: string[] = []
-      // Reactable, like the real granted roll — enqueue() would have dropped
-      // this while a window was open; enqueueFirst must only delay it.
-      const granted: IAction = {
-        ...makeAction(0),
+      tm.enqueue({
+        ...makeAction(1),
         isReactable: () => true,
         execute: () => {
-          executed.push('granted')
+          executed.push('reactable')
         },
-      }
+      })
 
-      const spawner: IAction = {
-        ...makeAction(1),
-        execute: (g) => {
-          g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
-          g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
-          tm.enqueueFirst(granted)
-        },
-      }
-
-      tm.enqueue(spawner)
-      expect(executed).toHaveLength(0)
-      expect(gs.actionQueue).toContain(granted)
-
-      gs.releaseFrame('f1')
-      tm.resumeDrain()
-      expect(executed).toEqual(['granted'])
+      // Refused outright, not merely delayed: enqueue drops a reactable
+      // request rather than queueing it behind the resolution.
+      expect(executed).toEqual([])
+      expect(gs.actionQueue).toHaveLength(0)
     })
 
-    it('runs a granted zero-cost action before the turn auto-ends at 0 AP', () => {
+    it('counts a pipeline parked between a released frame and its FrameResolved', () => {
       const gs = makeGs(1)
-      const emitter = new GameEventEmitter()
-      const tm = new TurnManager(gs, emitter)
+      const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
+      gs.getPlayer('p1')!.decreaseActionPoints(1)
 
-      const executed: string[] = []
-      const spawner: IAction = {
-        ...makeAction(1),
-        execute: (g) => {
-          g.getPlayer('p1')?.decreaseActionPoints(1)
-          tm.enqueueFirst({
-            ...makeAction(0),
-            execute: () => {
-              executed.push('granted')
-            },
-          })
-        },
-      }
+      // A window releases its frame BEFORE it announces the outcome, so for
+      // that moment no frame is open and the pipeline has not woken yet.
+      parkAbility(gs)
+      expect(gs.hasOpenFrames()).toBe(false)
 
-      tm.enqueue(spawner)
-      expect(executed).toEqual(['granted'])
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      tm.resumeDrain()
+
+      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
     })
   })
 
@@ -421,7 +455,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },

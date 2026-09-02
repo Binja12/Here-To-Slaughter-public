@@ -1,6 +1,6 @@
 import { CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
 import { CardTypeCondition } from './conditions'
-import { DrawTask } from './tasks'
+import { DrawTask } from './draw-task'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
