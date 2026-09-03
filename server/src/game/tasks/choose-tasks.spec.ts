@@ -242,6 +242,44 @@ describe('ChooseCardTask', () => {
     expect(openedPayload(events)['options']).toEqual(['their-magic'])
   })
 
+  it("opens the window for the CHOSEN player over their own hand — executor: 'chosen'", () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    seat(gs, 'p2', ['their-1', 'their-2'])
+    const em = new GameEventEmitter()
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+
+    new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }).execute(
+      gs,
+      ctx,
+      em,
+      new ReactionManager(gs, em),
+    )
+
+    const window = openWindow(gs)
+    expect(window.getRespondentId()).toBe('p2')
+    expect(window.getOptions()).toEqual(['their-1', 'their-2'])
+  })
+
+  it("asks nobody when executor: 'chosen' names an empty slot — the step behind skips", () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    const em = new GameEventEmitter()
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_CHOSEN_PLAYER, [])
+
+    const frameId = new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }).execute(
+      gs,
+      ctx,
+      em,
+      new ReactionManager(gs, em),
+    )
+
+    expect(frameId).toBeUndefined()
+    expect(openWindow(gs)).toBeUndefined()
+  })
+
   it('rejects a pick that was never offered', () => {
     const gs = makeGs()
     seat(gs, 'p1')

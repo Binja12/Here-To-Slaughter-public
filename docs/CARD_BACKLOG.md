@@ -82,6 +82,19 @@ Magic (`FrameResolved` SelfCard):
 |---|---|
 | magic-051 Entangling Trap | ChooseCard(Hand, Self) → Discard, twice → ChooseCard(Party, Others) → StealFromParty |
 
+## Done on HTSR-8 (2026-09-04) — 25 registry ids
+
+Items 1–6 below are built (`docs/ENGINE_ARCHITECTURE.md` §11b) and these
+cards are registered: Heavy Bear, Hopper, Tough Teddy, Spooky, Greedy
+Cheeks, Smooth Mimimeow (victim choice + per-seat loop); Lookie Rookie,
+Guiding Light, Radiant Horn, Bun Bun, Call to the Fallen, Silent Shadow,
+Holy Curselifter, Winds of Change ×2, Forceful Winds (retrieve); Mighty
+Blade, Terratuga (CantBeDestroyed); the six masks (derived class).
+Still open from those groups: Beary Wise (its second half needs "the cards
+discarded during this ability"), Bloodwing (a scope for "another player
+challenges YOU"), Shurikitty (destroy keeping the gear for the owner),
+Decoy Doll (a replacement effect on destroy / sacrifice).
+
 ## B. Needs a mechanic the engine does not have — 41 cards (the owner + Claude)
 
 Grouped by the missing piece; one piece usually unlocks several cards.

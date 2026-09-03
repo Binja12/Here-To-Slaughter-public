@@ -38,6 +38,9 @@ export const EngineCommandSchema = z.discriminatedUnion("type", [
   // a choice — ReactionManager.submitChoice. What a legal choice IS depends
   // on the window, and only the engine knows that.
   command("SubmitChoice", z.object({ windowId: id, choice: z.unknown() })),
+  // giving a table window up — ReactionManager.pass. TEMPORARY rule for the
+  // playtest: the first pass resolves the window (the "Forfeit" button).
+  command("PassWindow", z.object({ windowId: id })),
 ]);
 
 /**

@@ -1,7 +1,7 @@
 import { IGameEventEmitter, ReactionWindowType, Zone } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { AbilityContext } from '../abilities/ability-context'
+import { chosenPlayers, AbilityContext } from '../abilities/ability-context'
 import {
   CardFilter,
   PlayerFilter,
@@ -75,8 +75,14 @@ export class ChooseCardTask implements ITask {
 
     const options = filterCards(gs, ctx, this.filter)
 
+    // The victim answers a victim's choice; with no seat in the slot there is
+    // nobody to ask, and the step behind skips on the empty result.
+    const respondentId =
+      this.filter.executor === 'chosen' ? chosenPlayers(ctx)[0] : ctx.ownerId
+    if (!respondentId) return
+
     const frameId = rm.openFrame()
-    rm.openWindow(frameId, ReactionWindowType.CardChoice, ctx.ownerId, {
+    rm.openWindow(frameId, ReactionWindowType.CardChoice, respondentId, {
       options,
     })
 

@@ -20,10 +20,11 @@ import type {
 import { PassiveType } from 'shared'
 import type { RollContext } from 'shared'
 import { Player } from '../state-structures/player'
-import { Party } from '../state-structures/party'
+import { Party, HeroAddReason, HeroRemovalReason } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import { HeroCard } from '../cards/hero-card'
+import { ItemCard } from '../cards/item-card'
 import { MonsterCard } from '../cards/monster-card'
 import type { AbilityContext } from '../abilities/ability-context'
 // Value import, not type-only: slayMonster announces. No cycle — the factory
@@ -491,6 +492,103 @@ export class GameState {
   }
 
   /** Which hero carries `itemId`, or nothing once it has left play. */
+  /**
+   * Takes the gear off a hero who stays in play and returns it — the ONE way
+   * an item comes off outside of the hero leaving (Party.removeHero carries it
+   * along). Silent, like Party.unequipItem: the caller announces ItemUnequipped
+   * and decides where the item goes. Nothing to take off = undefined.
+   */
+  unequipItem(heroId: string): string | undefined {
+    const ownerId = this.getCardOwner(heroId)
+    if (!ownerId) return undefined
+    return this.getParty(ownerId).unequipItem(heroId)
+  }
+
+  /**
+   * Puts an item on a hero standing in a party. Silent, the mirror of
+   * unequipItem: the caller announces ItemEquippedToHero and has already
+   * taken the item out of wherever it was. A hero in no party = nothing done.
+   */
+  equipItem(heroId: string, itemId: string): void {
+    const ownerId = this.getCardOwner(heroId)
+    if (!ownerId) return
+    this.getParty(ownerId).equipItem(heroId, itemId)
+  }
+
+  // ---------------------------------------------------------------------------
+  // The board's doors. NOTHING outside this class calls a mutator on a Player,
+  // a Party or a pile (the owner, 2026-09-04): each door is the structure's own
+  // method, one to one, reached through the board. Composition stays with the
+  // caller — a pull is a removeFromHand then an addToHand, spelled out where
+  // it happens. The doors are silent; announcing is the caller's business,
+  // except where the structure announces on its own (Party.addHero /
+  // removeHero emit the canonical membership events).
+  // ---------------------------------------------------------------------------
+
+  /** Player.addToHand, through the board. */
+  addToHand(playerId: string, cardId: string): void {
+    this.requirePlayer(playerId).addToHand(cardId)
+  }
+
+  /** Player.removeFromHand, through the board. */
+  removeFromHand(playerId: string, cardId: string): void {
+    this.requirePlayer(playerId).removeFromHand(cardId)
+  }
+
+  /** CardPile.add on the discard pile, through the board. */
+  addToDiscardPile(cardId: string): void {
+    this.discardPile.add(cardId)
+  }
+
+  /** CardPile.pick on the discard pile, through the board. Null when not there. */
+  pickFromDiscardPile(cardId: string): string | null {
+    return this.discardPile.pick(cardId)
+  }
+
+  /**
+   * A hero out of a party. Returns the gear it was wearing, for the caller to
+   * put somewhere. Party.removeHero announces HeroRemovedFromParty itself.
+   */
+  removeHero(
+    playerId: string,
+    heroId: string,
+    em: IGameEventEmitter,
+    reason: HeroRemovalReason,
+  ): string | undefined {
+    return this.getParty(playerId).removeHero(heroId, em, reason)
+  }
+
+  /** A hero into a party, its gear along with it. Party.addHero announces HeroAddedToParty itself. */
+  addHero(
+    playerId: string,
+    heroId: string,
+    em: IGameEventEmitter,
+    reason: HeroAddReason,
+    carriedItemId?: string,
+  ): void {
+    this.getParty(playerId).addHero(heroId, em, reason, carriedItemId)
+  }
+
+  /** Party.addInstanceCard, through the board. */
+  addInstanceCard(playerId: string, cardId: string): void {
+    this.getParty(playerId).addInstanceCard(cardId)
+  }
+
+  /** Party.removeInstanceCard, through the board. */
+  removeInstanceCard(playerId: string, cardId: string): void {
+    this.getParty(playerId).removeInstanceCard(cardId)
+  }
+
+  /** Player.increaseActionPoints, through the board. */
+  increaseActionPoints(playerId: string, amount: number): void {
+    this.requirePlayer(playerId).increaseActionPoints(amount)
+  }
+
+  /** Player.removeEffect, through the board. */
+  removeEffect(playerId: string, effectId: string): void {
+    this.requirePlayer(playerId).removeEffect(effectId)
+  }
+
   getItemCarrier(itemId: string): string | undefined {
     for (const party of this.parties.values()) {
       for (const heroId of party.getHeroIds()) {
@@ -662,13 +760,44 @@ export class GameState {
     )
   }
 
+  /**
+   * Whether a hero may be DESTROYED right now — Mighty Blade (hero-031) and
+   * Terratuga (monster-130) install `CantBeDestroyed` on the owner. Read
+   * against the owner at the moment of the attempt, so a hero that joined
+   * after the rule was installed is covered too. Sacrifice is a different
+   * mechanic and is not asked here: a fight-back still costs a hero.
+   */
+  canBeDestroyed(heroId: string): boolean {
+    const ownerId = this.getCardOwner(heroId)
+    if (!ownerId) return true
+    return (
+      this.getEffects(PassiveType.CantBeDestroyed, ownerId, heroId).length === 0
+    )
+  }
+
+  /**
+   * The class the BOARD reads for a hero: its default (printed) class, unless the item it
+   * wears says otherwise — a class mask (`ItemCardData.heroClass`). Derived
+   * from the equipment on every read, so nothing is set on equip and nothing
+   * reverted on unequip: the moment the mask comes off, by any route, the
+   * default class is back. Every reader of a hero's class comes through here.
+   * Undefined for a card that is not a hero.
+   */
+  getHeroClass(heroId: string): HeroClass | undefined {
+    const hero = this.getCard(heroId)
+    if (!(hero instanceof HeroCard)) return undefined
+    const itemId = this.getEquippedItem(heroId)
+    const item = itemId ? this.getCard(itemId) : undefined
+    const masked = item instanceof ItemCard ? item.getHeroClass() : undefined
+    return masked ?? hero.getDefaultClass()
+  }
+
   /** The classes standing in a party, one entry per hero. Leaders excluded. */
   getPartyHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
       .getHeroIds()
-      .map((heroId) => this.getCard(heroId))
-      .filter((card): card is HeroCard => card instanceof HeroCard)
-      .map((hero) => hero.getHeroClass())
+      .map((heroId) => this.getHeroClass(heroId))
+      .filter((cls): cls is HeroClass => cls !== undefined)
   }
 
   /**

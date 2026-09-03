@@ -11,18 +11,30 @@ import {
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
   CTX_PULLED_CARD_IDS,
+  chosenPlayers,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
+import { filterPlayers, PlayerFilter } from '../reactions/choice-filters'
 
 // ---------------------------------------------------------------------------
 // DiscardTask — move a card from the owner's hand to the discard pile
 // ---------------------------------------------------------------------------
 
 export class DiscardTask implements ITask {
+  private readonly fromKey: string
+  private readonly executor: Executor
+
   /**
-   * Card to discard. Defaults to the card a ChooseCardTask put on the context.
+   * `fromKey`: the slot holding the card, the choice slot by default.
+   * `executor`: who runs this step, and so whose hand — the ability owner, or
+   * `'chosen'` for "that player must DISCARD", the seat a ChoosePlayerTask or a per-seat run put in
+   * CTX_CHOSEN_PLAYER (the mirror of a choice's `respondent`).
    */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+  constructor(options: string | { fromKey?: string; executor?: Executor } = {}) {
+    const opts = typeof options === 'string' ? { fromKey: options } : options
+    this.fromKey = opts.fromKey ?? CTX_CHOSEN_CARD
+    this.executor = opts.executor ?? 'owner'
+  }
 
   execute(
     gs: GameState,
@@ -44,10 +56,24 @@ export class DiscardTask implements ITask {
     const [cardId] = cards
     if (!cardId) return
 
-    if (!gs.getPlayer(ctx.ownerId)?.getHand().includes(cardId)) return
+    const executorId = executorOf(ctx, this.executor)
+    if (!executorId) return
+    if (!gs.getPlayer(executorId)?.getHand().includes(cardId)) return
 
-    gs.discardFromHand(ctx.ownerId, cardId, em)
+    gs.discardFromHand(executorId, cardId, em)
   }
+}
+
+/** Who a step runs AS: the ability owner, or the chosen seat — the target of a "that player must …". */
+export type Executor = 'owner' | 'chosen'
+
+/**
+ * The player a step runs as. `'chosen'` reads CTX_CHOSEN_PLAYER — the
+ * seat a ChoosePlayerTask answered with, or the one a per-seat run was
+ * started for. An empty slot = nobody to act on, and the step skips.
+ */
+export function executorOf(ctx: AbilityContext, executor: Executor): string | undefined {
+  return executor === 'chosen' ? chosenPlayers(ctx)[0] : ctx.ownerId
 }
 
 // ---------------------------------------------------------------------------
@@ -86,16 +112,14 @@ export class PullCardTask implements ITask {
     const [fromPlayerId] = chosen
     if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
 
-    const from = gs.getPlayer(fromPlayerId)
-    const to = gs.getPlayer(ctx.ownerId)
-    if (!from || !to) return
+    if (!gs.getPlayer(fromPlayerId) || !gs.getPlayer(ctx.ownerId)) return
 
-    const hand = from.getHand()
+    const hand = gs.getPlayer(fromPlayerId)!.getHand()
     if (hand.length === 0) return
 
     const cardId = hand[Math.floor(Math.random() * hand.length)]
-    from.removeFromHand(cardId)
-    to.addToHand(cardId)
+    gs.removeFromHand(fromPlayerId, cardId)
+    gs.addToHand(ctx.ownerId, cardId)
     ctx.set(CTX_PULLED_CARD_IDS, [cardId])
     em.emit(GameEventFactory.cardPulled(ctx.ownerId, fromPlayerId, cardId))
   }
@@ -159,5 +183,55 @@ export class ApplyEffectTask implements ITask {
         expiresOn: effect.expiry?.map((e) => e.on),
       }),
     )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ForEachPlayerTask — "each other player must …"
+//
+// An entry's steps run once, in one line, for the ability owner. A wording
+// that acts on every seat in turn — each one discarding, sacrificing, handing
+// a card over — needs the same steps once PER seat, each waiting for that
+// seat's answer. The pipeline has no loop, and it does not need one: this
+// task announces one PlayerTargeted per seat that matches the filter, with
+// the seat riding along as CTX_CHOSEN_PLAYER, and the entry that continues
+// the card (`on: PlayerTargeted, when: label`) runs once per announcement
+// with a fresh context — the same hand-off CardTypeCondition and ConfirmTask
+// use for their continuations.
+//
+// Order: the runs an event starts go on TOP of the stack (§6), so they
+// finish last-in first-out. Announcing the seats in reverse order makes them
+// resolve in seat order — a detail for the table, never for the rules.
+//
+// Whatever follows this step in ITS entry runs after every per-seat run has
+// finished, because the stack drains top-down: a card that acts on each seat
+// and then does something with the whole result can put that something here.
+// ---------------------------------------------------------------------------
+
+export class ForEachPlayerTask implements ITask {
+  constructor(
+    /** Which seats. Defaults to the other players. */
+    private readonly filter: PlayerFilter = {},
+    /** Announced on each PlayerTargeted; the continuation matches it with `when`. */
+    private readonly label: string,
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const seats = filterPlayers(gs, ctx, this.filter)
+    for (const playerId of [...seats].reverse()) {
+      em.emit(
+        GameEventFactory.playerTargeted(
+          ctx.ownerId,
+          ctx.sourceCardId,
+          this.label,
+          { [CTX_CHOSEN_PLAYER]: [playerId] },
+        ),
+      )
+    }
   }
 }

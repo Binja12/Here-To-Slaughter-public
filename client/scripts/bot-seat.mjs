@@ -149,6 +149,29 @@ function play({ gameId, webSocketUrl }) {
         return
       }
 
+      // A bot never reacts, so it gives every table window up at once — the
+      // server's own eligibility (ReactionManager.eligiblePassers): a roll is
+      // everyone's; a challenge is everyone's but the defender's until it
+      // starts, then the two contestants' alone.
+      const self = state.playerId
+      const passable = state.pendingWindows.filter((window) => {
+        if (!['Modifier', 'Attack', 'Challenge'].includes(window.type)) return false
+        const detail = window.detail ?? {}
+        if (Array.isArray(detail.passedBy) && detail.passedBy.includes(self)) return false
+        if (window.type !== 'Challenge') return true
+        if (detail.challenged === true) return detail.challengerId === self || detail.defenderId === self
+        return window.respondentId !== self
+      })
+      if (passable.length > 0) {
+        acting = true
+        for (const window of passable) {
+          const result = await send('PassWindow', { windowId: window.windowId })
+          log('passed', window.type, outcome(result))
+        }
+        acting = false
+        return
+      }
+
       const myTurn =
         state.phase === 'Turns' &&
         state.currentPlayerId === state.playerId &&

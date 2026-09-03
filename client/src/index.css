@@ -163,6 +163,14 @@ code {
 /* What an OPPONENT is doing right now: the card they just played (until
    its challenge window closes), the hero / monster they roll on and the
    dice (until the roll closes). Red, so the table's action is legible. */
+/* A hero whose standing effect is LIVE right now (every seat): pink, the
+   quietest of the tones — it says "in force", not "act". */
+.passive-aura {
+  filter: drop-shadow(0 var(--aura-dy, 0cqw) calc((0.07 + 0.03 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 170, 230, 0.95))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.2 + 0.08 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 110, 200, 0.85))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.42 + 0.22 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(235, 70, 170, 0.6));
+}
+
 .enemy-aura {
   /* denser than the green: four layers, higher alpha, a wider outer halo */
   filter: drop-shadow(0 var(--aura-dy, 0cqw) calc((0.05 + 0.02 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 140, 120, 1))

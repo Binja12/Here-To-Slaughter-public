@@ -2,6 +2,7 @@ import { CardType, HeroClass, Owner, Zone } from 'shared'
 import { GameState } from '../pipelines/game-state'
 import { AbilityContext, chosenPlayers } from '../abilities/ability-context'
 import { HeroCard } from '../cards/hero-card'
+import { ItemCard } from '../cards/item-card'
 
 // ---------------------------------------------------------------------------
 // Choice filters — declarative descriptions of "which cards may be picked",
@@ -25,11 +26,19 @@ export type PlayerFilter = {
    * carried out.
    */
   hasHeroes?: boolean
+  /** Keep only players with a hero of this class standing — "each other player with a Fighter". */
+  hasClass?: HeroClass
   excludeIds?: string[]
 }
 
 export type CardFilter = {
   zone: Zone
+  /**
+   * Who this step runs AS — who answers the choice. The ability owner unless
+   * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
+   * is the victim's pick over the victim's own hand, which only they can see.
+   */
+  executor?: 'owner' | 'chosen'
   /** Ignored for shared zones (Discard, MonsterPile), which belong to nobody. */
   owner?: Owner
   cardType?: CardType
@@ -46,6 +55,8 @@ export type CardFilter = {
    * offers only heroes that can actually take it. Non-heroes never match.
    */
   unequipped?: boolean
+  /** Items only: keep the cursed ones (true) or the plain ones (false). Non-items never match. */
+  cursed?: boolean
   excludeIds?: string[]
 }
 
@@ -103,6 +114,9 @@ export function filterPlayers(
     if (filter.hasHeroes && gs.getParty(id).getHeroIds().length === 0) {
       return false
     }
+    if (filter.hasClass && !gs.getPartyHeroClasses(id).includes(filter.hasClass)) {
+      return false
+    }
     return true
   })
 }
@@ -153,12 +167,17 @@ export function filterCards(
 
     if (filter.heroClass) {
       if (!(card instanceof HeroCard)) return false
-      if (card.getHeroClass() !== filter.heroClass) return false
+      if (gs.getHeroClass(card.getId()) !== filter.heroClass) return false
     }
 
     if (filter.unequipped) {
       if (!(card instanceof HeroCard)) return false
       if (gs.getEquippedItem(id)) return false
+    }
+
+    if (filter.cursed !== undefined) {
+      if (!(card instanceof ItemCard)) return false
+      if (card.isCursed() !== filter.cursed) return false
     }
 
     // Asked of the board rather than answered here: the same question the

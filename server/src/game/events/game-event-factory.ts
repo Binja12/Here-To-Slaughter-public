@@ -297,6 +297,38 @@ export class GameEventFactory {
    * events state the full truth and the projection layer in front of the API
    * decides who may see which id (§5).
    */
+  /** RetrieveCardTask: `playerId` is the hand the card landed in. */
+  static cardRetrieved(
+    playerId: string,
+    cardId: string,
+    from: 'Discard' | 'Equipment',
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.CardRetrieved,
+      playerId,
+      { cardId, from },
+      Audience.All,
+    )
+  }
+
+  /**
+   * ForEachPlayerTask, once per seat: `cardId` is the card acting (SelfCard
+   * matches it), `ctxSeed` carries the targeted seat as CTX_CHOSEN_PLAYER.
+   */
+  static playerTargeted(
+    playerId: string,
+    sourceCardId: string,
+    label: string,
+    ctxSeed: Record<string, unknown>,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.PlayerTargeted,
+      playerId,
+      { cardId: sourceCardId, label, ctxSeed },
+      Audience.All,
+    )
+  }
+
   static cardPulled(
     toPlayerId: string,
     fromPlayerId: string,

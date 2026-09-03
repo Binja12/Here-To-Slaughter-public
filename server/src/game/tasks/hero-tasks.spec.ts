@@ -4,8 +4,9 @@ import {
   GameEventType,
   HeroClass,
   IGameEvent,
+  PassiveType,
 } from 'shared'
-import { DestroyTask } from './hero-tasks'
+import { DestroyTask, SacrificeTask } from './hero-tasks'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
@@ -15,6 +16,7 @@ import { HeroCard } from '../cards/hero-card'
 import {
   AbilityContext,
   CTX_CHOSEN_CARD,
+  CTX_CHOSEN_PLAYER,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
@@ -72,6 +74,30 @@ const stubRm = null as unknown as ReactionManager
 // DestroyTask
 // ---------------------------------------------------------------------------
 
+describe('SacrificeTask with an actor — "that player must SACRIFICE"', () => {
+  it("removes the chosen hero from the ACTOR's party and announces the actor as the loser", () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['mine']))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['theirs']))
+    gs.registerCard(makeHeroCard('mine'))
+    gs.registerCard(makeHeroCard('theirs'))
+    const { emitter, emitted } = makeEmitter()
+    const ctx = makeCtx('hero-033', 'p1')
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+    ctx.set(CTX_CHOSEN_CARD, ['theirs'])
+
+    new SacrificeTask({ executor: 'chosen' }).execute(gs, ctx, emitter, stubRm)
+
+    expect(gs.getParty('p2').getHeroIds()).toEqual([])
+    expect(gs.getParty('p1').getHeroIds()).toEqual(['mine'])
+    expect(gs.getDiscardPile().getAll()).toContain('theirs')
+    const sacrificed = emitted.find((e: IGameEvent) => e.getType() === GameEventType.HeroSacrificed)!
+    expect(sacrificed.getPlayerId()).toBe('p2')
+  })
+})
+
 describe('DestroyTask', () => {
   /** Puts the chosen hero on the context, the way a ChooseCardTask would. */
   const chose = (heroId: string, ownerId = 'p1') => {
@@ -92,6 +118,26 @@ describe('DestroyTask', () => {
     expect(gs.getParty('p1').getHeroIds()).not.toContain('hero-1')
     expect(gs.getParty('p1').getHeroIds()).toContain('hero-2')
     expect(gs.getDiscardPile().getAll()).toContain('hero-1')
+  })
+
+  it('leaves the hero alone while its owner holds CantBeDestroyed — Mighty Blade, Terratuga', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['hero-1']))
+    gs.registerCard(makeHeroCard('hero-1'))
+    gs.addEffect({
+      id: 'shield',
+      sourceCardId: 'hero-031',
+      ownerId: 'p1',
+      type: PassiveType.CantBeDestroyed,
+    })
+    const { emitter, emitted } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('hero-1'), emitter, stubRm)
+
+    expect(gs.getParty('p1').getHeroIds()).toContain('hero-1')
+    expect(gs.getDiscardPile().getAll()).not.toContain('hero-1')
+    expect(emitted.map((e: IGameEvent) => e.getType())).not.toContain(GameEventType.HeroDestroyed)
   })
 
   it('emits the canonical removal event, then HeroDestroyed (All)', () => {

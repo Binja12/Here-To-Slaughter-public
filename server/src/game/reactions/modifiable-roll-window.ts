@@ -14,6 +14,7 @@ import {
   refused,
   RollBonus,
   ValueBias,
+  IPassableWindow,
 } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -31,8 +32,10 @@ import { GameEventFactory } from '../events/game-event-factory'
 // list, its bias rule and its settlement are a different shape.
 // ---------------------------------------------------------------------------
 
-export abstract class ModifiableRollWindow implements IModifiableWindow {
+export abstract class ModifiableRollWindow implements IModifiableWindow, IPassableWindow {
   protected bonuses: RollBonus[] = []
+  /** Seats that gave this roll up; cleared whenever a card lands in it. */
+  private readonly passes = new Set<string>()
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
   private deadline = 0
@@ -117,8 +120,19 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
       baseRoll: this.baseRoll,
       bonuses: [...this.bonuses],
       finalRoll: this.getFinalRoll(),
+      passedBy: [...this.passes],
       ...this.detail,
     }
+  }
+
+  // --- IPassableWindow ---
+
+  pass(playerId: string): void {
+    this.passes.add(playerId)
+  }
+
+  passedBy(): readonly string[] {
+    return [...this.passes]
   }
 
   getDeadline(): number {
@@ -139,8 +153,9 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
     return accepted()
   }
 
-  /** The roll waits for a card already committed to it. */
+  /** The roll waits for a card already committed to it, and everyone gets another look. */
   cardSpent(): void {
+    this.passes.clear()
     this.resetTimer()
   }
 
@@ -183,6 +198,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
     // Abyss Queen. Pushed BEFORE the announcement, so the finalRoll the table
     // is told already counts it. One roll here, so one list to push into.
     this.bonuses.push(...this.gs.counterBonusesFor(this.rollerId, playerId))
+    this.passes.clear()
     this.emitter.emit(
       new GameEvent(
         GameEventType.ModifierApplied,

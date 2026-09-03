@@ -214,6 +214,74 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
    challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
    refuses `GameNotOver`, completion sets `winnerId`.
 
+23. **Only implemented cards (2026-09-04)**. The registry implements 68 of
+    the 136 printed cards: all modifiers, challenges and leaders; 8 items,
+    7 magics, 5 monster passives and 3 hero effects (Wise Shield, Wiggles,
+    Snowball). Sharp Fox's roll of 5 "did nothing" because hero-016 has no
+    entry — same as Buttons. The owner: "only use the cards we implemented".
+    The deal (`createGame`, `dealable` in the ability repository) is now
+    EXACTLY the registry, every type alike — the owner's call after a
+    body-only middle ground (a temporary
+    registry of implemented cards only). Known consequence he
+    accepted: 3 heroes in a 57-card deck, so most hands hold none and
+    class-gated monsters are rarely attackable; the pool grows as entries
+    are written. Every dealt hero rolls and fires its effect.
+    Found by the strict pool at once: the "every class" win condition asked
+    the POOL which classes exist, so Wiggles + Wise Shield was "all
+    classes" and won on the second hero (`AllClassesInParty` now requires
+    the game's six classes, never the pool's).
+    Red aura on an equipped item: `HeroRow` `itemEnemy` — an opponent's
+    cursed item landing on your hero is the open challenge's subject, and the
+    item strip under the hero had no red tone before.
+    Also fixed here: the item aim now mirrors the engine's equip rule (a
+    plain item only on your own bare heroes, a cursed one on anybody's) —
+    it used to offer every hero and let the server refuse.
+22. **First human table (HTSR-7, 2026-09-04)** — three engine findings, all
+    fixed on the server with the client following:
+    - **Passive leaders were activatable.** `RollOnLeaderAction` never asked
+      whether the leader had anything to fire; the Cloaked Sage glowed, was
+      pressed, and the point was spent for nothing. Now `LeaderNotActivatable`
+      from the engine and `canRollOnLeader` false in the view for the five
+      passives (only the Shadow Claw activates).
+    - **Skip.** No door existed to give a window up, so with 30 s windows
+      every roll and challenge waited the whole clock. New `PassWindow
+      { windowId }` command: a pass is PER SEAT and the window settles once
+      every seat that could act on it has passed (a card landing clears the
+      passes). The End Turn slot shows the owner's **Skip Reaction** button
+      (`HUD.skipReaction`, 2172×724 like End Turn) whenever a Modifier /
+      Attack / Challenge window this seat could act on is open — for every
+      seat, the active player included, since a turn cannot end under an
+      open window. One window per press, oldest first; once this seat has
+      passed them all the button greys to "Waiting for the other players".
+      The challenge overlay has its own **Forfeit challenge** button.
+      `flags.passable` / `waitingOnPass` in `playable.ts`, mirroring the
+      server's eligibility rule. Skip is sent DIRECTLY, not through Board's
+      `run`, which declines the viewer's open optional question first — the
+      first cut did go through it, so Skip dismissed "roll on the hero you
+      just played?" and Buttons never pulled a card.
+    - **Tones, the owner's rule (2026-09-04): gold = can pick, green = can
+      play, pink = effect working.** Pink (`.passive-aura`) is every card
+      whose effect is working right now, at every seat: a live standing
+      effect (the seats' effect lists name their source) or a bonus source
+      of the open roll (the Charismatic Song on a hero roll, the Divine
+      Arrow on an attack, a Really Big Ring, a monster's counter) — heroes,
+      items, leaders and the monster row. Those bonus sources used to be
+      gold; gold is now only questions and picks. Red still wins over all,
+      then gold, then green, then pink. Enchanted Spell's +2 still shows
+      nothing: the instance pile is not drawn.
+    - **Own-card challenges.** The engine refuses `CannotChallengeOwnCard`
+      (the window's respondent is the defender) and the glow rule skips the
+      challenge card while the open window's respondent is the viewer.
+21. **Lobby, first human playtest (HTSR-7)**: the seat list is the server's
+    ready list and nothing else. `LobbyView` used to append the IDLE viewer
+    as an unready occupant, so every window showed its own account on a
+    bench and never the other idle accounts ("who is Player One?"). Now an
+    idle viewer sees four plus medallions and appears only after pressing
+    one, as item 19 says. The login form's "Player One" / "slaughter"
+    prefill (`AuthView`) is gone too — three windows registered under the
+    same default name by accident. The fake's `?autostart=1` still logs in
+    as Player One (fake only).
+
 Verified live in this order: register → lobby → three ready → Start →
 "Waiting for the table…" until the last seat's socket arrived → board
 from the real view (art for every card) → PlayHero with its challenge
@@ -263,12 +331,35 @@ another browser), all at `http://localhost:3002` — `localhost`, never
 `127.0.0.1`, or the cookie does not reach the game server. Register three
 usernames, Ready in each; the first to ready is the host and presses
 Start at 2–4 ready. The table starts when the LAST seat's socket arrives.
-Reaction windows lapse after 5 s. After `game-completed` every seat
+Reaction windows lapse after 5 s with the engine's default; the Docker
+table sets `REACTION_COUNTDOWN_MS=30000` on the game process (§2b). After `game-completed` every seat
 presses Leave to return to the lobby.
 
 Restarting the lobby process forgets every account and session (in-memory
 stores): re-register. Restarting the game process while a game runs
 strands the seats' assignments until the lobby is restarted too.
+
+### 2b. The same table in Docker (HTSR-7)
+
+One `docker compose up --build` from the repo root replaces the four
+commands above: the lobby (3000), the game server (3001) and the client
+(nginx on 3002) each run in a container, browsers still go to
+`http://localhost:3002`. Internal TCP (4000/4001) stays inside the compose
+network; the lobby dials `game`, the game dials `lobby` — the same env
+names the processes already read, set per container in `compose.yaml`.
+
+```
+docker compose up --build -d      # build once, start the three containers
+docker compose logs -f lobby game # watch the two processes
+docker compose down               # stop; in-memory accounts are gone
+```
+
+The client build bakes `REACT_APP_LOBBY_URL` (build arg, default
+`http://localhost:3000`); the game server announces
+`GAME_SERVER_PUBLIC_URL=http://localhost:3001`. `NODE_ENV` is left off
+`production` on purpose: the session cookie turns `secure` there and this
+table is plain http. Restarting a container is the same as restarting the
+process: accounts and sessions are forgotten.
 
 ## 3. Bot seats (solo testing)
 

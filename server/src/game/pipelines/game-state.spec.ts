@@ -1,3 +1,4 @@
+import { ItemCard } from '../cards/item-card'
 import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason } from 'shared'
 import { GameState } from './game-state'
 import { Player } from '../state-structures/player'
@@ -296,6 +297,81 @@ describe('GameState', () => {
 // depending on the shape it is handed in and on the wire format a submission
 // takes, and both are free to change while these three are not.
 // ---------------------------------------------------------------------------
+
+describe('GameState.getHeroClass — the class the board reads, mask included', () => {
+  const build = () => {
+    const gs = new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-1', ['hero-1']))
+    gs.registerCard(makeHeroCard('hero-1')) // printed a Wizard
+    gs.registerCard(
+      new ItemCard({
+        id: 'item-067',
+        name: 'Fighter Mask',
+        type: CardType.Item,
+        image: '',
+        description: '',
+        set: 'base',
+        cursed: false,
+        heroClass: HeroClass.Fighter,
+      }),
+    )
+    return gs
+  }
+
+  it('is the printed class bare, the mask\'s while one is worn, the printed one again once it is off', () => {
+    const gs = build()
+    expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Wizard)
+
+    gs.getParty('p1').equipItem('hero-1', 'item-067')
+    expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Fighter)
+    expect(gs.getPartyHeroClasses('p1')).toEqual([HeroClass.Fighter])
+
+    gs.getParty('p1').unequipItem('hero-1')
+    expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Wizard)
+  })
+
+  it('unequipItem takes the gear off through the board and hands it back', () => {
+    const gs = build()
+    gs.getParty('p1').equipItem('hero-1', 'item-067')
+
+    expect(gs.unequipItem('hero-1')).toBe('item-067')
+    expect(gs.getEquippedItem('hero-1')).toBeUndefined()
+    expect(gs.getParty('p1').getHeroIds()).toContain('hero-1')
+    expect(gs.unequipItem('hero-1')).toBeUndefined() // nothing left to take off
+  })
+
+  it('equipItem puts the gear on through the board; a hero in no party takes nothing', () => {
+    const gs = build()
+    gs.equipItem('hero-1', 'item-067')
+    expect(gs.getEquippedItem('hero-1')).toBe('item-067')
+    gs.equipItem('nobody', 'item-067')
+    expect(gs.getItemCarrier('item-067')).toBe('hero-1')
+  })
+
+  it('addToHand, removeFromHand, addToDiscardPile and pickFromDiscardPile reach the structures one to one', () => {
+    const gs = build()
+    gs.addToDiscardPile('item-067')
+    expect(gs.getDiscardPile().getAll()).toEqual(['item-067'])
+    expect(gs.pickFromDiscardPile('item-067')).toBe('item-067')
+    expect(gs.pickFromDiscardPile('item-067')).toBeNull() // not there any more
+
+    gs.addToHand('p1', 'item-067')
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['item-067'])
+    gs.removeFromHand('p1', 'item-067')
+    expect(gs.getPlayer('p1')!.getHand()).toEqual([])
+    expect(() => gs.addToHand('nobody', 'x')).toThrow(/not seated/)
+  })
+
+  it('is undefined for a card that is not a hero', () => {
+    expect(build().getHeroClass('item-067')).toBeUndefined()
+  })
+})
 
 describe('GameState — the open modifiable window', () => {
   const makeGs = () =>

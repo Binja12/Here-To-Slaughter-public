@@ -130,7 +130,7 @@ export function sweepExpired(
       .getAllEffects()
       .filter((effect) => isEffectExpired(gs, effect, event))
 
-    for (const effect of doomed) player.removeEffect(effect.id)
+    for (const effect of doomed) gs.removeEffect(player.getId(), effect.id)
     expired.push(...doomed)
   }
 

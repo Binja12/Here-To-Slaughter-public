@@ -125,6 +125,17 @@ export enum GameEventType {
    * the item installed expire on this; see `whileEquipped`.
    */
   ItemUnequipped = "ItemUnequipped",
+  /**
+   * A card came back from the table into a hand — out of the discard pile or
+   * off a hero's gear (`from`). RetrieveCardTask. A card taken out of another
+   * HAND is announced as CardPulled instead.
+   */
+  CardRetrieved = "CardRetrieved",
+  /**
+   * ForEachPlayerTask: one per seat a "each other player must …" card acts
+   * on. `label` names the card's continuation, `ctxSeed` carries the seat.
+   */
+  PlayerTargeted = "PlayerTargeted",
 
   // Game events
   GameStarted = "GameStarted",
@@ -301,6 +312,8 @@ export enum PassiveType {
    */
   ModifierCounterBonus = "ModifierCounterBonus",
   CantBeStolen = "CantBeStolen",
+  /** The owner's heroes stay put when a card would DESTROY them. Mighty Blade, Terratuga. */
+  CantBeDestroyed = "CantBeDestroyed",
   CantBeChallenged = "CantBeChallenged",
   /** The equipped hero's effect cannot be rolled for at all. Sealing Key. */
   CantUseHeroEffect = "CantUseHeroEffect",
@@ -355,6 +368,8 @@ export enum RefusalReason {
   // RollOnHero, RollOnLeader
   HeroNotInParty = "HeroNotInParty",
   NotYourLeader = "NotYourLeader",
+  /** The leader in the slot carries a passive; there is nothing to activate. */
+  LeaderNotActivatable = "LeaderNotActivatable",
   AbilityAlreadyUsed = "AbilityAlreadyUsed",
   HeroEffectSealed = "HeroEffectSealed",
   // PlayItem — the halves of `canEquip`
@@ -370,6 +385,8 @@ export enum RefusalReason {
   NoChallengeWindow = "NoChallengeWindow",
   ChallengeAlreadyStarted = "ChallengeAlreadyStarted",
   ChallengeNotStarted = "ChallengeNotStarted",
+  /** The defender reaching for a challenge card against their own play. */
+  CannotChallengeOwnCard = "CannotChallengeOwnCard",
   // ApplyModifier — no window, or the open window's own answer
   NoModifiableWindow = "NoModifiableWindow",
   /** Aimed at somebody who is not the one rolling. */
@@ -382,6 +399,8 @@ export enum RefusalReason {
   ValueNotOnCard = "ValueNotOnCard",
   // SubmitChoice — the windows
   NoSuchWindow = "NoSuchWindow",
+  /** PassWindow on a choice: one player's question is answered, never passed. */
+  WindowNotPassable = "WindowNotPassable",
   WrongRespondent = "WrongRespondent",
   NotAnOption = "NotAnOption",
   // LeaveGame — the game server's own guard, not an engine one: a seat may

@@ -1,5 +1,5 @@
-import { Audience, GameEventType, IGameEvent } from 'shared'
-import { DiscardTask, PullCardTask } from './tasks'
+import { Audience, GameEventType, IGameEvent, HeroClass, Owner, CardType } from 'shared'
+import { DiscardTask, PullCardTask, ForEachPlayerTask } from './tasks'
 import { DrawTask } from './draw-task'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
@@ -15,6 +15,8 @@ import {
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
+import { HeroCard } from '../cards/hero-card'
+import { ItemCard } from '../cards/item-card'
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -176,6 +178,22 @@ describe('DiscardTask', () => {
     expect(emitted[0].getType()).toBe(GameEventType.CardDiscarded)
     expect(emitted[0].getAudience()).toBe(Audience.All)
     expect((emitted[0].getPayload() as any).cardId).toBe('card-1')
+  })
+
+  it("discards from the ACTOR's hand when a player slot is named — 'that player must DISCARD'", () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['mine']))
+    gs.registerPlayer(makePlayer('p2', ['theirs']))
+    const { emitter } = makeEmitter()
+    const ctx = makeCtx()
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+    ctx.set(CTX_CHOSEN_CARD, ['theirs'])
+
+    new DiscardTask({ executor: 'chosen' }).execute(gs, ctx, emitter, stubRm)
+
+    expect(gs.getPlayer('p2')!.getHand()).toEqual([])
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine'])
+    expect(gs.getDiscardPile().getAll()).toContain('theirs')
   })
 
   it('reads whichever slot it was declared with', () => {
@@ -353,5 +371,96 @@ describe('PullCardTask', () => {
 
     expect(ctx.get(CTX_PULLED_CARD_IDS)).toEqual([])
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['own'])
+  })
+})
+
+// --- ForEachPlayerTask helpers: seats with typed heroes, and the announcements ---
+const seatWithHeroes = (gs: GameState, id: string, heroes: { id: string; cls: HeroClass }[] = []) => {
+  gs.registerPlayer(new Player({ id, name: id, hand: [], partyId: `${id}-party`, actionPoints: 3 }))
+  gs.registerParty(
+    new Party({ playerId: id, leaderId: `${id}-leader`, heroIds: heroes.map((h) => h.id), monsterIds: [] }),
+  )
+  for (const hero of heroes) {
+    gs.registerCard(
+      new HeroCard({
+        id: hero.id,
+        name: hero.id,
+        type: CardType.Hero,
+        image: '',
+        description: '',
+        set: 'base',
+        heroClass: hero.cls,
+        rollReq: 5,
+      }),
+    )
+  }
+}
+
+const targeted = (emitted: IGameEvent[]) =>
+  emitted
+    .filter((e) => e.getType() === GameEventType.PlayerTargeted)
+    .map((e) => e.getPayload() as { cardId: string; label: string; ctxSeed: Record<string, unknown> })
+
+const collectFrom = () => {
+  const em = new GameEventEmitter()
+  const emitted: IGameEvent[] = []
+  em.addListener({ onEvent: (e) => emitted.push(e) })
+  return { em, emitted }
+}
+describe('ForEachPlayerTask', () => {
+  it('announces one PlayerTargeted per other seat, carrying that seat and the label', () => {
+    const gs = makeGs()
+    seatWithHeroes(gs, 'p1')
+    seatWithHeroes(gs, 'p2')
+    seatWithHeroes(gs, 'p3')
+    const { em, emitted } = collectFrom()
+
+    new ForEachPlayerTask({ owner: Owner.Others }, 'Pay').execute(
+      gs,
+      new AbilityContext('hero-035', 'p1'),
+      em,
+      stubRm,
+    )
+
+    const hits = targeted(emitted)
+    expect(hits).toHaveLength(2)
+    for (const hit of hits) {
+      expect(hit.cardId).toBe('hero-035') // SelfCard matches the acting card
+      expect(hit.label).toBe('Pay')
+    }
+    // Reverse order, so the runs they start (a stack) resolve in seat order.
+    expect(hits.map((h) => h.ctxSeed[CTX_CHOSEN_PLAYER])).toEqual([['p3'], ['p2']])
+  })
+
+  it('honours the player filter — only seats with a Fighter standing', () => {
+    const gs = makeGs()
+    seatWithHeroes(gs, 'p1')
+    seatWithHeroes(gs, 'p2', [{ id: 'f', cls: HeroClass.Fighter }])
+    seatWithHeroes(gs, 'p3', [{ id: 'w', cls: HeroClass.Wizard }])
+    const { em, emitted } = collectFrom()
+
+    new ForEachPlayerTask({ owner: Owner.Others, hasClass: HeroClass.Fighter }, 'Pay').execute(
+      gs,
+      new AbilityContext('hero-006', 'p1'),
+      em,
+      stubRm,
+    )
+
+    expect(targeted(emitted).map((h) => h.ctxSeed[CTX_CHOSEN_PLAYER])).toEqual([['p2']])
+  })
+
+  it('announces nothing when no seat qualifies', () => {
+    const gs = makeGs()
+    seatWithHeroes(gs, 'p1')
+    const { em, emitted } = collectFrom()
+
+    new ForEachPlayerTask({ owner: Owner.Others }, 'Pay').execute(
+      gs,
+      new AbilityContext('hero-035', 'p1'),
+      em,
+      stubRm,
+    )
+
+    expect(emitted).toEqual([])
   })
 })

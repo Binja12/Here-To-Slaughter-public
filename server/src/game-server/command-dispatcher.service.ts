@@ -176,6 +176,8 @@ export class CommandDispatcherService {
           playerId,
           command.payload.choice,
         )
+      case 'PassWindow':
+        return reactionManager.pass(command.payload.windowId, playerId)
     }
     // Exhaustive: a command added to the schema without a door here is a
     // compile error, not a request that vanishes.

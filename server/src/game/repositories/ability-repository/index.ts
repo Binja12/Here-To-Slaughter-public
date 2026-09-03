@@ -1,3 +1,4 @@
+import { CardBase, GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ChallengeAbility } from './challenge-ability'
 import { CharismaticSongAbility } from './charismatic-song-ability'
@@ -24,6 +25,24 @@ import { SuspiciouslyShinyCoinAbility } from './suspiciously-shiny-coin-ability'
 import { SnowballAbility } from './snowball-ability'
 import { WigglesAbility } from './wiggles-ability'
 import { WiseShieldAbility } from './wise-shield-ability'
+import { MightyBladeAbility } from './mighty-blade-ability'
+import { TerratugaAbility } from './terratuga-ability'
+import { MaskAbility } from './mask-ability'
+import { LookieRookieAbility } from './lookie-rookie-ability'
+import { GuidingLightAbility } from './guiding-light-ability'
+import { RadiantHornAbility } from './radiant-horn-ability'
+import { BunBunAbility } from './bun-bun-ability'
+import { CallToTheFallenAbility } from './call-to-the-fallen-ability'
+import { HolyCurselifterAbility } from './holy-curselifter-ability'
+import { WindsOfChangeAbility } from './winds-of-change-ability'
+import { ForcefulWindsAbility } from './forceful-winds-ability'
+import { HeavyBearAbility } from './heavy-bear-ability'
+import { HopperAbility } from './hopper-ability'
+import { ToughTeddyAbility } from './tough-teddy-ability'
+import { SpookyAbility } from './spooky-ability'
+import { GreedyCheeksAbility } from './greedy-cheeks-ability'
+import { SmoothMimimeowAbility } from './smooth-mimimeow-ability'
+import { SilentShadowAbility } from './silent-shadow-ability'
 import { BadAxeAbility } from './bad-axe-ability'
 import { PanChucksAbility } from './pan-chucks-ability'
 import { SeriousGreyAbility } from './serious-grey-ability'
@@ -103,15 +122,28 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['hero-017', KitNapperAbility], // Kit Napper — STEAL a Hero
   ['hero-018', SlyPickingsAbility], // Sly Pickings — pull; Item may be played
   ['hero-019', MeowzioAbility], // Meowzio — STEAL and pull from one player
+  ['hero-004', HeavyBearAbility], // Heavy Bear — a chosen player DISCARDS 2
+  ['hero-006', ToughTeddyAbility], // Tough Teddy — each other player with a Fighter DISCARDS
+  ['hero-011', LookieRookieAbility], // Lookie Rookie — an Item card from the discard pile
+  ['hero-021', SilentShadowAbility], // Silent Shadow — look at a hand, take a card
+  ['hero-024', SmoothMimimeowAbility], // Smooth Mimimeow — pull from each other player with a Thief
+  ['hero-025', GuidingLightAbility], // Guiding Light — a Hero card from the discard pile
+  ['hero-026', HolyCurselifterAbility], // Holy Curselifter — a cursed item off your hero, to hand
+  ['hero-027', RadiantHornAbility], // Radiant Horn — a Modifier card from the discard pile
   ['hero-028', WiseShieldAbility], // Wise Shield — +3 to your rolls until end of turn
+  ['hero-031', MightyBladeAbility], // Mighty Blade — your heroes cannot be destroyed until your next turn
+  ['hero-033', HopperAbility], // Hopper — a chosen player SACRIFICES a hero
+  ['hero-035', SpookyAbility], // Spooky — each other player SACRIFICES a hero
   ['hero-029', VibrantGlowAbility], // Vibrant Glow — +5 to your rolls this turn
   ['hero-030', IronResolveAbility], // Iron Resolve — your plays cannot be challenged
   ['hero-032', CalmingVoiceAbility], // Calming Voice — your Heroes cannot be stolen
   ['hero-034', ButtonsAbility], // Buttons — pull; Magic may be played
   ['hero-036', WigglesAbility], // Wiggles — STEAL a Hero, then may roll on it
+  ['hero-039', BunBunAbility], // Bun Bun — a Magic card from the discard pile
   ['hero-037', WhiskersAbility], // Whiskers — STEAL, then DESTROY
   ['hero-038', FluffyAbility], // Fluffy — DESTROY 2 Heroes
   ['hero-040', SnowballAbility], // Snowball — DRAW; if Magic, may play it and DRAW
+  ['hero-047', GreedyCheeksAbility], // Greedy Cheeks — each other player hands you a card
   ['hero-041', MellowDeeAbility], // Mellow Dee — DRAW; Hero may be played
   ['hero-042', LuckyBuckyAbility], // Lucky Bucky — pull; Hero may be played
   ['hero-043', FuzzyCheeksAbility], // Fuzzy Cheeks — DRAW, then play a Hero
@@ -128,6 +160,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['monster-126', DracosAbility], // Dracos — may DRAW when your Hero is destroyed
   ['monster-128', ArcticAriesAbility], // Arctic Aries — may DRAW after a successful roll
   ['monster-129', AbyssQueenAbility], // Abyss Queen — +1 answering a hostile Modifier
+  ['monster-130', TerratugaAbility], // Terratuga — your heroes cannot be destroyed
   ['monster-131', OrthusAbility], // Orthus — DRAW a Magic card, may play it at once
   ['monster-132', RexMajorAbility], // Rex Major — drawn Modifier may DRAW again
   ['monster-133', DarkDragonKingAbility], // Dark Dragon King — +1 to Hero-effect rolls
@@ -144,6 +177,13 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['item-064', ReallyBigRingAbility], // Really Big Ring — +2 to the carrier's rolls
   ['item-065', ReallyBigRingAbility],
   // Cursed: played onto an opponent's hero, and it taxes THEIR roll.
+  // The six masks: no rules — the class they grant is data, read by the board.
+  ['item-067', MaskAbility], // Fighter Mask
+  ['item-068', MaskAbility], // Ranger Mask
+  ['item-069', MaskAbility], // Thief Mask
+  ['item-070', MaskAbility], // Guardian Mask
+  ['item-071', MaskAbility], // Wizard Mask
+  ['item-072', MaskAbility], // Bard Mask
   ['item-073', SuspiciouslyShinyCoinAbility], // Suspiciously Shiny Coin — DISCARD on a successful roll
   ['item-074', CurseOfTheSnakesEyesAbility], // Curse of the Snake's Eyes — -2 to the carrier's rolls
   ['item-075', CurseOfTheSnakesEyesAbility],
@@ -161,6 +201,10 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to all your rolls this turn
   ['magic-056', EnchantedSpellAbility],
   ['magic-057', ForcedExchangeAbility], // Forced Exchange — choose a player, STEAL from them
+  ['magic-058', WindsOfChangeAbility], // Winds of Change — a worn item goes home, then DRAW
+  ['magic-059', WindsOfChangeAbility],
+  ['magic-060', ForcefulWindsAbility], // Forceful Winds — every worn item goes home
+  ['magic-061', CallToTheFallenAbility], // Call to the Fallen — a Hero card from the discard pile
 
   // =========================================================================
   // MODIFIERS — modifier-077 … modifier-101
@@ -236,3 +280,26 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['leader-120', CloakedSageAbility], // The Cloaked Sage — DRAW on each Magic card you play
   ['leader-121', ProtectingHornAbility], // The Protecting Horn — +1 or -1 on each Modifier you play
 ])
+
+/**
+ * Whether a card's printed ability fires on the card's OWN RollSuccess — the
+ * event RollOnLeaderAction announces. That is what makes a leader ACTIVATED:
+ * the Shadow Claw has such an entry, the five passives have nothing to fire,
+ * so activating them would only spend the point. The action and the view
+ * both read this, so the guard and the glow cannot disagree.
+ */
+export const firesOnOwnRoll = (cardId: string): boolean =>
+  (abilityRegistry.get(cardId) ?? []).some(
+    (rule) =>
+      rule.trigger.on === GameEventType.RollSuccess &&
+      rule.trigger.scope === TriggerScope.SelfCard,
+  )
+
+/**
+ * Whether a printed card may be DEALT — TEMPORARY pool for the playtest
+ * (the owner, 2026-09-04: "a temp registry with only cards that are
+ * implemented"): exactly the cards with an entry here, every type alike.
+ * Today that is all modifiers, challenges and leaders, 8 items, 7 magics,
+ * 5 monsters and 3 heroes; the deck grows as entries are written.
+ */
+export const dealable = (card: CardBase): boolean => abilityRegistry.has(card.id)

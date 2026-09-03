@@ -45,10 +45,13 @@ const seatLabel = (seat: string) =>
 export default function ChallengeWindow({
   hidden = false,
   onHide,
+  onForfeit,
 }: {
   /** put away by the player to look at the table (Board's Challenge button brings it back) */
   hidden?: boolean;
   onHide?: () => void;
+  /** settle the contest now instead of waiting the countdown out (PassWindow) */
+  onForfeit?: () => void;
 }) {
   const { active } = useChallenge();
   if (!active || hidden) return null;
@@ -71,6 +74,20 @@ export default function ChallengeWindow({
 
       <RollPanel role="challenged" side={active.challenged} />
       <RollPanel role="challenger" side={active.challenger} />
+
+      {onForfeit && (
+        <button
+          type="button"
+          title="Settle the challenge now"
+          onClick={(e) => {
+            e.stopPropagation();
+            onForfeit();
+          }}
+          className="pointer-events-auto absolute bottom-[5cqh] left-1/2 -translate-x-1/2 rounded-[0.45cqw] border-[0.12cqw] border-amber-300/70 bg-gradient-to-b from-red-800 to-red-950 px-[1.4cqw] py-[0.45cqw] font-heading text-[0.9cqw] uppercase tracking-wide text-amber-100 shadow-[0_0.25cqw_0.6cqw_rgba(0,0,0,0.65)] transition hover:brightness-125"
+        >
+          Forfeit challenge
+        </button>
+      )}
     </div>
   );
 }

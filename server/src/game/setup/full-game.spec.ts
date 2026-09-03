@@ -1,4 +1,4 @@
-import { GameEventType, PlayerView, ReactionWindowType } from 'shared'
+import { GameEventType, PlayerView, ReactionWindowType, RefusalReason } from 'shared'
 import { CONFIRM } from '../reactions/task-choice-window'
 import { PlayChallengeReaction } from '../reactions/play-challenge-reaction'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
@@ -257,13 +257,18 @@ describe('a full game', () => {
     between(t)
 
     // ----- Turn 2: Bob -----------------------------------------------------
+    // Bob's leader is the Cloaked Sage, a passive: nothing to activate. The
+    // view never offers it and the engine refuses it, and the point stays.
     const leaderId = partyOf(see(t, BOB), BOB).leader.id
-    rollOnLeader(t, BOB, leaderId)
+    expect(partyOf(see(t, BOB), BOB).canRollOnLeader).toBe(false)
+    expect(rollOnLeader(t, BOB, leaderId)).toEqual({
+      accepted: false,
+      reason: RefusalReason.LeaderNotActivatable,
+    })
     await settle(t)
 
-    expect(partyOf(see(t, BOB), BOB).canRollOnLeader).toBe(false)
-    expect(payloads(t, GameEventType.RollSuccess).map((p) => p['cardId'])).toContain(leaderId)
-    expect(seatOf(see(t, BOB), BOB).actionPoints).toBe(2)
+    expect(payloads(t, GameEventType.RollSuccess).map((p) => p['cardId'])).not.toContain(leaderId)
+    expect(seatOf(see(t, BOB), BOB).actionPoints).toBe(3)
 
     pass(t, BOB)
     await settle(t)

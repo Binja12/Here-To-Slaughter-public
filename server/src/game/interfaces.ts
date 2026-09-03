@@ -194,6 +194,20 @@ export type ValueBias = 'highest' | 'lowest'
  * A window a modifier card can be spent into. PlayModifierReaction probes for
  * this method rather than testing instanceof.
  */
+/**
+ * A table window the seats may give up. A pass is PER SEAT: the window
+ * settles once every seat that could still act on it has passed (the
+ * ReactionManager decides who that is), and a card landing in it clears the
+ * passes — the roll changed under them, everyone gets another look.
+ */
+export interface IPassableWindow extends IReactionWindow {
+  pass(playerId: string): void
+  passedBy(): readonly string[]
+}
+
+export const isPassable = (window: IReactionWindow): window is IPassableWindow =>
+  typeof (window as Partial<IPassableWindow>).pass === 'function'
+
 export interface IModifiableWindow extends IReactionWindow {
   /** Whether a modifier aimed at `playerId` belongs in this window, and if not, why. */
   acceptsModifierFor(playerId: string): RequestResult

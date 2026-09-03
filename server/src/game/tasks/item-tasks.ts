@@ -66,12 +66,12 @@ export abstract class PlayItem {
       )
     }
 
-    player.removeFromHand(itemId)
+    gs.removeFromHand(playerId, itemId)
     em.emit(GameEventFactory.cardRemovedFromHand(playerId, itemId))
 
     const frameId = rm.openFrame()
 
-    gs.getParty(heroOwnerId).equipItem(heroId, itemId)
+    gs.equipItem(heroId, itemId)
     em.emit(GameEventFactory.itemEquipedToHero(playerId, itemId, heroId))
 
     // Last: this window suspends the drain.
@@ -167,5 +167,131 @@ export class PlayItemTask extends PlayItem implements ITask {
       )
     }
     return value
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RetrieveCardTask — a card from the table back into a hand
+//
+// Where the card IS decides how it comes off, and the task finds out for
+// itself rather than being told:
+//   - the discard pile: "search the discard pile for X and add it to your hand"
+//     (Lookie Rookie, Guiding Light, Radiant Horn, Bun Bun, Call to the Fallen);
+//   - a hero's gear: "return an Item card equipped to a Hero to a hand" (Holy
+//     Curselifter, Winds of Change) — the hero stays, the item comes off through
+//     Party.unequipItem and announces ItemUnequipped, so an effect the item
+//     granted expires the way `untilUnequipped` expects;
+//   - another player's hand: "look at a hand, choose a card and add it to
+//     yours" (Silent Shadow) — a CHOSEN card, which is the whole difference from
+//     PullCardTask's blind draw, so it is announced as CardPulled all the same:
+//     a card left one hand for another.
+//
+// Whose hand it lands in: the ability owner's, unless the declaration says
+// `to: 'cardOwner'` — Winds of Change returns the item "to that player's hand",
+// the player whose hero wore it. A card that is nowhere the task knows of
+// (already in the recipient's hand, in a party as a hero) is left alone.
+// ---------------------------------------------------------------------------
+
+export type RetrieveTo = 'owner' | 'cardOwner'
+
+export class RetrieveCardTask implements ITask {
+  constructor(
+    /** Slot holding the card. Defaults to the choice slot. */
+    private readonly fromKey: string = CTX_CHOSEN_CARD,
+    /** Whose hand receives it. */
+    private readonly to: RetrieveTo = 'owner',
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const cards = ctx.get<string[]>(this.fromKey)
+    if (cards === undefined) {
+      throw new Error(
+        `RetrieveCardTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a card.',
+      )
+    }
+    const [cardId] = cards
+    if (!cardId) return
+    retrieve(gs, cardId, ctx.ownerId, this.to, em)
+  }
+}
+
+/**
+ * The move itself, shared with ReturnAllItemsTask. Returns whether anything
+ * moved.
+ */
+export function retrieve(
+  gs: GameState,
+  cardId: string,
+  abilityOwnerId: string,
+  to: RetrieveTo,
+  em: IGameEventEmitter,
+): boolean {
+  // From the discard pile.
+  if (gs.getDiscardPile().getAll().includes(cardId)) {
+    if (!gs.getPlayer(abilityOwnerId)) return false
+    gs.pickFromDiscardPile(cardId)
+    gs.addToHand(abilityOwnerId, cardId)
+    em.emit(GameEventFactory.cardRetrieved(abilityOwnerId, cardId, 'Discard'))
+    return true
+  }
+
+  // Off a hero's gear.
+  const carrierId = gs.getItemCarrier(cardId)
+  if (carrierId) {
+    const carrierOwnerId = gs.getCardOwner(carrierId)
+    if (!carrierOwnerId) return false
+    const recipientId = to === 'cardOwner' ? carrierOwnerId : abilityOwnerId
+    if (!gs.getPlayer(recipientId)) return false
+    gs.unequipItem(carrierId)
+    em.emit(GameEventFactory.itemUnequipped(carrierOwnerId, cardId, carrierId))
+    gs.addToHand(recipientId, cardId)
+    em.emit(GameEventFactory.cardRetrieved(recipientId, cardId, 'Equipment'))
+    return true
+  }
+
+  // Out of another player's hand — a chosen card, announced like a pull.
+  const holderId = gs
+    .getPlayers()
+    .find((player) => player.getHand().includes(cardId))
+    ?.getId()
+  if (holderId && holderId !== abilityOwnerId) {
+    if (!gs.getPlayer(abilityOwnerId)) return false
+    gs.removeFromHand(holderId, cardId)
+    gs.addToHand(abilityOwnerId, cardId)
+    em.emit(GameEventFactory.cardPulled(abilityOwnerId, holderId, cardId))
+    return true
+  }
+
+  return false
+}
+
+// ---------------------------------------------------------------------------
+// ReturnAllItemsTask — every equipped item, back to its own player's hand
+//
+// Forceful Winds: no choice, no slot — the whole table's gear comes off at
+// once, each item to the hand of the player whose hero wore it. One
+// ItemUnequipped per item, so every granted effect expires as it would for a
+// single return.
+// ---------------------------------------------------------------------------
+
+export class ReturnAllItemsTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const worn = gs
+      .getPlayers()
+      .flatMap((player) => gs.getParty(player.getId()).getHeroIds())
+      .map((heroId) => gs.getEquippedItem(heroId))
+      .filter((itemId): itemId is string => !!itemId)
+    for (const itemId of worn) retrieve(gs, itemId, ctx.ownerId, 'cardOwner', em)
   }
 }

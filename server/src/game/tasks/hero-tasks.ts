@@ -9,6 +9,7 @@ import {
   CTX_STOLEN_HERO_ID,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
+import { Executor, executorOf } from './tasks'
 
 // ---------------------------------------------------------------------------
 // Hero tasks — steps that move a hero already on the table. The mechanics both
@@ -55,13 +56,15 @@ export class DestroyTask implements ITask {
     const ownerId = gs.getCardOwner(heroId)
     if (!ownerId) return
 
-    const party = gs.getParty(ownerId)
-    if (!party.getHeroIds().includes(heroId)) return
+    if (!gs.getParty(ownerId).getHeroIds().includes(heroId)) return
+    // Mighty Blade / Terratuga: the hero stays, silently — the pick was legal
+    // and simply had no bite. Sacrifice is another reason and is not shielded.
+    if (!gs.canBeDestroyed(heroId)) return
 
-    const carriedItemId = party.removeHero(heroId, em, 'Destroyed')
-    gs.getDiscardPile().add(heroId)
+    const carriedItemId = gs.removeHero(ownerId, heroId, em, 'Destroyed')
+    gs.addToDiscardPile(heroId)
     // The gear goes down with its carrier rather than vanishing from every zone.
-    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
+    if (carriedItemId) gs.addToDiscardPile(carriedItemId)
     em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
   }
 }
@@ -106,11 +109,10 @@ export class GiveHeroTask implements ITask {
     if (toPlayerId === ctx.ownerId) return
     if (!gs.getPlayer(toPlayerId)) return
 
-    const fromParty = gs.getParty(ctx.ownerId)
-    if (!fromParty.getHeroIds().includes(heroId)) return
+    if (!gs.getParty(ctx.ownerId).getHeroIds().includes(heroId)) return
 
-    const carriedItemId = fromParty.removeHero(heroId, em, 'Given')
-    gs.getParty(toPlayerId).addHero(heroId, em, 'Given', carriedItemId)
+    const carriedItemId = gs.removeHero(ctx.ownerId, heroId, em, 'Given')
+    gs.addHero(toPlayerId, heroId, em, 'Given', carriedItemId)
   }
 
   /** Absent = no step ahead was declared to fill this slot. */
@@ -139,8 +141,20 @@ export class GiveHeroTask implements ITask {
 // ---------------------------------------------------------------------------
 
 export class SacrificeTask implements ITask {
-  /** Slot holding the hero to give up. Defaults to the choice slot. */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+  private readonly fromKey: string
+  private readonly executor: Executor
+
+  /**
+   * `fromKey`: the slot holding the hero to give up, the choice slot by
+   * default. `executor`: who runs this step, and so whose party — the owner, or `'chosen'` for
+   * "that player must SACRIFICE", the seat a ChoosePlayerTask or a per-seat
+   * run put in CTX_CHOSEN_PLAYER (the mirror of a choice's `respondent`).
+   */
+  constructor(options: string | { fromKey?: string; executor?: Executor } = {}) {
+    const opts = typeof options === 'string' ? { fromKey: options } : options
+    this.fromKey = opts.fromKey ?? CTX_CHOSEN_CARD
+    this.executor = opts.executor ?? 'owner'
+  }
 
   execute(
     gs: GameState,
@@ -162,14 +176,15 @@ export class SacrificeTask implements ITask {
     const [heroId] = heroes
     if (!heroId) return
 
-    const party = gs.getParty(ctx.ownerId)
-    if (!party.getHeroIds().includes(heroId)) return
+    const executorId = executorOf(ctx, this.executor)
+    if (!executorId) return
+    if (!gs.getParty(executorId).getHeroIds().includes(heroId)) return
 
-    const carriedItemId = party.removeHero(heroId, em, 'Sacrificed')
-    gs.getDiscardPile().add(heroId)
+    const carriedItemId = gs.removeHero(executorId, heroId, em, 'Sacrificed')
+    gs.addToDiscardPile(heroId)
     // The gear goes down with its carrier rather than vanishing from every zone.
-    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
-    em.emit(GameEventFactory.heroSacrificed(ctx.ownerId, heroId))
+    if (carriedItemId) gs.addToDiscardPile(carriedItemId)
+    em.emit(GameEventFactory.heroSacrificed(executorId, heroId))
   }
 }
 
@@ -214,13 +229,12 @@ export class StealFromPartyTask implements ITask {
     // the protection may have been installed in between.
     if (gs.hasEffect(PassiveType.CantBeStolen, fromPlayerId)) return
 
-    const fromParty = gs.getParty(fromPlayerId)
-    if (!fromParty.getHeroIds().includes(heroId)) return
+    if (!gs.getParty(fromPlayerId).getHeroIds().includes(heroId)) return
 
     // Both halves announce themselves, so expiries keyed to either see it.
     // The hero brings its gear along.
-    const carriedItemId = fromParty.removeHero(heroId, em, 'Stolen')
-    gs.getParty(ctx.ownerId).addHero(heroId, em, 'Stolen', carriedItemId)
+    const carriedItemId = gs.removeHero(fromPlayerId, heroId, em, 'Stolen')
+    gs.addHero(ctx.ownerId, heroId, em, 'Stolen', carriedItemId)
     // Recorded so later steps can still reach this hero after a second card
     // choice has overwritten CTX_CHOSEN_CARD.
     ctx.set(CTX_STOLEN_HERO_ID, [heroId])

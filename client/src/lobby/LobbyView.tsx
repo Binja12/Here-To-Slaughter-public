@@ -214,22 +214,20 @@ export default function LobbyView({ lobby }: { lobby: LobbyApi }) {
   const startArt = LOBBY_ART.startFlat
   const readyCount = snapshot?.readyPlayers.length ?? 0
   const canStart = readyCount >= 2 && readyCount <= 4
+  // Seats show the server's ready list and nothing else: an IDLE viewer has
+  // no seat until they press a plus (run book §1 item 19). Drawing the idle
+  // viewer on a bench made every window look occupied by its own account.
   const occupants: Occupant[] = snapshot
-    ? [
-        ...snapshot.readyPlayers.map((player) => ({
+    ? snapshot.readyPlayers
+        .map((player) => ({
           ...player,
           isHost:
             player.accountId === snapshot.readyPlayers[0]?.accountId ||
             (player.accountId === snapshot.self.accountId && snapshot.self.isHost),
           isLocal: player.accountId === snapshot.self.accountId,
           ready: true,
-        })),
-        ...(snapshot.readyPlayers.some(
-          (player) => player.accountId === snapshot.self.accountId,
-        )
-          ? []
-          : [{ ...snapshot.self, isLocal: true, ready: false }]),
-      ].slice(0, 4)
+        }))
+        .slice(0, 4)
     : []
 
   return (
