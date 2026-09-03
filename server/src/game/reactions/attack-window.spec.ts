@@ -1,12 +1,4 @@
-import {
-  GameEventType,
-  IGameEvent,
-  PassiveType,
-  ReactionWindowType,
-  RollCompareMode,
-  RollContext,
-  CardType,
-} from 'shared'
+import { CardType, GameEventType, IGameEvent, PassiveType, ReactionWindowType, RefusalReason, RollCompareMode, RollContext } from 'shared'
 import { AttackWindow } from './attack-window'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -203,8 +195,11 @@ describe('AttackWindow', () => {
   describe('as a window a modifier can be spent into', () => {
     it('accepts a modifier for the roller and refuses one for anybody else', () => {
       const win = makeWindow({ gs, em })
-      expect(win.acceptsModifierFor('p1')).toBe(true)
-      expect(win.acceptsModifierFor('p2')).toBe(false)
+      expect(win.acceptsModifierFor('p1')).toEqual({ accepted: true })
+      expect(win.acceptsModifierFor('p2')).toEqual({
+        accepted: false,
+        reason: RefusalReason.TargetNotRolling,
+      })
     })
 
     it('a bonus spent into it moves the outcome from a miss to a slay', () => {

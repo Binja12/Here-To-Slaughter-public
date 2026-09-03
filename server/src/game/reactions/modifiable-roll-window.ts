@@ -4,9 +4,17 @@ import {
   IGameEventEmitter,
   PassiveType,
   ReactionWindowType,
+  RefusalReason,
+  RequestResult,
   RollContext,
 } from 'shared'
-import { IModifiableWindow, RollBonus, ValueBias } from '../interfaces'
+import {
+  accepted,
+  IModifiableWindow,
+  refused,
+  RollBonus,
+  ValueBias,
+} from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 import { GameEvent } from '../events/game-event'
@@ -124,8 +132,11 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
   abstract getType(): ReactionWindowType
 
   /** One roll here, so only the roller. Asked by PlayModifierReaction. */
-  acceptsModifierFor(playerId: string): boolean {
-    return playerId === this.rollerId
+  acceptsModifierFor(playerId: string): RequestResult {
+    if (playerId !== this.rollerId) {
+      return refused(RefusalReason.TargetNotRolling)
+    }
+    return accepted()
   }
 
   /** The roll waits for a card already committed to it. */
@@ -157,13 +168,16 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
    * challenges, which have two rolls; here only the roller is valid, and
    * anything else is refused rather than thrown (player input off a socket).
    */
-  submitReaction(playerId: string, payload: unknown): void {
+  submitReaction(playerId: string, payload: unknown): RequestResult {
     const { value, cardId, targetPlayerId } = payload as {
       value: number
       cardId: string
       targetPlayerId?: string
     }
-    if (targetPlayerId !== undefined && targetPlayerId !== this.rollerId) return
+    if (targetPlayerId !== undefined) {
+      const aimed = this.acceptsModifierFor(targetPlayerId)
+      if (!aimed.accepted) return aimed
+    }
     this.bonuses.push({ cardSource: cardId, amount: value })
     // What the roller gets back for being modified by somebody else — the
     // Abyss Queen. Pushed BEFORE the announcement, so the finalRoll the table
@@ -178,6 +192,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow {
       ),
     )
     this.resetTimer()
+    return accepted()
   }
 
   getFinalRoll(): number {

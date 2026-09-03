@@ -1,10 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  IGameEvent,
-  ReactionType,
-  ReactionWindowType,
-} from 'shared'
+import { CardType, GameEventType, IGameEvent, ReactionType, ReactionWindowType, RefusalReason } from 'shared'
 import { PlayModifierReaction } from './play-modifier-reaction'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -17,7 +11,7 @@ import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import { ModifierCard } from '../cards/modifier-card'
-import { IModifiableWindow, IReactionWindow } from '../interfaces'
+import { accepted, IModifiableWindow, IReactionWindow, refused } from '../interfaces'
 import { ModifierWindow } from './modifier-window'
 
 // ---------------------------------------------------------------------------
@@ -87,7 +81,8 @@ const makeStubWindow = (
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => 0,
-  acceptsModifierFor: (playerId: string) => playerId === rollerId,
+  acceptsModifierFor: (playerId: string) =>
+    playerId === rollerId ? accepted() : refused(RefusalReason.TargetNotRolling),
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,
 })
@@ -126,16 +121,12 @@ describe('PlayModifierReaction — target must be the roller', () => {
 
   it('canExecute is true when the target IS the roller', () => {
     openRealWindow('p1')
-    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p1').canExecute(gs)).toBe(
-      true,
-    )
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p1').canExecute(gs)).toEqual({ accepted: true })
   })
 
   it('canExecute is false when the target is not the roller', () => {
     openRealWindow('p1')
-    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p2').canExecute(gs)).toBe(
-      false,
-    )
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p2').canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.TargetNotRolling })
   })
 
   it('a refused modifier is NOT burned — execute() spends before anything lands', () => {
@@ -174,18 +165,18 @@ describe('PlayModifierReaction', () => {
   })
 
   it('canExecute returns false when no modifier frame is open', () => {
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoModifiableWindow })
   })
 
   it('canExecute returns false when card not in player hand', () => {
     gs.getPlayer('p1')!.removeFromHand(MOD)
     openFrame(gs, makeStubWindow())
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.CardNotInHand })
   })
 
   it('canExecute returns true when frame is open and card is in hand', () => {
     openFrame(gs, makeStubWindow())
-    expect(makeReaction().canExecute(gs)).toBe(true)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: true })
   })
 
   describe('execute', () => {

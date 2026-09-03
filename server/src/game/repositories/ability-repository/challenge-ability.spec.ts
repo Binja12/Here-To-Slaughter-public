@@ -1,9 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-} from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, RefusalReason } from 'shared'
 import { ChallengeAbility } from './challenge-ability'
 import { abilityRegistry } from './index'
 import { GameState } from '../../pipelines/game-state'
@@ -259,7 +254,7 @@ describe('ChallengeAbility', () => {
     expect(ctx.gs.getCardsChallengedThisTurn()).toContain(HERO)
     expect(
       new PlayChallengeReaction('r2', 'p2', CHAL, HERO).canExecute(ctx.gs),
-    ).toBe(false)
+    ).toEqual({ accepted: false, reason: RefusalReason.AlreadyChallengedThisTurn })
   })
 })
 

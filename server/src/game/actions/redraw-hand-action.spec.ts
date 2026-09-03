@@ -1,4 +1,4 @@
-import { ActionType, GameEventType, IGameEvent } from 'shared'
+import { ActionType, GameEventType, IGameEvent, RefusalReason } from 'shared'
 import { RedrawHandAction } from './redraw-hand-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -61,27 +61,21 @@ describe('RedrawHandAction', () => {
   })
 
   describe('canExecute', () => {
-    it('returns false when the player does not exist', () => {
-      expect(
-        new RedrawHandAction('a1', 'nobody', emitter).canExecute(makeGs()),
-      ).toBe(false)
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
+      expect(() => new RedrawHandAction('a1', 'nobody', emitter).canExecute(makeGs())).toThrow(/not seated/)
     })
 
     it('returns false with fewer than 3 points', () => {
       const gs = makeGs(['d1'])
       gs.registerPlayer(makePlayer('p1', [], 2))
-      expect(new RedrawHandAction('a1', 'p1', emitter).canExecute(gs)).toBe(
-        false,
-      )
+      expect(new RedrawHandAction('a1', 'p1', emitter).canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns true with the budget, whatever the deck holds', () => {
       // The deck runs back from the discard, so its size is not a guard.
       const gs = makeGs([])
       gs.registerPlayer(makePlayer('p1', ['h1'], 3))
-      expect(new RedrawHandAction('a1', 'p1', emitter).canExecute(gs)).toBe(
-        true,
-      )
+      expect(new RedrawHandAction('a1', 'p1', emitter).canExecute(gs)).toEqual({ accepted: true })
     })
   })
 

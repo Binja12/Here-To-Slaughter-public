@@ -1,4 +1,4 @@
-import { CardType, GameEventType, IGameEvent, ReactionWindowType } from 'shared'
+import { CardType, GameEventType, IGameEvent, ReactionWindowType, RefusalReason } from 'shared'
 import { ChoiceWindow } from './choice-window'
 import { CardChoiceWindow } from './card-choice-window'
 import { MagicCard } from '../cards/magic-card'
@@ -111,8 +111,9 @@ describe('ChoiceWindow', () => {
     const gs = makeGs()
     const win = makeWindow({ gs, em: new GameEventEmitter() })
 
-    win.submitReaction('p1', { choice: 'b' })
+    const result = win.submitReaction('p1', { choice: 'b' })
 
+    expect(result).toEqual({ accepted: true })
     expect(win.isOpen()).toBe(false)
   })
 
@@ -128,33 +129,36 @@ describe('ChoiceWindow', () => {
     expect(payloadOf(resolved!)['results']).toEqual(['b'])
   })
 
-  it('ignores a submission from anyone but the respondent', () => {
+  it('refuses a submission from anyone but the respondent', () => {
     const gs = makeGs()
     const win = makeWindow({ gs, em: new GameEventEmitter(), respondentId: 'p1' })
 
-    win.submitReaction('p2', { choice: 'b' })
+    const result = win.submitReaction('p2', { choice: 'b' })
 
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.WrongRespondent })
     expect(win.isOpen()).toBe(true)
   })
 
-  it('ignores a choice that was not offered', () => {
+  it('refuses a choice that was not offered', () => {
     const gs = makeGs()
     const win = makeWindow({ gs, em: new GameEventEmitter(), options: ['a', 'b'] })
 
-    win.submitReaction('p1', { choice: 'zzz' })
+    const result = win.submitReaction('p1', { choice: 'zzz' })
 
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
     expect(win.isOpen()).toBe(true)
   })
 
-  it('ignores a second submission after resolving', () => {
+  it('refuses a second submission after resolving', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
     const events = collect(em)
     const win = makeWindow({ gs, em })
 
     win.submitReaction('p1', { choice: 'a' })
-    win.submitReaction('p1', { choice: 'b' })
+    const late = win.submitReaction('p1', { choice: 'b' })
 
+    expect(late).toEqual({ accepted: false, reason: RefusalReason.NoSuchWindow })
     const resolutions = events.filter((e) => e.getType() === GameEventType.FrameResolved)
     expect(resolutions).toHaveLength(1)
     expect(payloadOf(resolutions[0])['results']).toEqual(['a'])

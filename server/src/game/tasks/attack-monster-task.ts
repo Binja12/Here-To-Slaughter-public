@@ -77,7 +77,7 @@ export class AttackMonsterTask extends AttackMonster implements ITask {
     // Discovered at runtime, so the monster may have been slain — or a hero
     // that met its partyReq may have left — since the slot was written. The
     // action's equivalent guard lives in canExecute.
-    if (!gs.canAttackMonster(ctx.ownerId, monsterId)) return
+    if (!gs.canAttackMonster(ctx.ownerId, monsterId).accepted) return
 
     // Returned, so the rest of the declaring card's entry waits on the roll.
     return this.attackMonster(gs, ctx.ownerId, monsterId, em, rm)

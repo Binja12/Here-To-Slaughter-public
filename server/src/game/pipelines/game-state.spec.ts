@@ -1,16 +1,10 @@
-import {
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  ReactionWindowType,
-} from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason } from 'shared'
 import { GameState } from './game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { IAbilityRule, IModifiableWindow, IReactionWindow } from '../interfaces'
+import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, refused } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -83,6 +77,10 @@ describe('GameState', () => {
 
   it('should throw when party not found', () => {
     expect(() => gs.getParty('unknown')).toThrow()
+    expect(() => gs.requirePlayer('unknown')).toThrow(/not seated/)
+    // The board answers about a seat; an unseated id is the same mistake.
+    expect(() => gs.getActionPoints('unknown')).toThrow(/not seated/)
+    expect(() => gs.hasInHand('unknown', 'c1')).toThrow(/not seated/)
   })
 
   it('should register and retrieve a card', () => {
@@ -155,7 +153,7 @@ describe('GameState', () => {
       getRespondentId: () => 'p1',
       getOptions: () => [],
       isOpen: () => isOpen,
-      submitReaction: () => {},
+      submitReaction: () => ({ accepted: true }) as const,
       resolve: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
@@ -323,7 +321,10 @@ describe('GameState — the open modifiable window', () => {
     resultKey: () => NO_CONTEXT_RESULT,
     getDetail: () => ({}),
     getDeadline: () => 0,
-    acceptsModifierFor: (playerId: string) => playerId === rollerId,
+    acceptsModifierFor: (playerId: string) =>
+      playerId === rollerId
+        ? accepted()
+        : refused(RefusalReason.TargetNotRolling),
     cardSpent: () => {},
     valueBiasFor: (playerId: string, targetPlayerId: string) =>
       targetPlayerId === playerId ? 'highest' : 'lowest',
@@ -337,20 +338,20 @@ describe('GameState — the open modifiable window', () => {
 
   describe('acceptsModifierFor', () => {
     it('is false with no window at all', () => {
-      expect(makeGs().acceptsModifierFor('p1')).toBe(false)
+      expect(makeGs().acceptsModifierFor('p1')).toEqual({ accepted: false, reason: RefusalReason.NoModifiableWindow })
     })
 
     it('defers to the window rule', () => {
       const gs = withWindow(modifiableStub())
-      expect(gs.acceptsModifierFor('p1')).toBe(true)
-      expect(gs.acceptsModifierFor('p2')).toBe(false)
+      expect(gs.acceptsModifierFor('p1')).toEqual({ accepted: true })
+      expect(gs.acceptsModifierFor('p2')).toEqual({ accepted: false, reason: RefusalReason.TargetNotRolling })
     })
 
     it('is false once the window has RESOLVED, frame or no frame', () => {
       // resolve() sets the flag and only then releases, so there is a moment
       // where a closed window still sits in a live frame.
       const gs = withWindow(modifiableStub(false))
-      expect(gs.acceptsModifierFor('p1')).toBe(false)
+      expect(gs.acceptsModifierFor('p1')).toMatchObject({ accepted: false })
     })
   })
 

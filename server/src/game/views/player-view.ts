@@ -37,7 +37,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
     playerId,
     seats: game.playerOrder.map((seatId, seat) => seatView(gs, seatId, seat)),
     currentPlayerId: gs.getCurrentPlayerId(),
-    turnPhase: game.turnManager.getPhase(),
+    phase: gs.getGamePhase(),
     hand: you.getHand().map((cardId) => cardOf(gs, cardId)),
     parties: game.playerOrder.map((seatId) => partyView(gs, seatId)),
     mainDeck: { count: gs.getMainDeck().getSize() },
@@ -53,7 +53,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
     attackableMonsterIds: gs
       .getMonsterPile()
       .getAll()
-      .filter((monsterId) => gs.canAttackMonster(playerId, monsterId)),
+      .filter((monsterId) => gs.canAttackMonster(playerId, monsterId).accepted),
     pendingWindows: gs
       .openWindows()
       .map((window) => pendingWindowView(window, playerId)),

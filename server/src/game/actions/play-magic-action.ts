@@ -1,5 +1,5 @@
-import { ActionType } from 'shared'
-import { IAction } from '../interfaces'
+import { ActionType, RefusalReason, RequestResult } from 'shared'
+import { accepted, IAction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { PlayMagic } from '../tasks/magic-tasks'
 import { ReactionManager } from '../pipelines/reaction-manager'
@@ -42,19 +42,23 @@ export class PlayMagicAction extends PlayMagic implements IAction {
   getCost(): number {
     return COST
   }
-  isReactable(): boolean { return true }
-
-  canExecute(gs: GameState): boolean {
-    const player = gs.getPlayer(this.playerId)
-    if (!player) return false
-    if (player.getActionPoints() < COST) return false
-    if (!player.getHand().includes(this.cardId)) return false
+  isReactable(): boolean {
     return true
+  }
+
+  canExecute(gs: GameState): RequestResult {
+    if (gs.getActionPoints(this.playerId) < COST) {
+      return refused(RefusalReason.NoActionPoints)
+    }
+    if (!gs.hasInHand(this.playerId, this.cardId)) {
+      return refused(RefusalReason.CardNotInHand)
+    }
+    return accepted()
   }
 
   execute(gs: GameState): void {
     // Spent before the frame opens, so a lost challenge still costs the point.
-    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    gs.decreaseActionPoints(this.playerId, COST)
     this.playMagic(
       gs,
       this.playerId,

@@ -23,6 +23,7 @@ export class MonsterChoiceWindow extends CardChoiceWindow {
    */
   protected override canSubmit(choice: unknown): boolean {
     return this.gs.canAttackMonster(this.respondentId, choice as string)
+      .accepted
   }
 
   /**

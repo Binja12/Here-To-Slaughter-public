@@ -1,13 +1,4 @@
-import {
-  ActionType,
-  CardType,
-  GameEventType,
-  IGameEvent,
-  HeroClass,
-  ReactionWindowType,
-  RollCompareMode,
-  TriggerScope,
-} from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason, RollCompareMode, TriggerScope } from 'shared'
 import { AttackMonsterAction } from './attack-monster-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -119,13 +110,13 @@ describe('AttackMonsterAction', () => {
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
       emptyGs.getMonsterPile().add('monster-1')
       const rm = new ReactionManager(emptyGs, emitter)
       const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
-      expect(action.canExecute(emptyGs)).toBe(false)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
     it('returns false when player has exactly 1 action point (cost is 2)', () => {
@@ -137,7 +128,7 @@ describe('AttackMonsterAction', () => {
       gs2.getMonsterPile().add('monster-1')
       const rm = new ReactionManager(gs2, emitter)
       const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when the monster is not in the monster pile', () => {
@@ -149,11 +140,11 @@ describe('AttackMonsterAction', () => {
       // deliberately not adding monster-1 to the pile
       const rm = new ReactionManager(gs2, emitter)
       const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.MonsterNotInRow })
     })
 
     it('returns true when all conditions are met', () => {
-      expect(makeAction().canExecute(gs)).toBe(true)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: true })
     })
 
     // --- the monster's printed party requirement ---
@@ -208,32 +199,32 @@ describe('AttackMonsterAction', () => {
         ).canExecute(g)
 
       it('refuses an empty party', () => {
-        expect(canAttack(kingGs([]))).toBe(false)
+        expect(canAttack(kingGs([]))).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
 
       it('refuses a lone Bard — Any needs a SECOND hero', () => {
-        expect(canAttack(kingGs([HeroClass.Bard]))).toBe(false)
+        expect(canAttack(kingGs([HeroClass.Bard]))).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
 
       it('refuses two heroes when neither is a Bard', () => {
-        expect(canAttack(kingGs([HeroClass.Thief, HeroClass.Wizard]))).toBe(false)
+        expect(canAttack(kingGs([HeroClass.Thief, HeroClass.Wizard]))).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
 
       it('allows a Bard and any other class', () => {
-        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Thief]))).toBe(true)
+        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Thief]))).toEqual({ accepted: true })
       })
 
       it('allows two Bards — one answers Bard, the other answers Any', () => {
-        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Bard]))).toBe(true)
+        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Bard]))).toEqual({ accepted: true })
       })
 
       it('goes false again when the Bard is stolen away', () => {
         const g = kingGs([HeroClass.Bard, HeroClass.Thief])
-        expect(canAttack(g)).toBe(true)
+        expect(canAttack(g)).toEqual({ accepted: true })
 
         g.getParty('p1').removeHero('hero-0', emitter, 'Stolen')
 
-        expect(canAttack(g)).toBe(false)
+        expect(canAttack(g)).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
     })
   })

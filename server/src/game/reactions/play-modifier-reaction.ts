@@ -1,5 +1,10 @@
-import { IGameEventEmitter, ReactionType } from 'shared'
-import { IReaction } from '../interfaces'
+import {
+  IGameEventEmitter,
+  ReactionType,
+  RefusalReason,
+  RequestResult,
+} from 'shared'
+import { IReaction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
 
@@ -33,9 +38,10 @@ export class PlayModifierReaction implements IReaction {
     return this.playerId
   }
 
-  canExecute(gs: GameState): boolean {
-    if (!gs.getPlayer(this.playerId)?.getHand().includes(this.cardId))
-      return false
+  canExecute(gs: GameState): RequestResult {
+    if (!gs.hasInHand(this.playerId, this.cardId)) {
+      return refused(RefusalReason.CardNotInHand)
+    }
 
     // One question, and it covers both halves: is a window open, and would it
     // take a bonus aimed at this player. execute() spends the card before the
@@ -47,7 +53,7 @@ export class PlayModifierReaction implements IReaction {
   execute(gs: GameState, em: IGameEventEmitter): void {
     // The same question canExecute asked. It has already said otherwise; this
     // is what keeps the announcement below honest if it is ever skipped.
-    if (!gs.acceptsModifierFor(this.targetPlayerId)) return
+    if (!gs.acceptsModifierFor(this.targetPlayerId).accepted) return
 
     // Hand -> the owner's instance pile, where it is a card in play for as
     // long as the roll it was spent on is open. Keeping that roll alive is

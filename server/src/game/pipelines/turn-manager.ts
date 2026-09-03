@@ -1,5 +1,12 @@
-import { GameEventType, PassiveType, TurnPhase } from 'shared'
-import { IAction } from '../interfaces'
+import {
+  GameEventType,
+  GamePhase,
+  PassiveType,
+  RefusalReason,
+  RequestResult,
+  TurnPhase,
+} from 'shared'
+import { accepted, IAction, refused } from '../interfaces'
 import { GameState } from './game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEvent } from '../events/game-event'
@@ -17,7 +24,7 @@ import { GameEvent } from '../events/game-event'
 // ---------------------------------------------------------------------------
 
 export class TurnManager {
-  private phase: TurnPhase = TurnPhase.TurnStart
+  private phase: TurnPhase = TurnPhase.Start
 
   constructor(
     private gs: GameState,
@@ -34,15 +41,37 @@ export class TurnManager {
     return playerId ? (this.gs.getPlayer(playerId)?.getActionPoints() ?? 0) : 0
   }
 
-  enqueue(action: IAction): void {
-    if (this.phase !== TurnPhase.ActionWindow) return
+  /**
+   * Says whether the request was TAKEN. With an idle board the action runs
+   * inside this call; a non-reactable one arriving mid-resolution is queued
+   * and runs on the drain that finds the board idle, so `drain` asks
+   * `canExecute` again at that moment.
+   */
+  enqueue(action: IAction): RequestResult {
+    // A concluded game refuses by name: a late request is a player's.
+    if (this.gs.getGamePhase() === GamePhase.Concluded) {
+      return refused(RefusalReason.GameOver)
+    }
+    // Outside the action phase is an engine mistake. Before the first turn
+    // the transport routed input to a table it never started; between one
+    // turn's End and the next Start the cascade is synchronous, so nothing
+    // from outside can arrive.
+    if (this.phase !== TurnPhase.Action) {
+      throw new Error('TurnManager.enqueue outside the action phase')
+    }
     // Only the active player spends action points; everybody else answers with
     // REACTIONS, which go to ReactionManager and never touch this queue. Here
     // rather than in each action's canExecute, so an action cannot forget it.
-    if (action.getPlayerId() !== this.gs.getCurrentPlayerId()) return
-    if (action.isReactable() && this.gs.isBusy()) return
+    if (action.getPlayerId() !== this.gs.getCurrentPlayerId()) {
+      return refused(RefusalReason.NotYourTurn)
+    }
+    if (action.isReactable() && this.gs.isBusy())
+      return refused(RefusalReason.Busy)
+    const check = action.canExecute(this.gs)
+    if (!check.accepted) return check
     this.gs.actionQueue.push(action)
     this.drain()
+    return accepted()
   }
 
   /** Called by GameEngine after a reaction window closes to continue the drain loop. */
@@ -68,7 +97,7 @@ export class TurnManager {
       .reduce((sum, effect) => sum + (effect.value ?? 0), 0)
     if (extra) player.increaseActionPoints(extra)
 
-    this.phase = TurnPhase.ActionWindow
+    this.phase = TurnPhase.Action
     this.emitter.emit(
       new GameEvent(GameEventType.TurnStarted, playerId, { playerId }),
     )
@@ -76,7 +105,7 @@ export class TurnManager {
 
   endTurn(): void {
     this.gs.clearUsedAbilities()
-    this.phase = TurnPhase.TurnEnd
+    this.phase = TurnPhase.End
     const playerId = this.gs.getCurrentPlayerId() ?? ''
     this.emitter.emit(
       new GameEvent(GameEventType.TurnEnded, playerId, { playerId }),
@@ -93,7 +122,7 @@ export class TurnManager {
 
       const action = this.gs.actionQueue[0]
 
-      if (!action.canExecute(this.gs)) {
+      if (!action.canExecute(this.gs).accepted) {
         this.gs.actionQueue.shift()
         continue
       }

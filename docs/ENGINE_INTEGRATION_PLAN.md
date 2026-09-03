@@ -213,8 +213,8 @@ bonuses and requirement). An audience-filtered event feed is a later ticket.
 
 ## 5. Engine touches this needs (each one is a consult)
 
-- **E1 — doors return an outcome.** Already agreed in the contract (§7)
-  but never built.
+- **E1 — doors return an outcome.** BUILT 2026-09-03 as `RequestResult`
+  (see §9). The text below is the design as it stood.
   - `TurnManager.enqueue(action)` -> `Refused(NotYourTurn | Busy | WrongPhase)
     | Executed | Queued`. With an idle board and empty queue an action runs
     synchronously inside `enqueue`, so `canExecute` false can be reported as
@@ -273,8 +273,7 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
 
 - ~~Q1 Base branch~~ — answered: the HTSR-4 worktree (§9).
 - ~~Q2 Process layout~~ — answered: one workspace, two bootstraps (§9).
-- **Q3 E1 shape.** OK to give the three engine doors a result type, as the
-  contract already agreed? Shape as in §5.
+- ~~Q3 E1 shape~~ — answered and built: `RequestResult` (§9).
 - **Q4 Output = snapshots only in v1.** The current client draws its log and
   dice animation from raw events; the view has the numbers, the animation
   becomes a client diff. Confirm, or ask for an audience-filtered event
@@ -323,6 +322,64 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   `GameServerModule` on a real TCP port and dials it with the lobby's own
   `NestTcpGameServerClient`, so both halves of the contract are the real
   code.
+
+- **`RequestResult` on every player door** (2026-09-03). The owner's
+  framing: like try/throw, but for a PLAYER'S mistake rather than a coding
+  one. Shape `{ accepted: true } | { accepted: false; reason: RefusalReason }`
+  in `shared/src/types.ts`; the reason is a code from a closed union, not a
+  sentence and not an `Error`, so the client can branch on it and the
+  transport turns it into words in one place; `accepted` carries nothing
+  because the board and the events already report what happened. Name
+  chosen over `DoorResult`. The wire's `CommandResult` will be this plus
+  `commandId`. Reaches down into `IReactionWindow.submitReaction`, so the
+  stale-pick THROW in `ChoiceWindow` became `refused('Stale')`: one
+  mechanism for every refusal, and the window still stays open with its
+  clock untouched. Engine-internal callers of `window.submitReaction`
+  (`GameState.applyModifier`, `StartChallengeTask`) ignore the result.
+- **Reasons propagate from `canExecute`** (2026-09-03, second pass). The owner
+  asked for the refusal to say WHAT was wrong — "you don't have that card",
+  "card is not challengeable" — so `IAction.canExecute` and
+  `IReaction.canExecute` return `RequestResult` and the doors pass the answer
+  up unchanged; `NotAllowed` is gone. `RefusalReason` moved from a string
+  union to an enum in `shared/src/enums.ts` (his call), one member per
+  guard that exists in the code today, nothing new checked. The three
+  compound `GameState`/`PlayItem` questions return a result so the reason
+  can name the failing half, and their boolean readers use `.accepted`
+  (engine doc §4). The transport will word each code once.
+- **Coding error vs refusal** (2026-09-03, third pass). The owner: "either
+  we check for all fields in canExecute, or we trust zod and only check
+  logic — the second is better, that's why we have layers". So
+  `UnknownPlayer` is gone: an unseated player id is an engine mistake and
+  `GameState.requirePlayer` throws; `canExecute` checks game logic only and
+  never re-checks request shape. Card ids stay refusals — they are the
+  player's to get wrong.
+- **Actions depend on the board only** (2026-09-03). The owner: an action
+  calling `player.decreaseActionPoints` knows `Player`'s API; it should
+  ask `gs`. So `GameState` gained `getActionPoints`, `decreaseActionPoints`,
+  `hasInHand`, `getHandSize` (playerId first, like its other methods), all
+  through `requirePlayer`, and no action or reaction holds a `Player`.
+- **`WrongPhase` was two things** (2026-09-03). The owner: the phase is not
+  a player-dependent reason. True — the end-of-turn cascade is synchronous,
+  so the only reachable non-turn states are "not started" (transport bug →
+  THROW) and "ended" (late click → `GameOver`). The owner then set the
+  shape: TWO levels. `GamePhase.Setup | Turns | Concluded` is the game's
+  state for the outside (on the board, moved by `GameEngine`, shown as
+  `PlayerView.phase`); `TurnPhase.Start | Action | End` is `TurnManager`'s
+  own, engine logic only, never on the wire. The unused `ReactionWindow`
+  member is gone.
+- **`Stale` was a coding error in disguise** (2026-09-03). The owner: a
+  player must never be offered an illegal option, so a pick that was offered
+  and is now illegal is the engine's bug. `RefusalReason.Stale` removed;
+  `ChoiceWindow` THROWS on a failed `canSubmit` again. The scenario the
+  re-check exists for (a hero stolen while a monster choice is open) is
+  recorded in the engine doc §8 as the defect to fix at its source.
+- **`ModifierTargetRefused` was too abstract** (2026-09-03). The owner
+  wanted the reason to say what was wrong with the target. The window is
+  where that is known, so `IModifiableWindow.acceptsModifierFor` returns a
+  `RequestResult`: a roll answers `TargetNotRolling`, a challenge answers
+  `ChallengeNotStarted` or `TargetNotInChallenge`. Both `submitReaction`
+  guards and `GameState.acceptsModifierFor` now ask that one method, so the
+  rule lives once.
 
 ## 10. Deferred (recorded so they are not reinvented)
 

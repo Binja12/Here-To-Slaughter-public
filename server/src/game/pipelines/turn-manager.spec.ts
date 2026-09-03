@@ -1,11 +1,11 @@
-import { ActionType, GameEventType, IGameEvent, ReactionWindowType, TurnPhase } from 'shared'
+import { ActionType, GameEventType, GamePhase, IGameEvent, ReactionWindowType, RefusalReason, TurnPhase } from 'shared'
 import { TurnManager } from './turn-manager'
 import { GameState } from './game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
-import { IAction, IReactionWindow } from '../interfaces'
+import { accepted, IAction, IReactionWindow, refused } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import {
   AbilityContext,
@@ -52,9 +52,11 @@ const makeAction = (
   getCost: () => cost,
   isReactable: () => false,
   canExecute: (gs: GameState) => {
-    if (!canExecBase) return false
+    if (!canExecBase) return refused(RefusalReason.NoActionPoints)
     const player = gs.getPlayer('p1')
-    return !!player && player.getActionPoints() >= cost
+    return player && player.getActionPoints() >= cost
+      ? accepted()
+      : refused(RefusalReason.NoActionPoints)
   },
   execute: (gs: GameState) => {
     gs.getPlayer('p1')?.decreaseActionPoints(cost)
@@ -75,7 +77,7 @@ describe('TurnManager', () => {
       const gs = makeGs()
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
 
     it('should reset action points from player', () => {
@@ -126,7 +128,7 @@ describe('TurnManager', () => {
   })
 
   describe('enqueue()', () => {
-    it('should ignore actions when phase is not ActionWindow', () => {
+    it('throws before the first turn — an engine mistake, not a refusal', () => {
       const gs = makeGs()
       const tm = new TurnManager(gs, new GameEventEmitter())
       const executed: boolean[] = []
@@ -135,7 +137,30 @@ describe('TurnManager', () => {
         executed.push(true)
         return []
       }
-      tm.enqueue(action) // phase is TurnStart — ignored
+      // Not started: the transport routed input to a table it never opened.
+      expect(() => tm.enqueue(action)).toThrow(/outside the action phase/)
+      expect(executed).toHaveLength(0)
+    })
+
+    it('refuses every request once the game has ended', () => {
+      const gs = makeGs(3)
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+      // GameEngine concludes the BOARD when a winner is found; the drain
+      // reads it there rather than inferring it from its own phase.
+      gs.setGamePhase(GamePhase.Concluded)
+
+      const executed: boolean[] = []
+      const action = makeAction(1)
+      action.execute = () => {
+        executed.push(true)
+        return []
+      }
+
+      expect(tm.enqueue(action)).toEqual({
+        accepted: false,
+        reason: RefusalReason.GameOver,
+      })
       expect(executed).toHaveLength(0)
     })
 
@@ -151,8 +176,9 @@ describe('TurnManager', () => {
         executed.push(true)
         return []
       }
-      tm.enqueue(action)
+      const result = tm.enqueue(action)
 
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.NotYourTurn })
       expect(executed).toHaveLength(0)
       expect(gs.actionQueue).toHaveLength(0)
       expect(tm.getActionPoints()).toBe(3)
@@ -169,7 +195,9 @@ describe('TurnManager', () => {
         executed.push(true)
         return []
       }
-      tm.enqueue(action)
+      const result = tm.enqueue(action)
+
+      expect(result).toEqual({ accepted: true })
       expect(executed).toHaveLength(1)
     })
 
@@ -193,9 +221,11 @@ describe('TurnManager', () => {
         executed.push(true)
         return origExecute(g)
       }
-      tm.enqueue(expensive)
+      const result = tm.enqueue(expensive)
+
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
       expect(executed).toHaveLength(0)
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow) // turn not ended, just skipped
+      expect(tm.getPhase()).toBe(TurnPhase.Action) // turn not ended, just skipped
       expect(tm.getActionPoints()).toBe(1)
     })
 
@@ -209,7 +239,9 @@ describe('TurnManager', () => {
         executed.push(true)
         return []
       }
-      tm.enqueue(blocked)
+      const result = tm.enqueue(blocked)
+
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
       expect(executed).toHaveLength(0)
     })
 
@@ -225,7 +257,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
@@ -243,7 +275,7 @@ describe('TurnManager', () => {
 
       // window-action ran, afterAction was paused
       expect(executed).toEqual(['window-action'])
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
 
     it('should resume drain after resumeDrain() is called', () => {
@@ -257,7 +289,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           executed.push('window-action')
           return []
@@ -314,7 +346,7 @@ describe('TurnManager', () => {
       })
 
       expect(tm.getActionPoints()).toBe(0)
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
 
     it('ends it on the next drain, once the ability has run itself out', () => {
@@ -334,7 +366,7 @@ describe('TurnManager', () => {
       gs.abilityPipelines.length = 0
       tm.resumeDrain()
 
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      expect(tm.getPhase()).toBe(TurnPhase.End)
     })
 
     it('holds a queued action back until the ability is done', () => {
@@ -378,7 +410,7 @@ describe('TurnManager', () => {
       parkAbility(gs)
 
       const executed: string[] = []
-      tm.enqueue({
+      const result = tm.enqueue({
         ...makeAction(1),
         isReactable: () => true,
         execute: () => {
@@ -388,6 +420,7 @@ describe('TurnManager', () => {
 
       // Refused outright, not merely delayed: enqueue drops a reactable
       // request rather than queueing it behind the resolution.
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.Busy })
       expect(executed).toEqual([])
       expect(gs.actionQueue).toHaveLength(0)
     })
@@ -405,7 +438,7 @@ describe('TurnManager', () => {
 
       tm.resumeDrain()
 
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
   })
 
@@ -415,7 +448,7 @@ describe('TurnManager', () => {
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
       tm.endTurn()
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      expect(tm.getPhase()).toBe(TurnPhase.End)
     })
 
     it('should emit TurnEnded event', () => {
@@ -440,7 +473,7 @@ describe('TurnManager', () => {
       const tm = new TurnManager(gs, emitter)
       tm.startTurn('p1')
       tm.enqueue(makeAction(1)) // costs last point → auto-endTurn
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      expect(tm.getPhase()).toBe(TurnPhase.End)
       expect(
         received.some((e) => e.getType() === GameEventType.TurnEnded),
       ).toBe(true)
@@ -455,14 +488,14 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => {}, resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
       }
       tm.enqueue(windowAction)
       // AP is 0 but window is open — turn should NOT have ended
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
   })
 })

@@ -1,4 +1,13 @@
-import { HeroClass, ICard, IGameEventEmitter, ReactionWindowType } from 'shared'
+import { accepted, refused } from '../interfaces'
+import {
+  GamePhase,
+  HeroClass,
+  ICard,
+  IGameEventEmitter,
+  ReactionWindowType,
+  RefusalReason,
+  RequestResult,
+} from 'shared'
 import type {
   IEffect,
   IAction,
@@ -62,6 +71,7 @@ export class GameState {
   private parties: Map<string, Party> = new Map()
   private cards: Map<string, ICard> = new Map()
   private currentPlayerId?: string
+  private gamePhase: GamePhase = GamePhase.Setup
   private abilitiesUsedThisTurn: string[] = []
   private cardsChallengedThisTurn: string[] = []
   /** Actions queued for draining this turn — GS is source of truth. */
@@ -221,7 +231,8 @@ export class GameState {
     windowId: string,
   ): { frameId: string; frame: GameFrame } | undefined {
     for (const [frameId, frame] of this.frames) {
-      if (frame.windows.some((w) => w.getId() === windowId)) return { frameId, frame }
+      if (frame.windows.some((w) => w.getId() === windowId))
+        return { frameId, frame }
     }
     return undefined
   }
@@ -265,12 +276,10 @@ export class GameState {
    * windows; a caller that had to fetch one to ask would be holding a window
    * for no other reason.
    */
-  acceptsModifierFor(targetPlayerId: string): boolean {
-    return (
-      this.findOpenModifiableWindow()?.window.acceptsModifierFor(
-        targetPlayerId,
-      ) ?? false
-    )
+  acceptsModifierFor(targetPlayerId: string): RequestResult {
+    const open = this.findOpenModifiableWindow()
+    if (!open) return refused(RefusalReason.NoModifiableWindow)
+    return open.window.acceptsModifierFor(targetPlayerId)
   }
 
   /**
@@ -290,7 +299,7 @@ export class GameState {
     bonus: { value: number; cardId: string; targetPlayerId: string },
   ): void {
     const open = this.findOpenModifiableWindow()
-    if (!open?.window.acceptsModifierFor(bonus.targetPlayerId)) return
+    if (!open?.window.acceptsModifierFor(bonus.targetPlayerId).accepted) return
 
     open.window.submitReaction(playerId, { type: 'modifier', ...bonus })
   }
@@ -313,7 +322,8 @@ export class GameState {
     type: import('shared').ReactionWindowType,
   ): { frameId: string; frame: GameFrame } | undefined {
     for (const [frameId, frame] of this.frames) {
-      if (frame.windows.some((w) => w.getType() === type)) return { frameId, frame }
+      if (frame.windows.some((w) => w.getType() === type))
+        return { frameId, frame }
     }
     return undefined
   }
@@ -362,6 +372,7 @@ export class GameState {
     for (const [id, party] of this.parties) copy.parties.set(id, party.clone())
     copy.cards = this.cards
     copy.currentPlayerId = this.currentPlayerId
+    copy.gamePhase = this.gamePhase
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     copy.actionQueue = [...this.actionQueue]
@@ -380,6 +391,7 @@ export class GameState {
     this.parties = src.parties
     this.cards = src.cards
     this.currentPlayerId = src.currentPlayerId
+    this.gamePhase = src.gamePhase
     this.abilitiesUsedThisTurn = src.abilitiesUsedThisTurn
     this.cardsChallengedThisTurn = src.cardsChallengedThisTurn
     this.mainDeck = src.mainDeck
@@ -410,6 +422,38 @@ export class GameState {
 
   getPlayer(playerId: string): Player | undefined {
     return this.players.get(playerId)
+  }
+
+  /**
+   * THROWS on an id the table never seated. A player id reaches the engine
+   * from the transport, which bound it at the handshake — so one that is not
+   * here is an engine mistake, never a refusal (§11.2).
+   */
+  requirePlayer(playerId: string): Player {
+    const player = this.players.get(playerId)
+    if (!player) {
+      throw new Error(`${playerId} is not seated at this game`)
+    }
+    return player
+  }
+
+  // An action asks the BOARD about its player and never holds a `Player`, so
+  // it depends on GameState alone. Each of these throws on an unseated id.
+
+  getActionPoints(playerId: string): number {
+    return this.requirePlayer(playerId).getActionPoints()
+  }
+
+  decreaseActionPoints(playerId: string, amount: number): void {
+    this.requirePlayer(playerId).decreaseActionPoints(amount)
+  }
+
+  hasInHand(playerId: string, cardId: string): boolean {
+    return this.requirePlayer(playerId).getHand().includes(cardId)
+  }
+
+  getHandSize(playerId: string): number {
+    return this.requirePlayer(playerId).getHandSize()
   }
   getPlayers(): Player[] {
     return Array.from(this.players.values())
@@ -560,13 +604,20 @@ export class GameState {
    * for. Both are read fresh, because a hero can leave a party while the choice
    * window is open.
    */
-  canAttackMonster(playerId: string, monsterId: string): boolean {
-    if (!this.monsterPile.getAll().includes(monsterId)) return false
+  canAttackMonster(playerId: string, monsterId: string): RequestResult {
+    if (!this.monsterPile.getAll().includes(monsterId)) {
+      return refused(RefusalReason.MonsterNotInRow)
+    }
 
     const monster = this.getCard(monsterId)
-    if (!(monster instanceof MonsterCard)) return false
+    if (!(monster instanceof MonsterCard)) {
+      return refused(RefusalReason.MonsterNotInRow)
+    }
 
-    return monster.canBeAttackedBy(this.getPartyHeroClasses(playerId))
+    if (!monster.canBeAttackedBy(this.getPartyHeroClasses(playerId))) {
+      return refused(RefusalReason.PartyRequirementUnmet)
+    }
+    return accepted()
   }
 
   /**
@@ -588,7 +639,9 @@ export class GameState {
     return !this.players
       .get(playerId)
       ?.getEffects(PassiveType.CantBeChallenged)
-      .some((effect) => !effect.cardTypes || effect.cardTypes.includes(cardType))
+      .some(
+        (effect) => !effect.cardTypes || effect.cardTypes.includes(cardType),
+      )
   }
 
   /**
@@ -655,6 +708,14 @@ export class GameState {
   // Turn state
   // ---------------------------------------------------------------------------
 
+  /** Setup → Turns → Concluded, moved by GameEngine; read by the drain and the view. */
+  getGamePhase(): GamePhase {
+    return this.gamePhase
+  }
+  setGamePhase(phase: GamePhase): void {
+    this.gamePhase = phase
+  }
+
   getCurrentPlayerId(): string | undefined {
     return this.currentPlayerId
   }
@@ -716,7 +777,6 @@ export class GameState {
         (!effect.rollContext || effect.rollContext === rollContext),
     )
   }
-
 
   /**
    * What `targetPlayerId` gets back when `byPlayerId` lands a modifier on one

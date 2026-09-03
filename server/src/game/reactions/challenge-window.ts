@@ -4,14 +4,21 @@ import {
   IGameEventEmitter,
   PassiveType,
   ReactionWindowType,
+  RefusalReason,
+  RequestResult,
   RollContext,
 } from 'shared'
-import { IModifiableWindow, RollBonus, ValueBias } from '../interfaces'
+import {
+  accepted,
+  IModifiableWindow,
+  refused,
+  RollBonus,
+  ValueBias,
+} from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
-
 
 export class ChallengeWindow implements IModifiableWindow {
   /**
@@ -100,9 +107,12 @@ export class ChallengeWindow implements IModifiableWindow {
   }
 
   /** Two rolls here, so either participant — but only once a challenge began. */
-  acceptsModifierFor(playerId: string): boolean {
-    if (!this.challenged) return false
-    return playerId === this.challengerId || playerId === this.challengedId
+  acceptsModifierFor(playerId: string): RequestResult {
+    if (!this.challenged) return refused(RefusalReason.ChallengeNotStarted)
+    if (playerId !== this.challengerId && playerId !== this.challengedId) {
+      return refused(RefusalReason.TargetNotInChallenge)
+    }
+    return accepted()
   }
 
   /** The contest waits for a card already committed to it. */
@@ -121,13 +131,13 @@ export class ChallengeWindow implements IModifiableWindow {
     return targetPlayerId === this.challengedId ? 'lowest' : 'highest'
   }
 
-  submitReaction(playerId: string, payload: unknown): void {
+  submitReaction(playerId: string, payload: unknown): RequestResult {
     const p = payload as any
 
     if (p.type === 'challenge') {
-      if (this.challenged) return
+      if (this.challenged) return refused(RefusalReason.ChallengeAlreadyStarted)
       this.startChallenge(p.challengerId)
-      return
+      return accepted()
     }
 
     if (p.type === 'modifier' && this.challenged) {
@@ -136,14 +146,13 @@ export class ChallengeWindow implements IModifiableWindow {
         cardId: string
         targetPlayerId: string
       }
+      const aimed = this.acceptsModifierFor(targetPlayerId)
+      if (!aimed.accepted) return aimed
       const entry: RollBonus = { cardSource: cardId, amount: value }
       const side =
         targetPlayerId === this.challengerId
           ? this.challengerBonuses
-          : targetPlayerId === this.challengedId
-            ? this.challengedBonuses
-            : undefined
-      if (!side) return // names neither side of this challenge
+          : this.challengedBonuses
       side.push(entry)
 
       // Same derivation the roll windows use. Two rolls here, so the only
@@ -159,7 +168,11 @@ export class ChallengeWindow implements IModifiableWindow {
         ),
       )
       this.resetTimer()
+      return accepted()
     }
+
+    // A modifier before any challenge has started: there are no rolls yet.
+    return refused(RefusalReason.ChallengeNotStarted)
   }
 
   resolve(): void {
@@ -180,13 +193,24 @@ export class ChallengeWindow implements IModifiableWindow {
       )
       this.gs.releaseFrame(this.frameId)
       this.emitter.emit(
-        GameEventFactory.frameResolved(this.frameId, [true], undefined, this.cardId),
+        GameEventFactory.frameResolved(
+          this.frameId,
+          [true],
+          undefined,
+          this.cardId,
+        ),
       )
       return
     }
 
-    const challengerFinal = this.total(this.challengerRoll, this.challengerBonuses)
-    const challengedFinal = this.total(this.challengedRoll, this.challengedBonuses)
+    const challengerFinal = this.total(
+      this.challengerRoll,
+      this.challengerBonuses,
+    )
+    const challengedFinal = this.total(
+      this.challengedRoll,
+      this.challengedBonuses,
+    )
     const challengedWins = challengedFinal > challengerFinal
 
     // Emitted on both paths, so a client tracking open windows never leaks.
@@ -196,7 +220,12 @@ export class ChallengeWindow implements IModifiableWindow {
         this.challengedId,
         this.frameId,
         challengedWins,
-        { cardId: this.cardId, contested: true, challengerFinal, challengedFinal },
+        {
+          cardId: this.cardId,
+          contested: true,
+          challengerFinal,
+          challengedFinal,
+        },
       ),
     )
 

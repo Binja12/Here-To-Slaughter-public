@@ -1,4 +1,4 @@
-import { CardType, GameEventType, HeroClass, IGameEvent, PassiveType } from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, PassiveType, RefusalReason } from 'shared'
 import { ReallyBigRingAbility } from './really-big-ring-ability'
 import { GameState } from '../../pipelines/game-state'
 import { Player } from '../../state-structures/player'
@@ -198,7 +198,7 @@ describe('ReallyBigRingAbility', () => {
     const action = new PlayItemAction('a2', 'p1', SECOND_RING, 'hero-1', rm, em)
 
     // One item per hero, so the play is refused rather than swapping.
-    expect(action.canExecute(gs)).toBe(false)
+    expect(action.canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.HeroAlreadyEquipped })
     expect(bonuses(gs, 'hero-1')).toHaveLength(1)
     expect(bonuses(gs, 'hero-1')[0].sourceCardId).toBe(RING)
   })

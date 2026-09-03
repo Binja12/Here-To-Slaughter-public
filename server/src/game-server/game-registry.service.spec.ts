@@ -1,4 +1,4 @@
-import { TurnPhase } from 'shared'
+import { GamePhase } from 'shared'
 import { playerView } from '../game/views/player-view'
 import { GameRegistryService } from './game-registry.service'
 
@@ -36,7 +36,7 @@ describe('GameRegistryService', () => {
     const view = playerView(registry.create(ACCOUNTS, 'default'), 'account-1')
 
     expect(view.currentPlayerId).toBeUndefined()
-    expect(view.turnPhase).toBe(TurnPhase.TurnStart)
+    expect(view.phase).toBe(GamePhase.Setup)
   })
 
   it('gives every table its own id', () => {

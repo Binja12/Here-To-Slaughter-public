@@ -1,11 +1,4 @@
-import {
-  ActionType,
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  TriggerScope,
-} from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, IGameEvent, RefusalReason, TriggerScope } from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -122,12 +115,12 @@ describe('RollOnHeroAction', () => {
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.registerParty(makeParty('p1', ['hero-1']))
       const rm = new ReactionManager(emptyGs, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(emptyGs)).toBe(false)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
     it('returns false when player has 0 action points', () => {
@@ -137,7 +130,7 @@ describe('RollOnHeroAction', () => {
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when hero is not in the player party', () => {
@@ -147,16 +140,16 @@ describe('RollOnHeroAction', () => {
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.HeroNotInParty })
     })
 
     it('returns false when ability has already been used this turn', () => {
       gs.markAbilityUsed('hero-1')
-      expect(makeAction().canExecute(gs)).toBe(false)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.AbilityAlreadyUsed })
     })
 
     it('returns true when all conditions are met', () => {
-      expect(makeAction().canExecute(gs)).toBe(true)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: true })
     })
   })
 

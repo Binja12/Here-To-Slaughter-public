@@ -1,4 +1,4 @@
-import { ActionType, CardType, HeroClass } from 'shared'
+import { ActionType, CardType, HeroClass, RefusalReason } from 'shared'
 import { PlayItemAction } from './play-item-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -130,7 +130,7 @@ describe('PlayItemAction', () => {
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
       const rm = new ReactionManager(emptyGs, emitter)
@@ -142,7 +142,7 @@ describe('PlayItemAction', () => {
         rm,
         emitter,
       )
-      expect(action.canExecute(emptyGs)).toBe(false)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
     it('returns false when player has insufficient action points', () => {
@@ -161,7 +161,7 @@ describe('PlayItemAction', () => {
         rm,
         emitter,
       )
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when item is not in player hand', () => {
@@ -180,20 +180,20 @@ describe('PlayItemAction', () => {
         rm,
         emitter,
       )
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.CardNotInHand })
     })
 
     it('returns false when target card does not exist', () => {
-      expect(makeAction('nonexistent-hero').canExecute(gs)).toBe(false)
+      expect(makeAction('nonexistent-hero').canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NotAHero })
     })
 
     it('returns false when target card is not a Hero type', () => {
       gs.registerCard(makeMagicCard('magic-target'))
-      expect(makeAction('magic-target').canExecute(gs)).toBe(false)
+      expect(makeAction('magic-target').canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NotAHero })
     })
 
     it('returns true when item targets own hero', () => {
-      expect(makeAction('hero-1').canExecute(gs)).toBe(true)
+      expect(makeAction('hero-1').canExecute(gs)).toEqual({ accepted: true })
     })
 
     it("non-cursed item targeting an opponent hero can't execute", () => {
@@ -202,7 +202,7 @@ describe('PlayItemAction', () => {
       gs.registerPlayer(opponent)
       gs.registerParty(opponentParty)
       gs.registerCard(makeHeroCard('enemy-hero'))
-      expect(makeAction('enemy-hero').canExecute(gs)).toBe(false)
+      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NotYourHero })
     })
   })
 
@@ -212,7 +212,7 @@ describe('PlayItemAction', () => {
     gs.getParty('p1').equipItem('hero-1', 'other-item')
 
     // One item per hero: the request is refused rather than swapping.
-    expect(makeAction().canExecute(gs)).toBe(false)
+    expect(makeAction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.HeroAlreadyEquipped })
   })
 
   describe('execute', () => {

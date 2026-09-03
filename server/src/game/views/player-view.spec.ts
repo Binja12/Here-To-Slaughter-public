@@ -3,7 +3,7 @@ import {
   GameConfig,
   PassiveType,
   ReactionWindowType,
-  TurnPhase,
+  GamePhase,
 } from 'shared'
 import { defaultGameConfig } from '../config/game-config'
 import { baseGameCards } from '../../data/base-game-cards'
@@ -175,7 +175,7 @@ describe('playerView', () => {
     const view = playerView(game, 'alice')
 
     expect(view.currentPlayerId).toBe(game.playerOrder[0])
-    expect(view.turnPhase).toBe(TurnPhase.ActionWindow)
+    expect(view.phase).toBe(GamePhase.Turns)
     expect(view.seats.map((s) => s.playerId)).toEqual(game.playerOrder)
     expect(view.seats.find((s) => s.isCurrentTurn)!.playerId).toBe(
       game.playerOrder[0],

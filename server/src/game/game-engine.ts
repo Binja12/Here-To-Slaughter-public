@@ -1,4 +1,9 @@
-import { GameEventType, IGameEvent, IGameEventListener } from 'shared'
+import {
+  GameEventType,
+  GamePhase,
+  IGameEvent,
+  IGameEventListener,
+} from 'shared'
 import { IWinCondition } from './interfaces'
 import { GameState } from './pipelines/game-state'
 import { Player } from './state-structures/player'
@@ -29,6 +34,7 @@ export class GameEngine implements IGameEventListener {
    */
   start(playerOrder: string[]): void {
     this.playerOrder = playerOrder
+    this.gs.setGamePhase(GamePhase.Turns)
     // No playerId: the event belongs to the table, and every leader matches it
     // through TriggerScope.Anyone, installing on its own owner.
     this.emitter.emit(
@@ -54,6 +60,8 @@ export class GameEngine implements IGameEventListener {
   private handleTurnEnded(currentPlayerId: string): void {
     const winner = this.checkWinConditions()
     if (winner) {
+      // Before the announcement, so whoever hears GameEnded sees a concluded board.
+      this.gs.setGamePhase(GamePhase.Concluded)
       this.emitter.emit(
         new GameEvent(GameEventType.GameEnded, winner.getId(), {
           winnerId: winner.getId(),

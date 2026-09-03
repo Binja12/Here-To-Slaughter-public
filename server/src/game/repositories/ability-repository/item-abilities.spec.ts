@@ -1,12 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  PassiveType,
-  ReactionWindowType,
-  TriggerScope,
-} from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, PassiveType, ReactionWindowType, RefusalReason, TriggerScope } from 'shared'
 import { CurseOfTheSnakesEyesAbility } from './curse-of-the-snakes-eyes-ability'
 import { ParticularlyRustyCoinAbility } from './particularly-rusty-coin-ability'
 import { SealingKeyAbility } from './sealing-key-ability'
@@ -336,7 +328,7 @@ describe('item abilities', () => {
 
       const action = new RollOnHeroAction('a2', 'p2', 'p2-hero', ctx.em, ctx.rm)
 
-      expect(action.canExecute(ctx.gs)).toBe(false)
+      expect(action.canExecute(ctx.gs)).toEqual({ accepted: false, reason: RefusalReason.HeroEffectSealed })
       expect(ctx.gs.getPlayer('p2')!.getActionPoints()).toBe(5)
     })
 
@@ -368,7 +360,7 @@ describe('item abilities', () => {
 
       const action = new RollOnHeroAction('a2', 'p2', 'p2-hero-b', ctx.em, ctx.rm)
 
-      expect(action.canExecute(ctx.gs)).toBe(true)
+      expect(action.canExecute(ctx.gs)).toEqual({ accepted: true })
     })
 
     it('lifts when the key comes off', () => {

@@ -1,5 +1,11 @@
-import { IGameEventEmitter, ReactionType, ReactionWindowType } from 'shared'
-import { IReaction } from '../interfaces'
+import {
+  IGameEventEmitter,
+  ReactionType,
+  ReactionWindowType,
+  RefusalReason,
+  RequestResult,
+} from 'shared'
+import { accepted, IReaction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
 
@@ -30,10 +36,22 @@ export class PlayChallengeReaction implements IReaction {
     return this.playerId
   }
 
-  canExecute(gs: GameState): boolean {
-    if (!gs.getPlayer(this.playerId)?.getHand().includes(this.cardId)) return false
-    if (gs.getCardsChallengedThisTurn().includes(this.targetedCardId)) return false
-    return !!gs.getFrameByWindowType(ReactionWindowType.Challenge)
+  /**
+   * The most specific refusal first: a card that survived a challenge this
+   * turn cannot be contested again, and that is the one fact the player
+   * could not know from their own hand or from the table.
+   */
+  canExecute(gs: GameState): RequestResult {
+    if (gs.getCardsChallengedThisTurn().includes(this.targetedCardId)) {
+      return refused(RefusalReason.AlreadyChallengedThisTurn)
+    }
+    if (!gs.hasInHand(this.playerId, this.cardId)) {
+      return refused(RefusalReason.CardNotInHand)
+    }
+    if (!gs.getFrameByWindowType(ReactionWindowType.Challenge)) {
+      return refused(RefusalReason.NoChallengeWindow)
+    }
+    return accepted()
   }
 
   execute(gs: GameState, em: IGameEventEmitter): void {
