@@ -1,0 +1,141 @@
+import { useEffect, useRef, useState } from 'react'
+import type { PendingWindowView, PlayerView } from '../contract'
+import type { DiceRollState } from './DiceRoll'
+import { slotForPlayer } from './seats'
+import { cardById } from './viewTargets'
+
+/**
+ * The roll the table is watching right now, read off the server's open
+ * Modifier / Attack window. The engine rolls ONE number (`baseRoll`); the
+ * two die faces the board throws are a cosmetic split of it (`facesOf`).
+ * `bonuses` are the server's `{ cardSource, amount }` entries — standing
+ * effects plus every modifier played so far.
+ */
+export type RollBonusView = { cardSource: string; amount: number }
+
+export type LiveRoll = {
+  windowId: string
+  type: 'Modifier' | 'Attack'
+  rollerId: string
+  baseRoll: number
+  bonuses: RollBonusView[]
+  finalRoll: number
+  /** A hero / leader roll's printed requirement. Absent for attacks. */
+  rollReq?: number
+  /** The hero, leader or monster the roll is about. */
+  subjectId?: string
+}
+
+const str = (value: unknown) => (typeof value === 'string' ? value : undefined)
+const num = (value: unknown) => (typeof value === 'number' ? value : undefined)
+
+export function bonusesOf(value: unknown): RollBonusView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { cardSource, amount } = entry as Record<string, unknown>
+    return typeof amount === 'number'
+      ? [{ cardSource: str(cardSource) ?? '', amount }]
+      : []
+  })
+}
+
+export const bonusTotal = (bonuses: RollBonusView[]) =>
+  bonuses.reduce((sum, bonus) => sum + bonus.amount, 0)
+
+/**
+ * The card a window is about, wherever the server put it: `cardId` on a
+ * Challenge window, `detail.heroId` on a hero or leader roll,
+ * `detail.monsterId` on an attack.
+ */
+export function subjectIdOf(window: PendingWindowView): string | undefined {
+  const detail = window.detail ?? {}
+  return window.cardId ?? str(detail.heroId) ?? str(detail.monsterId)
+}
+
+export function liveRollOf(view: PlayerView): LiveRoll | null {
+  for (const window of view.pendingWindows) {
+    if (window.type !== 'Modifier' && window.type !== 'Attack') continue
+    const detail = window.detail
+    if (!detail) continue
+    const baseRoll = num(detail.baseRoll)
+    if (baseRoll === undefined) continue
+    const bonuses = bonusesOf(detail.bonuses)
+    return {
+      windowId: window.windowId,
+      type: window.type,
+      rollerId: str(detail.rollerId) ?? window.respondentId,
+      baseRoll,
+      bonuses,
+      finalRoll: num(detail.finalRoll) ?? baseRoll + bonusTotal(bonuses),
+      rollReq: num(detail.rollReq),
+      subjectId: subjectIdOf(window),
+    }
+  }
+  return null
+}
+
+/**
+ * Two die faces that add up to the server's one number. Chosen by `seed`
+ * so every re-render of the same window agrees; other seats may see a
+ * different split of the same total, which is fine — the total is the
+ * server's, the faces are decoration.
+ */
+export function facesOf(sum: number, seed: string): [number, number] {
+  if (sum <= 2) return [1, 1]
+  if (sum >= 12) return [6, 6]
+  const lo = Math.max(1, sum - 6)
+  const hi = Math.min(6, sum - 1)
+  let hash = 0
+  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  const first = lo + (hash % (hi - lo + 1))
+  return [first, sum - first]
+}
+
+const signed = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value)}`
+
+/** The banner text while a roll is open: what was rolled, against what. */
+export function rollLabel(roll: LiveRoll, view: PlayerView): string {
+  const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
+  const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
+  const total = bonusTotal(roll.bonuses)
+  const sum = total === 0 ? `${roll.baseRoll}` : `${roll.baseRoll} ${signed(total)} = ${roll.finalRoll}`
+  let need = ''
+  if (roll.rollReq !== undefined) {
+    need = ` · need ${roll.rollReq}+`
+  } else {
+    const monster = cardById(view, roll.subjectId)
+    if (monster?.type === 'Monster') {
+      need =
+        monster.rollCompareMode === 'LowToWin'
+          ? ` · slay ≤${monster.lowerReq}`
+          : ` · slay ${monster.higherReq}+ · hit back ≤${monster.lowerReq}`
+    }
+  }
+  return `${who} rolled ${sum}${need}`
+}
+
+/**
+ * The dice on the felt: thrown once per roll window at the roller's seat,
+ * left where they landed until the turn passes.
+ */
+export function useLiveDice(view: PlayerView, roll: LiveRoll | null): DiceRollState | null {
+  const [dice, setDice] = useState<DiceRollState | null>(null)
+  const sequence = useRef(0)
+  const windowId = roll?.windowId
+  const baseRoll = roll?.baseRoll
+  const seat = roll ? slotForPlayer(view, roll.rollerId) : null
+
+  useEffect(() => {
+    if (!windowId || !seat || baseRoll === undefined) return
+    setDice({ seat, values: facesOf(baseRoll, windowId), nonce: ++sequence.current })
+  }, [windowId, seat, baseRoll])
+
+  const turn = view.currentPlayerId
+  const phase = view.phase
+  useEffect(() => {
+    setDice(null)
+  }, [turn, phase])
+
+  return dice
+}
