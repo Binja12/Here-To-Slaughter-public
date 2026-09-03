@@ -38,6 +38,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
     seats: game.playerOrder.map((seatId, seat) => seatView(gs, seatId, seat)),
     currentPlayerId: gs.getCurrentPlayerId(),
     phase: gs.getGamePhase(),
+    winnerId: gs.getWinnerId(),
     hand: you.getHand().map((cardId) => cardOf(gs, cardId)),
     parties: game.playerOrder.map((seatId) => partyView(gs, seatId)),
     mainDeck: { count: gs.getMainDeck().getSize() },

@@ -10,8 +10,20 @@ export const GAME_COMPLETED_PATTERN = "game.completed";
 export const GameConfigIdSchema = z.enum(["default"]);
 export type GameConfigId = z.infer<typeof GameConfigIdSchema>;
 
+/**
+ * One seat as the lobby knows it. The account id is the player id the engine
+ * deals to; the username is what the other seats see — the engine names a
+ * seat after it, and `SeatView.name` is what a screen shows.
+ */
+export const SeatedAccountSchema = z.object({
+  accountId: z.string().trim().min(1),
+  username: z.string().trim().min(1),
+});
+export type SeatedAccount = z.infer<typeof SeatedAccountSchema>;
+
 export const CreateGameRequestSchema = z.object({
-  accountIds: z.array(z.string().trim().min(1)),
+  /** In ready-list order. The engine shuffles the seats itself. */
+  players: z.array(SeatedAccountSchema),
   gameConfig: GameConfigIdSchema,
 });
 export type CreateGameRequest = z.infer<typeof CreateGameRequestSchema>;

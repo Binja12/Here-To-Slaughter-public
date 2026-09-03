@@ -7,7 +7,7 @@ import { playerView } from '../game/views/player-view'
 import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
-import { dealQuickWin, winFirstTurn } from './spec-helpers'
+import { dealQuickWin, seated, winFirstTurn } from './spec-helpers'
 
 // Reads the table through `playerView` only — the same door a client has.
 // The publisher is real but pushes into the void and tells no lobby: what it
@@ -39,7 +39,7 @@ describe('GameRegistryService', () => {
     playerView(running.game, running.game.playerOrder[0]).phase
 
   it('deals a table seating exactly the requested accounts', () => {
-    const { game } = registry.create(ACCOUNTS, 'default')
+    const { game } = registry.create(seated(ACCOUNTS), 'default')
 
     expect([...game.playerOrder].sort()).toEqual([...ACCOUNTS].sort())
     const view = playerView(game, 'account-1')
@@ -51,14 +51,14 @@ describe('GameRegistryService', () => {
   })
 
   it('holds the table under its game id', () => {
-    const running = registry.create(ACCOUNTS, 'default')
+    const running = registry.create(seated(ACCOUNTS), 'default')
 
     expect(registry.get(running.game.gameId)).toBe(running)
     expect(registry.get('no-such-game')).toBeUndefined()
   })
 
   it('finds a table by any account seated at it, and nothing for a stranger', () => {
-    const running = registry.create(ACCOUNTS, 'default')
+    const running = registry.create(seated(ACCOUNTS), 'default')
 
     for (const accountId of ACCOUNTS) {
       expect(registry.findByAccount(accountId)).toBe(running)
@@ -67,15 +67,34 @@ describe('GameRegistryService', () => {
   })
 
   it('does not start the game: the first turn waits for the seats', () => {
-    const { game } = registry.create(ACCOUNTS, 'default')
+    const { game } = registry.create(seated(ACCOUNTS), 'default')
     const view = playerView(game, 'account-1')
 
     expect(view.currentPlayerId).toBeUndefined()
     expect(view.phase).toBe(GamePhase.Setup)
   })
 
+  it('calls every seat by its username, which is what the other seats see', () => {
+    const { game } = registry.create(
+      [
+        { accountId: 'account-1', username: 'Alice' },
+        { accountId: 'account-2', username: 'Bob' },
+      ],
+      'default',
+    )
+
+    const names = playerView(game, 'account-1').seats.map((seat) => [
+      seat.playerId,
+      seat.name,
+    ])
+    expect(names.sort()).toEqual([
+      ['account-1', 'Alice'],
+      ['account-2', 'Bob'],
+    ])
+  })
+
   it('starts every table at version 0', () => {
-    expect(registry.create(ACCOUNTS, 'default').version).toBe(0)
+    expect(registry.create(seated(ACCOUNTS), 'default').version).toBe(0)
   })
 
   it('lets a spec fix the deal, which the wire never can', () => {
@@ -87,7 +106,7 @@ describe('GameRegistryService', () => {
 
   describe('arriving', () => {
     it('holds the table in Setup until every seat has arrived, then starts it once', () => {
-      const running = registry.create(ACCOUNTS, 'default')
+      const running = registry.create(seated(ACCOUNTS), 'default')
 
       expect(registry.arrive(running, 'account-1')).toBe(false)
       expect(registry.arrive(running, 'account-2')).toBe(false)
@@ -101,7 +120,7 @@ describe('GameRegistryService', () => {
     })
 
     it('counts a seat that arrived and left: the table does not wait for it twice', () => {
-      const running = registry.create(ACCOUNTS, 'default')
+      const running = registry.create(seated(ACCOUNTS), 'default')
 
       registry.arrive(running, 'account-1')
       registry.arrive(running, 'account-1')
@@ -112,7 +131,7 @@ describe('GameRegistryService', () => {
     })
 
     it('treats an arrival at a live table as a reconnect, not a second start', () => {
-      const running = registry.create(ACCOUNTS, 'default')
+      const running = registry.create(seated(ACCOUNTS), 'default')
       for (const accountId of ACCOUNTS) registry.arrive(running, accountId)
       const active = playerView(running.game, 'account-1').currentPlayerId
 
@@ -123,7 +142,7 @@ describe('GameRegistryService', () => {
 
   describe('leaving', () => {
     it('refuses to let a seat leave a live table', () => {
-      const running = registry.create(ACCOUNTS, 'default')
+      const running = registry.create(seated(ACCOUNTS), 'default')
       for (const accountId of ACCOUNTS) registry.arrive(running, accountId)
 
       expect(registry.leave(running, 'account-1')).toEqual({
@@ -151,8 +170,8 @@ describe('GameRegistryService', () => {
   })
 
   it('gives every table its own id, and each account finds only its own', () => {
-    const first = registry.create(ACCOUNTS, 'default')
-    const second = registry.create(['account-4', 'account-5'], 'default')
+    const first = registry.create(seated(ACCOUNTS), 'default')
+    const second = registry.create(seated(['account-4', 'account-5']), 'default')
 
     expect(first.game.gameId).not.toBe(second.game.gameId)
     expect(registry.get(second.game.gameId)).toBe(second)
@@ -161,11 +180,11 @@ describe('GameRegistryService', () => {
   })
 
   it('refuses a table the config cannot seat, as the engine refuses it', () => {
-    expect(() => registry.create(['account-1'], 'default')).toThrow(
+    expect(() => registry.create(seated(['account-1']), 'default')).toThrow(
       /seats 2 to 4/,
     )
     expect(() =>
-      registry.create(['account-1', 'account-1'], 'default'),
+      registry.create(seated(['account-1', 'account-1']), 'default'),
     ).toThrow(/seated twice/)
   })
 })

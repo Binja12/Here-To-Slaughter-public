@@ -135,6 +135,8 @@ export type PlayerView = {
   seats: SeatView[];
   currentPlayerId?: string;
   phase: GamePhase;
+  /** Present once `phase` is `Concluded`: the seat that won. */
+  winnerId?: string;
   /** Your own hand, face up to you alone. */
   hand: CardView[];
   /** Every party, including your own. */

@@ -34,13 +34,13 @@ export class InternalGameController {
       )
     }
 
-    const { accountIds, gameConfig } = parsed.data
-    const { game } = this.registry.create(accountIds, gameConfig)
+    const { players, gameConfig } = parsed.data
+    const { game } = this.registry.create(players, gameConfig)
     return { gameId: game.gameId, webSocketUrl: this.webSocketUrl }
   }
 }
 
-/** `accountIds: expected array, received string; gameConfig: ...` */
+/** `players: expected array, received string; gameConfig: ...` */
 function describe(error: ZodError): string {
   return error.issues
     .map((issue) => `${issue.path.join('.') || '$'}: ${issue.message}`)

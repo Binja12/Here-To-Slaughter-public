@@ -22,8 +22,10 @@ event, one flush per burst on `setImmediate`, `version + 1`, one view per
 seat to its room); §4.3 step 4, completion (the ending flush pushes
 `game-completed`, tells the lobby over TCP, `LeaveGame` on the wire as
 `LeaveGameSchema`, `GameRegistryService.leave` forgets an emptied table).
-Not yet: seat names (Q7), the capstone spec. Decisions taken so far are in
-§9.
+Seat names (Q7: `CreateGameRequest.players` carries usernames, E2 built);
+the capstone (`full-game-over-sockets.spec.ts`); the 0-byte placeholders
+deleted (E3). The ticket's list is DONE; what is left is in §10 and the
+findings at the end of §9. Decisions taken so far are in §9.
 Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
 
@@ -48,9 +50,10 @@ contract and fails at the first message.
   `turnManager.enqueue(IAction)`, `reactionManager.submitReaction(IReaction)`,
   `reactionManager.submitChoice(windowId, playerId, choice)`, and
   `playerView(game, playerId)` to read.
-- Nothing exists between the two. `server/src/runtime/runtime.service.ts`,
-  `server/src/socket/socket.gateway.ts` and `server/src/lobby/lobby.ts` are
-  0-byte placeholders on every branch. The server had no Socket.IO
+- Nothing existed between the two. `server/src/runtime/runtime.service.ts`,
+  `server/src/socket/socket.gateway.ts` and `server/src/lobby/lobby.ts` were
+  0-byte placeholders on every branch (deleted here 2026-09-03; the
+  game-server folder is what replaced them). The server had no Socket.IO
   dependency at all until 2026-09-03, when `@nestjs/websockets`,
   `@nestjs/platform-socket.io` and `socket.io` (plus `socket.io-client` for
   specs) were added to the `server` workspace. The client on `HTSR-5-Frontend`
@@ -158,7 +161,7 @@ Nothing in `game-server/` reads `game.gameState`; the four doors, the
 emitter and `playerView` are the whole surface, same constraint the
 play-through harness works under.
 
-Delete the three 0-byte placeholders; they have no readers.
+The 0-byte placeholders had no readers and are gone (E3, done).
 
 ## 4. Flows
 
@@ -320,8 +323,8 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
 - **Q6 Validation.** Add `zod` for wire schemas, as the contract proposed,
   or hand-written guards. Recommended zod; one schema per command type is
   the whole file.
-- **Q7 Names.** E2's `names` option + `players` in the TCP request, or ids
-  only.
+- ~~Q7 Names~~ — built 2026-09-03 as E2 proposed: `CreateGameOptions.names`
+  and `CreateGameRequest.players: { accountId, username }[]` (§9).
 
 ## 9. Decisions log
 
@@ -583,6 +586,62 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   `AllClassesInParty` mean "one hero", so the first Fighter played wins at
   the end of that turn, driven through the dispatcher on the harness's
   150 ms clock.
+- **Seats are called by username** (Q7, 2026-09-03, "finish up" on the
+  recommendation). `CreateGameRequest` carries `players: SeatedAccount[]`
+  in place of `accountIds` — the lobby has the usernames and nothing else
+  does — and the registry passes them to the engine as
+  `CreateGameOptions.names`, the one-line engine touch E2 proposed, recorded
+  in the engine doc §11. `SeatView.name` is what a screen shows. The
+  lobby's request builder, its TCP client and three of its specs changed
+  shape with the contract; that is the contract's reach, not a raid on
+  HTSR-6.
+- **The capstone plays the harness's full game over three sockets**
+  (`full-game-over-sockets.spec.ts`): `dealStacked` puts the harness's
+  stacked deal into the registry, the three seats arrive and start the
+  table, and every move of `setup/full-game.spec.ts` is a `game:command`
+  with its scripted dice, every fact read from the snapshots the clients
+  received — a browser has no events, so every assertion is one a screen
+  could make. Same card-count invariant from every seat's final snapshot,
+  then every seat leaves and the table is forgotten. One thing it taught:
+  `attackableMonsterIds` is the PARTY requirement, not the turn — an
+  off-turn seat whose party qualifies still lists the monster, and the
+  turn banner is what greys the button out.
+- **The 0-byte placeholders are gone** (E3): `runtime/runtime.service.ts`,
+  `socket/socket.gateway.ts`, `lobby/lobby.ts`, `common/types.ts` and the
+  three at the root of `shared/`. Nothing imported them.
+
+Findings from building the transport, and what the owner decided
+(2026-09-03):
+
+- **`PlayerView.winnerId`** — built. `GameEnded` carried `winnerId` but the
+  view carried only `phase: Concluded`, so a screen drawn from the final
+  snapshot could not say who won. `GameState.conclude(winnerId)` now sets
+  phase and winner together (engine doc §4), the view shows it, the
+  full-game spec and the capstone assert it from every seat.
+- **The 5 s reaction countdown** stays: fine for the playtest.
+- **CORS on the lobby** — added to `main.ts`, reflecting the asking origin
+  with credentials, the same as the game server. A local client runs on
+  its own dev-server port, and without this a browser would not let it
+  log in. (The lobby and CRA both default to port 3000, so the client
+  needs another port.)
+
+Running it locally (verified 2026-09-03, both processes up, a register
+from `http://localhost:3002` answered with CORS headers and the cookie, the
+socket handshake likewise):
+
+```
+npm run build --workspace=shared        # after any change under shared/src
+npm run build --workspace=server        # nest build, once
+npm run start:prod --workspace=server        # lobby/auth: HTTP 3000 + TCP 4000
+npm run start:game:prod --workspace=server   # game: Socket.IO 3001 + TCP 4001
+```
+
+Do NOT run `start:dev` and `start:game:dev` (or two `nest start`s) side by
+side: `nest-cli.json` has `deleteOutDir: true`, so the second build wipes
+`dist` from under the first and one of them dies with `EPERM ... rmdir
+dist/...` — that is exactly what happened on the first try. One build, two
+`node` processes. Three seats need three browser profiles (three cookie
+jars), all reaching the servers as `localhost`.
 
 ## 10. Deferred (recorded so they are not reinvented)
 

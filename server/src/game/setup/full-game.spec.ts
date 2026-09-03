@@ -273,6 +273,8 @@ describe('a full game', () => {
     const ended = payloads(t, GameEventType.GameEnded)
     expect(ended).toHaveLength(1)
     expect(ended[0]['winnerId']).toBe(CAROL)
+    expect(end.winnerId).toBe(CAROL)
+    expect(see(t, ALICE).winnerId).toBe(CAROL)
     expect(end.pendingWindows).toEqual([])
     expect(end.busy).toBe(false)
 

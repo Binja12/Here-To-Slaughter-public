@@ -578,7 +578,10 @@ named refusal per guard in the order the guards run — `NoActionPoints`,
 know — `GameOver`, `NotYourTurn`, `Busy` — and otherwise returns the
 action's own answer. Two phases at two altitudes decide the rest.
 `GamePhase` (`Setup`, `Turns`, `Concluded`) is the GAME's state: held on the
-board, moved by `GameEngine` at `start` and at `GameEnded`, and shown to a
+board, moved by `GameEngine` at `start` and at `GameEnded` — the last move is
+`GameState.conclude(winnerId)`, phase and winner in one call, so a concluded
+board always names who won and `PlayerView.winnerId` can show it to a screen
+that has no `GameEnded` to read (2026-09-03) — and shown to a
 player as `PlayerView.phase`. `TurnPhase` (`Start`, `Action`, `End`) is where
 `TurnManager` is inside one turn: engine logic only, never on the wire.
 `enqueue` refuses `GameOver` off the game phase — a late request is a
@@ -1458,7 +1461,11 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 dealt, wired game. It is the only thing that builds a `GameState` — everything
 else receives one — and it sits below the transport deliberately: how the
 request arrived is not the engine's business, so it takes player IDS and
-nothing else.
+nothing else. The one concession is `CreateGameOptions.names`, what each
+seat is CALLED (2026-09-03, for the socket transport): display only,
+nothing in the engine reads it, defaulting to the id exactly as before, and
+shaped like the `cards` option — a thing the caller may fix rather than a
+thing the engine needs.
 
 **Card DATA becomes card OBJECTS in one place.** `cards/card-factory.ts` holds
 the only switch from `CardType` to a card class, and it is exhaustive, so a new

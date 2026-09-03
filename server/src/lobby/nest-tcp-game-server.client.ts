@@ -18,7 +18,7 @@ export class NestTcpGameServerClient implements IGameServerClient {
   async createGame(request: CreateGameRequest): Promise<CreateGameResult> {
     // Copy collection fields before handing the request to the transport.
     const tcpRequest: CreateGameRequest = {
-      accountIds: [...request.accountIds],
+      players: request.players.map((player) => ({ ...player })),
       gameConfig: request.gameConfig,
     }
 

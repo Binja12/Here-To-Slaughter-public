@@ -72,6 +72,7 @@ export class GameState {
   private cards: Map<string, ICard> = new Map()
   private currentPlayerId?: string
   private gamePhase: GamePhase = GamePhase.Setup
+  private winnerId?: string
   private abilitiesUsedThisTurn: string[] = []
   private cardsChallengedThisTurn: string[] = []
   /** Actions queued for draining this turn — GS is source of truth. */
@@ -373,6 +374,7 @@ export class GameState {
     copy.cards = this.cards
     copy.currentPlayerId = this.currentPlayerId
     copy.gamePhase = this.gamePhase
+    copy.winnerId = this.winnerId
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     copy.actionQueue = [...this.actionQueue]
@@ -392,6 +394,7 @@ export class GameState {
     this.cards = src.cards
     this.currentPlayerId = src.currentPlayerId
     this.gamePhase = src.gamePhase
+    this.winnerId = src.winnerId
     this.abilitiesUsedThisTurn = src.abilitiesUsedThisTurn
     this.cardsChallengedThisTurn = src.cardsChallengedThisTurn
     this.mainDeck = src.mainDeck
@@ -714,6 +717,21 @@ export class GameState {
   }
   setGamePhase(phase: GamePhase): void {
     this.gamePhase = phase
+  }
+
+  /**
+   * The last move of the phase: `Concluded`, and who won it. One call, so a
+   * concluded board always names its winner — the view shows both, and a
+   * screen drawn from a snapshot alone has no `GameEnded` to read it off.
+   */
+  conclude(winnerId: string): void {
+    this.gamePhase = GamePhase.Concluded
+    this.winnerId = winnerId
+  }
+
+  /** Set only by `conclude`; absent while the game is still being played. */
+  getWinnerId(): string | undefined {
+    return this.winnerId
   }
 
   getCurrentPlayerId(): string | undefined {

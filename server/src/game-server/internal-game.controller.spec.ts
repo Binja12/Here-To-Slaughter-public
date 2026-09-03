@@ -8,6 +8,7 @@ import { NestTcpGameServerClient } from '../lobby/nest-tcp-game-server.client'
 import { GameRegistryService } from './game-registry.service'
 import { GameServerModule } from './game-server.module'
 import { GAME_SERVER_PUBLIC_URL } from './internal-game.controller'
+import { seated } from './spec-helpers'
 
 // ---------------------------------------------------------------------------
 // The create-game contract, both halves for real: the lobby's own TCP client
@@ -39,7 +40,7 @@ describe('InternalGameController TCP contract', () => {
 
   it('deals a table for the lobby and tells it where the seats connect', async () => {
     const result = await lobbyClient.createGame({
-      accountIds: ['account-1', 'account-2'],
+      players: seated(['account-1', 'account-2']),
       gameConfig: 'default',
     })
 
@@ -57,11 +58,11 @@ describe('InternalGameController TCP contract', () => {
 
   it('hosts every game created on the one url', async () => {
     const first = await lobbyClient.createGame({
-      accountIds: ['account-3', 'account-4'],
+      players: seated(['account-3', 'account-4']),
       gameConfig: 'default',
     })
     const second = await lobbyClient.createGame({
-      accountIds: ['account-5', 'account-6'],
+      players: seated(['account-5', 'account-6']),
       gameConfig: 'default',
     })
 
@@ -71,13 +72,13 @@ describe('InternalGameController TCP contract', () => {
 
   it('refuses a malformed request with its reason, without dropping the connection', async () => {
     const wrongShape = await refused({
-      accountIds: 'account-1',
+      players: 'account-1',
       gameConfig: 'default',
     })
-    expect(wrongShape).toMatch(/^Invalid create-game request: accountIds: /)
+    expect(wrongShape).toMatch(/^Invalid create-game request: players: /)
 
     const unknownConfig = await refused({
-      accountIds: ['account-1', 'account-2'],
+      players: seated(['account-1', 'account-2']),
       gameConfig: 'blitz',
     })
     expect(unknownConfig).toMatch(/^Invalid create-game request: gameConfig: /)
@@ -86,7 +87,7 @@ describe('InternalGameController TCP contract', () => {
     // The same client still creates games afterwards.
     await expect(
       lobbyClient.createGame({
-        accountIds: ['account-7', 'account-8'],
+        players: seated(['account-7', 'account-8']),
         gameConfig: 'default',
       }),
     ).resolves.toMatchObject({ webSocketUrl: PUBLIC_URL })
@@ -95,7 +96,7 @@ describe('InternalGameController TCP contract', () => {
   it('reports a well-formed request the engine cannot seat as an error', async () => {
     await expect(
       lobbyClient.createGame({
-        accountIds: ['account-1'],
+        players: seated(['account-1']),
         gameConfig: 'default',
       }),
     ).rejects.toBeDefined()

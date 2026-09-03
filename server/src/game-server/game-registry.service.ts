@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common'
 import { GamePhase, RefusalReason } from 'shared'
-import type { CardBase, GameConfig, GameConfigId, RequestResult } from 'shared'
+import type {
+  CardBase,
+  GameConfig,
+  GameConfigId,
+  RequestResult,
+  SeatedAccount,
+} from 'shared'
 import { defaultGameConfig } from '../game/config/game-config'
 import { accepted, refused } from '../game/interfaces'
 import { createGame, startGame } from '../game/setup/create-game'
@@ -79,14 +85,21 @@ export class GameRegistryService {
    * the emitter here, so no event of the table's life goes unobserved.
    */
   create(
-    accountIds: readonly string[],
+    players: readonly SeatedAccount[],
     configId: GameConfigId,
     deal: Deal = {},
   ): RunningGame {
-    const game = createGame(accountIds, {
-      config: deal.config ?? GAME_CONFIGS[configId],
-      cards: deal.cards,
-    })
+    // Player ids ARE account ids; the username is only what a seat is called.
+    const game = createGame(
+      players.map((player) => player.accountId),
+      {
+        config: deal.config ?? GAME_CONFIGS[configId],
+        cards: deal.cards,
+        names: Object.fromEntries(
+          players.map((player) => [player.accountId, player.username]),
+        ),
+      },
+    )
     const running: RunningGame = {
       game,
       arrived: new Set(),

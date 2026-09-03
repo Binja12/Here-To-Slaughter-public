@@ -49,19 +49,17 @@ describe('NestTcpGameServerClient', () => {
     const client = new NestTcpGameServerClient(proxy)
 
     try {
+      const players = [
+        { accountId: 'account-1', username: 'Alice' },
+        { accountId: 'account-2', username: 'Bob' },
+      ]
       await expect(
-        client.createGame({
-          accountIds: ['account-1', 'account-2'],
-          gameConfig: 'default',
-        }),
+        client.createGame({ players, gameConfig: 'default' }),
       ).resolves.toEqual({
         gameId: 'tcp-game-1',
         webSocketUrl: 'http://localhost:3001',
       })
-      expect(receivedRequest).toEqual({
-        accountIds: ['account-1', 'account-2'],
-        gameConfig: 'default',
-      })
+      expect(receivedRequest).toEqual({ players, gameConfig: 'default' })
     } finally {
       await proxy.close()
       await gameServer.close()

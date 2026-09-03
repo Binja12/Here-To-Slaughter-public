@@ -1,30 +1,63 @@
 import { CardType, WinConditionType } from 'shared'
-import type { CardBase, HeroCardData } from 'shared'
+import type { CardBase, HeroCardData, SeatedAccount } from 'shared'
 import { baseGameCards } from '../data/base-game-cards'
 import type { Game } from '../game/setup/create-game'
 import {
   ALL_MONSTERS,
   QUIET_LEADERS,
   SHUFFLE_PIN,
+  assertShufflePinnable,
   config,
+  padded,
   printed,
 } from '../game/setup/play-through-helpers'
+import type { Deal as StackedDeal } from '../game/setup/play-through-helpers'
 import { playerView } from '../game/views/player-view'
 import { CommandDispatcherService } from './command-dispatcher.service'
 import type { Deal, GameRegistryService, RunningGame } from './game-registry.service'
+import type {
+  IGameSessionResolver,
+  ResolvedAccount,
+} from './session/game-session.resolver'
 
 // ---------------------------------------------------------------------------
-// What the game-server specs share: a table that can be WON in one turn,
-// and the moves that win it. Beside the specs the way
+// What the game-server specs share. Beside the specs the way
 // `setup/play-through-helpers.ts` sits beside the engine's, and not a spec
 // itself, so importing it runs no cases twice.
-//
-// The win is the engine's own shortcut (engine doc §11): `AllClassesInParty`
-// asks the POOL which classes exist, so a pool holding one class makes
-// "every class" mean "one hero", and the first hero played wins at the end
-// of that turn. Fighters with nothing printed on them, so nothing else
-// happens; the harness's short clock, so windows lapse in tests' time.
 // ---------------------------------------------------------------------------
+
+// --- Who sits down -------------------------------------------------------
+
+/** Seats named after their ids, for cases where the name is beside the point. */
+export const seated = (accountIds: readonly string[]): SeatedAccount[] =>
+  accountIds.map((accountId) => ({ accountId, username: accountId }))
+
+const TOKEN_SUFFIX = '-token'
+
+/** The session cookie that belongs to `accountId` under the in-memory resolver. */
+export const tokenOf = (accountId: string): string =>
+  `${accountId}${TOKEN_SUFFIX}`
+
+/**
+ * The lobby stood in for: the token `<account>-token` belongs to
+ * `<account>`, anything else to nobody. The seam `IGameSessionResolver`
+ * exists for.
+ */
+export class InMemorySessionResolver implements IGameSessionResolver {
+  resolve(sessionToken: string): Promise<ResolvedAccount | undefined> {
+    if (!sessionToken.endsWith(TOKEN_SUFFIX)) return Promise.resolve(undefined)
+    const accountId = sessionToken.slice(0, -TOKEN_SUFFIX.length)
+    return Promise.resolve({ accountId, username: accountId })
+  }
+}
+
+// --- A table won in one turn ---------------------------------------------
+//
+// The engine's own shortcut (engine doc §11): `AllClassesInParty` asks the
+// POOL which classes exist, so a pool holding one class makes "every class"
+// mean "one hero", and the first hero played wins at the end of that turn.
+// Fighters with nothing printed on them, so nothing else happens; the
+// harness's short clock, so windows lapse in tests' time.
 
 /** Fighters with no ability. hero-007 is left out with the rest of its kind. */
 const QUIET_FIGHTERS = [
@@ -70,13 +103,58 @@ export function dealQuickWin(
   registry: GameRegistryService,
   accountIds: string[],
 ): RunningGame {
-  const pinned = jest.spyOn(Math, 'random').mockReturnValue(SHUFFLE_PIN)
+  return pinned(() => registry.create(seated(accountIds), 'default', quickWinDeal()))
+}
+
+/**
+ * The engine harness's `stacked` deal, into the registry instead of a bare
+ * game: same pool, same config, same pinned shuffle, so a full-game script
+ * written against the harness plays the same cards over sockets. Not
+ * started — the seats' arrival does that.
+ */
+export function dealStacked(
+  registry: GameRegistryService,
+  spec: StackedDeal,
+): RunningGame {
+  const handSize = spec.handSize ?? 2
+  const seats = spec.seats ?? ['alice', 'bob']
+  const deck = padded(spec.deck, seats.length * handSize + (spec.slack ?? 8))
+  assertShufflePinnable(deck.length)
+
+  const monsters = spec.monsters?.map(printed) ?? []
+  const cards = [
+    ...QUIET_LEADERS,
+    ...monsters,
+    ...ALL_MONSTERS.filter(
+      (m) => !monsters.some((chosen) => chosen.id === m.id),
+    ),
+    ...deck.map(printed),
+  ]
+
+  return pinned(() =>
+    registry.create(seated(seats), 'default', {
+      cards,
+      config: config({
+        startingHandSize: handSize,
+        winConditions: [
+          { type: WinConditionType.SlayMonsters, value: spec.winAt ?? 99 },
+        ],
+      }),
+    }),
+  )
+}
+
+/** `Math.random` pinned across one deal, which makes Fisher-Yates the identity. */
+function pinned<T>(deal: () => T): T {
+  const spy = jest.spyOn(Math, 'random').mockReturnValue(SHUFFLE_PIN)
   try {
-    return registry.create(accountIds, 'default', quickWinDeal())
+    return deal()
   } finally {
-    pinned.mockRestore()
+    spy.mockRestore()
   }
 }
+
+// --- Playing it out ------------------------------------------------------
 
 /** The first hero in a seat's hand. */
 export function heroInHand(game: Game, accountId: string): string {

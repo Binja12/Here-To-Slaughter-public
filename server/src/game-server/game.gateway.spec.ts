@@ -18,11 +18,14 @@ import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
 import { GameServerModule } from './game-server.module'
 import { GAME_SESSION_RESOLVER } from './session/game-session.resolver'
-import type {
-  IGameSessionResolver,
-  ResolvedAccount,
-} from './session/game-session.resolver'
-import { dealQuickWin, heroInHand, untilIdle } from './spec-helpers'
+import {
+  InMemorySessionResolver,
+  dealQuickWin,
+  heroInHand,
+  seated,
+  tokenOf,
+  untilIdle,
+} from './spec-helpers'
 
 // ---------------------------------------------------------------------------
 // The browser's door, driven by real socket.io clients against the real
@@ -37,18 +40,6 @@ import { dealQuickWin, heroInHand, untilIdle } from './spec-helpers'
 // cases deal, as it will in service, so each case seats accounts of its own:
 // an account sits at one table only, and the registry finds THAT one.
 // ---------------------------------------------------------------------------
-
-const TOKEN_SUFFIX = '-token'
-
-class InMemorySessionResolver implements IGameSessionResolver {
-  resolve(sessionToken: string): Promise<ResolvedAccount | undefined> {
-    if (!sessionToken.endsWith(TOKEN_SUFFIX)) return Promise.resolve(undefined)
-    const accountId = sessionToken.slice(0, -TOKEN_SUFFIX.length)
-    return Promise.resolve({ accountId, username: accountId })
-  }
-}
-
-const tokenOf = (accountId: string) => `${accountId}${TOKEN_SUFFIX}`
 
 const UUID = '11111111-1111-4111-8111-111111111111'
 const UUID_2 = '22222222-2222-4222-8222-222222222222'
@@ -128,7 +119,7 @@ describe('GameGateway', () => {
     running: RunningGame
     active: string
   } {
-    const running = registry.create(accountIds, 'default')
+    const running = registry.create(seated(accountIds), 'default')
     for (const accountId of accountIds) registry.arrive(running, accountId)
     const active = playerView(running.game, accountIds[0]).currentPlayerId!
     return { running, active }
@@ -290,7 +281,7 @@ describe('GameGateway', () => {
   describe('the start: Setup is the seats arriving', () => {
     it('starts the table on the arrival that completes it, telling every seat its own view', async () => {
       const [alice, bob, carol] = seats('alice', 'bob', 'carol')
-      const { game } = registry.create([alice, bob, carol], 'default')
+      const { game } = registry.create(seated([alice, bob, carol]), 'default')
       const views: Record<string, Promise<GameSnapshot>> = {}
       const listen = (id: string) => (socket: Socket) => {
         views[id] = gameStarted(socket)
@@ -314,7 +305,7 @@ describe('GameGateway', () => {
 
     it('does not wait twice for a seat that arrived and left; it reconnects to a live table', async () => {
       const [alice, bob] = seats('alice', 'bob')
-      const { game } = registry.create([alice, bob], 'default')
+      const { game } = registry.create(seated([alice, bob]), 'default')
 
       const first = await connect(tokenOf(alice))
       first.disconnect()
@@ -438,7 +429,7 @@ describe('GameGateway', () => {
 
     it('tells a seat still waiting for the others nothing', async () => {
       const [alice, bob] = seats('alice', 'bob')
-      registry.create([alice, bob], 'default')
+      registry.create(seated([alice, bob]), 'default')
       let heard = false
 
       await connect(tokenOf(bob), (socket) => {

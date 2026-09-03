@@ -60,8 +60,9 @@ export class GameEngine implements IGameEventListener {
   private handleTurnEnded(currentPlayerId: string): void {
     const winner = this.checkWinConditions()
     if (winner) {
-      // Before the announcement, so whoever hears GameEnded sees a concluded board.
-      this.gs.setGamePhase(GamePhase.Concluded)
+      // Before the announcement, so whoever hears GameEnded sees a concluded
+      // board that already names its winner.
+      this.gs.conclude(winner.getId())
       this.emitter.emit(
         new GameEvent(GameEventType.GameEnded, winner.getId(), {
           winnerId: winner.getId(),
