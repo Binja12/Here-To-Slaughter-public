@@ -45,6 +45,7 @@ import {
   fixDice,
   scriptDice,
 } from './play-through-helpers'
+import { dealable } from '../repositories/ability-repository'
 
 
 describe('a game played through', () => {
@@ -1027,7 +1028,7 @@ describe('a game played through', () => {
     expect(active(two)).toBe(two.game.playerOrder[0])
     expect(seatOf(board(two), active(two)).actionPoints).toBe(3)
     expect(board(two).mainDeck.count).toBe(
-      baseGameCards.filter((c) =>
+      baseGameCards.filter(dealable).filter((c) =>
         [
           CardType.Hero,
           CardType.Item,

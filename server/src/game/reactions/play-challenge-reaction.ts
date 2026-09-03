@@ -48,8 +48,17 @@ export class PlayChallengeReaction implements IReaction {
     if (!gs.hasInHand(this.playerId, this.cardId)) {
       return refused(RefusalReason.CardNotInHand)
     }
-    if (!gs.getFrameByWindowType(ReactionWindowType.Challenge)) {
+    const contest = gs.getFrameByWindowType(ReactionWindowType.Challenge)
+    if (!contest) {
       return refused(RefusalReason.NoChallengeWindow)
+    }
+    // A player never contests their own play. The window's respondent is the
+    // defender, and the defender is whoever played the contested card.
+    const window = contest.frame.windows.find(
+      (w) => w.getType() === ReactionWindowType.Challenge,
+    )
+    if (window?.getRespondentId() === this.playerId) {
+      return refused(RefusalReason.CannotChallengeOwnCard)
     }
     return accepted()
   }

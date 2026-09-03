@@ -10,6 +10,8 @@ build/
 # Environment files
 .env
 .env.local
+# …except the client's dev-server port, which holds nothing secret
+!client/.env
 
 
 # Logs
@@ -22,6 +24,13 @@ Thumbs.db
 
 # NestJS
 server/dist/
+
+# TS build output emitted in place next to the sources
+server/src/**/*.js
+server/src/**/*.d.ts
+
+# graphify report output
+graphify-out/
 
 # React
 client/build/

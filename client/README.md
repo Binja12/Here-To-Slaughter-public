@@ -1,5 +1,38 @@
 # Getting Started with Create React App
 
+## Server adapters
+
+The UI talks only to `LobbyPort` and `GamePort`. The real adapters use HTTP/SSE
+for authentication and the lobby, then Socket.IO at the per-game URL supplied
+by `game-assigned`. The fake adapters implement the same contracts entirely in
+memory for an offline auth → lobby → board → game-over demo.
+
+- `REACT_APP_LOBBY_URL` sets the auth/lobby origin (default:
+  `http://localhost:3000`).
+- `REACT_APP_FAKE_SERVER=1` selects both in-memory adapters; unset it to use the
+  real servers.
+
+For example, in PowerShell run
+`$env:REACT_APP_FAKE_SERVER='1'; npm start`. There is no configurable game URL:
+the lobby assignment is the source of truth.
+
+`.env` pins the dev server to port 3002 because the lobby owns 3000. Reach
+everything as `localhost` (never `127.0.0.1`) so the session cookie also
+reaches the game server. The real servers are started from the HTSR-4
+worktree; see `docs/CLIENT_PLAYTEST_TODO.md` for the run book.
+
+## Bot seats
+
+`scripts/bot-seat.mjs` is a headless player for local playtests: it registers,
+readies once somebody else is ready, joins its game and plays a dumb legal game
+(attack, play a hero, draw, end turn), answering every choice with its first
+option. One browser plus two bots is a three-seat table on one machine:
+
+```
+node scripts/bot-seat.mjs alice
+node scripts/bot-seat.mjs bob
+```
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

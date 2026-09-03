@@ -3,6 +3,7 @@ import { accepted, IAction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
+import { firesOnOwnRoll } from '../repositories/ability-repository'
 
 const COST = 1
 
@@ -67,6 +68,12 @@ export class RollOnLeaderAction implements IAction {
     // abilities to reach (§6).
     if (gs.getParty(this.playerId).getLeaderId() !== this.cardId) {
       return refused(RefusalReason.NotYourLeader)
+    }
+    // "you may spend an action point to …" — only a leader with an entry that
+    // fires on the announcement. A passive leader has nothing to activate, so
+    // the point would buy nothing (seen live: the Cloaked Sage).
+    if (!firesOnOwnRoll(this.cardId)) {
+      return refused(RefusalReason.LeaderNotActivatable)
     }
     // "once per turn"
     if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) {

@@ -104,6 +104,14 @@ describe('RollOnLeaderAction', () => {
       })
     })
 
+    it('refuses a leader whose printed ability is a passive — nothing to fire', () => {
+      const { gs, em } = setup('leader-120') // the Cloaked Sage: draws on Magic plays
+      expect(action(em, 'p1', 'leader-120').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.LeaderNotActivatable,
+      })
+    })
+
     it('refuses without the action point', () => {
       const { gs, em } = setup(CLAW, 0)
       expect(action(em).canExecute(gs)).toEqual({

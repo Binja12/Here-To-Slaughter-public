@@ -11,6 +11,7 @@ import {
 import type { Game } from '../setup/create-game'
 import { GameState } from '../pipelines/game-state'
 import { IEffect, IReactionWindow } from '../interfaces'
+import { firesOnOwnRoll } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // The projection layer of §5: one player's screen, built from the board. The
@@ -124,7 +125,10 @@ function partyView(gs: GameState, playerId: string): PartyView {
     }),
     monsters: party.getMonsterIds().map((id) => cardOf(gs, id)),
     instanceCards: party.getInstanceCardIds().map((id) => cardOf(gs, id)),
-    canRollOnLeader: !spent.includes(party.getLeaderId()),
+    // The two questions RollOnLeaderAction.canExecute asks about the leader
+    // itself: activatable at all, and not yet spent this turn.
+    canRollOnLeader:
+      firesOnOwnRoll(party.getLeaderId()) && !spent.includes(party.getLeaderId()),
   }
 }
 

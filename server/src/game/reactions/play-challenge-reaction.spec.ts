@@ -150,6 +150,14 @@ describe('PlayChallengeReaction', () => {
   // execute
   // ---------------------------------------------------------------------------
 
+  it('canExecute refuses the defender contesting their own play', () => {
+    openFrame(gs, { ...makeStubWindow(), getRespondentId: () => 'p1' })
+    expect(makeReaction().canExecute(gs)).toEqual({
+      accepted: false,
+      reason: RefusalReason.CannotChallengeOwnCard,
+    })
+  })
+
   describe('execute', () => {
     let stub: ReturnType<typeof makeStubWindow>
     let frameId: string

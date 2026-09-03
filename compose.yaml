@@ -1,0 +1,55 @@
+# Local 3-browser playtest: `docker compose up --build`, then three cookie
+# jars at http://localhost:3002 (localhost, never 127.0.0.1 — the session
+# cookie is bound to the host name the lobby was reached as).
+#
+# Each Nest process reads the SAME variable names for "where I listen" and
+# "whom I dial" (server/src/main.ts, lobby.module.ts,
+# game-server/game-server.config.ts), so each container gets its own view:
+# the lobby listens on all interfaces and dials `game`, the game listens on
+# all interfaces and dials `lobby`. The internal TCP doors (4000/4001) are
+# never published; only the three browser-facing ports are.
+services:
+  lobby:
+    build:
+      context: .
+      target: server
+    command: ["node", "server/dist/server/src/main.js"]
+    environment:
+      PORT: "3000"
+      LOBBY_AUTH_TCP_HOST: "0.0.0.0"
+      LOBBY_AUTH_TCP_PORT: "4000"
+      GAME_SERVER_TCP_HOST: "game"
+      GAME_SERVER_TCP_PORT: "4001"
+    ports:
+      - "3000:3000"
+
+  game:
+    build:
+      context: .
+      target: server
+    command: ["node", "server/dist/server/src/main.game.js"]
+    environment:
+      GAME_SERVER_PORT: "3001"
+      GAME_SERVER_TCP_HOST: "0.0.0.0"
+      GAME_SERVER_TCP_PORT: "4001"
+      GAME_SERVER_PUBLIC_URL: "http://localhost:3001"
+      # Humans need time to find the card; the engine's default is 5 s.
+      REACTION_COUNTDOWN_MS: "30000"
+      LOBBY_AUTH_TCP_HOST: "lobby"
+      LOBBY_AUTH_TCP_PORT: "4000"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - lobby
+
+  client:
+    build:
+      context: .
+      target: client
+      args:
+        REACT_APP_LOBBY_URL: "http://localhost:3000"
+    ports:
+      - "3002:3002"
+    depends_on:
+      - lobby
+      - game
