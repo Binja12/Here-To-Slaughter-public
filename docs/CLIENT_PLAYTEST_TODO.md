@@ -214,6 +214,28 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
    challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
    refuses `GameNotOver`, completion sets `winnerId`.
 
+23. **Only implemented cards (2026-09-04)**. The registry implements 68 of
+    the 136 printed cards: all modifiers, challenges and leaders; 8 items,
+    7 magics, 5 monster passives and 3 hero effects (Wise Shield, Wiggles,
+    Snowball). Sharp Fox's roll of 5 "did nothing" because hero-016 has no
+    entry — same as Buttons. The owner: "only use the cards we implemented".
+    The deal (`createGame`, `dealable` in the ability repository) is now
+    EXACTLY the registry, every type alike — the owner's call after a
+    body-only middle ground (a temporary
+    registry of implemented cards only). Known consequence he
+    accepted: 3 heroes in a 57-card deck, so most hands hold none and
+    class-gated monsters are rarely attackable; the pool grows as entries
+    are written. Every dealt hero rolls and fires its effect.
+    Found by the strict pool at once: the "every class" win condition asked
+    the POOL which classes exist, so Wiggles + Wise Shield was "all
+    classes" and won on the second hero (`AllClassesInParty` now requires
+    the game's six classes, never the pool's).
+    Red aura on an equipped item: `HeroRow` `itemEnemy` — an opponent's
+    cursed item landing on your hero is the open challenge's subject, and the
+    item strip under the hero had no red tone before.
+    Also fixed here: the item aim now mirrors the engine's equip rule (a
+    plain item only on your own bare heroes, a cursed one on anybody's) —
+    it used to offer every hero and let the server refuse.
 22. **First human table (HTSR-7, 2026-09-04)** — three engine findings, all
     fixed on the server with the client following:
     - **Passive leaders were activatable.** `RollOnLeaderAction` never asked
@@ -237,11 +259,16 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
       `run`, which declines the viewer's open optional question first — the
       first cut did go through it, so Skip dismissed "roll on the hero you
       just played?" and Buttons never pulled a card.
-    - **Pink aura** (`.passive-aura`, `HeroRow` `passive`): a hero whose
-      standing effect is live right now, at every seat — the seats' effect
-      lists name their source card. Heroes only, by the owner's call; the
-      quietest tone (red, gold and green win over it). Enchanted Spell's +2
-      still shows nothing: it is a magic card, not a hero.
+    - **Tones, the owner's rule (2026-09-04): gold = can pick, green = can
+      play, pink = effect working.** Pink (`.passive-aura`) is every card
+      whose effect is working right now, at every seat: a live standing
+      effect (the seats' effect lists name their source) or a bonus source
+      of the open roll (the Charismatic Song on a hero roll, the Divine
+      Arrow on an attack, a Really Big Ring, a monster's counter) — heroes,
+      items, leaders and the monster row. Those bonus sources used to be
+      gold; gold is now only questions and picks. Red still wins over all,
+      then gold, then green, then pink. Enchanted Spell's +2 still shows
+      nothing: the instance pile is not drawn.
     - **Own-card challenges.** The engine refuses `CannotChallengeOwnCard`
       (the window's respondent is the defender) and the glow rule skips the
       challenge card while the open window's respondent is the viewer.

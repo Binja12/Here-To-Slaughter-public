@@ -48,6 +48,22 @@ function dealtFrom(...types: CardType[]): Game {
   })
 }
 
+/**
+ * A deal whose leaders carry no standing roll bonus (the Divine Arrow, the
+ * Fist of Reason and the Charismatic Song each seed one), so a roll's bonus
+ * list means exactly what the case says. Was the suite's one nondeterministic
+ * test until 2026-09-04.
+ */
+function dealtQuiet(): Game {
+  const quiet = new Set(['leader-117', 'leader-120', 'leader-121'])
+  return createGame(SEATS, {
+    config: TEST_CONFIG,
+    cards: baseGameCards.filter(
+      (card) => card.type !== CardType.Leader || quiet.has(card.id),
+    ),
+  })
+}
+
 /** Every card id anywhere in a serialised view — the leak detector. */
 function everySeenId(view: unknown): string[] {
   const found: string[] = []
@@ -295,7 +311,7 @@ describe('playerView', () => {
   })
 
   it('shows the whole table a roll as it stands, and when it lapses', async () => {
-    const game = dealt()
+    const game = dealtQuiet()
     startGame(game)
     const playerId = game.playerOrder[0]
     const before = Date.now()
@@ -305,7 +321,7 @@ describe('playerView', () => {
       rollerId: playerId,
       baseRoll: 8,
       rollReq: 10,
-      heroId: 'hero-044',
+      heroId: 'hero-028', // Wise Shield — a dealt card (the pool is the registry)
     })
 
     const mine = playerView(game, playerId)
@@ -320,7 +336,7 @@ describe('playerView', () => {
         baseRoll: 8,
         finalRoll: 8,
         rollReq: 10,
-        heroId: 'hero-044',
+        heroId: 'hero-028', // Wise Shield — a dealt card (the pool is the registry)
         bonuses: [],
       })
       expect(roll.deadline).toBeGreaterThanOrEqual(before)

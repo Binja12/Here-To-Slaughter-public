@@ -1477,12 +1477,9 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **`DecisionType.PickMonster` still has no reader.** `ChooseMonsterTask` and
   `ReactionWindowType.MonsterChoice` cover the mechanic; the `DecisionType`
   enum is a parallel vocabulary nothing consults.
-- **`views/player-view.spec.ts` "shows the whole table a roll as it stands" is
-  nondeterministic.** It deals a REAL table and asserts `bonuses: []` on a
-  roll, so it fails whenever seat 0 draws one of the three leaders that
-  install a `RollBonus` on `GameStarted` (`leader-116`, `118`, `119`) — about
-  half of all runs. The fix is the one `play-through-helpers.ts` already
-  uses: deal from `QUIET_LEADERS`, or assert on `baseRoll` alone.
+- ~~`views/player-view.spec.ts` "shows the whole table a roll as it stands" is
+  nondeterministic~~ — FIXED 2026-09-04: the case deals from quiet leaders
+  (`dealtQuiet`), so `bonuses: []` is true by construction.
 - **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
   like `MonsterCard.trySlay`, and read by nothing.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
@@ -1576,6 +1573,19 @@ have to find a legal way to spend the budget.
 `Game` is data — the pieces a caller drives — so `startGame(game)` is a
 function OVER it rather than a method on it. A closure in the bag would be the
 one thing in it that could not be inspected or handed across a boundary.
+
+**The deal is exactly the registry — TEMPORARY (2026-09-04).** `createGame`
+draws the default pool from `baseGameCards.filter(dealable)`, and `dealable`
+is `abilityRegistry.has(id)` for every type alike: the owner's call ("a temp
+registry with only cards that are implemented"), knowing it leaves 3 heroes
+in a 57-card deck for now. The pool grows by itself as entries are written.
+Tried the same day and dropped: keeping every hero and monster as a body
+while filtering items and magic (he wanted the strict set), and a view flag
+hiding the roll on unimplemented heroes (it took the dice out of nearly every
+hero play). A caller's own `cards` list is dealt as given. The strict pool
+exposed a latent bug the same hour: `AllClassesInParty` derived "every
+class" from the pool, so two classes were all of them and the second hero
+played won; it now requires `HeroClass`'s six members, whatever was dealt.
 
 ## 12. Working principles
 

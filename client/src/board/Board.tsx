@@ -121,6 +121,7 @@ function SlotCard({
   origin = '50% 50%',
   playable = false,
   enemy = false,
+  passive = false,
   targetKey,
   onActivate,
 }: {
@@ -132,6 +133,8 @@ function SlotCard({
   playable?: boolean
   /** an opponent attacks this monster right now: red */
   enemy?: boolean
+  /** this monster's standing rule is working right now (its counter feeds the open roll): pink */
+  passive?: boolean
   targetKey?: TargetKey
   onActivate?: () => void
 }) {
@@ -150,7 +153,7 @@ function SlotCard({
         draggable={false}
         className={`select-none rounded-[0.3cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-150 ${
           stretch ? 'h-full w-full object-fill' : 'max-h-[90%] max-w-[90%] object-contain'
-        }${enemy ? ' enemy-aura card-aura-sm' : playable ? ' card-aura card-aura-sm' : ''} ${target.className}`}
+        }${enemy ? ' enemy-aura card-aura-sm' : playable ? ' card-aura card-aura-sm' : passive ? ' passive-aura card-aura-sm' : ''} ${target.className}`}
         style={{
           transformOrigin: origin,
           transform: zoomable && hz.active ? `scale(${zoom})` : undefined,
@@ -181,7 +184,7 @@ function LeaderWithCards({
   origin,
   revealSide,
   playable,
-  asked = false,
+  passive = false,
   enemy = false,
   zoom,
   onActivate,
@@ -192,7 +195,8 @@ function LeaderWithCards({
   revealSide: 'left' | 'right'
   playable: boolean
   /** its standing effect feeds the open roll: gold */
-  asked?: boolean
+  /** the leader's standing effect is working right now (feeds the open roll): pink */
+  passive?: boolean
   /** an opponent rolls on it right now: red */
   enemy?: boolean
   zoom: number
@@ -235,7 +239,7 @@ function LeaderWithCards({
         alt={party.leader.name}
         draggable={false}
         className={`absolute inset-0 z-20 h-full w-full select-none rounded-[0.3cqw] object-fill shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out ${
-          enemy ? 'enemy-aura card-aura-sm ' : asked ? 'ask-aura card-aura-sm ' : playable ? 'card-aura card-aura-sm ' : ''
+          enemy ? 'enemy-aura card-aura-sm ' : playable ? 'card-aura card-aura-sm ' : passive ? 'passive-aura card-aura-sm ' : ''
         }${leaderTarget.className}`}
         style={{
           transformOrigin: origin,
@@ -564,6 +568,7 @@ function CenterArena({
   discardCards,
   discardPlayable,
   enemyIds,
+  passiveIds,
   flags,
   activate,
   onOpenDiscard,
@@ -573,6 +578,8 @@ function CenterArena({
   discardPlayable: boolean
   /** cards an opponent is acting with right now (red) */
   enemyIds: Set<string>
+  /** cards whose effect is working right now (pink) */
+  passiveIds: Set<string>
   flags: ReturnType<typeof derivePlayable>
   activate: (key: TargetKey) => void
   onOpenDiscard: () => void
@@ -591,6 +598,7 @@ function CenterArena({
                 zoom={MONSTER_ZOOM}
                 playable={flags.monsters[index]}
                 enemy={enemyIds.has(card.id)}
+                passive={passiveIds.has(card.id)}
                 targetKey={tkey.monster(index)}
                 onActivate={flags.monsters[index] ? () => activate(tkey.monster(index)) : undefined}
               />
@@ -721,17 +729,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   //  - red: the card an OPPONENT just played (the contested card, until
   //    its challenge window closes) or rolls on (hero / leader / monster,
   //    until the roll closes); the dice go red with it;
-  //  - gold: every card whose standing effect feeds the open roll — the
-  //    server names them as the roll's bonus sources ("each time you roll
-  //    to attack a monster, +1").
+  //  - pink: every card whose effect is WORKING right now — a standing
+  //    effect that is live (the seats' effect lists) or one feeding the open
+  //    roll (the server names them as the roll's bonus sources: "each time
+  //    you roll to attack a monster, +1"). The owner's rule, 2026-09-04:
+  //    gold = can pick, green = can play, pink = effect working.
   const enemyIds = new Set<string>()
   const bonusSourceIds = new Set<string>()
-  // pink: a hero whose standing effect is live right now, at any seat — the
-  // seats' effect lists name their source card (the owner, 2026-09-04: heroes
-  // only; a leader's, an item's or a monster's standing rule shows nothing)
-  const passiveIds = new Set(
-    view.seats.flatMap((seat) => seat.effects.map((effect) => effect.sourceCardId)),
-  )
   for (const window of view.pendingWindows) {
     if (window.type !== 'Modifier' && window.type !== 'Attack' && window.type !== 'Challenge') continue
     if (window.respondentId !== view.playerId) {
@@ -743,6 +747,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       for (const bonus of bonusesOf(list)) if (bonus.cardSource) bonusSourceIds.add(bonus.cardSource)
     }
   }
+  // pink: every card whose effect is working — a live standing effect at any
+  // seat (the seats' effect lists name their source card) or a bonus source
+  // of the open roll (heroes, items, leaders, a monster's counter)
+  const passiveIds = new Set([
+    ...view.seats.flatMap((seat) => seat.effects.map((effect) => effect.sourceCardId)),
+    ...Array.from(bonusSourceIds),
+  ])
   const diceTone = liveRoll && liveRoll.rollerId !== view.playerId ? 'enemy' : 'mine'
 
   // A reaction being aimed (modifier / challenge card pressed, board dimmed,
@@ -975,10 +986,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     } else if (card.type === 'Magic') {
       void run({ type: 'PlayMagic', payload: { cardId: card.id } })
     } else if (card.type === 'Item') {
+      // MIRROR of the engine's equip rule (item-tasks.ts canEquip): a cursed
+      // item is played AT anybody, a plain one only dresses your own; either
+      // way the hero must be bare (HeroAlreadyEquipped)
+      const cursed = 'cursed' in card && card.cursed === true
       const targets = view.parties.flatMap((party) => {
         const slot = (Object.entries(slots) as [PlayerId, string | null][]).find(([, id]) => id === party.playerId)?.[0]
         if (!slot) return []
-        return party.heroes.map((_, index) => tkey.hero(slot, index))
+        if (!cursed && party.playerId !== view.playerId) return []
+        return party.heroes.flatMap((hero, index) =>
+          hero.equippedItem ? [] : [tkey.hero(slot, index)],
+        )
       })
       begin({
         source,
@@ -1085,6 +1103,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             discardCards={discardCards}
             discardPlayable={discardPlayable}
             enemyIds={enemyIds}
+            passiveIds={passiveIds}
             flags={flags}
             activate={activate}
             onOpenDiscard={() => setDiscardOpen(true)}
@@ -1110,15 +1129,14 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                       (isMine && !!flags.heroes[index]) ||
                       reactionTargetIds.has(hero.card.id),
                   )}
-                  asked={party.heroes.map(
-                    (hero) =>
-                      (isMine && hero.card.id === askedCardId) ||
-                      bonusSourceIds.has(hero.card.id),
-                  )}
+                  asked={party.heroes.map((hero) => isMine && hero.card.id === askedCardId)}
                   enemy={party.heroes.map((hero) => enemyIds.has(hero.card.id))}
                   passive={party.heroes.map((hero) => passiveIds.has(hero.card.id))}
-                  itemAsked={party.heroes.map(
-                    (hero) => !!hero.equippedItem && bonusSourceIds.has(hero.equippedItem.id),
+                  itemPassive={party.heroes.map(
+                    (hero) => !!hero.equippedItem && passiveIds.has(hero.equippedItem.id),
+                  )}
+                  itemEnemy={party.heroes.map(
+                    (hero) => !!hero.equippedItem && enemyIds.has(hero.equippedItem.id),
                   )}
                   itemPlayable={party.heroes.map(
                     (hero) =>
@@ -1136,7 +1154,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                   party={party}
                   revealSide={layout.anchor === 'right' ? 'left' : 'right'}
                   playable={isMine && flags.leader}
-                  asked={bonusSourceIds.has(party.leader.id)}
+                  passive={passiveIds.has(party.leader.id)}
                   enemy={enemyIds.has(party.leader.id)}
                   onActivate={isMine && flags.leader ? () => activate(tkey.leader(slot)) : undefined}
                   origin={LEADER_ZOOM_ORIGIN[layout.anchor]}

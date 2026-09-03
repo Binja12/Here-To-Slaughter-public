@@ -27,11 +27,21 @@ export class SlayMonsters {
 export class AllClassesInParty {
   private reqHeroClasses: HeroClass[]
   private repo: ICardRepository
+  /** How many DISTINCT classes a party needs; the config's `value`, six by default. */
+  private readonly required: number
 
-  constructor(repo: ICardRepository) {
+  /**
+   * "A hero of every class" counts against the classes the GAME has, never
+   * the classes the dealt pool happens to hold. Reading the pool was a trap: a
+   * pool of three heroes made two classes "all of them" and handed out a win
+   * on the second hero played (seen live 2026-09-04, implemented-only deal).
+   * `required` is the config's `value` — six for the real game, one for a
+   * harness that wants the first hero to win — capped at the classes there are.
+   */
+  constructor(repo: ICardRepository, required = Object.values(HeroClass).length) {
     this.repo = repo
-    this.reqHeroClasses = repo.getAvailableClasses()
-    //console.log('required classes', this.reqHeroClasses)
+    this.reqHeroClasses = Object.values(HeroClass)
+    this.required = Math.min(required, this.reqHeroClasses.length)
   }
 
   check(gs: GameState): Player | null {
@@ -43,15 +53,10 @@ export class AllClassesInParty {
         .filter((card) => card !== null) // removes null
         .map((card) => card.heroClass) // convert each card type into the hero class
 
-      const uniqueClasses = new Set(playerHeroClasses)
-      //console.log(uniqueClasses) // removes duplicates
-      const hasAllClasses = this.reqHeroClasses.every(
-        (
-          cls, // checks that every element in is also in b
-        ) => uniqueClasses.has(cls),
+      const uniqueClasses = new Set(
+        playerHeroClasses.filter((cls) => this.reqHeroClasses.includes(cls)),
       )
-
-      if (hasAllClasses) return player
+      if (uniqueClasses.size >= this.required) return player
     }
     return null
   }

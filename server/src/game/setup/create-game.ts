@@ -1,5 +1,6 @@
 import { CardBase, CardType, GameConfig, WinConditionType } from 'shared'
 import { baseGameCards } from '../../data/base-game-cards'
+import { dealable } from '../repositories/ability-repository'
 import { IWinCondition } from '../interfaces'
 import { defaultGameConfig } from '../config/game-config'
 import { buildCard } from '../cards/card-factory'
@@ -62,7 +63,11 @@ export type Game = {
 export type CreateGameOptions = {
   gameId?: string
   config?: GameConfig
-  /** All printed cards to draw the deck from. Filtered by `config.cardSets`. */
+  /**
+   * All printed cards to draw the deck from, filtered by `config.cardSets`.
+   * Default: exactly the cards the registry implements (`dealable`, the
+   * temporary playtest pool); a caller's own list is dealt as given.
+   */
   cards?: CardBase[]
   /**
    * What to call each seat, by player id; a seat not named here is called by
@@ -79,8 +84,11 @@ export function createGame(
 ): Game {
   const config = options.config ?? defaultGameConfig
   const gameId = options.gameId ?? crypto.randomUUID()
-  const pool = (options.cards ?? baseGameCards).filter((card) =>
-    config.cardSets.includes(card.set),
+  // TEMPORARY playtest pool: exactly the cards the registry implements (see
+  // `dealable`). A caller that hands its own `cards` in has decided the deal
+  // itself — the harness does.
+  const pool = (options.cards ?? baseGameCards.filter(dealable)).filter(
+    (card) => config.cardSets.includes(card.set),
   )
 
   assertSeats(playerIds, config)
@@ -223,9 +231,9 @@ export function startGame(game: Game): void {
 
 /**
  * Win condition DATA -> instances. The config carries `{ type, value }`;
- * GameEngine wants objects with a `check`. AllClassesInParty reads the card
- * pool to learn which classes exist at all, which is what the repository is
- * for.
+ * GameEngine wants objects with a `check`. AllClassesInParty reads cards by id
+ * through the repository; the classes it requires are the game's six, never
+ * the pool's (a three-hero pool once made two classes "all of them").
  */
 function buildWinConditions(
   config: GameConfig,
@@ -239,7 +247,7 @@ function buildWinConditions(
       case WinConditionType.SlayMonsters:
         return new SlayMonsters(wc.value)
       case WinConditionType.PartyClasses:
-        return new AllClassesInParty(repository)
+        return new AllClassesInParty(repository, wc.value)
     }
     const unhandled: never = wc.type
     throw new Error(`createGame: no win condition for ${String(unhandled)}`)
