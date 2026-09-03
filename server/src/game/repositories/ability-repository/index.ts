@@ -24,6 +24,32 @@ import { SuspiciouslyShinyCoinAbility } from './suspiciously-shiny-coin-ability'
 import { SnowballAbility } from './snowball-ability'
 import { WigglesAbility } from './wiggles-ability'
 import { WiseShieldAbility } from './wise-shield-ability'
+import { BadAxeAbility } from './bad-axe-ability'
+import { PanChucksAbility } from './pan-chucks-ability'
+import { SeriousGreyAbility } from './serious-grey-ability'
+import { QuickDrawAbility } from './quick-draw-ability'
+import { WildshotAbility } from './wildshot-ability'
+import { KitNapperAbility } from './kit-napper-ability'
+import { SlyPickingsAbility } from './sly-pickings-ability'
+import { MeowzioAbility } from './meowzio-ability'
+import { VibrantGlowAbility } from './vibrant-glow-ability'
+import { IronResolveAbility } from './iron-resolve-ability'
+import { CalmingVoiceAbility } from './calming-voice-ability'
+import { ButtonsAbility } from './buttons-ability'
+import { WhiskersAbility } from './whiskers-ability'
+import { FluffyAbility } from './fluffy-ability'
+import { MellowDeeAbility } from './mellow-dee-ability'
+import { LuckyBuckyAbility } from './lucky-bucky-ability'
+import { FuzzyCheeksAbility } from './fuzzy-cheeks-ability'
+import { NappingNibblesAbility } from './napping-nibbles-ability'
+import { PeanutAbility } from './peanut-ability'
+import { AnuranCauldronAbility } from './anuran-cauldron-ability'
+import { DracosAbility } from './dracos-ability'
+import { ArcticAriesAbility } from './arctic-aries-ability'
+import { RexMajorAbility } from './rex-major-ability'
+import { DarkDragonKingAbility } from './dark-dragon-king-ability'
+import { TitanWyvernAbility } from './titan-wyvern-ability'
+import { EntanglingTrapAbility } from './entangling-trap-ability'
 
 // Not keyed by a card id — the rules a card gets from its position. Re-exported
 // so TaskManager reaches every table through this file.
@@ -69,9 +95,28 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // =========================================================================
   // A card holds a LIST of entries — one per stretch of steps that runs
   // without pausing. See wiggles-ability.ts for the split.
+  ['hero-001', BadAxeAbility], // Bad Axe — DESTROY a Hero
+  ['hero-008', PanChucksAbility], // Pan Chucks — DRAW 2; Challenge may DESTROY
+  ['hero-009', SeriousGreyAbility], // Serious Grey — DESTROY, then DRAW
+  ['hero-010', QuickDrawAbility], // Quick Draw — DRAW 2; Item may be played
+  ['hero-012', WildshotAbility], // Wildshot — DRAW 3, DISCARD 1
+  ['hero-017', KitNapperAbility], // Kit Napper — STEAL a Hero
+  ['hero-018', SlyPickingsAbility], // Sly Pickings — pull; Item may be played
+  ['hero-019', MeowzioAbility], // Meowzio — STEAL and pull from one player
   ['hero-028', WiseShieldAbility], // Wise Shield — +3 to your rolls until end of turn
+  ['hero-029', VibrantGlowAbility], // Vibrant Glow — +5 to your rolls this turn
+  ['hero-030', IronResolveAbility], // Iron Resolve — your plays cannot be challenged
+  ['hero-032', CalmingVoiceAbility], // Calming Voice — your Heroes cannot be stolen
+  ['hero-034', ButtonsAbility], // Buttons — pull; Magic may be played
   ['hero-036', WigglesAbility], // Wiggles — STEAL a Hero, then may roll on it
+  ['hero-037', WhiskersAbility], // Whiskers — STEAL, then DESTROY
+  ['hero-038', FluffyAbility], // Fluffy — DESTROY 2 Heroes
   ['hero-040', SnowballAbility], // Snowball — DRAW; if Magic, may play it and DRAW
+  ['hero-041', MellowDeeAbility], // Mellow Dee — DRAW; Hero may be played
+  ['hero-042', LuckyBuckyAbility], // Lucky Bucky — pull; Hero may be played
+  ['hero-043', FuzzyCheeksAbility], // Fuzzy Cheeks — DRAW, then play a Hero
+  ['hero-044', NappingNibblesAbility], // Napping Nibbles — do nothing
+  ['hero-048', PeanutAbility], // Peanut — DRAW 2
 
   // =========================================================================
   // MONSTERS — monster-122 … monster-136
@@ -79,10 +124,16 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // Every monster passive installs on MonsterSlain and never expires: the
   // monster is in the party before that event goes out, and it never leaves.
   ['monster-123', MegaSlimeAbility], // Mega Slime — +1 action point each turn
+  ['monster-124', AnuranCauldronAbility], // Anuran Cauldron — +1 to every roll
+  ['monster-126', DracosAbility], // Dracos — may DRAW when your Hero is destroyed
+  ['monster-128', ArcticAriesAbility], // Arctic Aries — may DRAW after a successful roll
   ['monster-129', AbyssQueenAbility], // Abyss Queen — +1 answering a hostile Modifier
   ['monster-131', OrthusAbility], // Orthus — DRAW a Magic card, may play it at once
+  ['monster-132', RexMajorAbility], // Rex Major — drawn Modifier may DRAW again
+  ['monster-133', DarkDragonKingAbility], // Dark Dragon King — +1 to Hero-effect rolls
   ['monster-134', MalamammothAbility], // Malamammoth — DRAW an Item card, may play it at once
   ['monster-135', WarwornOwlbearAbility], // Warworn Owlbear — your Items cannot be challenged
+  ['monster-136', TitanWyvernAbility], // Titan Wyvern — +1 to Challenge rolls
 
   // =========================================================================
   // ITEMS — item-062 … item-076
@@ -103,6 +154,8 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // =========================================================================
   ['magic-049', DestructiveSpellAbility], // Destructive Spell — DISCARD 1, then DESTROY a hero
   ['magic-050', DestructiveSpellAbility],
+  ['magic-051', EntanglingTrapAbility], // Entangling Trap — DISCARD 2, then STEAL
+  ['magic-052', EntanglingTrapAbility],
   ['magic-053', CriticalBoostAbility], // Critical Boost — DRAW 3, DISCARD 1
   ['magic-054', CriticalBoostAbility],
   ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to all your rolls this turn
@@ -116,12 +169,30 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // data, read by ChooseValueTask at runtime.
   ...allOf(
     [
-      'modifier-077', 'modifier-078', 'modifier-079', 'modifier-080',
-      'modifier-081', 'modifier-082', 'modifier-083', 'modifier-084',
-      'modifier-085', 'modifier-086', 'modifier-087', 'modifier-088',
-      'modifier-089', 'modifier-090', 'modifier-091', 'modifier-092',
-      'modifier-093', 'modifier-094', 'modifier-095', 'modifier-096',
-      'modifier-097', 'modifier-098', 'modifier-099', 'modifier-100',
+      'modifier-077',
+      'modifier-078',
+      'modifier-079',
+      'modifier-080',
+      'modifier-081',
+      'modifier-082',
+      'modifier-083',
+      'modifier-084',
+      'modifier-085',
+      'modifier-086',
+      'modifier-087',
+      'modifier-088',
+      'modifier-089',
+      'modifier-090',
+      'modifier-091',
+      'modifier-092',
+      'modifier-093',
+      'modifier-094',
+      'modifier-095',
+      'modifier-096',
+      'modifier-097',
+      'modifier-098',
+      'modifier-099',
+      'modifier-100',
       'modifier-101',
     ],
     ModifierAbility,
@@ -133,10 +204,20 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // One declaration, 14 identical copies.
   ...allOf(
     [
-      'challenge-102', 'challenge-103', 'challenge-104', 'challenge-105',
-      'challenge-106', 'challenge-107', 'challenge-108', 'challenge-109',
-      'challenge-110', 'challenge-111', 'challenge-112', 'challenge-113',
-      'challenge-114', 'challenge-115',
+      'challenge-102',
+      'challenge-103',
+      'challenge-104',
+      'challenge-105',
+      'challenge-106',
+      'challenge-107',
+      'challenge-108',
+      'challenge-109',
+      'challenge-110',
+      'challenge-111',
+      'challenge-112',
+      'challenge-113',
+      'challenge-114',
+      'challenge-115',
     ],
     ChallengeAbility,
   ),
