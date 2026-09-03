@@ -1,5 +1,5 @@
 import { MagicCard } from './magic-card'
-import { CardType, EffectDuration } from 'shared'
+import { CardType } from 'shared'
 import { MagicCardData } from 'shared'
 
 const mockMagicData: MagicCardData = {
@@ -8,10 +8,7 @@ const mockMagicData: MagicCardData = {
   type: CardType.Magic,
   image: 'fireball.png',
   description: 'Deals massive damage',
-  effect: {
-    attackBonus: 3,
-    duration: EffectDuration.TurnEnd,
-  },
+  set: 'base',
 }
 
 describe('MagicCard', () => {
@@ -38,10 +35,5 @@ describe('MagicCard', () => {
   it('should return description', () => {
     const card = new MagicCard(mockMagicData)
     expect(card.getDescription()).toBe('Deals massive damage')
-  })
-
-  it('should return effect', () => {
-    const card = new MagicCard(mockMagicData)
-    expect(card.getEffect()).toEqual(mockMagicData.effect)
   })
 })

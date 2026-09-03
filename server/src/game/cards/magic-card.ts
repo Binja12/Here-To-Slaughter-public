@@ -1,8 +1,12 @@
 import { ICard } from 'shared'
-import { MagicCardData, CardType, EffectData } from 'shared'
+import { MagicCardData, CardType } from 'shared'
 
 export class MagicCard implements ICard {
   constructor(private data: MagicCardData) {}
+
+  getData(): MagicCardData {
+    return { ...this.data }
+  }
 
   getId(): string {
     return this.data.id
@@ -18,8 +22,5 @@ export class MagicCard implements ICard {
   }
   getDescription(): string {
     return this.data.description
-  }
-  getEffect(): EffectData {
-    return this.data.effect
   }
 }

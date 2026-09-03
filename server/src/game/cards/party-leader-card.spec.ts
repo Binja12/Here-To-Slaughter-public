@@ -9,10 +9,7 @@ const mockLeaderData: PartyLeaderData = {
   image: 'shadow.png',
   description: 'A mysterious leader',
   heroClass: HeroClass.Thief,
-  skill: {
-    condition: 'Each time you steal',
-    description: 'Draw a card',
-  },
+  set: 'base',
 }
 
 describe('PartyLeaderCard', () => {
@@ -44,10 +41,5 @@ describe('PartyLeaderCard', () => {
   it('should return hero class', () => {
     const card = new PartyLeaderCard(mockLeaderData)
     expect(card.getHeroClass()).toBe(HeroClass.Thief)
-  })
-
-  it('should return skill', () => {
-    const card = new PartyLeaderCard(mockLeaderData)
-    expect(card.getSkill()).toEqual(mockLeaderData.skill)
   })
 })
