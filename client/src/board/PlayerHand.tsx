@@ -1,10 +1,5 @@
 import React from 'react';
 import { useTargetable, useTargeting, tkey } from './targeting';
-import { useChallenge } from './challenge';
-
-/** are any of these keys cards in the local hand fan? */
-const involvesHand = (keys: readonly string[]) =>
-  keys.some((k) => k.startsWith('handCard:'));
 
 /**
  * The local player's hand (bottom seat ONLY — opponents just show their
@@ -54,34 +49,36 @@ export default function PlayerHand({
   /** the closed-stack widget the fan is anchored to (e.g. <HandCount/>) */
   children: React.ReactNode;
 }) {
-  // Fan-open control while a request / challenge runs:
-  //  - forced OPEN when the challenge window is up (the hand is part of its
-  //    bright layer — modifiers get played from it, so it also marks itself
-  //    `dim-exempt` for the challenge dim rules), or when the request's
-  //    TARGETS live in the hand (you pick FROM the fan — it must be visible).
-  //  - forced CLOSED (folds + ignores hover) when a HAND card is aiming at
+  // Fan-open control while a request runs:
+  //  - the fan opens only from hover over the stack/fan.
+  //  - it is forced CLOSED (and ignores hover) when a HAND card is aiming at
   //    the BOARD (challenge/modifier/magic picking its target): the open fan
   //    would cover the targets. It re-opens on the next hover once the
-  //    request ends (pick or cancel), or force-opens with the challenge
-  //    window.
+  //    request ends (pick or cancel).
   const { active } = useTargeting();
-  const challengeOpen = !!useChallenge().active;
-  const forcedOpen =
-    challengeOpen || (!!active && involvesHand(active.targets));
-  const forcedClosed =
-    !forcedOpen && !!active && active.source.startsWith('handCard:');
-
-  // When a hand-involving request ENDS (you picked a card in the fan, or an
-  // action sourced from the hand resolved), the cursor is still sitting over
-  // the open fan — plain group-hover would keep it hanging open. Suppress the
-  // hover-open until the pointer leaves the hand, so the pick visibly CLOSES
-  // the fan; the next deliberate hover re-opens it.
-  const [suppressed, setSuppressed] = React.useState(false);
-  const wasForcedOpen = React.useRef(forcedOpen);
-  React.useEffect(() => {
-    if (wasForcedOpen.current && !forcedOpen) setSuppressed(true);
-    wasForcedOpen.current = forcedOpen;
-  }, [forcedOpen]);
+  const forcedClosed = !!active && active.source.startsWith('handCard:');
+  // Which card the cursor is over, judged by the cells' RESTING boxes: the
+  // enlarged image is a child of its cell, so DOM hover alone would keep a
+  // card zoomed while the cursor sits on the enlarged part outside where
+  // the card lies. The cell on top at rest (highest index) wins overlaps.
+  const [hovered, setHovered] = React.useState<number | null>(null);
+  const cellRefs = React.useRef<Array<HTMLDivElement | null>>([]);
+  const hitTest = (event: React.MouseEvent) => {
+    let hit: number | null = null;
+    cellRefs.current.forEach((cell, i) => {
+      if (!cell) return;
+      const r = cell.getBoundingClientRect();
+      if (
+        event.clientX >= r.left &&
+        event.clientX <= r.right &&
+        event.clientY >= r.top &&
+        event.clientY <= r.bottom
+      ) {
+        hit = i;
+      }
+    });
+    setHovered((current) => (current === hit ? current : hit));
+  };
 
   const n = cards.length;
   const mid = (n - 1) / 2;
@@ -102,39 +99,48 @@ export default function PlayerHand({
   return (
     <div
       className="group hand-group relative h-full w-full"
-      onMouseLeave={() => setSuppressed(false)}
     >
       {children}
 
       {/* fan anchor: low on the slot, overlapping the stack */}
       <div
         className={`absolute bottom-[12%] left-1/2 transition-all duration-200 ease-out ${
-          challengeOpen ? 'dim-exempt ' : ''
-        }${
-          forcedOpen
-            ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
-            : suppressed || forcedClosed
-              ? 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0'
-              : 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100'
+          forcedClosed
+            ? 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0'
+            : 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100'
         }`}
         style={{ marginLeft: `-${shiftLeft}cqw` }}
       >
-        <div className="relative w-px" style={{ height: `${CARD_H_CQH}cqh` }}>
+        <div
+          className="relative w-px"
+          style={{ height: `${CARD_H_CQH}cqh` }}
+          onMouseMove={hitTest}
+          onMouseLeave={() => setHovered(null)}
+        >
           {cards.map((src, i) => (
+            // The zoom follows the cell's RESTING box (hitTest above), so it
+            // ends the moment the cursor leaves where the card sits
+            // (the owner, 2026-09-03). The hovered cell's z is set INLINE —
+            // a `hover:` class cannot beat the inline base z, which let the
+            // next card paint over the zoomed one.
             <div
               key={`${src}-${i}`}
-              className="absolute bottom-0 left-1/2 h-full hover:z-[70]"
+              ref={(element) => {
+                cellRefs.current[i] = element;
+              }}
+              className="absolute bottom-0 left-1/2 h-full"
               style={{
                 transform: `translateX(calc(-50% + ${
                   (i - mid) * nudge
                 }cqw)) rotate(${(i - mid) * step}deg)`,
                 transformOrigin: `50% ${PIVOT * 100}%`,
-                zIndex: i,
+                zIndex: hovered === i ? 999 : i,
               }}
             >
               <FanCard
                 src={src}
                 index={i}
+                hovered={hovered === i}
                 playable={playable?.[i]}
                 onActivate={
                   playable?.[i] && onActivateCard
@@ -155,11 +161,14 @@ export default function PlayerHand({
 function FanCard({
   src,
   index,
+  hovered = false,
   playable,
   onActivate,
 }: {
   src: string;
   index: number;
+  /** the cell (resting footprint) is under the cursor — grow */
+  hovered?: boolean;
   playable?: boolean;
   /** normal-mode click (starting this card's action) */
   onActivate?: () => void;
@@ -173,9 +182,10 @@ function FanCard({
       alt={`hand card ${index + 1}`}
       draggable={false}
       onClick={t.onClick}
-      className={`h-full max-w-none origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-150${
-        dimmed ? '' : ' hover:scale-[1.6]'
-      }${playable ? ' card-aura' : ''} ${t.className}`}
+      className={`h-full max-w-none origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
+        playable ? ' card-aura' : ''
+      } ${t.className}`}
+      style={{ transform: hovered && !dimmed ? 'scale(1.6)' : undefined }}
     />
   );
 }

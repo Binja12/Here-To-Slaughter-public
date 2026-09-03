@@ -44,6 +44,10 @@ export const LOBBY_ART = {
    * informational — placement math lives in lobbyLayout.ts Rects. */
   backgroundEmpty: art('Background Empty.png', 1672, 941, 0, 0, 1672, 941),
   sideBars: art('Side Bards Frames.png', 1672, 941, 102, 46, 1467, 813),
+  /* the two bars as separate pieces (the owner, 2026-09-03) so each can be
+   * placed on its own — cropped exports, the bar fills its canvas */
+  sideBarLeft: art('side Bar Left.png', 321, 814, 0, 0, 321, 814),
+  sideBarRight: art('Side Bar Right.png', 321, 814, 0, 0, 321, 814),
   centerFrame: art('Center Frame.png', 1672, 941, 288, 24, 1095, 899),
 
   /* ----- legacy tilted-table lobby (kept for reference) ----- */

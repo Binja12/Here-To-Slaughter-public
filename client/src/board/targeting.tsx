@@ -49,11 +49,17 @@ export const tkey = {
   handStack: (player: string): TargetKey => `handStack:${player}`,
   /** a card in the LOCAL hand fan, index-aligned */
   handCard: (index: number): TargetKey => `handCard:${index}`,
+  /** an equipped item, index-aligned with its hero row */
+  item: (player: string, heroIndex: number): TargetKey =>
+    `item:${player}:${heroIndex}`,
   /** one of the 3 flipped arena monsters, left → right */
   monster: (index: number): TargetKey => `monster:${index}`,
   mainDeck: (): TargetKey => "mainDeck",
   monsterDeck: (): TargetKey => "monsterDeck",
   discard: (): TargetKey => "discard",
+  /** a visible card inside the discard browser, top card = index 0 */
+  discardCard: (index: number): TargetKey => `discardCard:${index}`,
+  pendingWindow: (windowId: string): TargetKey => `pendingWindow:${windowId}`,
   /** one side's live roll in the challenge window — the roll PANEL is the
    *  clickable target (e.g. aiming a modifier card at a roll) */
   challengeRoll: (role: "challenged" | "challenger"): TargetKey =>
@@ -69,6 +75,10 @@ export interface TargetingRequest {
   onPick: (target: TargetKey, source: TargetKey) => void;
   /** called when the user backs out (Escape / click-away / click source) */
   onCancel?: () => void;
+  /** reaction and choice targeting keep the table readable under a gentler
+   *  dim; a choice (the engine asking "pick a card / player / monster")
+   *  glows its targets gold instead of green. */
+  tone?: "normal" | "reaction" | "choice";
 }
 
 interface TargetingContextValue {

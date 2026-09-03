@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DICE_SIZE,
   DICE_SPOTS,
@@ -115,7 +115,26 @@ export function DicePair({
   );
 }
 
-export default function DiceRoll({ roll }: { roll: DiceRollState | null }) {
+export default function DiceRoll({
+  roll,
+  tone = "mine",
+}: {
+  roll: DiceRollState | null;
+  /** an opponent's roll: once the dice have settled, each die wears a
+   *  square red glow — the cards' glow in red. A box-shadow square BEHIND
+   *  the die, not a filter: a filter on an ancestor flattens the 3D cubes. */
+  tone?: "mine" | "enemy";
+}) {
+  // the glow waits for the throw to land (per throw = per nonce)
+  const [settled, setSettled] = useState(false);
+  const nonce = roll?.nonce;
+  useEffect(() => {
+    setSettled(false);
+    if (nonce === undefined) return;
+    const timer = window.setTimeout(() => setSettled(true), DICE_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [nonce]);
+
   // fully controlled: the dice sit on the table for as long as `roll` is set —
   // the next throw (new nonce) remounts them, roll=null clears the table
   if (!roll) return null;
@@ -127,6 +146,20 @@ export default function DiceRoll({ roll }: { roll: DiceRollState | null }) {
       className="pointer-events-none absolute z-[95]"
       style={positionStyle("center", spot.dx, spot.dy)}
     >
+      {tone === "enemy" &&
+        settled &&
+        [0, 1].map((i) => (
+          <div
+            key={i}
+            className="dice-glow absolute -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: `${(i === 0 ? -1 : 1) * spot.pairDx}cqh`,
+              top: `${(i === 0 ? -1 : 1) * spot.pairDy}cqh`,
+              width: `${DICE_SIZE}cqh`,
+              height: `${DICE_SIZE}cqh`,
+            }}
+          />
+        ))}
       <DicePair dice={roll} spot={spot} />
     </div>
   );

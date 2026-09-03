@@ -56,15 +56,18 @@ code {
    instead of playability — valid targets wear it while an action is aiming. */
 .card-aura,
 .target-aura {
-  filter: drop-shadow(0 0 calc((0.07 + 0.03 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(150, 255, 100, 0.95))
-    drop-shadow(0 0 calc((0.2 + 0.08 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(90, 245, 50, 0.85))
-    drop-shadow(0 0 calc((0.42 + 0.22 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(60, 230, 35, 0.6));
+  filter: drop-shadow(0 var(--aura-dy, 0cqw) calc((0.07 + 0.03 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(150, 255, 100, 0.95))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.2 + 0.08 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(90, 245, 50, 0.85))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.42 + 0.22 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(60, 230, 35, 0.6));
 }
 
 /* tighter spread for the BIG cards (leader, monsters, hand stack) — their
-   larger area makes the default glow read too fat, so they scale it down. */
+   larger area makes the default glow read too fat, so they scale it down —
+   and nudged up a hair (~2px on a 1080p stage), where their glow read as
+   sitting low (the owner, 2026-09-03). */
 .card-aura-sm {
   --aura-scale: 0.5;
+  --aura-dy: -0.1cqw;
 }
 
 /* action-point gems: warm amber halo. A CLASS (not an inline style) so the
@@ -111,10 +114,91 @@ code {
   filter: brightness(0.35) saturate(0.6) blur(0.12cqw);
 }
 
+.discard-scroll {
+  scrollbar-color: rgba(217, 119, 6, 0.85) rgba(39, 39, 42, 0.8);
+  scrollbar-width: thin;
+}
+
+.discard-scroll::-webkit-scrollbar {
+  width: 0.55cqw;
+}
+
+.discard-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(39, 39, 42, 0.8);
+}
+
+.discard-scroll::-webkit-scrollbar-thumb {
+  border: 0.1cqw solid rgba(39, 39, 42, 0.8);
+  border-radius: 999px;
+  background: rgba(217, 119, 6, 0.85);
+}
+
+/* Reaction cards target cards already visible on the table. Keep enough of
+   the painted board readable to make that spatial choice comfortable. */
+.targeting.reaction-targeting .dimmable:not(.dim-exempt):not(.dim-exempt *) {
+  filter: brightness(0.58) saturate(0.78) blur(0.035cqw);
+}
+
+/* The owner's rule of thumb (2026-09-03): the FIRST thing you may do glows
+   green (a playable card, a reaction card in the hand); every FOLLOW-UP pick
+   glows GOLD — the action-point gems' amber — whether it is the target of
+   a card you pressed, a roll panel in a challenge, or a question the engine
+   asks (pick a card / player / monster, roll on the hero you just played).
+   So every targeting target is gold. Specificity (0,2,0) beats the shared
+   green `.target-aura` (0,1,0). */
+.targeting.choice-targeting .dimmable:not(.dim-exempt):not(.dim-exempt *) {
+  filter: brightness(0.58) saturate(0.78) blur(0.035cqw);
+}
+
+/* An OPTIONAL question ("roll on the hero you just played?") does not dim
+   the table — the card it is about wears this gold aura on its own, the
+   board stays live, and any other action forfeits the question. */
+.ask-aura {
+  filter: drop-shadow(0 var(--aura-dy, 0cqw) calc((0.07 + 0.03 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 225, 130, 0.95))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.2 + 0.08 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 190, 60, 0.85))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.42 + 0.22 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 170, 30, 0.6));
+}
+
+/* What an OPPONENT is doing right now: the card they just played (until
+   its challenge window closes), the hero / monster they roll on and the
+   dice (until the roll closes). Red, so the table's action is legible. */
+.enemy-aura {
+  /* denser than the green: four layers, higher alpha, a wider outer halo */
+  filter: drop-shadow(0 var(--aura-dy, 0cqw) calc((0.05 + 0.02 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 140, 120, 1))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.12 + 0.05 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 80, 60, 1))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.26 + 0.1 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(240, 40, 30, 0.95))
+    drop-shadow(0 var(--aura-dy, 0cqw) calc((0.5 + 0.25 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(220, 20, 20, 0.8));
+}
+
+/* The square red glow under each settled die of an opponent's roll: the
+   cards' glow in red, as a box-shadow on a die-sized square (a filter on
+   the cube's ancestor would flatten its 3D faces). */
+.dice-glow {
+  /* the die covers the square itself, so everything that shows is the
+     SPREAD: a fat rim plus wide, near-opaque halos (first cut was ~2px
+     and invisible) */
+  border-radius: 14%;
+  box-shadow:
+    0 0 calc((0.2 + 0.1 * var(--aura)) * 1cqw) 0.32cqw rgba(255, 150, 120, 1),
+    0 0 calc((0.6 + 0.25 * var(--aura)) * 1cqw) 0.5cqw rgba(245, 60, 45, 1),
+    0 0 calc((1.3 + 0.5 * var(--aura)) * 1cqw) 0.7cqw rgba(225, 25, 20, 0.9);
+}
+
+.targeting .target-aura {
+  filter: drop-shadow(0 0 calc((0.07 + 0.03 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 225, 130, 0.95))
+    drop-shadow(0 0 calc((0.2 + 0.08 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 190, 60, 0.85))
+    drop-shadow(0 0 calc((0.42 + 0.22 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(255, 170, 30, 0.6));
+}
+
 /* smooth the mode change — but never on aura'd elements, whose filter is
    already re-evaluated every frame by the global --aura clock */
 .dimmable:not(.card-aura):not(.target-aura) {
-  transition: filter 0.25s ease;
+  /* `transition` is a shorthand: naming only `filter` here silently threw
+     away the transform transition every zooming card declares (Tailwind's
+     transition-transform), which is why zooms snapped instead of growing.
+     Both properties, one rule. */
+  transition: filter 0.25s ease, transform 120ms ease-out;
 }
 
 /* ---------------------------------------------------------------------------

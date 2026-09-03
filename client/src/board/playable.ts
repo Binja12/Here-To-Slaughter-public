@@ -1,59 +1,108 @@
-/**
- * Which cards the LOCAL player can act on right now — every entry marked true
- * gets the bright-green Hearthstone "playable" aura (`card-aura` in
- * index.css).
- *
- * This is pure UI state: the flags are computed OUTSIDE the board (eventually
- * from the live server snapshot in useGameState — e.g. hero already attacked
- * this turn → false, modifier/challenge in hand during a roll window → true)
- * and simply re-passed on every server update. The board never decides
- * playability itself, it only renders the flags.
- *
- * All arrays are index-aligned with the rendered lists (same order the
- * server sends them).
- */
+import { PendingWindowView, PlayerView } from '../contract'
+
 export interface PlayableFlags {
-  /** the 3 flipped arena monsters (attackable), left → right */
-  monsters: boolean[];
-  /** main deck — the "draw a card" action is available */
-  mainDeck: boolean;
-  /** the local player's party leader has a usable ability */
-  leader: boolean;
-  /** the local player's heroes on the board (attack / activated abilities
-   *  like "steal a card"), index-aligned with the hero row */
-  heroes: boolean[];
-  /** the local player's hand cards, index-aligned with the hand fan
-   *  (modifiers/challenges can be true even off-turn — during roll windows) */
-  hand: boolean[];
+  monsters: boolean[]
+  mainDeck: boolean
+  leader: boolean
+  heroes: boolean[]
+  hand: boolean[]
+  endTurn: boolean
+  redraw: boolean
 }
-
-/** everything off — e.g. opponent's turn with no reaction window open */
-export const NOTHING_PLAYABLE: PlayableFlags = {
-  monsters: [false, false, false],
-  mainDeck: false,
-  leader: false,
-  heroes: [],
-  hand: [],
-};
 
 /**
- * The server's OPEN REACTION WINDOWS: which board cards' actions can be
- * challenged / modified RIGHT NOW. Same contract as PlayableFlags — computed
- * outside the board (eventually straight off game:state, the engine's
- * reaction manager keeps exactly this) and re-passed on every update; the
- * board only renders it. Keys use the tkey vocabulary (targeting.tsx), so
- * pressing a challenge/modifier card in hand is ONE targeting request over
- * the matching list — the listed cards glow green, everything else dims.
+ * What each action costs in action points — a MIRROR of the engine's `COST`
+ * constants (server/src/game/actions/*.ts) and its hand limit, so a card
+ * does not glow for a play the server would refuse `NoActionPoints` /
+ * `HandFull` (the owner, 2026-09-03: a monster glowed at 1 AP, the attack was
+ * refused, and no roll ever opened). Legality still belongs to the server;
+ * this only stops the glow from lying.
  */
-export interface ReactionWindows {
-  /** cards whose action can be challenged (a challenge card's targets) */
-  challengeable: string[];
-  /** cards whose roll can be modified (a modifier card's targets) */
-  modifiable: string[];
-}
+export const AP_COST = {
+  attack: 2,
+  draw: 1,
+  playCard: 1,
+  rollOnHero: 1,
+  rollOnLeader: 1,
+  redraw: 3,
+} as const
+export const MAX_HAND_SIZE = 10
 
-/** no window open — challenge/modifier cards have nothing to aim at */
-export const NO_WINDOWS: ReactionWindows = {
-  challengeable: [],
-  modifiable: [],
-};
+/**
+ * Presentation gates copied from the read model plus the cost mirror above.
+ * Equipment, deck and party rules are NOT duplicated: the server remains the
+ * legality authority and refusals come back via ack.
+ */
+/**
+ * A window the viewer may simply walk away from: a yes/no whose "no" is
+ * `dismiss` ("roll on the hero you just played?"). The wire has no
+ * explicit flag for this yet (an `optional: boolean` on PendingWindowView
+ * would be the honest HTSR-4 change); until then, "has a dismiss option"
+ * is the tell.
+ */
+export const isOptionalWindow = (window: PendingWindowView): boolean =>
+  window.type === 'TaskChoice' &&
+  Array.isArray(window.options) &&
+  window.options.includes('dismiss')
+
+/** The viewer's own open windows are all optional: the table stays live. */
+export const onlyOptionalWindows = (view: PlayerView): boolean =>
+  view.pendingWindows.length > 0 &&
+  view.pendingWindows.every((window) => window.isYours && isOptionalWindow(window))
+
+export function derivePlayable(view: PlayerView): PlayableFlags {
+  const mine = view.parties.find((party) => party.playerId === view.playerId)
+  const reactionOpen = view.pendingWindows.some(
+    (window) =>
+      window.type === 'Modifier' ||
+      window.type === 'Attack' ||
+      window.type === 'Challenge',
+  )
+  // `busy` while the only open window is an optional question of ours does
+  // not freeze the table: pressing any other action forfeits the question
+  // (Board dismisses it first, then sends the action).
+  const idle = !view.busy || onlyOptionalWindows(view)
+  const actionWindow =
+    view.phase === 'Turns' &&
+    view.currentPlayerId === view.playerId &&
+    idle &&
+    !reactionOpen
+  // NOT gated on `busy`: the table is busy exactly while a window is open,
+  // and an open window is the only time a reaction is legal (seen live —
+  // with the gate, a modifier could never be played on anybody's roll).
+  const reactionWindow = view.phase === 'Turns'
+  const ap = view.seats.find((seat) => seat.playerId === view.playerId)?.actionPoints ?? 0
+  const afford = (cost: number) => actionWindow && ap >= cost
+  // A challenge takes modifiers only once somebody has actually challenged
+  // (both sides rolled); before that the server refuses ChallengeNotStarted.
+  // Conversely a challenge card can only be played while nobody has.
+  const modifiable = view.pendingWindows.some(
+    (window) =>
+      window.type === 'Modifier' ||
+      window.type === 'Attack' ||
+      (window.type === 'Challenge' && window.detail?.challenged === true),
+  )
+  const challengeable = view.pendingWindows.some(
+    (window) =>
+      window.type === 'Challenge' &&
+      !!window.cardId &&
+      window.detail?.challenged !== true,
+  )
+
+  return {
+    mainDeck: afford(AP_COST.draw) && view.hand.length < MAX_HAND_SIZE && view.mainDeck.count > 0,
+    hand: view.hand.map((card) => {
+      if (card.type === 'Modifier') return reactionWindow && modifiable
+      if (card.type === 'Challenge') return reactionWindow && challengeable
+      return afford(AP_COST.playCard) && ['Hero', 'Item', 'Magic'].includes(card.type)
+    }),
+    heroes: mine?.heroes.map((hero) => afford(AP_COST.rollOnHero) && hero.canRollOn) ?? [],
+    leader: !!mine && afford(AP_COST.rollOnLeader) && mine.canRollOnLeader,
+    monsters: view.monsterRow.map(
+      (monster) =>
+        afford(AP_COST.attack) && view.attackableMonsterIds.includes(monster.id),
+    ),
+    redraw: afford(AP_COST.redraw),
+    endTurn: actionWindow,
+  }
+}

@@ -44,11 +44,14 @@ export const HUD = {
   actionFrame: WIDGETS + "Action Pointer Border.png", // 2508x627 aspect 4.0
   actionGem: WIDGETS + "Action Point Gem.png", // 1254x1254 aspect 1.0
   yourTurn: WIDGETS + "Your Turn Show.png", // 2508x627 aspect 4.0
+  endTurn: WIDGETS + "End Turn Button.png", // 2172x724 aspect 3.0
+  redraw: WIDGETS + "Redraw Button.png", // 2172x724 aspect 3.0
 } as const;
 
 export const HUD_ASPECT = {
   actionFrame: 2508 / 627,
   yourTurn: 2508 / 627,
+  button: 2172 / 724,
 } as const;
 
 /**
@@ -336,9 +339,25 @@ export interface HudDef {
   dy: number;
 }
 
-export const HUD_WIDGETS: { yourTurn: HudDef; actionPoints: HudDef } = {
-  yourTurn: { anchor: "top", h: 6, dx: 62, dy: 6 },
-  actionPoints: { anchor: "top", h: 6, dx: 62, dy: 14 },
+export const HUD_WIDGETS: {
+  actionPoints: HudDef;
+  endTurn: HudDef;
+  redraw: HudDef;
+  /** the top-left dev row: re-open the challenge window, restart the test */
+  challengeButton: HudDef;
+  restartButton: HudDef;
+} = {
+  // The owner's placement (2026-09-03): the action-point gems and, right
+  // under them, the End Turn button, together in the top-right strip above
+  // the right seat's leader (his red rectangle: ~28cqh wide, ~11cqh tall,
+  // top edge near the stage top). No turn scroll any more. Redraw under
+  // the main deck (`center` = offset from the STAGE centre; the deck sits
+  // at centre-board dy 15, board dy -4).
+  actionPoints: { anchor: "top", h: 5, dx: 62, dy: 4.5 },
+  endTurn: { anchor: "top", h: 5, dx: 62, dy: 10 },
+  redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
+  challengeButton: { anchor: "top", h: 4, dx: -80, dy: 4 },
+  restartButton: { anchor: "top", h: 4, dx: -66, dy: 4 },
 };
 
 /**

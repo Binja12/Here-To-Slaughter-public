@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const HOVER_DELAY_MS = 100; // a fresh hover must sit this long before it zooms
+const HOVER_DELAY_MS = 60; // a fresh hover must sit this long before it zooms
 
 // CHAINING (Hearthstone-style browse): once you've zoomed a card and then LEAVE
 // it, moving straight onto another card in the SAME group should zoom that one
@@ -23,6 +23,24 @@ const CHAIN_WINDOW_MS = 250;
 // within a related set (e.g. one seat's hero row), never board-wide.
 let leftZoomedAt = 0;
 let leftZoomedGroup: string | undefined;
+
+// ONE card zoomed at a time, board-wide. The sticky tracker keeps a card open
+// while the cursor is inside its ENLARGED box, and that box overlaps the
+// neighbour you move onto — so without this, sweeping along a hero row left
+// two heroes zoomed at once (seen live 2026-09-03). Activating a card closes
+// whichever card was open.
+let closeActiveZoom: (() => void) | null = null;
+
+export type HoverZoomOptions = {
+  /**
+   * Which box keeps the zoom open once active: the card's transformed
+   * (enlarged) box — heroes, whose item slides out beside them — or its
+   * RESTING box, the parent slot, for cards that should shrink back the
+   * moment the cursor leaves where the card sits on the table (the monster
+   * row, the owner 2026-09-03).
+   */
+  stickyBounds?: "scaled" | "rest";
+};
 
 /**
  * JS-driven hover zoom for in-play board cards. Beyond a plain CSS `:hover`
@@ -49,6 +67,7 @@ let leftZoomedGroup: string | undefined;
 export function useHoverZoom<T extends HTMLElement>(
   chainGroup?: string,
   getCompanions?: () => Array<HTMLElement | null>,
+  { stickyBounds = "scaled" }: HoverZoomOptions = {},
 ) {
   const ref = useRef<T>(null);
   const [active, setActive] = useState(false);
@@ -68,11 +87,6 @@ export function useHoverZoom<T extends HTMLElement>(
   };
   useEffect(() => clearTimer, []);
 
-  const activate = useCallback(() => {
-    activeRef.current = true;
-    setActive(true);
-  }, []);
-
   // Drop the zoom. If we WERE zoomed, stamp the chain window from this instant
   // (synchronously, not via an effect) so the next card's `mouseenter` — which
   // may fire in the same tick — reads a fresh timestamp, not a stale one.
@@ -81,9 +95,21 @@ export function useHoverZoom<T extends HTMLElement>(
       leftZoomedAt = Date.now();
       leftZoomedGroup = chainGroup;
     }
+    if (closeActiveZoom === deactivateRef.current) closeActiveZoom = null;
     activeRef.current = false;
     setActive(false);
   }, [chainGroup]);
+  const deactivateRef = useRef(deactivate);
+  deactivateRef.current = deactivate;
+
+  const activate = useCallback(() => {
+    if (closeActiveZoom && closeActiveZoom !== deactivateRef.current) {
+      closeActiveZoom();
+    }
+    closeActiveZoom = deactivateRef.current;
+    activeRef.current = true;
+    setActive(true);
+  }, []);
 
   // Track the full transformed bounds of the main card plus attached elements.
   // The companions are transformed siblings, so the main card's mouseleave
@@ -91,8 +117,12 @@ export function useHoverZoom<T extends HTMLElement>(
   useEffect(() => {
     if (!active) return;
     const onMove = (e: MouseEvent) => {
-      const elements = [ref.current, ...(getCompanions?.() ?? [])].filter(
-        (el): el is HTMLElement => el !== null,
+      // "rest": the card's footprint on the table is its parent slot, which
+      // does not scale with it.
+      const main =
+        stickyBounds === "rest" ? ref.current?.parentElement : ref.current;
+      const elements = [main, ...(getCompanions?.() ?? [])].filter(
+        (el): el is HTMLElement => el !== null && el !== undefined,
       );
       const insideAny = elements.some((el) => {
         // getBoundingClientRect includes the element's current transform.
@@ -108,7 +138,7 @@ export function useHoverZoom<T extends HTMLElement>(
     };
     document.addEventListener("mousemove", onMove);
     return () => document.removeEventListener("mousemove", onMove);
-  }, [active, deactivate, getCompanions]);
+  }, [active, deactivate, getCompanions, stickyBounds]);
 
   const onMouseEnter = useCallback(() => {
     if (suppressed.current) return;

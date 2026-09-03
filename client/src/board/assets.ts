@@ -1,3 +1,5 @@
+import { CardView } from '../contract';
+
 /**
  * Manifest of the hero card scans under client/public/cards/heroes/.
  * The user maintains the folder as <class>/<NN>_<snake_name>.png where NN
@@ -186,3 +188,61 @@ export const LEADERS = {
   Guardian: 'The Protecting Horn',
   Thief: 'The Shadow Claw',
 } as const;
+
+const ART_NAME_OVERRIDES: Record<string, string> = {
+  'The Cloaked Sage': 'The Cloacked Sage',
+  'The Fist of Reason': 'The Fist Of Reason',
+  'Corrupted Sabretooth': 'Corrupted Sabertooth',
+  'Bard Mask': 'Bad Mask',
+  "Curse of the Snake's Eyes": "Curse Of The Snake's Eyes",
+  'Winds of Change': 'Winds Of Change',
+};
+
+const heroSlugFromImage = (image: string) =>
+  image.split('/').pop()?.replace(/\.png$/i, '') ?? '';
+
+/** Resolve a server-shaped card to the scanned art already on disk. */
+export function artFor(card: CardView): { url: string; aspect: number } {
+  const name = ART_NAME_OVERRIDES[card.name] ?? card.name;
+  switch (card.type) {
+    case 'Hero': {
+      const slug = heroSlugFromImage(card.image);
+      return {
+        url:
+          slug === 'guiding-light'
+            ? '/board/heroes/Hero Guardian Light.png'
+            : boardHeroCardUrl(slug) ?? heroCardUrl(slug),
+        aspect: BOARD_CARD_ASPECT,
+      };
+    }
+    case 'Item':
+      return { url: boardItemUrl(name), aspect: NONHERO_CARD_ASPECT };
+    case 'Magic':
+      return {
+        url:
+          card.name === 'Call to the Fallen'
+            ? '/cards/magic.png'
+            : boardMagicUrl(name),
+        aspect: NONHERO_CARD_ASPECT,
+      };
+    case 'Modifier': {
+      const modifierName: Record<string, string> = {
+        '2,-2': '+2-2',
+        '3,-1': '+3-1',
+        '1,-3': '+1-3',
+        '4': '+4',
+        '-4': '-4',
+      };
+      return {
+        url: boardModifierUrl(modifierName[card.values.join(',')] ?? '+2-2'),
+        aspect: NONHERO_CARD_ASPECT,
+      };
+    }
+    case 'Challenge':
+      return { url: boardChallengeUrl(), aspect: NONHERO_CARD_ASPECT };
+    case 'Monster':
+      return { url: boardMonsterUrl(name), aspect: MONSTER_CARD_ASPECT };
+    case 'Leader':
+      return { url: boardLeaderUrl(name), aspect: LEADER_CARD_ASPECT };
+  }
+}

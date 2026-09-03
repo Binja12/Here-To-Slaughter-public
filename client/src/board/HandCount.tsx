@@ -22,7 +22,7 @@ export default function HandCount({
     <div className="flex h-full w-full items-center justify-center">
       <div
         className={`relative h-full w-full shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]${
-          playable ? " card-aura card-aura-sm" : ""
+          playable ? " card-aura" : ""
         } ${t.className}`}
         onClick={t.onClick}
       >

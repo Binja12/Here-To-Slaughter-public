@@ -10,6 +10,59 @@ asks for that.** The user tunes these by hand; touching them as a side effect
 of an unrelated request (e.g. a hover/zoom fix) is a repeated mistake — confirm
 first if a fix seems to require moving something.
 
+## Session 2026-09-03: wired to the real servers (3-seat playtest)
+
+Read `docs/CLIENT_PLAYTEST_TODO.md` first: it has the run book, the bot
+seats, what was verified live and the open findings. The short version:
+
+- The client talks ONLY the contract in `client/src/contract/` (a hand
+  mirror of `shared/`; CRA cannot import the workspace). Servers run from
+  the HTSR-4 worktree, the client
+  from here on port 3002 (`client/.env`). This branch's `server/` is stale.
+- `board/liveRoll.ts` turns the open Modifier/Attack window into the dice
+  throw (`DiceRoll`, at the roller's `DICE_SPOTS` seat) and the banner text;
+  `board/useChallengeSync.ts` drives the challenge overlay from a Challenge
+  window whose `detail.challenged` is true. Both read the server's detail
+  shapes (`{ rollerId, baseRoll, bonuses: {cardSource, amount}[], finalRoll,
+  rollReq | monsterId }` and `{ defenderId, challengerId, challenged,
+  challengerRoll, challengedRoll, challengerBonuses, challengedBonuses }`).
+  The engine sends ONE roll number; the two faces are a cosmetic split.
+- `board/playable.ts`: reactions are never gated on `busy` (the table is
+  busy exactly while a window is open). A challenge card only before
+  `challenged`, a modifier only after.
+- `state/useLobbyState.ts`: a request's answer is dropped when an SSE push
+  arrived while it was in flight (the server pushes before it answers).
+- `client/scripts/bot-seat.mjs`: headless seats for solo testing.
+- No geometry in `layout.ts` was touched (Codex added one `redraw` HUD slot).
+
+## Session: view-driven board + pending windows
+
+The active board is now fixture-driven from the server-shaped `PlayerView` in
+`client/src/types.ts`. `state/game.tsx` supplies the view, `board/seats.ts`
+rotates server seats into the fixed p1–p4 geometry, `board/playable.ts` derives
+all glows/buttons, and `board/assets.ts#artFor` resolves card records to scans.
+`board/viewTargets.ts` is the id ↔ target-key bridge used by actions and choice
+windows. The old `DEMO`, fake AP/dice timers, demo reaction tables, and corner
+test buttons are gone.
+
+Every outbound interaction goes through the single `SendCommand` adapter in
+`state/commands.ts` (`CommandProvider` / `useSend`). Its default fixture sender
+logs and accepts commands; swap that one provider implementation when the real
+transport contract exists. `board/PendingWindows.tsx` renders the abstract
+window strip and submits task/value/card/monster/player choices through the
+same adapter. Rejected commands show an in-stage toast and cancel targeting.
+
+Hand-built read models live in `client/src/fixtures/views.ts`. Use
+`?fixture=<name>` to open one directly, or bare `?fixture` for the fixture
+index. The lobby remains the default and Start Game loads
+`threeSeatOpening`.
+
+Deliberately unwired: event-driven board dice, the existing event-payload
+challenge overlay, real countdown deadlines, and backend-provided window
+labels. `DiceRoll` and `ChallengeWindow` remain mounted but dormant; pending
+window `detail` already accepts optional `deadline`, `label`, and
+`challengerId` without changing the read-model shape.
+
 ## Lobby (session 7, RESET session 8) — pre-game screen, demo-data now / socket API later
 
 App.tsx now shows `LobbyView` first and swaps to `Board` when the game starts

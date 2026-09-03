@@ -7,6 +7,7 @@ import {
   ChallengeRole,
   ChallengeRoll,
   ChallengeSide,
+  ChallengeState,
   useChallenge,
 } from "./challenge";
 
@@ -41,62 +42,87 @@ import {
 const seatLabel = (seat: string) =>
   seat === "p1" ? "you" : `player ${seat.slice(1)}`;
 
-export default function ChallengeWindow() {
+export default function ChallengeWindow({
+  hidden = false,
+  onHide,
+}: {
+  /** put away by the player to look at the table (Board's Challenge button brings it back) */
+  hidden?: boolean;
+  onHide?: () => void;
+}) {
   const { active } = useChallenge();
-  if (!active) return null;
+  if (!active || hidden) return null;
 
-  const L = CHALLENGE_LAYOUT;
   return (
     <div className="dim-exempt pointer-events-none absolute inset-0 z-[140]">
       {/* click shield: the game is paused — every board click dies here.
           (The hand widget is raised above this z by Board, so playing
-          modifiers from the open fan still works.) */}
+          modifiers from the open fan still works.) A click on the shield
+          itself puts the window away. */}
       <div
         className="pointer-events-auto absolute inset-0"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onHide?.();
+        }}
       />
 
-      {/* centre stage: challenged card in front, challenge card tucked
-          behind at an angle with `peek` of its width showing */}
-      <div
-        className="absolute -translate-x-1/2 -translate-y-1/2"
-        style={{
-          height: `${L.card.h}cqh`,
-          width: `${L.card.h * active.challengedCardAspect}cqh`,
-          left: `calc(50% + ${L.card.dx}cqh)`,
-          top: `calc(50% + ${L.card.dy}cqh)`,
-        }}
-      >
-        <div className="challenge-pop relative h-full w-full">
-          <div
-            className="absolute left-1/2 top-1/2"
-            style={{
-              height: `${L.tuck.scale * 100}%`,
-              aspectRatio: String(NONHERO_CARD_ASPECT),
-              transformOrigin: "50% 80%",
-              transform: `translate(-50%, -50%) translateX(${
-                L.tuck.peek * 100
-              }%) rotate(${L.tuck.angle}deg)`,
-            }}
-          >
-            <img
-              src={active.challengeCardUrl}
-              alt="challenge card"
-              draggable={false}
-              className="h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.5cqw_1.4cqw_rgba(0,0,0,0.8)]"
-            />
-          </div>
-          <img
-            src={active.challengedCardUrl}
-            alt="challenged card"
-            draggable={false}
-            className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.6cqw_1.8cqw_rgba(0,0,0,0.85)]"
-          />
-        </div>
-      </div>
+      <CenterStage active={active} />
 
       <RollPanel role="challenged" side={active.challenged} />
       <RollPanel role="challenger" side={active.challenger} />
+    </div>
+  );
+}
+
+/** centre stage: challenged card in front, challenge card tucked behind at
+ *  an angle with `peek` of its width showing. Both are MODIFIER TARGETS,
+ *  the same keys as the roll panels: press the challenged card to modify
+ *  the defender's roll, the challenge card to modify the challenger's. */
+function CenterStage({ active }: { active: ChallengeState }) {
+  const L = CHALLENGE_LAYOUT;
+  const challenged = useTargetable(tkey.challengeRoll("challenged"));
+  const challenger = useTargetable(tkey.challengeRoll("challenger"));
+  return (
+    <div
+      className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+      style={{
+        height: `${L.card.h}cqh`,
+        width: `${L.card.h * active.challengedCardAspect}cqh`,
+        left: `calc(50% + ${L.card.dx}cqh)`,
+        top: `calc(50% + ${L.card.dy}cqh)`,
+      }}
+    >
+      <div className="challenge-pop relative h-full w-full">
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{
+            height: `${L.tuck.scale * 100}%`,
+            aspectRatio: String(NONHERO_CARD_ASPECT),
+            transformOrigin: "50% 80%",
+            transform: `translate(-50%, -50%) translateX(${
+              L.tuck.peek * 100
+            }%) rotate(${L.tuck.angle}deg)`,
+            // the tucked card comes forward while it is a pick
+            zIndex: challenger.mode === "target" ? 2 : undefined,
+          }}
+        >
+          <img
+            src={active.challengeCardUrl}
+            alt="challenge card"
+            draggable={false}
+            className={`h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.5cqw_1.4cqw_rgba(0,0,0,0.8)] ${challenger.className}`}
+            onClick={challenger.onClick}
+          />
+        </div>
+        <img
+          src={active.challengedCardUrl}
+          alt="challenged card"
+          draggable={false}
+          className={`absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.6cqw_1.8cqw_rgba(0,0,0,0.85)] ${challenged.className}`}
+          onClick={challenged.onClick}
+        />
+      </div>
     </div>
   );
 }

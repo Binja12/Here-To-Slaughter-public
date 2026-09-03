@@ -10,6 +10,8 @@ build/
 # Environment files
 .env
 .env.local
+# …except the client's dev-server port, which holds nothing secret
+!client/.env
 
 
 # Logs
