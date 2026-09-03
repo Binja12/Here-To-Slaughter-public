@@ -7,6 +7,8 @@ import {
   IReactionManager,
   IReactionWindow,
   refused,
+  isPassable,
+  IPassableWindow,
 } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from '../reactions/modifier-window'
@@ -234,32 +236,41 @@ export class ReactionManager implements IReactionManager {
   }
 
   /**
-   * A player giving a table window up — the "Forfeit" button. TEMPORARY rule
-   * for the playtest: the FIRST pass resolves the window for everyone, so a
-   * table does not sit through the whole countdown when nobody means to
-   * react. The async version tightens this, behind the same door, to
-   * "resolves once every seat that could still act has passed" — which is why
-   * the player is taken and not yet read. Only the table's windows (a roll or
-   * a challenge) can be passed: a choice is one player's question, answered
-   * or dismissed through submitChoice. Resolving early is the same call the
-   * clock makes, so nothing downstream can tell a pass from a lapse.
+   * A player giving a table window up — the Skip button. A pass is PER SEAT:
+   * the window settles once every seat that could still act on it has
+   * passed, through the same `resolve()` the clock calls, so nothing
+   * downstream can tell a pass from a lapse. Only the table's windows can be
+   * passed (a roll or a challenge); a choice is one player's question,
+   * answered or dismissed through `submitChoice`, so a pass on one is
+   * `WindowNotPassable`. A card landing in the window clears its passes.
    */
-  pass(windowId: string, _playerId: string): RequestResult {
+  pass(windowId: string, playerId: string): RequestResult {
     const window = this.gs
       .getFrameByWindowId(windowId)
       ?.frame.windows.find((w) => w.getId() === windowId)
     if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
-    if (!PASSABLE.has(window.getType())) {
-      return refused(RefusalReason.WindowNotPassable)
+    if (!isPassable(window)) return refused(RefusalReason.WindowNotPassable)
+    window.pass(playerId)
+    const passed = new Set(window.passedBy())
+    if (this.eligiblePassers(window).every((id) => passed.has(id))) {
+      window.resolve()
     }
-    window.resolve()
     return accepted()
   }
-}
 
-/** The table's windows: everyone may react, so anyone may give one up. */
-const PASSABLE: ReadonlySet<ReactionWindowType> = new Set([
-  ReactionWindowType.Modifier,
-  ReactionWindowType.Attack,
-  ReactionWindowType.Challenge,
-])
+  /**
+   * Who could still act on the window: every seat on a roll (anyone may spend
+   * a modifier on it); on a challenge, everyone but the defender until it
+   * starts (only others may challenge), then the two contestants alone (only
+   * they may modify). Derived from the window's own detail, never stored.
+   */
+  private eligiblePassers(window: IPassableWindow): string[] {
+    const seats = this.gs.getPlayers().map((player) => player.getId())
+    if (window.getType() !== ReactionWindowType.Challenge) return seats
+    const detail = window.getDetail()
+    if (detail['challenged'] === true) {
+      return [detail['challengerId'] as string, detail['defenderId'] as string]
+    }
+    return seats.filter((id) => id !== window.getRespondentId())
+  }
+}

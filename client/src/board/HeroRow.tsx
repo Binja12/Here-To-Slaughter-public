@@ -58,6 +58,7 @@ export function HeroCardWidget({
   playable = false,
   asked = false,
   enemy = false,
+  passive = false,
   itemAsked = false,
   targetKey,
   itemTargetKey,
@@ -88,6 +89,9 @@ export function HeroCardWidget({
   asked?: boolean;
   /** true → an opponent is acting with this hero right now: red aura */
   enemy?: boolean;
+  /** true → this hero's standing effect is live right now: pink aura (the
+   *  quietest tone — red, gold and green all say something more urgent) */
+  passive?: boolean;
   /** true → the equipped item's standing effect feeds the open roll: gold */
   itemAsked?: boolean;
   /** this hero's identity for targeting mode — the container (hero + tucked
@@ -189,7 +193,7 @@ export function HeroCardWidget({
           alt={card.name}
           draggable={false}
           className={`absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill${
-            enemy ? " enemy-aura" : asked ? " ask-aura" : playable ? " card-aura" : ""
+            enemy ? " enemy-aura" : asked ? " ask-aura" : playable ? " card-aura" : passive ? " passive-aura" : ""
           }`}
         />
       </div>
@@ -203,6 +207,7 @@ export default function HeroRow({
   playable,
   asked,
   enemy,
+  passive,
   itemPlayable,
   itemAsked,
   targetKeyFor,
@@ -214,6 +219,8 @@ export default function HeroRow({
   /** per-hero "an opponent acts with this one" (red) and "its item feeds
    *  the open roll" (gold) flags */
   enemy?: boolean[];
+  /** per-hero "its standing effect is live" flags (pink), every seat */
+  passive?: boolean[];
   itemAsked?: boolean[];
   /** per-hero playable flags, index-aligned with `heroes` (local seat only —
    *  omit for opponents, nothing glows) */
@@ -274,6 +281,7 @@ export default function HeroRow({
               playable={playable?.[i]}
               asked={asked?.[i]}
               enemy={enemy?.[i]}
+              passive={passive?.[i]}
               itemAsked={itemAsked?.[i]}
               targetKey={targetKeyFor?.(i)}
               itemTargetKey={itemTargetKeyFor?.(i)}

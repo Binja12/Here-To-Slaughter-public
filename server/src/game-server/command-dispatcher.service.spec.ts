@@ -75,7 +75,7 @@ describe('CommandDispatcherService', () => {
       expect(view.pendingWindows.map((w) => w.type)).toContain('Challenge')
     })
 
-    it('a forfeit: PassWindow closes the challenge a hero play opened', () => {
+    it('a pass: PassWindow from the one seat that could challenge settles the window', () => {
       send(ALICE, command('PlayHero', { cardId: 'hero-001' }))
       const contest = see(t, ALICE).pendingWindows.find((w) => w.type === 'Challenge')
 

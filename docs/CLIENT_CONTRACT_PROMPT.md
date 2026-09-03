@@ -84,7 +84,7 @@ type GameCommand = { commandId: string; type: T; payload: P }   // commandId = c
   T = "ApplyModifier"  P = { cardId; targetPlayerId; value }     // value: one of the card's printed `values`
   T = "Challenge"      P = { cardId; targetedCardId }             // targetedCardId = the open Challenge window's `cardId`
   T = "SubmitChoice"   P = { windowId; choice }                   // choice: one of the window's `options`
-  T = "PassWindow"     P = { windowId }                           // TEMPORARY forfeit: settles a Modifier / Attack / Challenge window at once; WindowNotPassable on a choice
+  T = "PassWindow"     P = { windowId }                           // give a Modifier / Attack / Challenge window up; per seat, settles once every seat that could act has passed (detail.passedBy); WindowNotPassable on a choice
   T = "LeaveGame"      P = {}                                     // accepted only after "game-completed"
 
 type CommandResult =

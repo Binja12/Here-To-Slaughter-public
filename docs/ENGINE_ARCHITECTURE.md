@@ -570,17 +570,23 @@ its own: it answers `NoSuchWindow` for a window that is not open, and otherwise
 returns whatever the window said. A window that has already lapsed is not an
 error either: the player is late, and there is nothing left to answer.
 
-**`pass(windowId, playerId)` gives a table window up — TEMPORARY rule
-(2026-09-04).** The playtest's "Forfeit" button: with a human-length countdown
-every roll and challenge sat through the whole clock when nobody meant to
-react, so the wire got a thirteenth door, `PassWindow { windowId }`. Today the
-FIRST pass resolves the window for everyone — `resolve()`, the same call the
-clock makes, so nothing downstream can tell a pass from a lapse. Only the
+**`pass(windowId, playerId)` gives a table window up (2026-09-04).** The
+playtest's Skip button: with a human-length countdown every roll and challenge
+sat through the whole clock when nobody meant to react, so the wire got a
+thirteenth door, `PassWindow { windowId }`. A pass is PER SEAT, kept on the
+window (`IPassableWindow`: `pass`, `passedBy`, shown in the detail as
+`passedBy` so a screen can say "waiting for the others"). The window settles
+once every seat that could still act on it has passed — `resolve()`, the same
+call the clock makes, so nothing downstream can tell a pass from a lapse. Who
+could act is derived by `ReactionManager.eligiblePassers` from the window's
+own detail, never stored: every seat on a roll; on a challenge, everyone but
+the defender until it starts, then the two contestants alone. A card landing
+in the window clears its passes — the roll changed under them. Only the
 table's windows can be passed (Modifier, Attack, Challenge); a choice is one
 player's question and is answered or dismissed through `submitChoice`, so a
-pass on one is `WindowNotPassable`. The async version keeps the door and
-tightens the rule to "resolves once every seat that could still act has
-passed" — which is why the player id is taken now and not yet read.
+pass on one is `WindowNotPassable`. Rejected: "first pass settles it for
+everyone" — built first as a stopgap and replaced the same day, since one
+seat could then close a window another seat was about to answer.
 
 **A player never contests their own play.** `PlayChallengeReaction.canExecute`
 reads the open Challenge window's respondent — the defender, whoever played

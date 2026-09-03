@@ -221,15 +221,27 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
       pressed, and the point was spent for nothing. Now `LeaderNotActivatable`
       from the engine and `canRollOnLeader` false in the view for the five
       passives (only the Shadow Claw activates).
-    - **Forfeit.** No door existed to give a window up, so with 30 s windows
+    - **Skip.** No door existed to give a window up, so with 30 s windows
       every roll and challenge waited the whole clock. New `PassWindow
-      { windowId }` command (TEMPORARY rule: the first pass settles the
-      window for everyone). The End Turn slot shows **Forfeit** (End Turn
-      art, red-tinted and captioned, until the owner's art lands) whenever a
-      Modifier / Attack / Challenge window is open — for every seat, the
-      active player included, since a turn cannot end under an open window —
-      and the challenge overlay has its own **Forfeit challenge** button.
-      `flags.passable` in `playable.ts` is the window it sends.
+      { windowId }` command: a pass is PER SEAT and the window settles once
+      every seat that could act on it has passed (a card landing clears the
+      passes). The End Turn slot shows the owner's **Skip Reaction** button
+      (`HUD.skipReaction`, 2172×724 like End Turn) whenever a Modifier /
+      Attack / Challenge window this seat could act on is open — for every
+      seat, the active player included, since a turn cannot end under an
+      open window. One window per press, oldest first; once this seat has
+      passed them all the button greys to "Waiting for the other players".
+      The challenge overlay has its own **Forfeit challenge** button.
+      `flags.passable` / `waitingOnPass` in `playable.ts`, mirroring the
+      server's eligibility rule. Skip is sent DIRECTLY, not through Board's
+      `run`, which declines the viewer's open optional question first — the
+      first cut did go through it, so Skip dismissed "roll on the hero you
+      just played?" and Buttons never pulled a card.
+    - **Pink aura** (`.passive-aura`, `HeroRow` `passive`): a hero whose
+      standing effect is live right now, at every seat — the seats' effect
+      lists name their source card. Heroes only, by the owner's call; the
+      quietest tone (red, gold and green win over it). Enchanted Spell's +2
+      still shows nothing: it is a magic card, not a hero.
     - **Own-card challenges.** The engine refuses `CannotChallengeOwnCard`
       (the window's respondent is the defender) and the glow rule skips the
       challenge card while the open window's respondent is the viewer.

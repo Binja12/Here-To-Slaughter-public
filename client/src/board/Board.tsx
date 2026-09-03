@@ -534,14 +534,11 @@ function ImageButton({
   label,
   enabled,
   onClick,
-  caption,
 }: {
   src: string
   label: string
   enabled: boolean
   onClick: () => void
-  /** a word over the art, for a slot reused before its own art exists (Forfeit) */
-  caption?: string
 }) {
   return (
     <button
@@ -556,15 +553,8 @@ function ImageButton({
         alt=""
         aria-hidden
         draggable={false}
-        className={`dimmable absolute inset-0 h-full w-full object-contain group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)] ${
-          caption ? '[filter:hue-rotate(-45deg)_saturate(1.6)]' : ''
-        }`}
+        className="dimmable absolute inset-0 h-full w-full object-contain group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)]"
       />
-      {caption && (
-        <span className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-heading text-[0.85cqw] font-bold uppercase tracking-widest text-amber-100 drop-shadow-[0_0.12cqw_0.25cqw_rgba(0,0,0,1)]">
-          {caption}
-        </span>
-      )}
     </button>
   )
 }
@@ -736,6 +726,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   //    to attack a monster, +1").
   const enemyIds = new Set<string>()
   const bonusSourceIds = new Set<string>()
+  // pink: a hero whose standing effect is live right now, at any seat — the
+  // seats' effect lists name their source card (the owner, 2026-09-04: heroes
+  // only; a leader's, an item's or a monster's standing rule shows nothing)
+  const passiveIds = new Set(
+    view.seats.flatMap((seat) => seat.effects.map((effect) => effect.sourceCardId)),
+  )
   for (const window of view.pendingWindows) {
     if (window.type !== 'Modifier' && window.type !== 'Attack' && window.type !== 'Challenge') continue
     if (window.respondentId !== view.playerId) {
@@ -823,11 +819,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     })
   }
 
-  /** Give the table's open window up (the Forfeit button, HUD or overlay). */
-  const forfeitWindow = (): Promise<boolean> =>
-    flags.passable
-      ? run({ type: 'PassWindow', payload: { windowId: flags.passable } })
-      : Promise.resolve(false)
+  /**
+   * Give the table's open window up (the Skip button, HUD or overlay). Sent
+   * DIRECTLY, not through `run`: a pass is about the table's window and must
+   * never decline the viewer's own open question on the way (seen live: Skip
+   * dismissed "roll on the hero you just played?", so Buttons never pulled).
+   */
+  const forfeitWindow = async (): Promise<boolean> => {
+    if (!flags.passable) return false
+    const result = await send({ type: 'PassWindow', payload: { windowId: flags.passable } })
+    return handleResult(result)
+  }
 
   const run = async (command: GameCommandInput): Promise<boolean> => {
     // another action while an optional question is open = "no, thanks":
@@ -1114,6 +1116,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                       bonusSourceIds.has(hero.card.id),
                   )}
                   enemy={party.heroes.map((hero) => enemyIds.has(hero.card.id))}
+                  passive={party.heroes.map((hero) => passiveIds.has(hero.card.id))}
                   itemAsked={party.heroes.map(
                     (hero) => !!hero.equippedItem && bonusSourceIds.has(hero.equippedItem.id),
                   )}
@@ -1207,15 +1210,14 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : flags.passable ? (
+          ) : flags.passable || flags.waitingOnPass ? (
             // a roll or a challenge is open: nobody can end a turn, so the slot
-            // gives the window up instead (End Turn art, tinted and captioned,
-            // until the owner's Forfeit art lands)
+            // gives the window up instead (PassWindow) — one window per press,
+            // and once this seat has passed them all it waits for the others
             <ImageButton
-              src={HUD.endTurn}
-              label="Forfeit reaction"
-              caption="Forfeit"
-              enabled
+              src={HUD.skipReaction}
+              label={flags.passable ? 'Skip reaction' : 'Waiting for the other players'}
+              enabled={!!flags.passable}
               onClick={() => void forfeitWindow()}
             />
           ) : (

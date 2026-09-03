@@ -103,7 +103,7 @@ describe('ReactionManager', () => {
   // openWindow
   // ---------------------------------------------------------------------------
 
-  describe('pass — the temporary forfeit', () => {
+  describe('pass — a seat giving a table window up', () => {
     const openRoll = () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.Modifier, 'p1', {
@@ -114,15 +114,45 @@ describe('ReactionManager', () => {
       return gs.frames.get(frameId)!.windows[0]
     }
 
-    it('resolves an open table window at once, as the clock would', () => {
+    beforeEach(() => {
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2'))
+    })
+
+    it('one seat passing leaves the roll open, and the table sees who passed', () => {
       const window = openRoll()
       expect(rm.pass(window.getId(), 'p1')).toEqual({ accepted: true })
+      expect(window.isOpen()).toBe(true)
+      expect(window.getDetail()['passedBy']).toEqual(['p1'])
+    })
+
+    it('settles once every seat has passed, as the clock would', () => {
+      const window = openRoll()
+      rm.pass(window.getId(), 'p1')
+      rm.pass(window.getId(), 'p2')
+      expect(window.isOpen()).toBe(false)
+    })
+
+    it('a card landing in the roll clears the passes — everyone looks again', () => {
+      const window = openRoll()
+      rm.pass(window.getId(), 'p1')
+      ;(window as any).cardSpent()
+      expect(window.getDetail()['passedBy']).toEqual([])
+      expect(window.isOpen()).toBe(true)
+    })
+
+    it('an unstarted challenge waits for everyone but the defender', () => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, ReactionWindowType.Challenge, 'p1', { cardId: 'hero-1' })
+      const window = gs.frames.get(frameId)!.windows[0]
+      rm.pass(window.getId(), 'p2')
       expect(window.isOpen()).toBe(false)
     })
 
     it('NoSuchWindow once it has resolved', () => {
       const window = openRoll()
       rm.pass(window.getId(), 'p1')
+      rm.pass(window.getId(), 'p2')
       expect(rm.pass(window.getId(), 'p1')).toEqual({
         accepted: false,
         reason: RefusalReason.NoSuchWindow,
