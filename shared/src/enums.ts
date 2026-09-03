@@ -143,6 +143,12 @@ export enum GameEventType {
   DiceRolled = "DiceRolled",
   RollSuccess = "RollSuccess",
   /**
+   * A leader's printed ability was activated (RollOnLeaderAction). Its own
+   * event, so a rule on "each time you successfully roll" (Arctic Aries)
+   * does not fire on the Shadow Claw. `cardId` is the leader.
+   */
+  LeaderActivated = "LeaderActivated",
+  /**
    * A roll to use a hero's effect came up short. `{ cardId }` names the hero.
    * Emitted AFTER the rollback, so what it fires runs on live state — the same
    * shape MonsterFoughtBack uses on a failed attack.
@@ -290,6 +296,13 @@ export enum TriggerScope {
   Attacker = "Attacker",
   /** Anyone's event — a table-wide passive. */
   Anyone = "Anyone",
+  /**
+   * ANOTHER player's event aimed at one of my owner's cards
+   * (payload.targetedCardId is ours, event.playerId is not). "Each time
+   * another player CHALLENGES you." The matched run gets that player as its
+   * chosen seat, so "that player must DISCARD" reads them.
+   */
+  TargetsOwner = "TargetsOwner",
 }
 
 /**
@@ -314,6 +327,10 @@ export enum PassiveType {
   CantBeStolen = "CantBeStolen",
   /** The owner's heroes stay put when a card would DESTROY them. Mighty Blade, Terratuga. */
   CantBeDestroyed = "CantBeDestroyed",
+  /** A hero the owner would DESTROY is stolen into their party instead. Corrupted Sabretooth. */
+  StealsInsteadOfDestroy = "StealsInsteadOfDestroy",
+  /** The carrier's item goes to the discard pile in the hero's place, on destroy or sacrifice. Decoy Doll. */
+  TakesTheHit = "TakesTheHit",
   CantBeChallenged = "CantBeChallenged",
   /** The equipped hero's effect cannot be rolled for at all. Sealing Key. */
   CantUseHeroEffect = "CantUseHeroEffect",

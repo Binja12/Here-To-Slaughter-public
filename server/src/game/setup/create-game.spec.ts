@@ -78,17 +78,10 @@ describe('createGame', () => {
       }
     })
 
-    it('leaves a card the registry does not implement out of the deal — Decoy Doll', () => {
-      const game = createGame(SEATS)
-      const doll = baseGameCards.find((c) => c.name === 'Decoy Doll')!
-
-      expect(game.gameState.getCard(doll.id)).toBeUndefined()
-    })
-
-    it('leaves a hero with no entry out too — the pool is exactly the registry', () => {
+    it('leaves a card the registry does not implement out of the deal — the pool is exactly the registry', () => {
       const game = createGame(SEATS)
 
-      expect(game.gameState.getCard('hero-016')).toBeUndefined() // Sharp Fox
+      expect(game.gameState.getCard('hero-016')).toBeUndefined() // Sharp Fox: no entry yet
       expect(game.gameState.getCard('hero-028')).toBeDefined() // Wise Shield
     })
 

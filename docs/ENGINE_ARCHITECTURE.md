@@ -1654,6 +1654,40 @@ EMPTY rule list, because the deal is the registry. Rejected: setting the
 hero's class on equip and restoring it on unequip — two mutations to keep
 in step, and a steal carries the gear across parties without either running.
 
+**Round two of the small gaps (2026-09-04).** `DrawTask(count, executor)`:
+a NEGATIVE count draws "until you hold that many" (`-7` is Wily Red, `-5` is
+the redraw, which now shares the mechanic), one CardDrawn each, and
+`executor: 'chosen'` draws for the chosen seat (Plundering Puma's "that
+player may DRAW"). The chosen seat now RIDES across a condition and a
+confirm (`carriedSeat` in conditions.ts, added to their `ctxSeed`), so a
+continuation keeps acting on "that player" — Fury Knuckle and Bear Claw pull
+a second card from the same hand, and `ConfirmTask` takes `executor:
+'chosen'` so the victim answers their own "may". `CTX_SOURCE_CARD` is the
+context's own card as a slot, set at birth, so a step that reads "the hero
+to move" from a slot can be pointed at the card itself (Tipsy Tootie joins
+the party it stole from). `TriggerScope.TargetsOwner` is ANOTHER player's
+event aimed at one of my owner's cards (`payload.targetedCardId` is ours,
+the event's player is not); the matched run gets that player as its chosen
+seat, so "that player must DISCARD" reads them (Bloodwing).
+
+**A leader's own event, and two replacement effects (2026-09-04).**
+`RollOnLeaderAction` announces `LeaderActivated`, not a RollSuccess: a rule on
+"each time you successfully roll" (Arctic Aries) must not fire on an
+activation. The Shadow Claw's entry and the activatable-leader predicate
+(`isActivatable`, was `firesOnOwnRoll`) read the new event. Two effects
+change what a step of the owner's DOES rather than running steps of their
+own: `StealsInsteadOfDestroy` (Corrupted Sabretooth, on its slayer) makes
+`DestroyTask` run `StealFromPartyTask` for another party's hero instead of
+destroying it — the theft announces itself and honours CantBeStolen; a hero
+of your own is destroyed as printed. `TakesTheHit` (Decoy Doll, scoped to its
+carrier, until unequipped) makes `DestroyTask` and `SacrificeTask` take the
+doll off the hero (ItemUnequipped, which also ends the effect) and put IT on
+the pile; the hero stays (`decoyTakesTheHit` in hero-tasks.ts). Order of
+the reads in a destroy: CantBeDestroyed, then the doll, then the steal.
+Approximation, in the backlog: the Sabretooth's printed "may" is not asked —
+the steal always happens; a yes/no inside a destroy would need the step to
+suspend.
+
 **Only GameState mutates the board (2026-09-04).** Nothing outside
 `game-state.ts` calls a mutator on a `Player`, a `Party` or a pile: a task,
 an action, a window or the deal asks the board through a door —

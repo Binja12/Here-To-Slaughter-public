@@ -42,6 +42,14 @@ import { ToughTeddyAbility } from './tough-teddy-ability'
 import { SpookyAbility } from './spooky-ability'
 import { GreedyCheeksAbility } from './greedy-cheeks-ability'
 import { SmoothMimimeowAbility } from './smooth-mimimeow-ability'
+import { FuryKnuckleAbility } from './fury-knuckle-ability'
+import { BearClawAbility } from './bear-claw-ability'
+import { WilyRedAbility } from './wily-red-ability'
+import { PlunderingPumaAbility } from './plundering-puma-ability'
+import { TipsyTootieAbility } from './tipsy-tootie-ability'
+import { BloodwingAbility } from './bloodwing-ability'
+import { CorruptedSabretoothAbility } from './corrupted-sabretooth-ability'
+import { DecoyDollAbility } from './decoy-doll-ability'
 import { SilentShadowAbility } from './silent-shadow-ability'
 import { BadAxeAbility } from './bad-axe-ability'
 import { PanChucksAbility } from './pan-chucks-ability'
@@ -115,14 +123,18 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // A card holds a LIST of entries — one per stretch of steps that runs
   // without pausing. See wiggles-ability.ts for the split.
   ['hero-001', BadAxeAbility], // Bad Axe — DESTROY a Hero
+  ['hero-002', FuryKnuckleAbility], // Fury Knuckle — pull; a Challenge card pulls a second
   ['hero-008', PanChucksAbility], // Pan Chucks — DRAW 2; Challenge may DESTROY
   ['hero-009', SeriousGreyAbility], // Serious Grey — DESTROY, then DRAW
   ['hero-010', QuickDrawAbility], // Quick Draw — DRAW 2; Item may be played
   ['hero-012', WildshotAbility], // Wildshot — DRAW 3, DISCARD 1
+  ['hero-015', WilyRedAbility], // Wily Red — DRAW until you hold 7
   ['hero-017', KitNapperAbility], // Kit Napper — STEAL a Hero
   ['hero-018', SlyPickingsAbility], // Sly Pickings — pull; Item may be played
   ['hero-019', MeowzioAbility], // Meowzio — STEAL and pull from one player
+  ['hero-020', PlunderingPumaAbility], // Plundering Puma — pull 2; that player may DRAW
   ['hero-004', HeavyBearAbility], // Heavy Bear — a chosen player DISCARDS 2
+  ['hero-005', BearClawAbility], // Bear Claw — pull; a Hero card pulls a second
   ['hero-006', ToughTeddyAbility], // Tough Teddy — each other player with a Fighter DISCARDS
   ['hero-011', LookieRookieAbility], // Lookie Rookie — an Item card from the discard pile
   ['hero-021', SilentShadowAbility], // Silent Shadow — look at a hand, take a card
@@ -148,6 +160,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['hero-042', LuckyBuckyAbility], // Lucky Bucky — pull; Hero may be played
   ['hero-043', FuzzyCheeksAbility], // Fuzzy Cheeks — DRAW, then play a Hero
   ['hero-044', NappingNibblesAbility], // Napping Nibbles — do nothing
+  ['hero-045', TipsyTootieAbility], // Tipsy Tootie — STEAL a hero, then join that party
   ['hero-048', PeanutAbility], // Peanut — DRAW 2
 
   // =========================================================================
@@ -155,9 +168,11 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // =========================================================================
   // Every monster passive installs on MonsterSlain and never expires: the
   // monster is in the party before that event goes out, and it never leaves.
+  ['monster-122', CorruptedSabretoothAbility], // Corrupted Sabretooth — what you would DESTROY, you STEAL
   ['monster-123', MegaSlimeAbility], // Mega Slime — +1 action point each turn
   ['monster-124', AnuranCauldronAbility], // Anuran Cauldron — +1 to every roll
   ['monster-126', DracosAbility], // Dracos — may DRAW when your Hero is destroyed
+  ['monster-127', BloodwingAbility], // Bloodwing — whoever challenges you DISCARDS
   ['monster-128', ArcticAriesAbility], // Arctic Aries — may DRAW after a successful roll
   ['monster-129', AbyssQueenAbility], // Abyss Queen — +1 answering a hostile Modifier
   ['monster-130', TerratugaAbility], // Terratuga — your heroes cannot be destroyed
@@ -178,6 +193,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['item-065', ReallyBigRingAbility],
   // Cursed: played onto an opponent's hero, and it taxes THEIR roll.
   // The six masks: no rules — the class they grant is data, read by the board.
+  ['item-066', DecoyDollAbility], // Decoy Doll — takes the hit for its hero
   ['item-067', MaskAbility], // Fighter Mask
   ['item-068', MaskAbility], // Ranger Mask
   ['item-069', MaskAbility], // Thief Mask
@@ -282,16 +298,16 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
 ])
 
 /**
- * Whether a card's printed ability fires on the card's OWN RollSuccess — the
+ * Whether a leader's printed ability fires on its OWN LeaderActivated — the
  * event RollOnLeaderAction announces. That is what makes a leader ACTIVATED:
  * the Shadow Claw has such an entry, the five passives have nothing to fire,
  * so activating them would only spend the point. The action and the view
  * both read this, so the guard and the glow cannot disagree.
  */
-export const firesOnOwnRoll = (cardId: string): boolean =>
+export const isActivatable = (cardId: string): boolean =>
   (abilityRegistry.get(cardId) ?? []).some(
     (rule) =>
-      rule.trigger.on === GameEventType.RollSuccess &&
+      rule.trigger.on === GameEventType.LeaderActivated &&
       rule.trigger.scope === TriggerScope.SelfCard,
   )
 

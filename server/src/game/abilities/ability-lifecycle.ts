@@ -63,6 +63,17 @@ export function triggerMatches(
 
     case TriggerScope.Anyone:
       return true
+
+    case TriggerScope.TargetsOwner: {
+      const { targetedCardId } = (event.getPayload() ?? {}) as {
+        targetedCardId?: string
+      }
+      return (
+        !!targetedCardId &&
+        gs.getCardOwner(targetedCardId) === source.ownerId &&
+        event.getPlayerId() !== source.ownerId
+      )
+    }
   }
 
   // Exhaustive: a new scope without a branch is a compile error here, rather

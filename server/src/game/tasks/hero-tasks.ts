@@ -16,6 +16,28 @@ import { Executor, executorOf } from './tasks'
 // pipelines share are in `play-hero-task.ts` and `roll-on-hero-task.ts`.
 // ---------------------------------------------------------------------------
 
+/**
+ * Decoy Doll (item-066): "if the equipped Hero card would be sacrificed or
+ * destroyed, move Decoy Doll to the discard pile instead." The doll's
+ * TakesTheHit effect names its carrier; when the carrier is the hero about
+ * to go, the doll comes off (ItemUnequipped — which also ends the effect) and
+ * lands on the pile, and the hero stays. True when it took the hit.
+ */
+export function decoyTakesTheHit(
+  gs: GameState,
+  ownerId: string,
+  heroId: string,
+  em: IGameEventEmitter,
+): boolean {
+  const decoy = gs
+    .getEffects(PassiveType.TakesTheHit, ownerId, heroId)
+    .find((effect) => gs.getEquippedItem(heroId) === effect.sourceCardId)
+  if (!decoy) return false
+  gs.unequipItem(heroId)
+  em.emit(GameEventFactory.itemUnequipped(ownerId, decoy.sourceCardId, heroId))
+  gs.addToDiscardPile(decoy.sourceCardId)
+  return true
+}
 // ---------------------------------------------------------------------------
 // DestroyTask — remove a hero from ANY party to the discard pile
 //
@@ -37,7 +59,7 @@ export class DestroyTask implements ITask {
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: IReactionManager,
+    rm: IReactionManager,
   ): void {
     const heroes = ctx.get<string[]>(this.fromKey)
 
@@ -60,6 +82,19 @@ export class DestroyTask implements ITask {
     // Mighty Blade / Terratuga: the hero stays, silently — the pick was legal
     // and simply had no bite. Sacrifice is another reason and is not shielded.
     if (!gs.canBeDestroyed(heroId)) return
+    // Decoy Doll: the doll takes the hit, the hero stays.
+    if (decoyTakesTheHit(gs, ownerId, heroId, em)) return
+    // Corrupted Sabretooth: what the destroyer would destroy, they steal —
+    // the steal step itself, so the theft announces itself and honours
+    // CantBeStolen. Their own hero is destroyed as printed; there is nothing
+    // to steal from yourself.
+    if (
+      ownerId !== ctx.ownerId &&
+      gs.hasEffect(PassiveType.StealsInsteadOfDestroy, ctx.ownerId)
+    ) {
+      new StealFromPartyTask(this.fromKey).execute(gs, ctx, em, rm)
+      return
+    }
 
     const carriedItemId = gs.removeHero(ownerId, heroId, em, 'Destroyed')
     gs.addToDiscardPile(heroId)
@@ -179,6 +214,8 @@ export class SacrificeTask implements ITask {
     const executorId = executorOf(ctx, this.executor)
     if (!executorId) return
     if (!gs.getParty(executorId).getHeroIds().includes(heroId)) return
+    // Decoy Doll: the doll takes the hit, the hero stays — on a sacrifice too.
+    if (decoyTakesTheHit(gs, executorId, heroId, em)) return
 
     const carriedItemId = gs.removeHero(executorId, heroId, em, 'Sacrificed')
     gs.addToDiscardPile(heroId)

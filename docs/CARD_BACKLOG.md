@@ -90,6 +90,14 @@ Cheeks, Smooth Mimimeow (victim choice + per-seat loop); Lookie Rookie,
 Guiding Light, Radiant Horn, Bun Bun, Call to the Fallen, Silent Shadow,
 Holy Curselifter, Winds of Change ×2, Forceful Winds (retrieve); Mighty
 Blade, Terratuga (CantBeDestroyed); the six masks (derived class).
+Round two (same day, 6 more ids): Fury Knuckle, Bear Claw (the chosen
+seat rides across a condition), Wily Red (negative draw count = "until"),
+Plundering Puma (draw and confirm run as the chosen seat), Tipsy Tootie
+(`CTX_SOURCE_CARD`), Bloodwing (`TriggerScope.TargetsOwner`).
+Round three (same day, 2 more ids): Corrupted Sabretooth
+(`StealsInsteadOfDestroy`, the "may" not yet asked), Decoy Doll
+(`TakesTheHit`, destroy and sacrifice). The Shadow Claw now announces
+`LeaderActivated`, so Arctic Aries no longer draws on it.
 Still open from those groups: Beary Wise (its second half needs "the cards
 discarded during this ability"), Bloodwing (a scope for "another player
 challenges YOU"), Shurikitty (destroy keeping the gear for the owner),

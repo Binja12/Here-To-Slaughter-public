@@ -153,12 +153,13 @@ describe('RollOnLeaderAction', () => {
       expect(gs.getAbilitiesUsedThisTurn()).toContain(CLAW)
     })
 
-    it('announces RollSuccess naming the LEADER, which is what fires its entry', () => {
+    it('announces LeaderActivated naming the LEADER — its own event, never a RollSuccess', () => {
       const { gs, em, events } = setup()
       action(em).execute(gs)
 
+      expect(events.map((e) => e.getType())).not.toContain(GameEventType.RollSuccess)
       const success = events.filter(
-        (e) => e.getType() === GameEventType.RollSuccess,
+        (e) => e.getType() === GameEventType.LeaderActivated,
       )
       expect(success).toHaveLength(1)
       expect(success[0].getPlayerId()).toBe('p1')

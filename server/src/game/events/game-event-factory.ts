@@ -357,6 +357,16 @@ export class GameEventFactory {
     )
   }
 
+  /** RollOnLeaderAction: the leader's ability fires. `cardId` is the leader, for SelfCard. */
+  static leaderActivated(playerId: string, leaderId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.LeaderActivated,
+      playerId,
+      { cardId: leaderId },
+      Audience.All,
+    )
+  }
+
   static rollSuccess(playerId: string, heroId: string): IGameEvent {
     return new GameEvent(
       GameEventType.RollSuccess,

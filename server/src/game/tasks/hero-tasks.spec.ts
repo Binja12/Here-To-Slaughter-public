@@ -20,6 +20,7 @@ import {
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
+import { ItemCard } from '../cards/item-card'
 
 // ---------------------------------------------------------------------------
 // Builders
@@ -98,6 +99,27 @@ describe('SacrificeTask with an actor — "that player must SACRIFICE"', () => {
   })
 })
 
+describe('SacrificeTask — the Decoy Doll takes the hit', () => {
+  it('the doll goes to the pile in place of the sacrificed hero', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['hero-1']))
+    gs.registerCard(makeHeroCard('hero-1'))
+    gs.registerCard(new ItemCard({ id: 'item-066', name: 'Decoy Doll', type: CardType.Item, image: '', description: '', set: 'base', cursed: false }))
+    gs.equipItem('hero-1', 'item-066')
+    gs.addEffect({ id: 'doll', sourceCardId: 'item-066', ownerId: 'p1', type: PassiveType.TakesTheHit, cardId: 'hero-1' })
+    const ctx = makeCtx('src', 'p1')
+    ctx.set(CTX_CHOSEN_CARD, ['hero-1'])
+    const { emitter, emitted } = makeEmitter()
+
+    new SacrificeTask().execute(gs, ctx, emitter, stubRm)
+
+    expect(gs.getParty('p1').getHeroIds()).toEqual(['hero-1'])
+    expect(gs.getDiscardPile().getAll()).toEqual(['item-066'])
+    expect(emitted.map((e: IGameEvent) => e.getType())).not.toContain(GameEventType.HeroSacrificed)
+  })
+})
+
 describe('DestroyTask', () => {
   /** Puts the chosen hero on the context, the way a ChooseCardTask would. */
   const chose = (heroId: string, ownerId = 'p1') => {
@@ -138,6 +160,58 @@ describe('DestroyTask', () => {
     expect(gs.getParty('p1').getHeroIds()).toContain('hero-1')
     expect(gs.getDiscardPile().getAll()).not.toContain('hero-1')
     expect(emitted.map((e: IGameEvent) => e.getType())).not.toContain(GameEventType.HeroDestroyed)
+  })
+
+  it('the Decoy Doll takes the hit: the doll goes to the pile, the hero stays', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['hero-1']))
+    gs.registerCard(makeHeroCard('hero-1'))
+    gs.registerCard(new ItemCard({ id: 'item-066', name: 'Decoy Doll', type: CardType.Item, image: '', description: '', set: 'base', cursed: false }))
+    gs.equipItem('hero-1', 'item-066')
+    gs.addEffect({ id: 'doll', sourceCardId: 'item-066', ownerId: 'p1', type: PassiveType.TakesTheHit, cardId: 'hero-1' })
+    const { emitter, emitted } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('hero-1'), emitter, stubRm)
+
+    expect(gs.getParty('p1').getHeroIds()).toContain('hero-1')
+    expect(gs.getEquippedItem('hero-1')).toBeUndefined()
+    expect(gs.getDiscardPile().getAll()).toEqual(['item-066'])
+    expect(emitted.map((e: IGameEvent) => e.getType())).toEqual([GameEventType.ItemUnequipped])
+  })
+
+  it('Corrupted Sabretooth: the destroyer STEALS the hero instead', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1'))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['theirs']))
+    gs.registerCard(makeHeroCard('theirs'))
+    gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
+    const { emitter, emitted } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('theirs', 'p1'), emitter, stubRm)
+
+    expect(gs.getParty('p1').getHeroIds()).toEqual(['theirs'])
+    expect(gs.getParty('p2').getHeroIds()).toEqual([])
+    expect(gs.getDiscardPile().getAll()).toEqual([])
+    const types = emitted.map((e: IGameEvent) => e.getType())
+    expect(types).toContain(GameEventType.HeroStolen)
+    expect(types).not.toContain(GameEventType.HeroDestroyed)
+  })
+
+  it('Corrupted Sabretooth does not turn destroying your OWN hero into a steal', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['mine']))
+    gs.registerCard(makeHeroCard('mine'))
+    gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
+    const { emitter } = makeEmitter()
+
+    new DestroyTask().execute(gs, chose('mine', 'p1'), emitter, stubRm)
+
+    expect(gs.getParty('p1').getHeroIds()).toEqual([])
+    expect(gs.getDiscardPile().getAll()).toEqual(['mine'])
   })
 
   it('emits the canonical removal event, then HeroDestroyed (All)', () => {

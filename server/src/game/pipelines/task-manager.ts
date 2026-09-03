@@ -3,6 +3,7 @@ import {
   IGameEvent,
   IGameEventEmitter,
   IGameEventListener,
+  TriggerScope,
 } from 'shared'
 import {
   AbilityTrigger,
@@ -14,7 +15,7 @@ import {
 } from '../interfaces'
 import { AbilityPipeline, GameState } from './game-state'
 
-import { AbilityContext } from '../abilities/ability-context'
+import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
 import {
   abilityRegistry,
   heroRules,
@@ -117,6 +118,11 @@ export class TaskManager implements IGameEventListener {
       }
       if (ctxSeed) {
         for (const [key, value] of Object.entries(ctxSeed)) ctx.set(key, value)
+      }
+      // The seat that acted on us IS the chosen seat for this run (Bloodwing:
+      // "each time another player challenges you, THAT player discards").
+      if (source.trigger.scope === TriggerScope.TargetsOwner) {
+        ctx.set(CTX_CHOSEN_PLAYER, [event.getPlayerId()])
       }
 
       // Copy the steps: the drain consumes the array, and the declaration's

@@ -9,6 +9,8 @@ import {
   filterPlayers,
 } from '../reactions/choice-filters'
 import { CTX_MODIFIER_TARGET } from '../abilities/ability-context'
+import { Executor } from './tasks'
+import { carriedSeat } from './conditions'
 
 // ---------------------------------------------------------------------------
 // Choose tasks — resolve candidates from GameState, open a choice window and
@@ -178,6 +180,11 @@ export type ConfirmSpec = {
    * empty, and rides to the continuation as ctxSeed.
    */
   subjectKey?: string
+  /**
+   * Who is asked. The ability owner unless `'chosen'`: "that player MAY draw a
+   * card" is the chosen seat's yes or no (Plundering Puma).
+   */
+  executor?: Executor
 }
 
 export class ConfirmTask implements ITask {
@@ -196,16 +203,24 @@ export class ConfirmTask implements ITask {
     // Nothing to ask about.
     if (subject && subject.length === 0) return
 
+    const respondentId =
+      this.spec.executor === 'chosen' ? chosenPlayers(ctx)[0] : ctx.ownerId
+    if (!respondentId) return
+
+    // What the continuation needs: the subject, and the chosen seat when there
+    // is one, so "that player may draw" still knows who "that player" is.
+    const ctxSeed = {
+      ...(this.spec.subjectKey && subject && { [this.spec.subjectKey]: subject }),
+      ...carriedSeat(ctx),
+    }
+
     const frameId = rm.openFrame()
-    rm.openWindow(frameId, ReactionWindowType.TaskChoice, ctx.ownerId, {
+    rm.openWindow(frameId, ReactionWindowType.TaskChoice, respondentId, {
       confirms: this.spec.confirms,
       // Routes the answer back via TriggerScope.SelfCard.
       sourceCardId: ctx.sourceCardId,
-      ...(this.spec.subjectKey &&
-        subject && {
-          cardId: subject[0],
-          ctxSeed: { [this.spec.subjectKey]: subject },
-        }),
+      ...(this.spec.subjectKey && subject && { cardId: subject[0] }),
+      ...(Object.keys(ctxSeed).length && { ctxSeed }),
     })
     return frameId
   }

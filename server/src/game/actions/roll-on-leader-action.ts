@@ -3,7 +3,7 @@ import { accepted, IAction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
-import { firesOnOwnRoll } from '../repositories/ability-repository'
+import { isActivatable } from '../repositories/ability-repository'
 
 const COST = 1
 
@@ -19,9 +19,10 @@ const COST = 1
 //
 // Same STRUCTURE as RollOnHeroAction — price, guards, mark, announce — with the
 // dice taken out. There is no roll requirement to beat and no modifier window,
-// so `RollSuccess` here is a plain "this ability fired": the registry entry is
-// matched off it exactly as a hero's is, and the leader needs no special case
-// anywhere in TaskManager.
+// and the announcement is the leader's OWN event, `LeaderActivated`, not a
+// RollSuccess: a rule on "each time you successfully roll" (Arctic Aries) must
+// not fire on an activation (the owner, 2026-09-04). The registry entry is
+// matched off it by SelfCard exactly as a hero's is.
 //
 // No base class and no task twin, unlike the other rolls: one caller, and a
 // second one would have to be a system rule, which is the thing this exists to
@@ -72,7 +73,7 @@ export class RollOnLeaderAction implements IAction {
     // "you may spend an action point to …" — only a leader with an entry that
     // fires on the announcement. A passive leader has nothing to activate, so
     // the point would buy nothing (seen live: the Cloaked Sage).
-    if (!firesOnOwnRoll(this.cardId)) {
+    if (!isActivatable(this.cardId)) {
       return refused(RefusalReason.LeaderNotActivatable)
     }
     // "once per turn"
@@ -87,6 +88,6 @@ export class RollOnLeaderAction implements IAction {
     // Before the announcement, so an ability that ends the turn cannot leave
     // the slot unspent — the same order RollOnHero uses around its frame.
     gs.markAbilityUsed(this.cardId)
-    this.emmiter.emit(GameEventFactory.rollSuccess(this.playerId, this.cardId))
+    this.emmiter.emit(GameEventFactory.leaderActivated(this.playerId, this.cardId))
   }
 }

@@ -2,6 +2,7 @@ import { IGameEventEmitter } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { AbilityContext } from '../abilities/ability-context'
+import { Draw } from './draw-task'
 
 const REDRAW_COUNT = 5
 
@@ -11,13 +12,14 @@ const REDRAW_COUNT = 5
 // ---------------------------------------------------------------------------
 
 /** Implements neither IAction nor ITask: see PlayMagic in magic-tasks.ts. */
-export abstract class RedrawHand {
+export abstract class RedrawHand extends Draw {
   /**
-   * DISCARD every card in hand, then DRAW five. One card at a time through
-   * the board's own two doors, so each discard and each draw is announced.
-   * Every discard goes out before the first draw — printed order — which is
-   * also why a deck that empties half way through refills from a discard that
-   * already holds the old hand.
+   * DISCARD every card in hand, then DRAW until five are held — the draw
+   * mechanic's negative count. One card at a time through the board's own
+   * two doors, so each discard and each draw is announced. Every discard goes
+   * out before the first draw — printed order — which is also why a deck that
+   * empties half way through refills from a discard that already holds the
+   * old hand.
    */
   protected redrawHand(
     gs: GameState,
@@ -30,9 +32,7 @@ export abstract class RedrawHand {
     for (const cardId of player.getHand()) {
       gs.discardFromHand(playerId, cardId, em)
     }
-    for (let i = 0; i < REDRAW_COUNT; i++) {
-      if (!gs.drawIntoHand(playerId, em)) break
-    }
+    this.drawCards(gs, playerId, -REDRAW_COUNT, em)
   }
 }
 
