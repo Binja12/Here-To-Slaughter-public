@@ -131,6 +131,10 @@ export enum GameEventType {
    * HAND is announced as CardPulled instead.
    */
   CardRetrieved = "CardRetrieved",
+  /** Cards shown to a seat (or the table) without moving — RevealTask. */
+  CardsRevealed = "CardsRevealed",
+  /** The reveal clock ran out; the cards are off the view again. */
+  RevealEnded = "RevealEnded",
   /**
    * ForEachPlayerTask: one per seat a "each other player must …" card acts
    * on. `label` names the card's continuation, `ctxSeed` carries the seat.
@@ -254,6 +258,8 @@ export enum Zone {
   EquippedItem = "EquippedItem",
   /** The face-up monster row. Shared, like Discard — it belongs to nobody. */
   MonsterPile = "MonsterPile",
+  /** The main deck's top cards, face down where they are — a look at the top N. Shared, like the piles. */
+  MainDeckTop = "MainDeckTop",
 }
 
 /** Whose cards, resolved against the ability owner and the ability context. */

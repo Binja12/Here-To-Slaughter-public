@@ -1688,6 +1688,25 @@ Approximation, in the backlog: the Sabretooth's printed "may" is not asked —
 the steal always happens; a yes/no inside a destroy would need the step to
 suspend.
 
+**Reveals, and choices fed from a slot (2026-09-04).** A look is not a
+decision, so it is not a window: `RevealTask({ fromKey | filter, to })` puts
+cards on a seat's `revealedCards` (`GameState.revealTo`, `to: 'all'` for
+every seat), announces `CardsRevealed`, and a clock (`REVEAL_MS`, 5 s)
+takes them off again with `RevealEnded` so the table sees the change. The
+client decides how to show them; nothing is asked and the table is not held.
+Sharp Fox is a look; Pan Chucks and Rex Major reveal the drawn card to the
+table on their yes and stop being approximations. Bullseye is two steps
+(the owner's shape): a choice over `Zone.MainDeckTop` with `top: 3` — the
+options are the look, nothing moves — and `DrawTask(CTX_CHOSEN_CARD)`, which
+draws the NAMED card out of wherever it lies (`GameState.drawNamedIntoHand`,
+announced as a draw); the queue closes over the gap by itself, so "the other
+two return to the top" is what the deck already does. Rejected the same hour:
+a peek task writing the top three onto the context and a move-to-top task
+for the leftovers — stored what the deck derives, and put back what never
+left. Rejected: a reveal window with a
+timer the engine enforces on the player — a window gates actions, and a
+look gates nothing.
+
 **Only GameState mutates the board (2026-09-04).** Nothing outside
 `game-state.ts` calls a mutator on a `Player`, a `Party` or a pile: a task,
 an action, a window or the deal asks the board through a door —

@@ -298,6 +298,48 @@ describe('GameState', () => {
 // takes, and both are free to change while these three are not.
 // ---------------------------------------------------------------------------
 
+describe('GameState — reveals and the deck doors', () => {
+  const build = () => {
+    const gs = new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-1'))
+    return gs
+  }
+
+  it('revealTo / hideRevealed keep a seat\'s revealed cards, de-duplicated, and a clone carries them', () => {
+    const gs = build()
+    gs.revealTo('p1', ['a', 'b'])
+    gs.revealTo('p1', ['b', 'c'])
+    expect(gs.getRevealed('p1')).toEqual(['a', 'b', 'c'])
+    expect(gs.clone().getRevealed('p1')).toEqual(['a', 'b', 'c'])
+    gs.hideRevealed('p1', ['a', 'b', 'c'])
+    expect(gs.getRevealed('p1')).toEqual([])
+    expect(gs.getRevealed('nobody')).toEqual([])
+  })
+
+  it('peekMainDeck and pickFromMainDeck reach the deck one to one; drawNamedIntoHand announces a draw', () => {
+    const gs = build()
+    gs.getMainDeck().addToBottom('t1')
+    gs.getMainDeck().addToBottom('t2')
+    expect(gs.peekMainDeck(5)).toEqual(['t1', 't2'])
+    expect(gs.pickFromMainDeck('t2')).toBe('t2')
+    expect(gs.pickFromMainDeck('t2')).toBeNull()
+
+    const em = new GameEventEmitter()
+    const emitted: IGameEvent[] = []
+    em.addListener({ onEvent: (e) => emitted.push(e) })
+    expect(gs.drawNamedIntoHand('p1', 't1', em)).toBe('t1')
+    expect(gs.drawNamedIntoHand('p1', 't1', em)).toBeNull()
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['t1'])
+    expect(emitted.map((e) => e.getType())).toEqual([GameEventType.CardDrawn])
+  })
+})
+
 describe('GameState.getHeroClass — the class the board reads, mask included', () => {
   const build = () => {
     const gs = new GameState(

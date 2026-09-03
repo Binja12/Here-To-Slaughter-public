@@ -4,7 +4,7 @@ import { IAbilityRule } from '../../interfaces'
 import { ChooseCardTask, ConfirmTask } from '../../tasks/choose-tasks'
 import { CardTypeCondition } from '../../tasks/conditions'
 import { DrawTask } from '../../tasks/draw-task'
-import { DiscardTask } from '../../tasks/tasks'
+import { DiscardTask, RevealTask } from '../../tasks/tasks'
 
 // Rex Major (monster-132)
 //   Passive:    after drawing a Modifier, you may reveal it and draw again.
@@ -42,7 +42,11 @@ export const RexMajorAbility: IAbilityRule[] = [
       scope: TriggerScope.SelfCard,
       when: DRAW_AGAIN,
     },
-    steps: [new DrawTask(1)],
+    steps: [
+      // "you may reveal it": the yes shows the drawn card to the table
+      new RevealTask({ fromKey: CTX_DRAWN_CARD_IDS, to: 'all' }),
+      new DrawTask(1),
+    ],
   },
   {
     trigger: {

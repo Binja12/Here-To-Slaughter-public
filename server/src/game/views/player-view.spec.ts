@@ -172,6 +172,16 @@ describe('playerView', () => {
     }
   })
 
+  it('shows a seat what is revealed to it, and nothing to the others', () => {
+    const game = dealt()
+    const [alice, bob] = game.playerOrder
+    const [aCard] = game.gameState.getPlayer(alice)!.getHand()
+    game.gameState.revealTo(bob, [aCard])
+
+    expect(playerView(game, bob).revealedCards.map((c) => c.id)).toEqual([aCard])
+    expect(playerView(game, alice).revealedCards).toEqual([])
+  })
+
   it('starts every party empty, with its leader ready', () => {
     const view = playerView(dealt(), 'alice')
 

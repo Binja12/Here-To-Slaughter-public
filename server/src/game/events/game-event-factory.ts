@@ -329,6 +329,29 @@ export class GameEventFactory {
     )
   }
 
+  /** RevealTask: `playerId` is who sees them; `toAll` when the table does. */
+  static cardsRevealed(
+    playerId: string,
+    cardIds: string[],
+    toAll: boolean,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.CardsRevealed,
+      playerId,
+      { cardIds, toAll },
+      Audience.All,
+    )
+  }
+
+  static revealEnded(playerId: string, cardIds: string[]): IGameEvent {
+    return new GameEvent(
+      GameEventType.RevealEnded,
+      playerId,
+      { cardIds },
+      Audience.All,
+    )
+  }
+
   static cardPulled(
     toPlayerId: string,
     fromPlayerId: string,

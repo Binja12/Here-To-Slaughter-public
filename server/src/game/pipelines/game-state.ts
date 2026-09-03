@@ -75,6 +75,12 @@ export class GameState {
   private gamePhase: GamePhase = GamePhase.Setup
   private winnerId?: string
   private abilitiesUsedThisTurn: string[] = []
+  /**
+   * Cards shown to a seat right now, by seat — RevealTask puts them here and
+   * takes them off when its clock runs out. Read by the view as
+   * `revealedCards`; the client decides how to show them.
+   */
+  private revealed: Map<string, string[]> = new Map()
   private cardsChallengedThisTurn: string[] = []
   /** Actions queued for draining this turn — GS is source of truth. */
   actionQueue: IAction[] = []
@@ -378,6 +384,7 @@ export class GameState {
     copy.winnerId = this.winnerId
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
+    for (const [id, ids] of this.revealed) copy.revealed.set(id, [...ids])
     copy.actionQueue = [...this.actionQueue]
     // Not the pipeline stack: it is work in progress ON the board, not the
     // board. A rollback undoes what that work did and drops what was waiting
@@ -589,6 +596,40 @@ export class GameState {
     this.requirePlayer(playerId).removeEffect(effectId)
   }
 
+  /** Show cards to a seat: onto its `revealedCards` until hideRevealed. */
+  revealTo(playerId: string, cardIds: string[]): void {
+    const current = this.revealed.get(playerId) ?? []
+    this.revealed.set(playerId, [
+      ...current,
+      ...cardIds.filter((id) => !current.includes(id)),
+    ])
+  }
+
+  /** The reveal is over: those cards come off the seat's view. */
+  hideRevealed(playerId: string, cardIds: string[]): void {
+    const left = (this.revealed.get(playerId) ?? []).filter(
+      (id) => !cardIds.includes(id),
+    )
+    if (left.length) this.revealed.set(playerId, left)
+    else this.revealed.delete(playerId)
+  }
+
+  getRevealed(playerId: string): string[] {
+    return [...(this.revealed.get(playerId) ?? [])]
+  }
+
+  /** CardStack.peek on the main deck, through the board. */
+  peekMainDeck(n: number): string[] {
+    return this.mainDeck.peek(n)
+  }
+
+  /** CardStack.pick on the main deck, through the board. Null when not there. */
+  pickFromMainDeck(cardId: string): string | null {
+    return this.mainDeck.pick(cardId)
+  }
+
+
+
   getItemCarrier(itemId: string): string | undefined {
     for (const party of this.parties.values()) {
       for (const heroId of party.getHeroIds()) {
@@ -659,6 +700,25 @@ export class GameState {
     if (!player) return null
     const cardId = this.drawFromMainDeck()
     if (!cardId) return null
+    player.addToHand(cardId)
+    em.emit(GameEventFactory.cardDrawn(playerId, cardId))
+    return cardId
+  }
+
+  /**
+   * A NAMED card out of the deck into a hand, announced as a draw — a card
+   * the player looked at and chose (Bullseye). The rest of the deck stays as
+   * it was; the queue closes over the gap by itself. Null when the card is
+   * not in the deck.
+   */
+  drawNamedIntoHand(
+    playerId: string,
+    cardId: string,
+    em: IGameEventEmitter,
+  ): string | null {
+    const player = this.getPlayer(playerId)
+    if (!player) return null
+    if (this.mainDeck.pick(cardId) === null) return null
     player.addToHand(cardId)
     em.emit(GameEventFactory.cardDrawn(playerId, cardId))
     return cardId

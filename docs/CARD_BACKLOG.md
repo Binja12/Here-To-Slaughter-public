@@ -98,6 +98,10 @@ Round three (same day, 2 more ids): Corrupted Sabretooth
 (`StealsInsteadOfDestroy`, the "may" not yet asked), Decoy Doll
 (`TakesTheHit`, destroy and sacrifice). The Shadow Claw now announces
 `LeaderActivated`, so Arctic Aries no longer draws on it.
+Round four (same day, 2 more ids): Sharp Fox (`RevealTask` → the
+view's `revealedCards`, 5 s), Bullseye (a choice over `Zone.MainDeckTop`, then
+`DrawTask(CTX_CHOSEN_CARD)`). Pan Chucks and Rex Major now reveal the drawn card
+to the table on their yes — no longer approximations.
 Still open from those groups: Beary Wise (its second half needs "the cards
 discarded during this ability"), Bloodwing (a scope for "another player
 challenges YOU"), Shurikitty (destroy keeping the gear for the owner),

@@ -39,13 +39,16 @@ export abstract class Draw {
 }
 
 /**
- * Same mechanic as DrawCardAction, with no cost, N at a time (or "until N",
- * negative), on the entry's owner — or on the chosen seat with
- * `executor: 'chosen'`: "that player may DRAW a card" (Plundering Puma).
+ * Same mechanic as DrawCardAction, with no cost, on the entry's owner — or on
+ * the chosen seat with `executor: 'chosen'` ("that player may DRAW a card",
+ * Plundering Puma). Given a NUMBER it draws that many from the top, or "until
+ * that many" when negative; given a SLOT NAME it draws the cards that slot
+ * names out of wherever they lie in the deck — a card the player looked at
+ * and chose (Bullseye: a choice over the deck's top three, then this).
  */
 export class DrawTask extends Draw implements ITask {
   constructor(
-    private readonly count: number,
+    private readonly countOrKey: number | string,
     private readonly executor: Executor = 'owner',
   ) {
     super()
@@ -61,6 +64,12 @@ export class DrawTask extends Draw implements ITask {
     if (!playerId || !gs.getPlayer(playerId)) return
     // Set even when the deck ran dry: readers tell "drew nothing" from "never
     // drew" (see CardTypeCondition, RollOnHeroTask).
-    ctx.set(CTX_DRAWN_CARD_IDS, this.drawCards(gs, playerId, this.count, em))
+    if (typeof this.countOrKey === 'number') {
+      ctx.set(CTX_DRAWN_CARD_IDS, this.drawCards(gs, playerId, this.countOrKey, em))
+      return
+    }
+    const named = ctx.get<string[]>(this.countOrKey) ?? []
+    const drawn = named.filter((cardId) => gs.drawNamedIntoHand(playerId, cardId, em) !== null)
+    ctx.set(CTX_DRAWN_CARD_IDS, drawn)
   }
 }

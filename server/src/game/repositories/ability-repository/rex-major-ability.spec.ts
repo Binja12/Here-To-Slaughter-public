@@ -20,7 +20,7 @@ describe('RexMajorAbility', () => {
         on: GameEventType.TaskConfirmed,
         scope: TriggerScope.SelfCard,
         when: 'RexMajorDrawsAgain',
-        steps: ['DrawTask'],
+        steps: ['RevealTask', 'DrawTask'],
       },
       {
         on: GameEventType.MonsterFoughtBack,

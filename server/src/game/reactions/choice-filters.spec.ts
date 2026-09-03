@@ -420,3 +420,23 @@ describe('filterCards — partyReqMet', () => {
     ).toEqual([])
   })
 })
+
+describe('filterCards — the top of the main deck', () => {
+  it('offers the top N where they lie, still filtered by type, and moves nothing', () => {
+    const main = new CardStack('deck', 'main')
+    for (const id of ['a', 'b', 'c', 'd']) main.addToBottom(id)
+    const gs = new GameState(main, new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    for (const id of ['a', 'b', 'c', 'd']) {
+      gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    }
+    const ctx = new AbilityContext('src', 'p1')
+
+    expect(filterCards(gs, ctx, { zone: Zone.MainDeckTop, top: 3 })).toEqual(['a', 'b', 'c'])
+    expect(filterCards(gs, ctx, { zone: Zone.MainDeckTop })).toEqual(['a'])
+    expect(filterCards(gs, ctx, { zone: Zone.MainDeckTop, top: 3, cardType: CardType.Item })).toEqual([])
+    expect(gs.getMainDeck().getSize()).toBe(4)
+  })
+})
+

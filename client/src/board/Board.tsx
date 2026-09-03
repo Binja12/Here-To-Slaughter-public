@@ -60,6 +60,7 @@ import {
 import { useHoverZoom } from './useHoverZoom'
 import PendingWindows from './PendingWindows'
 import DiscardPileModal from './DiscardPileModal'
+import RevealedCards from './RevealedCards'
 
 function Widget({
   def,
@@ -1274,6 +1275,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           onHide={() => setOverlayHidden(true)}
           onForfeit={flags.passable ? () => void forfeitWindow() : undefined}
         />
+
+        <RevealedCards cards={view.revealedCards ?? []} />
 
         {discardOpen && (
           <DiscardPileModal

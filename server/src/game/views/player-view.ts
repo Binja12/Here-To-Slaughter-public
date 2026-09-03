@@ -48,6 +48,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .getDiscardPile()
       .getAll()
       .map((id) => cardOf(gs, id)),
+    revealedCards: gs.getRevealed(playerId).map((id) => cardOf(gs, id)),
     monsterRow: gs
       .getMonsterPile()
       .getAll()

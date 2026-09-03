@@ -1,5 +1,5 @@
-import { Audience, GameEventType, IGameEvent, HeroClass, Owner, CardType } from 'shared'
-import { DiscardTask, PullCardTask, ForEachPlayerTask } from './tasks'
+import { Audience, GameEventType, IGameEvent, HeroClass, Owner, CardType, Zone } from 'shared'
+import { DiscardTask, PullCardTask, ForEachPlayerTask, RevealTask, REVEAL_MS } from './tasks'
 import { DrawTask } from './draw-task'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
@@ -464,3 +464,86 @@ describe('ForEachPlayerTask', () => {
     expect(emitted).toEqual([])
   })
 })
+
+describe('RevealTask', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  it("shows the chosen player's hand to the OWNER only, then takes it off when the clock runs out", () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerPlayer(makePlayer('p2', ['a', 'b']))
+    const ctx = makeCtx('hero-016', 'p1')
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+    const { emitter, emitted } = makeEmitter()
+
+    new RevealTask({ filter: { zone: Zone.Hand, owner: Owner.Chosen }, to: 'owner' }).execute(gs, ctx, emitter, stubRm)
+
+    expect(gs.getRevealed('p1')).toEqual(['a', 'b'])
+    expect(gs.getRevealed('p2')).toEqual([])
+    expect(emitted.map((e) => e.getType())).toEqual([GameEventType.CardsRevealed])
+    expect(emitted[0].getPayload()).toMatchObject({ cardIds: ['a', 'b'], toAll: false })
+
+    jest.advanceTimersByTime(REVEAL_MS)
+    expect(gs.getRevealed('p1')).toEqual([])
+    expect(emitted.map((e) => e.getType())).toEqual([GameEventType.CardsRevealed, GameEventType.RevealEnded])
+  })
+
+  it("to: 'all' shows every seat the cards in a slot", () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerPlayer(makePlayer('p2'))
+    const ctx = makeCtx('hero-008', 'p1')
+    ctx.set(CTX_DRAWN_CARD_IDS, ['drawn'])
+    const { emitter } = makeEmitter()
+
+    new RevealTask({ fromKey: CTX_DRAWN_CARD_IDS, to: 'all' }).execute(gs, ctx, emitter, stubRm)
+
+    expect(gs.getRevealed('p1')).toEqual(['drawn'])
+    expect(gs.getRevealed('p2')).toEqual(['drawn'])
+  })
+
+  it('shows nothing, and starts no clock, for an empty slot', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    const ctx = makeCtx()
+    ctx.set(CTX_DRAWN_CARD_IDS, [])
+    const { emitter, emitted } = makeEmitter()
+
+    new RevealTask({ fromKey: CTX_DRAWN_CARD_IDS, to: 'owner' }).execute(gs, ctx, emitter, stubRm)
+
+    expect(emitted).toEqual([])
+    expect(jest.getTimerCount()).toBe(0)
+  })
+})
+
+describe('DrawTask — a named card', () => {
+  it('draws the card the slot names out of wherever it lies in the deck, announced as a draw', () => {
+    const gs = makeGs(['t1', 't2', 't3'])
+    gs.registerPlayer(makePlayer('p1'))
+    const ctx = makeCtx()
+    ctx.set(CTX_CHOSEN_CARD, ['t2'])
+    const { emitter, emitted } = makeEmitter()
+
+    new DrawTask(CTX_CHOSEN_CARD).execute(gs, ctx, emitter, stubRm)
+
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['t2'])
+    expect(gs.peekMainDeck(2)).toEqual(['t1', 't3'])
+    expect(ctx.get(CTX_DRAWN_CARD_IDS)).toEqual(['t2'])
+    expect(emitted.map((e) => e.getType())).toEqual([GameEventType.CardDrawn])
+  })
+
+  it('draws nothing for a named card that is not in the deck', () => {
+    const gs = makeGs(['t1'])
+    gs.registerPlayer(makePlayer('p1', ['mine']))
+    const ctx = makeCtx()
+    ctx.set(CTX_CHOSEN_CARD, ['mine'])
+    const { emitter, emitted } = makeEmitter()
+
+    new DrawTask(CTX_CHOSEN_CARD).execute(gs, ctx, emitter, stubRm)
+
+    expect(ctx.get(CTX_DRAWN_CARD_IDS)).toEqual([])
+    expect(emitted).toEqual([])
+  })
+})
+

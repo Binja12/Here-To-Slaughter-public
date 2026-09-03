@@ -33,6 +33,8 @@ export type PlayerFilter = {
 
 export type CardFilter = {
   zone: Zone
+  /** MainDeckTop only: how many cards from the top are looked at. */
+  top?: number
   /**
    * Who this step runs AS — who answers the choice. The ability owner unless
    * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
@@ -67,6 +69,7 @@ export type CardFilter = {
 const SHARED_ZONES: ReadonlySet<Zone> = new Set([
   Zone.Discard,
   Zone.MonsterPile,
+  Zone.MainDeckTop,
 ])
 
 // ---------------------------------------------------------------------------
@@ -125,8 +128,13 @@ export function filterPlayers(
 // Card resolution
 // ---------------------------------------------------------------------------
 
-/** Card ids in one zone for one player. Discard ignores the owner. */
-function idsInZone(gs: GameState, zone: Zone, ownerId: string): string[] {
+/** Card ids in one zone for one player. The shared zones ignore the owner. */
+function idsInZone(
+  gs: GameState,
+  zone: Zone,
+  ownerId: string,
+  top = 1,
+): string[] {
   switch (zone) {
     case Zone.Hand:
       return gs.getPlayer(ownerId)?.getHand() ?? []
@@ -142,6 +150,10 @@ function idsInZone(gs: GameState, zone: Zone, ownerId: string): string[] {
       return gs.getDiscardPile().getAll()
     case Zone.MonsterPile:
       return gs.getMonsterPile().getAll()
+    case Zone.MainDeckTop:
+      // Looked at where they lie: the choice's options are the look, and the
+      // ones not taken stay in the deck in the order they were (Bullseye).
+      return gs.peekMainDeck(top)
   }
 }
 
@@ -154,9 +166,9 @@ export function filterCards(
 
   // A shared zone is read once, with no owner — see SHARED_ZONES.
   const ids = SHARED_ZONES.has(filter.zone)
-    ? idsInZone(gs, filter.zone, '')
+    ? idsInZone(gs, filter.zone, '', filter.top)
     : playersFor(gs, ctx, filter.owner).flatMap((ownerId) =>
-        idsInZone(gs, filter.zone, ownerId),
+        idsInZone(gs, filter.zone, ownerId, filter.top),
       )
 
   return ids.filter((id) => {

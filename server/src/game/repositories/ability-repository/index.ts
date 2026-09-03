@@ -50,6 +50,8 @@ import { TipsyTootieAbility } from './tipsy-tootie-ability'
 import { BloodwingAbility } from './bloodwing-ability'
 import { CorruptedSabretoothAbility } from './corrupted-sabretooth-ability'
 import { DecoyDollAbility } from './decoy-doll-ability'
+import { SharpFoxAbility } from './sharp-fox-ability'
+import { BullseyeAbility } from './bullseye-ability'
 import { SilentShadowAbility } from './silent-shadow-ability'
 import { BadAxeAbility } from './bad-axe-ability'
 import { PanChucksAbility } from './pan-chucks-ability'
@@ -128,7 +130,9 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['hero-009', SeriousGreyAbility], // Serious Grey — DESTROY, then DRAW
   ['hero-010', QuickDrawAbility], // Quick Draw — DRAW 2; Item may be played
   ['hero-012', WildshotAbility], // Wildshot — DRAW 3, DISCARD 1
+  ['hero-014', BullseyeAbility], // Bullseye — the top three, one to hand, the rest reordered
   ['hero-015', WilyRedAbility], // Wily Red — DRAW until you hold 7
+  ['hero-016', SharpFoxAbility], // Sharp Fox — look at a hand
   ['hero-017', KitNapperAbility], // Kit Napper — STEAL a Hero
   ['hero-018', SlyPickingsAbility], // Sly Pickings — pull; Item may be played
   ['hero-019', MeowzioAbility], // Meowzio — STEAL and pull from one player

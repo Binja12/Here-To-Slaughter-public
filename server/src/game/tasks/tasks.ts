@@ -11,10 +11,9 @@ import {
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
   CTX_PULLED_CARD_IDS,
-  chosenPlayers,
-} from '../abilities/ability-context'
+  chosenPlayers,} from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
-import { filterPlayers, PlayerFilter } from '../reactions/choice-filters'
+import { filterPlayers, PlayerFilter, filterCards, CardFilter } from '../reactions/choice-filters'
 
 // ---------------------------------------------------------------------------
 // DiscardTask — move a card from the owner's hand to the discard pile
@@ -233,5 +232,59 @@ export class ForEachPlayerTask implements ITask {
         ),
       )
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RevealTask — show cards to a seat, or the table, without moving them
+//
+// A look is not a decision, so it is not a window: nothing is asked and the
+// table is not held. The cards go onto the seat's \`revealedCards\` in its view
+// (GameState.revealTo), CardsRevealed is announced, and a clock takes them off
+// again (hideRevealed + RevealEnded, so the table sees the change). How they
+// are shown, and whether at all, is the client's business.
+//
+// \`to: 'owner'\` shows the ability owner (Sharp Fox looks at a hand);
+// \`to: 'all'\` shows every seat ("you may reveal it" — Pan Chucks, Rex Major).
+// ---------------------------------------------------------------------------
+
+/** How long a reveal stays on the view. */
+export const REVEAL_MS = 5_000
+
+export class RevealTask implements ITask {
+  constructor(
+    private readonly spec: {
+      /** Cards in a slot … */
+      fromKey?: string
+      /** … or cards a filter finds (a chosen player's hand). */
+      filter?: CardFilter
+      to: 'owner' | 'all'
+    },
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const cardIds = this.spec.fromKey
+      ? (ctx.get<string[]>(this.spec.fromKey) ?? [])
+      : this.spec.filter
+        ? filterCards(gs, ctx, this.spec.filter)
+        : []
+    if (cardIds.length === 0) return
+
+    const seats =
+      this.spec.to === 'all'
+        ? gs.getPlayers().map((player) => player.getId())
+        : [ctx.ownerId]
+    for (const seat of seats) gs.revealTo(seat, cardIds)
+    em.emit(GameEventFactory.cardsRevealed(ctx.ownerId, cardIds, this.spec.to === 'all'))
+
+    setTimeout(() => {
+      for (const seat of seats) gs.hideRevealed(seat, cardIds)
+      em.emit(GameEventFactory.revealEnded(ctx.ownerId, cardIds))
+    }, REVEAL_MS)
   }
 }

@@ -20,7 +20,7 @@ describe('PanChucksAbility', () => {
         on: GameEventType.TaskConfirmed,
         scope: TriggerScope.SelfCard,
         when: 'PanChucksDestroysHero',
-        steps: ['ChooseCardTask', 'DestroyTask'],
+        steps: ['RevealTask', 'ChooseCardTask', 'DestroyTask'],
       },
     ])
   })
