@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { RuntimeService } from './runtime/runtime.service';
-import { GameSocketGateway } from './socket/socket.gateway';
+import { Module } from '@nestjs/common'
+import { AppController } from './app.controller'
+import { AppService } from './app.service'
+import { AuthModule } from './auth/auth.module'
+import { LobbyModule } from './lobby/lobby.module'
 
 @Module({
-  imports: [],
+  imports: [AuthModule, LobbyModule],
   controllers: [AppController],
-  providers: [AppService, RuntimeService, GameSocketGateway],
+  providers: [AppService],
 })
 export class AppModule {}

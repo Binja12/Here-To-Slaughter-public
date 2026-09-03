@@ -1,6 +1,11 @@
 import { HeroCard } from './hero-card'
-import { CardType, HeroClass, GameEventType } from 'shared'
+import { CardType, HeroClass } from 'shared'
 import { HeroCardData } from 'shared'
+import { GameState } from '../pipelines/game-state'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { GameEventEmitter } from '../events/game-event-emitter'
 
 const mockHeroData: HeroCardData = {
   id: 'hero-1',
@@ -11,9 +16,6 @@ const mockHeroData: HeroCardData = {
   heroClass: HeroClass.Wizard,
   rollReq: 4,
   set: 'base',
-  ability: {
-    trigger: GameEventType.RollSuccess,
-  },
 }
 
 describe('HeroCard', () => {
@@ -51,26 +53,48 @@ describe('HeroCard', () => {
     const card = new HeroCard(mockHeroData)
     expect(card.getRollReq()).toBe(4)
   })
+})
 
-  it('should return ability', () => {
-    const card = new HeroCard(mockHeroData)
-    expect(card.getAbility()).toEqual(mockHeroData.ability)
+// ---------------------------------------------------------------------------
+// Equipment lives on the party, so these ask the board. The GameState import
+// is type-only, so there is no runtime edge back from a card to the board.
+// ---------------------------------------------------------------------------
+
+const makeBoard = (heroIds: string[] = ['hero-1']) => {
+  const gs = new GameState(
+    new CardStack('deck', 'main'),
+    new CardPile('discard', 'discard'),
+    new CardStack('mdeck', 'monster-deck'),
+    new CardPile('mpile', 'monster-pile'),
+  )
+  gs.registerParty(
+    new Party({
+      playerId: 'p1',
+      leaderId: 'p1-leader',
+      heroIds,
+      monsterIds: [],
+    }),
+  )
+  return gs
+}
+
+describe('HeroCard — equipment', () => {
+  it('reports what the party says it carries', () => {
+    const gs = makeBoard()
+    gs.getParty('p1').equipItem('hero-1', 'item-1')
+
+    expect(new HeroCard(mockHeroData).getEquippedItem(gs)).toBe('item-1')
   })
 
-  it('should return null when no item equipped', () => {
-    const card = new HeroCard(mockHeroData)
-    expect(card.getEquippedItem()).toBeNull()
+  it('reports nothing when it carries nothing', () => {
+    expect(new HeroCard(mockHeroData).getEquippedItem(makeBoard())).toBeUndefined()
   })
 
-  it('should equip an item', () => {
-    const card = new HeroCard(mockHeroData)
-    card.equipItem('item-1')
-    expect(card.getEquippedItem()).toBe('item-1')
-  })
+  it('reports nothing once it has left the party', () => {
+    const gs = makeBoard()
+    gs.getParty('p1').equipItem('hero-1', 'item-1')
+    gs.getParty('p1').removeHero('hero-1', new GameEventEmitter(), 'Destroyed')
 
-  it('should replace equipped item', () => {
-    const card = new HeroCard(mockHeroData)
-    card.equipItem('item-1')
-    expect(card.getEquippedItem()).toBe('item-1')
+    expect(new HeroCard(mockHeroData).getEquippedItem(gs)).toBeUndefined()
   })
 })

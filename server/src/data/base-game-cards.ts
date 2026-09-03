@@ -8,7 +8,7 @@ import {
   PartyLeaderData,
   RollCompareMode,
 } from 'shared'
-import { CardType, HeroClass, EffectDuration } from 'shared'
+import { CardType, HeroClass } from 'shared'
 
 export const baseHeroes: HeroCardData[] = [
   {
@@ -20,7 +20,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-002',
@@ -32,7 +31,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-003',
@@ -44,7 +42,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-004',
@@ -55,7 +52,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-005',
@@ -67,7 +63,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-006',
@@ -79,7 +74,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 4,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-007',
@@ -91,7 +85,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-008',
@@ -103,7 +96,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Fighter,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-009',
@@ -114,7 +106,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-010',
@@ -126,7 +117,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-011',
@@ -138,7 +128,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-012',
@@ -149,7 +138,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-013',
@@ -161,7 +149,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-014',
@@ -173,7 +160,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-015',
@@ -184,7 +170,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-016',
@@ -195,7 +180,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Ranger,
     rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-017',
@@ -206,7 +190,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-018',
@@ -218,7 +201,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-019',
@@ -230,7 +212,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-020',
@@ -242,7 +223,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-021',
@@ -254,7 +234,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-022',
@@ -266,7 +245,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-023',
@@ -278,7 +256,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-024',
@@ -290,7 +267,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Thief,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-025',
@@ -302,7 +278,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-026',
@@ -314,7 +289,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-027',
@@ -326,7 +300,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-028',
@@ -337,7 +310,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-029',
@@ -348,7 +320,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-030',
@@ -360,7 +331,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-031',
@@ -372,7 +342,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-032',
@@ -384,7 +353,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Guardian,
     rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-033',
@@ -395,7 +363,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-034',
@@ -407,7 +374,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-035',
@@ -418,7 +384,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-036',
@@ -429,7 +394,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-037',
@@ -440,7 +404,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 11,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-038',
@@ -451,7 +414,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 10,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-039',
@@ -463,7 +425,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 5,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-040',
@@ -475,7 +436,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Wizard,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-041',
@@ -487,7 +447,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-042',
@@ -499,7 +458,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-043',
@@ -510,7 +468,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-044',
@@ -521,7 +478,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 2,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-045',
@@ -533,7 +489,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 6,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-046',
@@ -544,7 +499,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 9,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-047',
@@ -555,7 +509,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 8,
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'hero-048',
@@ -566,7 +519,6 @@ export const baseHeroes: HeroCardData[] = [
     set: 'base',
     heroClass: HeroClass.Bard,
     rollReq: 7,
-    effect: { duration: EffectDuration.TurnEnd },
   },
 ]
 // add more heroes...
@@ -584,9 +536,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 9,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card and DRAW a card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -600,9 +552,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card and DRAW 2 cards.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -616,9 +568,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 7,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -633,9 +585,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 10,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -650,9 +602,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 5,
     lowerReq: 8,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -667,9 +619,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 9,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -684,9 +636,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 10,
     lowerReq: 6,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -701,9 +653,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 5,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -717,9 +669,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 11,
     lowerReq: 7,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'SACRIFICE a Hero card.',
     },
   },
   {
@@ -734,9 +686,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -751,9 +703,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -768,9 +720,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -785,9 +737,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -801,9 +753,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
   {
@@ -817,9 +769,9 @@ export const baseMonsters: MonsterCardData[] = [
     higherReq: 8,
     lowerReq: 4,
     rollCompareMode: RollCompareMode.HighToWin,
-    skill: {
-      condition: 'When face up',
-      description: 'All rolls -1',
+    slay: 'SLAY this Monster card.',
+    fightBack: {
+      description: 'DISCARD 2 cards.',
     },
   },
 ]
@@ -833,8 +785,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -845,8 +796,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -857,8 +807,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -869,8 +818,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "Each time you roll to use the equipped Hero card's effect, +2 to your roll.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -881,8 +829,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'If the equipped Hero card would be sacrificed or destroyed, move Decoy Doll to the discard pile instead.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -893,8 +840,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'The equipped Hero card is considered a Fighter instead of its original class.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -905,8 +851,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'The equipped Hero card is considered a Ranger instead of its original class.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -917,8 +862,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'The equipped Hero card is considered a Thief instead of its original class.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -929,8 +873,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'The equipped Hero card is considered a Guardian instead of its original class.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -941,8 +884,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'The equipped Hero card is considered a Wizard instead of its original class.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
   {
@@ -953,8 +895,7 @@ export const baseItems: ItemCardData[] = [
     description:
       'The equipped Hero card is considered a Bard instead of its original class.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: false,
   },
 
@@ -966,8 +907,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "If you successfully roll to use the equipped Hero card's effect, DISCARD a card.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: true,
   },
   {
@@ -978,8 +918,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: true,
   },
   {
@@ -990,8 +929,7 @@ export const baseItems: ItemCardData[] = [
     description:
       "Each time you roll to use the equipped Hero card's effect, -2 to your roll.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: true,
   },
   {
@@ -1001,8 +939,7 @@ export const baseItems: ItemCardData[] = [
     image: 'items/sealing-key.png',
     description: "You cannot use the equipped Hero card's effect.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
-    equippedHero: undefined,
+
     cursed: true,
   },
 
@@ -1017,9 +954,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/destructive-spell.png',
     description: 'DISCARD a card, then DESTROY a Hero card.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-050',
@@ -1028,9 +962,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/destructive-spell.png',
     description: 'DISCARD a card, then DESTROY a Hero card.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-051',
@@ -1039,9 +970,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/entangling-trap.png',
     description: 'DISCARD 2 cards, then STEAL a Hero card.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-052',
@@ -1050,9 +978,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/entangling-trap.png',
     description: 'DISCARD 2 cards, then STEAL a Hero card.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-053',
@@ -1061,9 +986,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/critical-boost.png',
     description: 'DRAW 3 cards and DISCARD a card.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-054',
@@ -1072,9 +994,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/critical-boost.png',
     description: 'DRAW 3 cards and DISCARD a card.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-055',
@@ -1083,9 +1002,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/enchanted-spell.png',
     description: '+2 to all of your rolls until the end of your turn.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-056',
@@ -1094,9 +1010,6 @@ export const baseMagic: MagicCardData[] = [
     image: 'magic/enchanted-spell.png',
     description: '+2 to all of your rolls until the end of your turn.',
     set: 'base',
-    effect: {
-      duration: EffectDuration.TurnEnd,
-    },
   },
   {
     id: 'magic-057',
@@ -1106,7 +1019,6 @@ export const baseMagic: MagicCardData[] = [
     description:
       "Choose a player. STEAL a Hero card from that player's Party, then move a Hero card from your Party to that player's Party.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'magic-058',
@@ -1116,7 +1028,6 @@ export const baseMagic: MagicCardData[] = [
     description:
       "Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'magic-059',
@@ -1126,7 +1037,6 @@ export const baseMagic: MagicCardData[] = [
     description:
       "Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'magic-060',
@@ -1136,7 +1046,6 @@ export const baseMagic: MagicCardData[] = [
     description:
       "Return every equipped Item card to its respective player's hand.",
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
   },
   {
     id: 'magic-061',
@@ -1146,7 +1055,6 @@ export const baseMagic: MagicCardData[] = [
     description:
       'Search the discard pile for a Hero card and add it to your hand.',
     set: 'base',
-    effect: { duration: EffectDuration.TurnEnd },
   },
 
   // add magic cards...
@@ -1549,7 +1457,6 @@ export const baseLeaders: PartyLeaderData[] = [
       'Each time you roll to ATTACK a Monster card, +1 to your roll.',
     set: 'base',
     heroClass: HeroClass.Ranger,
-    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-117',
@@ -1560,7 +1467,6 @@ export const baseLeaders: PartyLeaderData[] = [
       "Once per turn on your turn, you may spend an action point to pull a card from another player's hand.",
     set: 'base',
     heroClass: HeroClass.Thief,
-    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-118',
@@ -1570,7 +1476,6 @@ export const baseLeaders: PartyLeaderData[] = [
     description: 'Each time you roll to CHALLENGE, +2 to your roll.',
     set: 'base',
     heroClass: HeroClass.Fighter,
-    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-119',
@@ -1581,7 +1486,6 @@ export const baseLeaders: PartyLeaderData[] = [
       "Each time you roll to use a Hero card's effect, +1 to your roll.",
     set: 'base',
     heroClass: HeroClass.Bard,
-    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-120',
@@ -1591,7 +1495,6 @@ export const baseLeaders: PartyLeaderData[] = [
     description: 'Each time you play a Magic card, DRAW a card.',
     set: 'base',
     heroClass: HeroClass.Wizard,
-    skill: { condition: '', description: '' },
   },
   {
     id: 'leader-121',
@@ -1602,7 +1505,6 @@ export const baseLeaders: PartyLeaderData[] = [
       'Each time you play a Modifier card on a roll, +1 or -1 to that roll.',
     set: 'base',
     heroClass: HeroClass.Guardian,
-    skill: { condition: '', description: '' },
   },
 
   // add more leaders...

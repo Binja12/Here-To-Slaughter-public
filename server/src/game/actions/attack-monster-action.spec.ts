@@ -1,18 +1,18 @@
-import { ActionType, CardType, GameEventType, IGameEvent, RollCompareMode } from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason, RollCompareMode, TriggerScope } from 'shared'
 import { AttackMonsterAction } from './attack-monster-action'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { MonsterCard } from '../cards/monster-card'
-import { AbilityProcessor } from '../ability-processor'
+import { HeroCard } from '../cards/hero-card'
+import { TaskManager } from '../pipelines/task-manager'
+import { ITask } from '../interfaces'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers ---
 
 const makePlayer = (id: string, ap = 3) =>
   new Player({ id, name: `Player ${id}`, hand: [], partyId: `party-${id}`, actionPoints: ap })
@@ -21,10 +21,10 @@ const makeParty = (playerId: string) =>
   new Party({ playerId, leaderId: `leader-${playerId}`, heroIds: [], monsterIds: [] })
 
 /**
- * Roll formula: Math.floor(Math.random() * 11) + 1  → range [1, 11]
- *   random = 0    → 1   (FightBack: ≤ lowerReq=3)
- *   random = 0.3  → 4   (Miss: 4–7)
- *   random = 0.99 → 11  (Slay: ≥ higherReq=8)
+ * HighToWin defaults: higherReq=8, lowerReq=3
+ *   roll >= 8  → Slay       (mock Math.random to 0.99 → roll 12)
+ *   roll <= 3  → FightBack  (mock Math.random to 0    → roll 1)
+ *   4–7        → Miss       (mock Math.random to 0.3  → roll 5)
  */
 const makeMonsterCard = (id: string, higherReq = 8, lowerReq = 3) =>
   new MonsterCard({
@@ -34,28 +34,25 @@ const makeMonsterCard = (id: string, higherReq = 8, lowerReq = 3) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.MonsterAttackFail, steps: [] },
     lowerReq,
     higherReq,
     rollCompareMode: RollCompareMode.HighToWin,
     partyReq: { classes: [] },
   })
 
-const makeGs = () =>
-  new GameState(
-    new CardStack('deck-1', 'main-deck'),
-    new CardPile('discard-1', 'discard-pile'),
-    new CardStack('mdeck-1', 'monster-deck'),
-    new CardPile('mpile-1', 'monster-pile'),
-  )
+const makeGs = () => {
+  const deck = new CardStack('deck-1', 'main-deck')
+  const discard = new CardPile('discard-1', 'discard-pile')
+  const monsterDeck = new CardStack('mdeck-1', 'monster-deck')
+  const monsterPile = new CardPile('mpile-1', 'monster-pile')
+  return new GameState(deck, discard, monsterDeck, monsterPile)
+}
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+// --- Tests ---
 
 describe('AttackMonsterAction', () => {
   let emitter: GameEventEmitter
-  let events: IGameEvent[]
+  let emitted: IGameEvent[]
   let gs: GameState
   let player: Player
   let party: Party
@@ -63,8 +60,8 @@ describe('AttackMonsterAction', () => {
   beforeEach(() => {
     jest.useFakeTimers()
     emitter = new GameEventEmitter()
-    events = []
-    emitter.addListener({ onEvent: (e) => events.push(e) })
+    emitted = []
+    emitter.addListener({ onEvent: (e) => emitted.push(e) })
     gs = makeGs()
     player = makePlayer('p1', 3)
     party = makeParty('p1')
@@ -73,8 +70,6 @@ describe('AttackMonsterAction', () => {
     gs.setCurrentPlayerId('p1')
     gs.registerCard(makeMonsterCard('monster-1'))
     gs.getMonsterPile().add('monster-1')
-    // AbilityProcessor listens on emitter to resume pipelines on FrameResolved
-    new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
   })
 
   afterEach(() => {
@@ -82,10 +77,15 @@ describe('AttackMonsterAction', () => {
     jest.restoreAllMocks()
   })
 
-  const makeAction = () =>
-    new AttackMonsterAction('a1', 'p1', 'monster-1', new ReactionManager(gs, emitter))
+  const makeAction = () => {
+    const rm = new ReactionManager(gs, emitter)
+    return new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
+  }
 
-  const hasEvent = (t: GameEventType) => events.some((e) => e.getType() === t)
+  /** Nobody spends a modifier, so the window lapses and settles the attack. */
+  const settle = () => jest.advanceTimersByTime(5000)
+
+  const types = () => emitted.map((e) => e.getType())
 
   // --- Metadata ---
 
@@ -105,36 +105,30 @@ describe('AttackMonsterAction', () => {
     it('getCost returns 2', () => {
       expect(makeAction().getCost()).toBe(2)
     })
-
-    it('isReactable returns true', () => {
-      expect(makeAction().isReactable()).toBe(true)
-    })
   })
 
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
       emptyGs.getMonsterPile().add('monster-1')
-      const action = new AttackMonsterAction('a1', 'p1', 'monster-1', new ReactionManager(emptyGs, emitter))
-      expect(action.canExecute(emptyGs)).toBe(false)
+      const rm = new ReactionManager(emptyGs, emitter)
+      const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
-    it('returns false when player is not the current player', () => {
-      gs.setCurrentPlayerId('p2')
-      expect(makeAction().canExecute(gs)).toBe(false)
-    })
-
-    it('returns false when player has fewer than 2 action points', () => {
+    it('returns false when player has exactly 1 action point (cost is 2)', () => {
       const gs2 = makeGs()
       gs2.registerPlayer(makePlayer('p1', 1))
       gs2.registerParty(makeParty('p1'))
       gs2.setCurrentPlayerId('p1')
       gs2.registerCard(makeMonsterCard('monster-1'))
       gs2.getMonsterPile().add('monster-1')
-      expect(new AttackMonsterAction('a1', 'p1', 'monster-1', new ReactionManager(gs2, emitter)).canExecute(gs2)).toBe(false)
+      const rm = new ReactionManager(gs2, emitter)
+      const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when the monster is not in the monster pile', () => {
@@ -143,137 +137,325 @@ describe('AttackMonsterAction', () => {
       gs2.registerParty(makeParty('p1'))
       gs2.setCurrentPlayerId('p1')
       gs2.registerCard(makeMonsterCard('monster-1'))
-      expect(new AttackMonsterAction('a1', 'p1', 'monster-1', new ReactionManager(gs2, emitter)).canExecute(gs2)).toBe(false)
+      // deliberately not adding monster-1 to the pile
+      const rm = new ReactionManager(gs2, emitter)
+      const action = new AttackMonsterAction('a1', 'p1', 'monster-1', rm, emitter)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.MonsterNotInRow })
     })
 
     it('returns true when all conditions are met', () => {
-      expect(makeAction().canExecute(gs)).toBe(true)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: true })
+    })
+
+    // --- the monster's printed party requirement ---
+
+    describe("the monster's partyReq", () => {
+      /** The Dark Dragon King's shape: a Bard plus one more hero. */
+      const kingGs = (partyClasses: HeroClass[]) => {
+        const g = makeGs()
+        g.registerPlayer(makePlayer('p1', 3))
+        g.registerParty(makeParty('p1'))
+        g.setCurrentPlayerId('p1')
+        g.registerCard(
+          new MonsterCard({
+            id: 'monster-1',
+            name: 'Dark Dragon King',
+            type: CardType.Monster,
+            image: '',
+            description: '',
+            set: '',
+            lowerReq: 4,
+            higherReq: 8,
+            rollCompareMode: RollCompareMode.HighToWin,
+            partyReq: { classes: [HeroClass.Bard, 'Any'] },
+          }),
+        )
+        g.getMonsterPile().add('monster-1')
+        partyClasses.forEach((cls, i) => {
+          g.registerCard(
+            new HeroCard({
+              id: `hero-${i}`,
+              name: `hero-${i}`,
+              type: CardType.Hero,
+              image: '',
+              description: '',
+              set: '',
+              heroClass: cls,
+              rollReq: 5,
+            }),
+          )
+          g.getParty('p1').addHero(`hero-${i}`, emitter, 'Played')
+        })
+        return g
+      }
+
+      const canAttack = (g: GameState) =>
+        new AttackMonsterAction(
+          'a1',
+          'p1',
+          'monster-1',
+          new ReactionManager(g, emitter),
+          emitter,
+        ).canExecute(g)
+
+      it('refuses an empty party', () => {
+        expect(canAttack(kingGs([]))).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
+      })
+
+      it('refuses a lone Bard — Any needs a SECOND hero', () => {
+        expect(canAttack(kingGs([HeroClass.Bard]))).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
+      })
+
+      it('refuses two heroes when neither is a Bard', () => {
+        expect(canAttack(kingGs([HeroClass.Thief, HeroClass.Wizard]))).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
+      })
+
+      it('allows a Bard and any other class', () => {
+        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Thief]))).toEqual({ accepted: true })
+      })
+
+      it('allows two Bards — one answers Bard, the other answers Any', () => {
+        expect(canAttack(kingGs([HeroClass.Bard, HeroClass.Bard]))).toEqual({ accepted: true })
+      })
+
+      it('goes false again when the Bard is stolen away', () => {
+        const g = kingGs([HeroClass.Bard, HeroClass.Thief])
+        expect(canAttack(g)).toEqual({ accepted: true })
+
+        g.getParty('p1').removeHero('hero-0', emitter, 'Stolen')
+
+        expect(canAttack(g)).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
+      })
     })
   })
 
   // --- execute ---
 
   describe('execute', () => {
-    it('decreases player action points by 2 immediately', () => {
-      jest.spyOn(Math, 'random').mockReturnValue(0.3)
+    it('always decreases player action points by 2', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.3) // Miss
       makeAction().execute(gs)
       expect(player.getActionPoints()).toBe(1)
     })
 
-    it('emits ModifierWindowOpened immediately', () => {
+    it('spends the points before the frame opens, so a miss still costs them', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.3)
       makeAction().execute(gs)
-      expect(hasEvent(GameEventType.ModifierWindowOpened)).toBe(true)
+      settle()
+      expect(player.getActionPoints()).toBe(1)
     })
 
-    it('opens a reaction frame (hasOpenFrames after execute)', () => {
-      jest.spyOn(Math, 'random').mockReturnValue(0.3)
+    it('announces the raw die, then opens an attack window naming the monster', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.99) // baseRoll 12
+
       makeAction().execute(gs)
+
+      expect(types()).toEqual([
+        GameEventType.DiceRolled,
+        GameEventType.ReactionWindowOpened,
+      ])
+      expect(emitted[0].getPayload()).toMatchObject({
+        cardId: 'monster-1',
+        baseRoll: 12,
+      })
+      expect(emitted[1].getPayload()).toMatchObject({
+        windowType: ReactionWindowType.Attack,
+        monsterId: 'monster-1',
+        baseRoll: 12,
+        finalRoll: 12,
+        rollerId: 'p1',
+      })
+    })
+
+    it('leaves the outcome to the window — nothing has moved yet', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.99) // a Slay, once settled
+      makeAction().execute(gs)
+
+      expect(gs.getMonsterPile().getAll()).toContain('monster-1')
+      expect(party.getMonsterIds()).not.toContain('monster-1')
       expect(gs.hasOpenFrames()).toBe(true)
     })
 
-    // --- Slay (random=0.99 → roll=11 ≥ higherReq=8) ---
+    it('drops the frameId — an action has no pipeline to suspend', () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.99)
+      expect(makeAction().execute(gs)).toBeUndefined()
+    })
 
-    describe('Slay outcome', () => {
+    describe('on a Slay roll (mock random 0.99 → roll 12 ≥ higherReq 8)', () => {
       beforeEach(() => jest.spyOn(Math, 'random').mockReturnValue(0.99))
 
-      it('removes the monster from the pile after timeout', () => {
+      it('removes the monster from the monster pile', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
+        settle()
         expect(gs.getMonsterPile().getAll()).not.toContain('monster-1')
       })
 
-      it('adds the monster to the attacker party', () => {
+      it('adds the monster to the player party', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
+        settle()
         expect(party.getMonsterIds()).toContain('monster-1')
       })
 
-      it('draws a replacement from the monster deck to the pile', () => {
-        gs.getMonsterDeck().addToBottom('monster-2')
+      it('emits MonsterSlain, and no fight-back', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(gs.getMonsterPile().getAll()).toContain('monster-2')
-      })
-
-      it('emits MonsterSlain', () => {
-        makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(hasEvent(GameEventType.MonsterSlain)).toBe(true)
-      })
-
-      it('emits FrameResolved', () => {
-        makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
-      })
-
-      it('no open frames after resolve', () => {
-        makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(gs.hasOpenFrames()).toBe(false)
+        settle()
+        expect(types()).toContain(GameEventType.MonsterSlain)
+        expect(types()).not.toContain(GameEventType.MonsterFoughtBack)
       })
     })
 
-    // --- Miss (random=0.3 → roll=4, between lowerReq=3 and higherReq=8) ---
-
-    describe('Miss outcome', () => {
+    describe('on a Miss roll (mock random 0.3 → roll 5, between the two bands)', () => {
       beforeEach(() => jest.spyOn(Math, 'random').mockReturnValue(0.3))
 
-      it('monster stays in pile', () => {
+      it('does not remove the monster from the pile', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
+        settle()
         expect(gs.getMonsterPile().getAll()).toContain('monster-1')
       })
 
-      it('monster not added to party', () => {
+      it('does not add the monster to the party', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
+        settle()
         expect(party.getMonsterIds()).not.toContain('monster-1')
       })
 
-      it('does not emit MonsterSlain or MonsterAttackFail', () => {
+      it('announces neither outcome — a miss is the window closing and nothing else', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(hasEvent(GameEventType.MonsterSlain)).toBe(false)
-        expect(hasEvent(GameEventType.MonsterAttackFail)).toBe(false)
-      })
-
-      it('emits FrameResolved', () => {
-        makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
+        settle()
+        expect(types()).not.toContain(GameEventType.MonsterSlain)
+        expect(types()).not.toContain(GameEventType.MonsterFoughtBack)
       })
     })
 
-    // --- FightBack (random=0 → roll=1 ≤ lowerReq=3) ---
-
-    describe('FightBack outcome', () => {
+    describe('on a FightBack roll (mock random 0 → roll 1 ≤ lowerReq 3)', () => {
       beforeEach(() => jest.spyOn(Math, 'random').mockReturnValue(0))
 
-      it('monster stays in pile', () => {
+      it('does not remove the monster from the pile', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
+        settle()
         expect(gs.getMonsterPile().getAll()).toContain('monster-1')
       })
 
-      it('monster not added to party', () => {
+      it('does not add the monster to the party', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
+        settle()
         expect(party.getMonsterIds()).not.toContain('monster-1')
       })
 
-      it('emits MonsterAttackFail', () => {
+      it('emits MonsterFoughtBack naming the monster and the attacker', () => {
         makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(hasEvent(GameEventType.MonsterAttackFail)).toBe(true)
-      })
-
-      it('emits FrameResolved', () => {
-        makeAction().execute(gs)
-        jest.runAllTimers()
-        expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
+        settle()
+        const foughtBack = emitted.find(
+          (e) => e.getType() === GameEventType.MonsterFoughtBack,
+        )
+        expect(foughtBack!.getPayload()).toMatchObject({ cardId: 'monster-1' })
+        expect(foughtBack!.getPlayerId()).toBe('p1')
       })
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The whole cycle: a failed attack running the monster's own steps.
+//
+// A monster in the pile belongs to nobody, so its entry is scoped Attacker and
+// the run is owned by whoever swung at it. Nothing here is a hand-made event —
+// the action rolls, the window settles, and the announcement does the rest.
+// ---------------------------------------------------------------------------
+
+describe('AttackMonsterAction — the monster answers back', () => {
+  const FIGHT_BACK = 0 // baseRoll 1, at or under lowerReq 3
+  const SLAY = 0.99 // baseRoll 12, at or over higherReq 8
+  const MISS = 0.3 // baseRoll 5, between the two
+
+  const armed = (steps: ITask[]) => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const emitted: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => emitted.push(e) })
+
+    gs.registerPlayer(makePlayer('p1', 3))
+    gs.registerParty(makeParty('p1'))
+    gs.setCurrentPlayerId('p1')
+    gs.registerCard(makeMonsterCard('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    const rm = new ReactionManager(gs, emitter)
+    new TaskManager(
+      gs,
+      emitter,
+      rm,
+      new Map([
+        [
+          'monster-1',
+          [
+            {
+              trigger: {
+                on: GameEventType.MonsterFoughtBack,
+                scope: TriggerScope.Attacker,
+              },
+              steps,
+            },
+          ],
+        ],
+      ]),
+    )
+    return { gs, emitter, emitted, rm }
+  }
+
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+  })
+
+  const attack = (steps: ITask[], random: number) => {
+    const ctx = armed(steps)
+    jest.spyOn(Math, 'random').mockReturnValue(random)
+    new AttackMonsterAction('a1', 'p1', 'monster-1', ctx.rm, ctx.emitter).execute(
+      ctx.gs,
+    )
+    jest.advanceTimersByTime(5000)
+    return ctx
+  }
+
+  it('runs the monster steps, owned by the attacker', () => {
+    const ranFor: string[] = []
+    attack([{ execute: (_gs, c) => void ranFor.push(c.ownerId) }], FIGHT_BACK)
+    expect(ranFor).toEqual(['p1'])
+  })
+
+  it('sources those steps to the monster, though it is in nobody party', () => {
+    const sources: string[] = []
+    attack(
+      [{ execute: (_gs, c) => void sources.push(c.sourceCardId) }],
+      FIGHT_BACK,
+    )
+    expect(sources).toEqual(['monster-1'])
+  })
+
+  it('a MISS runs nothing — only the fight-back band answers', () => {
+    const ranFor: string[] = []
+    attack([{ execute: (_gs, c) => void ranFor.push(c.ownerId) }], MISS)
+    expect(ranFor).toHaveLength(0)
+  })
+
+  it('a SLAY runs nothing — the monster is won, not roused', () => {
+    const ranFor: string[] = []
+    const { gs } = attack(
+      [{ execute: (_gs, c) => void ranFor.push(c.ownerId) }],
+      SLAY,
+    )
+    expect(ranFor).toHaveLength(0)
+    expect(gs.getParty('p1').getMonsterIds()).toContain('monster-1')
+  })
+
+  it('what the steps do survives the rollback — the frame is already closed', () => {
+    const { gs } = attack(
+      [{ execute: (g) => void g.getPlayer('p1')!.decreaseActionPoints(1) }],
+      FIGHT_BACK,
+    )
+    // 3 - 2 for the attack - 1 the monster took back.
+    expect(gs.getPlayer('p1')!.getActionPoints()).toBe(0)
   })
 })

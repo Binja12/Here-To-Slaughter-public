@@ -1,9 +1,11 @@
-import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
+import { GameEventType, IGameEvent, PassiveType, ReactionWindowType, RefusalReason } from 'shared'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
 import { ChallengeWindow } from './challenge-window'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,6 +66,104 @@ function makeWindow({
 // Tests
 // ---------------------------------------------------------------------------
 
+describe('ChallengeWindow — standing roll bonuses', () => {
+  let gs: GameState
+  let em: GameEventEmitter
+  let events: IGameEvent[]
+
+  const seat = (id: string) => {
+    gs.registerPlayer(
+      new Player({ id, name: id, hand: [], partyId: id + '-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: id, leaderId: id + '-l', heroIds: [], monsterIds: [] }),
+    )
+  }
+
+  const giveRollBonus = (playerId: string, sourceCardId: string, value: number) =>
+    gs.addEffect({
+      id: 'eff-' + playerId,
+      sourceCardId,
+      ownerId: playerId,
+      type: PassiveType.RollBonus,
+      value,
+    })
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    gs = makeGs()
+    em = new GameEventEmitter()
+    events = collect(em)
+    seat('p1') // challenged
+    seat('p2') // challenger
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+  })
+
+  const resolved = () =>
+    events
+      .find((e) => e.getType() === GameEventType.ChallengeResolved)!
+      .getPayload() as Record<string, unknown>
+
+  it("a challenged player's +3 counts toward their challenge roll", () => {
+    giveRollBonus('p1', 'hero-028', 3)
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+
+    // challenger 6, challenged 5 — challenged loses on the dice alone...
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0.4)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    win.resolve()
+
+    // ...but 5 + 3 = 8 beats 6.
+    expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 8 })
+  })
+
+  it("a challenger's own bonus counts toward THEIR roll", () => {
+    giveRollBonus('p2', 'hero-028', 3)
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.4).mockReturnValueOnce(0.5)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    win.resolve()
+
+    expect(resolved()).toMatchObject({ challengerFinal: 8, defenderFinal: 6 })
+  })
+
+  it('ChallengeStarted carries each side opening bonuses, with sources', () => {
+    giveRollBonus('p1', 'hero-028', 3)
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.5)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+
+    const started = events
+      .find((e) => e.getType() === GameEventType.ChallengeStarted)!
+      .getPayload() as Record<string, unknown>
+    expect(started['challengerBonuses']).toEqual([])
+    expect(started['defenderBonuses']).toEqual([
+      { cardSource: 'hero-028', amount: 3 },
+    ])
+  })
+
+  it('a modifier naming neither side of the challenge is ignored', () => {
+    const win = makeWindow({ gs, em, challengedId: 'p1' })
+    jest.spyOn(Math, 'random').mockReturnValue(0.5)
+    win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    const result = win.submitReaction('p3', {
+      type: 'modifier',
+      value: 9,
+      cardId: 'mod-x',
+      targetPlayerId: 'p3',
+    })
+    win.resolve()
+
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.TargetNotInChallenge })
+    expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 6 })
+  })
+})
+
 describe('ChallengeWindow', () => {
   let gs: GameState
   let em: GameEventEmitter
@@ -85,10 +185,20 @@ describe('ChallengeWindow', () => {
   // Construction
   // ---------------------------------------------------------------------------
 
-  it('emits ChallengeWindowOpened immediately on construction', () => {
+  // There is ONE lifecycle event for every window kind; consumers tell them
+  // apart by payload windowType rather than by subscribing per window type.
+  it('emits ReactionWindowOpened tagged as a Challenge window', () => {
     makeWindow({ gs, em, challengedId: 'p1', cardId: 'hero-1' })
-    const e = events.find((e) => e.getType() === GameEventType.ChallengeWindowOpened)
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
     expect(e).toBeDefined()
+    expect((e!.getPayload() as any).windowType).toBe(ReactionWindowType.Challenge)
+  })
+
+  // The contested card rides in the same event, so collapsing the bespoke
+  // ChallengeWindowOpened lost the client nothing.
+  it('carries the contested card on ReactionWindowOpened', () => {
+    makeWindow({ gs, em, challengedId: 'p1', cardId: 'hero-1' })
+    const e = events.find((e) => e.getType() === GameEventType.ReactionWindowOpened)
     expect(e!.getPlayerId()).toBe('p1')
     expect((e!.getPayload() as any).cardId).toBe('hero-1')
     expect((e!.getPayload() as any).defenderId).toBe('p1')
@@ -117,10 +227,12 @@ describe('ChallengeWindow', () => {
   // ---------------------------------------------------------------------------
 
   describe('resolve() uncontested', () => {
-    it('emits ChallengeWindowClosed', () => {
+    it('emits ReactionWindowClosed with a winning outcome', () => {
       const win = makeWindow({ gs, em })
       win.resolve()
-      expect(events.some((e) => e.getType() === GameEventType.ChallengeWindowClosed)).toBe(true)
+      const e = events.find((e) => e.getType() === GameEventType.ReactionWindowClosed)
+      expect(e).toBeDefined()
+      expect((e!.getPayload() as any).outcome).toBe(true)
     })
 
     it('emits FrameResolved', () => {
@@ -163,9 +275,11 @@ describe('ChallengeWindow', () => {
 
     it('second challenge submission is ignored (no duplicate)', () => {
       const win = makeWindow({ gs, em })
-      win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
-      win.submitReaction('p3', { type: 'challenge', challengerId: 'p3' })
+      const first = win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+      const second = win.submitReaction('p3', { type: 'challenge', challengerId: 'p3' })
       const count = events.filter((e) => e.getType() === GameEventType.ChallengeStarted).length
+      expect(first).toEqual({ accepted: true })
+      expect(second).toEqual({ accepted: false, reason: RefusalReason.ChallengeAlreadyStarted })
       expect(count).toBe(1)
     })
   })
@@ -177,7 +291,8 @@ describe('ChallengeWindow', () => {
   describe('submitReaction modifier', () => {
     it('modifier before challenge starts is ignored (no ModifierApplied emitted)', () => {
       const win = makeWindow({ gs, em })
-      win.submitReaction('p3', { type: 'modifier', value: 3, targetPlayerId: 'p2' })
+      const result = win.submitReaction('p3', { type: 'modifier', value: 3, targetPlayerId: 'p2' })
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.ChallengeNotStarted })
       expect(events.some((e) => e.getType() === GameEventType.ModifierApplied)).toBe(false)
     })
 
@@ -349,7 +464,7 @@ describe('ChallengeWindow', () => {
     win.resolve()
     win.resolve()
     const count = (type: GameEventType) => events.filter((e) => e.getType() === type).length
-    expect(count(GameEventType.ChallengeWindowClosed)).toBe(1)
+    expect(count(GameEventType.ReactionWindowClosed)).toBe(1)
     expect(count(GameEventType.FrameResolved)).toBe(1)
   })
 
@@ -358,7 +473,7 @@ describe('ChallengeWindow', () => {
     win.resolve()
     // Advance past the original timeout — should not trigger a second resolve
     jest.runAllTimers()
-    const count = events.filter((e) => e.getType() === GameEventType.ChallengeWindowClosed).length
+    const count = events.filter((e) => e.getType() === GameEventType.ReactionWindowClosed).length
     expect(count).toBe(1)
   })
 })

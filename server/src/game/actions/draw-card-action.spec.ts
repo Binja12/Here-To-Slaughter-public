@@ -1,10 +1,10 @@
-import { ActionType } from 'shared'
+import { ActionType, RefusalReason } from 'shared'
 import { DrawCardAction } from './draw-card-action'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { Player } from '../state-structures/player'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 
 // --- Helpers ---
 
@@ -21,7 +21,12 @@ const makeGs = (deckCards: string[] = []) => {
   const deck = new CardStack('deck-1', 'main-deck')
   const discard = new CardPile('discard-1', 'discard-pile')
   for (const c of deckCards) deck.addToBottom(c)
-  return new GameState(deck, discard)
+  return new GameState(
+    deck,
+    discard,
+    new CardStack('mdeck-1', 'monster-deck'),
+    new CardPile('mpile-1', 'monster-pile'),
+  )
 }
 
 // --- Tests ---
@@ -62,17 +67,17 @@ describe('DrawCardAction', () => {
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const gs = makeGs(['card-1'])
       const action = new DrawCardAction('a1', 'unknown-player', emitter)
-      expect(action.canExecute(gs)).toBe(false)
+      expect(() => action.canExecute(gs)).toThrow(/not seated/)
     })
 
     it('returns false when player has 0 action points', () => {
       const gs = makeGs(['card-1'])
       gs.registerPlayer(makePlayer('p1', [], 0))
       const action = new DrawCardAction('a1', 'p1', emitter)
-      expect(action.canExecute(gs)).toBe(false)
+      expect(action.canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when player hand is full (10 cards)', () => {
@@ -80,21 +85,22 @@ describe('DrawCardAction', () => {
       const gs = makeGs(['card-overflow'])
       gs.registerPlayer(makePlayer('p1', fullHand, 3))
       const action = new DrawCardAction('a1', 'p1', emitter)
-      expect(action.canExecute(gs)).toBe(false)
+      expect(action.canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.HandFull })
     })
 
     it('returns false when the deck is empty', () => {
       const gs = makeGs([])
       gs.registerPlayer(makePlayer('p1'))
       const action = new DrawCardAction('a1', 'p1', emitter)
-      expect(action.canExecute(gs)).toBe(false)
+      expect(action.canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.DeckEmpty })
     })
 
     it('returns true when all conditions are met', () => {
       const gs = makeGs(['card-1'])
       gs.registerPlayer(makePlayer('p1'))
+      gs.setCurrentPlayerId('p1')
       const action = new DrawCardAction('a1', 'p1', emitter)
-      expect(action.canExecute(gs)).toBe(true)
+      expect(action.canExecute(gs)).toEqual({ accepted: true })
     })
   })
 

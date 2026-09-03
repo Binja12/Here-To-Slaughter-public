@@ -1,240 +1,163 @@
-import { IGameEventEmitter, ReactionWindowType, RollResult } from 'shared'
-import { ITask } from '../interfaces'
-import { GameState } from '../game-state'
+import { CardType, IGameEventEmitter, PassiveType, RollContext } from 'shared'
+import {
+  IEffect,
+  EffectExpiry,
+  IReactionManager,
+  ITask,
+} from '../interfaces'
+import { GameState } from '../pipelines/game-state'
 import {
   AbilityContext,
-  CTX_FRAME_RESULTS,
-  CTX_LAST_AFFECTED_CARD_ID,
-  CTX_LAST_DRAWN_CARD_ID,
-  CTX_STOLEN_FROM_PLAYER_ID,
-} from '../ability-context'
+  CTX_CHOSEN_CARD,
+  CTX_CHOSEN_PLAYER,
+  CTX_PULLED_CARD_IDS,
+} from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
-import { HeroCard } from '../cards/hero-card'
-import { MonsterCard } from '../cards/monster-card'
-import type { ReactionManager } from '../reactions/reaction-manager'
 
 // ---------------------------------------------------------------------------
-// DrawTask — draw N cards from the main deck into the owner's hand
-// ---------------------------------------------------------------------------
-
-export class DrawTask implements ITask {
-  constructor(private count: number) {}
-
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    _rm: ReactionManager,
-  ): void {
-    const player = gs.getPlayer(ctx.ownerId)
-    if (!player) return
-
-    for (let i = 0; i < this.count; i++) {
-      const cardId = gs.getMainDeck().draw()
-      if (!cardId) break
-      player.addToHand(cardId)
-      ctx.set(CTX_LAST_DRAWN_CARD_ID, cardId)
-      em.emit(GameEventFactory.cardDrawn(ctx.ownerId, cardId))
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// DiscardTask — remove a card from the owner's hand to the discard pile
+// DiscardTask — move a card from the owner's hand to the discard pile
 // ---------------------------------------------------------------------------
 
 export class DiscardTask implements ITask {
-  constructor(private readonly cardId?: string) {}
+  /**
+   * Card to discard. Defaults to the card a ChooseCardTask put on the context.
+   */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
 
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
-    const targetId = this.cardId ?? ctx.sourceCardId
-    const player = gs.getPlayer(ctx.ownerId)
-    if (!player) return
-    if (!player.getHand().includes(targetId)) return
+    const cards = ctx.get<string[]>(this.fromKey)
 
-    player.removeFromHand(targetId)
-    gs.getDiscardPile().add(targetId)
-    em.emit(GameEventFactory.cardDiscarded(ctx.ownerId, targetId))
+    // Absent = no step ahead was declared to supply a card.
+    if (cards === undefined) {
+      throw new Error(
+        `DiscardTask: nothing has written ${this.fromKey} — expected a ` +
+          'preceding step to supply a card.',
+      )
+    }
+
+    // Empty = the player was asked and picked nothing. Nothing to discard.
+    const [cardId] = cards
+    if (!cardId) return
+
+    if (!gs.getPlayer(ctx.ownerId)?.getHand().includes(cardId)) return
+
+    gs.discardFromHand(ctx.ownerId, cardId, em)
   }
 }
 
 // ---------------------------------------------------------------------------
-// DestroyTask — remove a hero from the owner's party to the discard pile
+// PullCardTask — take a card out of another player's hand, sight unseen
+//
+// RANDOM, not chosen: "pull a card" is what you do to a hand you cannot see,
+// and Fury Knuckle's "if it is a Challenge card" only means anything if the
+// puller had no say. That is why this is a task and not a ChooseCardTask over
+// Zone.Hand / Owner.Chosen — the card choice belongs to nobody.
 // ---------------------------------------------------------------------------
 
-export class DestroyTask implements ITask {
-  constructor(private readonly heroId?: string) {}
+export class PullCardTask implements ITask {
+  /** Slot naming whose hand to reach into. Defaults to a ChoosePlayerTask's. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_PLAYER) {}
 
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
-    const targetId = this.heroId ?? ctx.sourceCardId
-    const party = gs.getParty(ctx.ownerId)
-    if (!party.getHeroIds().includes(targetId)) return
+    const chosen = ctx.get<string[]>(this.fromKey)
 
-    party.removeHero(targetId)
-    gs.getDiscardPile().add(targetId)
-    em.emit(GameEventFactory.heroDestroyed(ctx.ownerId, targetId))
-  }
-}
+    // Absent = no step ahead was declared to supply a player.
+    if (chosen === undefined) {
+      throw new Error(
+        `PullCardTask: nothing has written ${this.fromKey} — the ability is ` +
+          'missing a ChoosePlayerTask before this step.',
+      )
+    }
 
-// ---------------------------------------------------------------------------
-// StealHeroTask — move a hero from another player's party to the owner's party
-// ---------------------------------------------------------------------------
+    // Declared up front, empty: every no-pull path leaves it that way, so a
+    // later step can tell "pulled nothing" from "never pulled".
+    ctx.set(CTX_PULLED_CARD_IDS, [])
 
-export class StealHeroTask implements ITask {
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    _rm: ReactionManager,
-  ): void {
-    const heroId = ctx.get<string>(CTX_LAST_AFFECTED_CARD_ID)
-    if (!heroId) return
-
-    const fromPlayerId = gs.getCardOwner(heroId)
+    const [fromPlayerId] = chosen
     if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
 
-    const fromParty = gs.getParty(fromPlayerId)
-    if (!fromParty.getHeroIds().includes(heroId)) return
+    const from = gs.getPlayer(fromPlayerId)
+    const to = gs.getPlayer(ctx.ownerId)
+    if (!from || !to) return
 
-    fromParty.removeHero(heroId)
-    gs.getParty(ctx.ownerId).addHero(heroId)
-    ctx.set(CTX_STOLEN_FROM_PLAYER_ID, fromPlayerId)
-    em.emit(GameEventFactory.heroStolen(ctx.ownerId, fromPlayerId, heroId))
+    const hand = from.getHand()
+    if (hand.length === 0) return
+
+    const cardId = hand[Math.floor(Math.random() * hand.length)]
+    from.removeFromHand(cardId)
+    to.addToHand(cardId)
+    ctx.set(CTX_PULLED_CARD_IDS, [cardId])
+    em.emit(GameEventFactory.cardPulled(ctx.ownerId, fromPlayerId, cardId))
   }
 }
 
 // ---------------------------------------------------------------------------
-// RollOnHeroTask — roll dice on a hero and open a modifier window.
+// ApplyEffectTask — install an ongoing effect
 //
-// Emits DiceRolled then opens a modifier-window frame (which snapshots GS).
-// The pipeline suspends here (AbilityProcessor sees _lastFrameId and stores
-// remaining steps in abilityPipelines). On FrameResolved, AbilityProcessor
-// resumes the remaining steps — which should include HeroRollOutcomeTask.
-// If the roll fails, restoreFrame wipes the pipeline entry so no outcome
-// task runs.
+// The step that gives an ability a lifetime beyond its own run. The declaration
+// supplies only the RULE (what the effect does and how long it lasts); identity
+// — whose effect it is, which card installed it — is read from the context, so
+// one shared task instance serves every card that copies the wording.
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// FightBackTask — placeholder executed when a monster fights back after a
-// failed attack. Concrete effect is defined per-monster via card data steps.
-// ---------------------------------------------------------------------------
-
-export class FightBackTask implements ITask {
-  execute(
-    _gs: GameState,
-    _ctx: AbilityContext,
-    _em: IGameEventEmitter,
-    _rm: ReactionManager,
-  ): void {
-    // Effect defined by the specific monster card's ability steps.
-  }
+export type EffectSpec = {
+  /** Which standing rule to install. */
+  type: PassiveType
+  /** Magnitude, for the rules that carry one. */
+  value?: number
+  /** Which kind of roll this applies to. Absent = every kind. */
+  rollContext?: RollContext
+  /** Which card types being PLAYED this applies to. Absent = every type. */
+  cardTypes?: CardType[]
+  /** Absent = permanent. One entry or several — first match ends the effect. */
+  expiry?: EffectExpiry | EffectExpiry[]
+  /**
+   * Narrow the rule to the hero carrying the source card — for an item whose
+   * wording is about "the equipped Hero". Resolved at install time, because a
+   * declaration built at module load has no carrier yet.
+   */
+  scopedToCarrier?: boolean
 }
 
-// ---------------------------------------------------------------------------
-// HeroRollOutcomeTask — runs after FrameResolved from a hero modifier window.
-//
-// Only executed when the frame was RELEASED (success path). When the frame is
-// RESTORED (finalRoll < rollReq), restoreFrame wipes abilityPipelines from
-// the snapshot so this task is never reached.
-//
-// Emits RollSuccess so AbilityProcessor can fire the hero's ability steps.
-// ---------------------------------------------------------------------------
-
-export class HeroRollOutcomeTask implements ITask {
-  execute(
-    _gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    _rm: ReactionManager,
-  ): void {
-    const heroId = ctx.get<string>(CTX_LAST_AFFECTED_CARD_ID)
-    if (!heroId) return
-    em.emit(GameEventFactory.rollSuccess(ctx.ownerId, heroId))
-  }
-}
-
-// ---------------------------------------------------------------------------
-// MonsterAttackOutcomeTask — runs after FrameResolved from a monster modifier window.
-//
-// Reads finalRoll from CTX_FRAME_RESULTS, calls card.trySlay(), then:
-//   Slay     → remove from monster pile, add to attacker's party, draw from deck
-//   Miss     → nothing
-//   FightBack → emit MonsterAttackFail so AbilityProcessor fires fightback steps
-// ---------------------------------------------------------------------------
-
-export class MonsterAttackOutcomeTask implements ITask {
-  constructor(private readonly monsterId: string, private readonly attackerId: string) {}
+export class ApplyEffectTask implements ITask {
+  constructor(private readonly spec: EffectSpec) {}
 
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: ReactionManager,
+    _rm: IReactionManager,
   ): void {
-    const results = ctx.get<number[]>(CTX_FRAME_RESULTS)
-    const finalRoll = results?.[0]
-    if (finalRoll === undefined) return
+    const { expiry, scopedToCarrier, ...rule } = this.spec
 
-    const card = gs.getCard(this.monsterId)
-    if (!(card instanceof MonsterCard)) return
-
-    const result = card.trySlay(finalRoll)
-
-    if (result === RollResult.Slay) {
-      gs.getMonsterPile().pick(this.monsterId)
-      gs.getParty(this.attackerId).addMonster(this.monsterId)
-
-      const nextMonsterId = gs.getMonsterDeck().draw()
-      if (nextMonsterId) gs.getMonsterPile().add(nextMonsterId)
-
-      em.emit(GameEventFactory.monsterSlain(this.attackerId, this.monsterId))
-    } else if (result === RollResult.FightBack) {
-      em.emit(GameEventFactory.monsterAttackFail(this.attackerId, this.monsterId))
+    const effect: IEffect = {
+      id: crypto.randomUUID(),
+      sourceCardId: ctx.sourceCardId,
+      ownerId: ctx.ownerId,
+      ...rule,
+      ...(scopedToCarrier && { cardId: gs.getItemCarrier(ctx.sourceCardId) }),
+      // Normalised to an array so the sweep has one shape to walk.
+      ...(expiry && { expiry: Array.isArray(expiry) ? expiry : [expiry] }),
     }
-    // Miss → nothing
+
+    gs.addEffect(effect)
+    em.emit(
+      GameEventFactory.effectApplied(ctx.ownerId, effect.id, ctx.sourceCardId, {
+        passive: effect.type,
+        // Event types only: shouldExpire is server code and has no business in
+        // a payload a client may render.
+        expiresOn: effect.expiry?.map((e) => e.on),
+      }),
+    )
   }
 }
-
-// ---------------------------------------------------------------------------
-export class RollOnHeroTask implements ITask {
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    rm: ReactionManager,
-  ): void {
-    const heroId = ctx.get<string>(CTX_LAST_AFFECTED_CARD_ID)
-    if (!heroId) return
-
-    const hero = gs.getCard(heroId)
-    if (!(hero instanceof HeroCard)) return
-
-    const rollReq = hero.getRollReq()
-    const baseRoll = Math.floor(Math.random() * 11) + 1
-
-    em.emit(GameEventFactory.diceRolled(ctx.ownerId, heroId, baseRoll))
-
-    // Mark ability used before the snapshot so rollback doesn't undo it —
-    // the hero's ability slot is consumed whether the roll succeeds or fails.
-    gs.markAbilityUsed(heroId)
-
-    const frameId = rm.openFrame()
-    rm.openWindow(frameId, ReactionWindowType.Modifier, ctx.ownerId, {
-      rollerId: ctx.ownerId,
-      baseRoll,
-      rollReq,
-      heroId,
-    })
-  }
-}
-

@@ -1,109 +1,65 @@
 import {
-  Audience,
-  GameEventType,
   IGameEventEmitter,
   ReactionWindowType,
+  RollContext,
 } from 'shared'
-import { IReactionWindow } from '../interfaces'
-import { GameState } from '../game-state'
-import { GameEvent } from '../events/game-event'
+import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
+import { ModifiableRollWindow } from './modifiable-roll-window'
 
-export class ModifierWindow implements IReactionWindow {
-  private bonuses: number[] = []
-  private timer?: ReturnType<typeof setTimeout>
-  private _resolved = false
+// ---------------------------------------------------------------------------
+// The window over a roll to use a HERO card's effect. The bonus list, the
+// clock and everything a modifier card does to them are the base class; this
+// is the two things only a hero roll knows — what the standing bonuses are
+// scoped to, and what beating `rollReq` means.
+//
+// `rollOnHero` is the only thing that opens it, so every roll it covers is a
+// roll for a hero's effect: hence the HeroEffect narrowing below.
+// ---------------------------------------------------------------------------
 
+export class ModifierWindow extends ModifiableRollWindow {
   constructor(
-    private readonly id: string,
-    private readonly rollerId: string,
-    private readonly baseRoll: number,
-    /** undefined = always release (e.g. monster attack); defined = release/restore based on comparison */
-    private readonly rollReq: number | undefined,
-    private readonly heroId: string | undefined,
-    private readonly timeoutMs: number,
-    private readonly gs: GameState,
-    private readonly frameId: string,
-    private readonly emitter: IGameEventEmitter,
+    id: string,
+    rollerId: string,
+    baseRoll: number,
+    private readonly rollReq: number,
+    private readonly heroId: string,
+    timeoutMs: number,
+    gs: GameState,
+    frameId: string,
+    emitter: IGameEventEmitter,
   ) {
-    this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierWindowOpened,
-        this.rollerId,
-        {
-          rollerId: this.rollerId,
-          baseRoll: this.baseRoll,
-          rollReq: this.rollReq,
-          heroId: this.heroId,
-        },
-        Audience.All,
-      ),
-    )
-    this.resetTimer()
-  }
-
-  // --- IReactionWindow ---
-
-  getId(): string {
-    return this.id
+    super(id, rollerId, baseRoll, timeoutMs, gs, frameId, emitter)
+    // Last statement, and never in the base: the fields above have to exist
+    // before the opening payload is built out of them.
+    this.open(RollContext.HeroEffect, heroId, { rollReq, heroId })
   }
 
   getType(): ReactionWindowType {
     return ReactionWindowType.Modifier
   }
 
-  isOpen(): boolean {
-    return !this._resolved
+  protected closedDetail(): Record<string, unknown> {
+    return { rollReq: this.rollReq, heroId: this.heroId }
   }
 
-  /** payload: { value: number } — the modifier bonus to apply. */
-  submitReaction(playerId: string, payload: unknown): void {
-    const { value } = payload as { value: number }
-    this.bonuses.push(value)
-    this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierApplied,
-        playerId,
-        { value, finalRoll: this.getFinalRoll() },
-        Audience.All,
-      ),
-    )
-    this.resetTimer()
-  }
-
-  getFinalRoll(): number {
-    return this.baseRoll + this.bonuses.reduce((sum, b) => sum + b, 0)
-  }
-
-  resolve(): void {
-    if (this._resolved) return
-    this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
-
-    const finalRoll = this.getFinalRoll()
-
-    this.emitter.emit(
-      new GameEvent(
-        GameEventType.ModifierWindowClosed,
-        this.rollerId,
-        { finalRoll, rollReq: this.rollReq, heroId: this.heroId },
-        Audience.All,
-      ),
-    )
-
-    if (this.rollReq !== undefined && finalRoll < this.rollReq) {
+  /**
+   * Short of the requirement rolls the frame back, which is also what cancels
+   * whatever paused on it (§3). Meeting it releases and announces the hit —
+   * the hero's own entries trigger on `RollSuccess`.
+   */
+  protected settle(finalRoll: number): void {
+    if (finalRoll < this.rollReq) {
       this.gs.restoreFrame(this.frameId)
-    } else {
-      this.gs.releaseFrame(this.frameId)
+      // AFTER the restore, so what it fires runs on live state instead of
+      // going back with the frame — the Particularly Rusty Coin's draw has to
+      // survive the roll that earned it. Same shape as MonsterFoughtBack.
+      this.emitter.emit(
+        GameEventFactory.rollFailed(this.rollerId, this.heroId),
+      )
+      return
     }
-
-    this.emitter.emit(GameEventFactory.frameResolved(this.frameId, [finalRoll]))
-  }
-
-  // --- Internal ---
-
-  private resetTimer(): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+    this.gs.releaseFrame(this.frameId)
+    this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
   }
 }

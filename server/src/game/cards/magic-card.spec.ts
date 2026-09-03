@@ -1,5 +1,5 @@
 import { MagicCard } from './magic-card'
-import { CardType, GameEventType } from 'shared'
+import { CardType } from 'shared'
 import { MagicCardData } from 'shared'
 
 const mockMagicData: MagicCardData = {
@@ -9,9 +9,6 @@ const mockMagicData: MagicCardData = {
   image: 'fireball.png',
   description: 'Deals massive damage',
   set: 'base',
-  ability: {
-    trigger: GameEventType.CardPlayed,
-  },
 }
 
 describe('MagicCard', () => {
@@ -38,10 +35,5 @@ describe('MagicCard', () => {
   it('should return description', () => {
     const card = new MagicCard(mockMagicData)
     expect(card.getDescription()).toBe('Deals massive damage')
-  })
-
-  it('should return ability', () => {
-    const card = new MagicCard(mockMagicData)
-    expect(card.getAbility()).toEqual(mockMagicData.ability)
   })
 })

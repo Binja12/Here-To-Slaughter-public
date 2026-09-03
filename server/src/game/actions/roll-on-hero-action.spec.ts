@@ -1,16 +1,25 @@
-import { ActionType, CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, IGameEvent, RefusalReason, TriggerScope } from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { HeroCard } from '../cards/hero-card'
 import { ModifierCard } from '../cards/modifier-card'
-import { AbilityProcessor } from '../ability-processor'
+import { TaskManager } from '../pipelines/task-manager'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
+import { abilityRegistry } from '../repositories/ability-repository'
+
+/**
+ * Real printed ids, so the registry's ModifierAbility runs: what a modifier is
+ * WORTH is that entry, not an argument to the reaction. The numbers are the
+ * test's own — behaviour is keyed by id, values are card data.
+ */
+const MOD_3 = 'modifier-077'
+const MOD_7 = 'modifier-078'
 
 // --- Helpers ---
 
@@ -42,7 +51,6 @@ const makeHeroCard = (id: string, rollReq = 10) =>
     heroClass: HeroClass.Wizard,
     rollReq,
     set: '',
-    ability: { trigger: GameEventType.DiceRolled },
   })
 
 const makeGs = () => {
@@ -70,6 +78,7 @@ describe('RollOnHeroAction', () => {
     gs.registerPlayer(player)
     gs.registerParty(party)
     gs.registerCard(makeHeroCard('hero-1'))
+    gs.setCurrentPlayerId('p1')
   })
 
   afterEach(() => {
@@ -100,17 +109,18 @@ describe('RollOnHeroAction', () => {
     it('getCost returns 1', () => {
       expect(makeAction().getCost()).toBe(1)
     })
+
   })
 
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.registerParty(makeParty('p1', ['hero-1']))
       const rm = new ReactionManager(emptyGs, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(emptyGs)).toBe(false)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
     it('returns false when player has 0 action points', () => {
@@ -120,7 +130,7 @@ describe('RollOnHeroAction', () => {
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when hero is not in the player party', () => {
@@ -130,16 +140,16 @@ describe('RollOnHeroAction', () => {
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.HeroNotInParty })
     })
 
     it('returns false when ability has already been used this turn', () => {
       gs.markAbilityUsed('hero-1')
-      expect(makeAction().canExecute(gs)).toBe(false)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.AbilityAlreadyUsed })
     })
 
     it('returns true when all conditions are met', () => {
-      expect(makeAction().canExecute(gs)).toBe(true)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: true })
     })
   })
 
@@ -197,26 +207,30 @@ describe('RollOnHeroAction', () => {
       expect((event!.getPayload() as { cardId: string }).cardId).toBe('hero-1')
     })
 
-    it('fires hero ability tasks via AbilityProcessor when roll succeeds', () => {
+    it('fires hero ability tasks via TaskManager when roll succeeds', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
       const taskSpy = jest.fn()
-      gs.registerCard(
-        new HeroCard({
-          id: 'hero-1',
-          name: 'Hero hero-1',
-          type: CardType.Hero,
-          image: '',
-          description: '',
-          set: '',
-          heroClass: HeroClass.Wizard,
-          rollReq: 10,
-          ability: {
-            trigger: GameEventType.RollSuccess,
-            steps: [{ execute: (_gs, _ctx, _em, _rm) => taskSpy() }],
-          } as any,
-        }),
+      gs.registerCard(makeHeroCard('hero-1'))
+      // Behaviour comes from the registry, keyed by card id.
+      new TaskManager(
+        gs,
+        emitter,
+        new ReactionManager(gs, emitter),
+        new Map([
+          [
+            'hero-1',
+            [
+              {
+                trigger: {
+                  on: GameEventType.RollSuccess,
+                  scope: TriggerScope.SelfCard,
+                },
+                steps: [{ execute: () => taskSpy() }],
+              },
+            ],
+          ],
+        ]),
       )
-      new AbilityProcessor(gs, emitter, new ReactionManager(gs, emitter))
       makeAction().execute(gs)
       jest.runAllTimers() // modifier window closes → RollSuccess → ability fires
       expect(taskSpy).toHaveBeenCalledTimes(1)
@@ -239,20 +253,28 @@ describe('RollOnHeroAction', () => {
     // Setup hero with rollReq=7 and a modifier card in player hand
     beforeEach(() => {
       gs.registerCard(makeHeroCard('hero-1', 7))
-      player.addToHand('mod-1') // outer beforeEach already registered player + party
-      gs.registerCard(
-        new ModifierCard({
-          id: 'mod-1',
-          name: 'Modifier',
-          type: CardType.Modifier,
-          image: '',
-          description: '',
-          set: '',
-          ability: { trigger: GameEventType.ModifierWindowOpened },
-          values: [3],
-        }),
-      )
+      // outer beforeEach already registered player + party
+      for (const [id, value] of [
+        [MOD_3, 3],
+        [MOD_7, 7],
+      ] as const) {
+        player.addToHand(id)
+        gs.registerCard(
+          new ModifierCard({
+            id,
+            name: 'Modifier',
+            type: CardType.Modifier,
+            image: '',
+            description: '',
+            set: '',
+            // One printed value, the one each play below names.
+            values: [value],
+          }),
+        )
+      }
       rm = new ReactionManager(gs, emitter)
+      // The card's own entry is what puts the bonus in the window now.
+      new TaskManager(gs, emitter, rm, abilityRegistry)
       emitted = []
       emitter.addListener({ onEvent: (e) => emitted.push(e) })
     })
@@ -318,7 +340,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + still fails: no RollSuccess emitted', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0) // baseRoll=1, +3 mod → 4 < 7
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.RollSuccess)).toBe(false)
     })
@@ -326,23 +348,23 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + still fails: modifier card removed from hand', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
-      expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain(MOD_3)
     })
 
     it('modifier applied + still fails: modifier card in discard pile', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
-      expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+      expect(gs.getDiscardPile().getAll()).toContain(MOD_3)
     })
 
     it('modifier applied + still fails: FrameResolved emitted', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
     })
@@ -352,7 +374,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: emits RollSuccess', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0) // baseRoll=1, +7 mod → 8 >= 7
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.RollSuccess)).toBe(true)
     })
@@ -360,23 +382,23 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: modifier card removed from hand', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
-      expect(gs.getPlayer('p1')!.getHand()).not.toContain('mod-1')
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain(MOD_7)
     })
 
     it('modifier applied + succeeds: modifier card in discard pile', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
-      expect(gs.getDiscardPile().getAll()).toContain('mod-1')
+      expect(gs.getDiscardPile().getAll()).toContain(MOD_7)
     })
 
     it('modifier applied + succeeds: FrameResolved emitted', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
     })
@@ -384,7 +406,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: no open frames after resolve', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', 'mod-1', 7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(gs.hasOpenFrames()).toBe(false)
     })

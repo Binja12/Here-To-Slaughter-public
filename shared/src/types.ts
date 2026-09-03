@@ -1,8 +1,6 @@
 import {
-  EffectDuration,
   HeroClass,
   CardType,
-  GameEventType,
   ReactionWindowType,
   DecisionType,
   ActionFlow,
@@ -10,9 +8,8 @@ import {
   WinConditionType,
   RollCompareMode,
   ChallengeResult,
+  RefusalReason,
 } from "./enums";
-
-import { IGameEvent } from "./interfaces";
 
 export type HeroClassReq = HeroClass | "Any";
 
@@ -20,21 +17,17 @@ export type PartyReq = {
   classes: HeroClassReq[];
 };
 
-export type EffectData = {
-  rollBonus?: number;
-  attackBonus?: number;
-  duration: EffectDuration;
-};
-
-export type SkillData = {
-  condition: string;
+/** Printed outcome when a monster's attack roll lands in its fight-back range. */
+export type FightBackData = {
   description: string;
 };
 
-export type AbilityData = {
-  trigger: GameEventType;
-};
-
+/**
+ * Card DATA is display + rule numbers only. Card BEHAVIOUR (trigger + task
+ * steps) lives server-side in the ability registry, keyed by card id — it is
+ * built from live ITask instances, which cannot survive a clone or reach the
+ * client, and the client has no business knowing a card's pipeline anyway.
+ */
 export type CardBase = {
   id: string;
   name: string;
@@ -42,19 +35,14 @@ export type CardBase = {
   image: string;
   description: string;
   set: string;
-  ability?: AbilityData;
-  effect?: EffectData;
-  skill?: SkillData;
 };
 
 export type HeroCardData = CardBase & {
   heroClass: HeroClass;
   rollReq: number;
-  equippedItem?: string;
 };
 
 export type ItemCardData = CardBase & {
-  equippedHero?: string;
   cursed: boolean;
 };
 
@@ -71,7 +59,8 @@ export type MonsterCardData = CardBase & {
   higherReq: number;
   rollCompareMode: RollCompareMode;
   partyReq: PartyReq;
-  fightBack?: AbilityData;
+  slay?: string;
+  fightBack?: FightBackData;
 };
 
 export type PartyLeaderData = CardBase & {
@@ -96,6 +85,12 @@ export type PartyData = {
   heroIds: string[];
   monsterIds: string[];
   instanceCardIds?: string[];
+  /**
+   * Hero id -> the item it carries. Party state rather than card state, so a
+   * frame snapshot covers it: GameState.clone() shares the card map by
+   * reference, and equipment has to roll back with a lost challenge.
+   */
+  equipment?: Record<string, string>;
 };
 
 export type PlayerData = {
@@ -157,3 +152,14 @@ export type WinConditionConfig = {
   type: WinConditionType;
   value: number; // SlayMonsters: how many, PartyClasses: how many different classes
 };
+
+// ---------------------------------------------------------------------------
+// What a player request comes back with. Expected refusals are RESULTS, never
+// exceptions: a throw inside the engine is an engine mistake, this is a
+// player's. `accepted` means the engine TOOK the request, not that the play
+// succeeded — a challenged hero that loses its roll was still accepted.
+// ---------------------------------------------------------------------------
+
+export type RequestResult =
+  | { accepted: true }
+  | { accepted: false; reason: RefusalReason };

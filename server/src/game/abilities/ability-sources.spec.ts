@@ -1,0 +1,365 @@
+import {
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+  RollCompareMode,
+  TriggerScope,
+} from 'shared'
+import { GameState } from '../pipelines/game-state'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { HeroCard } from '../cards/hero-card'
+import { MonsterCard } from '../cards/monster-card'
+import { GameEvent } from '../events/game-event'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { TaskManager } from '../pipelines/task-manager'
+import { ReactionManager } from '../pipelines/reaction-manager'
+import { AbilityContext, CTX_CHOSEN_CARD } from './ability-context'
+import { IAbilityRule } from '../interfaces'
+import { StealFromPartyTask } from '../tasks/hero-tasks'
+
+// ---------------------------------------------------------------------------
+// Trigger scope — WHOSE events a card ability listens to.
+//
+// A card ability is live because the card is in play; the processor reads it
+// from the party each event. Scope is the declarative answer to "whose events
+// count", replacing the payload.cardId check that used to be hard-coded for
+// heroes and absent for everything else — which could not express a card
+// reacting to ANOTHER player's roll.
+// ---------------------------------------------------------------------------
+
+const makeGs = () =>
+  new GameState(
+    new CardStack('deck', 'main'),
+    new CardPile('discard', 'discard'),
+    new CardStack('mdeck', 'monster-deck'),
+    new CardPile('mpile', 'monster-pile'),
+  )
+
+const hero = (id: string) =>
+  new HeroCard({
+    id,
+    name: id,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    set: 'test',
+    heroClass: HeroClass.Fighter,
+    rollReq: 5,
+  })
+
+function seat(gs: GameState, playerId: string, heroIds: string[] = []): void {
+  gs.registerPlayer(
+    new Player({
+      id: playerId,
+      name: playerId,
+      hand: [],
+      partyId: `${playerId}-party`,
+      actionPoints: 3,
+    }),
+  )
+  gs.registerParty(
+    new Party({
+      playerId,
+      leaderId: `${playerId}-leader`,
+      heroIds,
+      monsterIds: [],
+    }),
+  )
+}
+
+function setup(abilities: Map<string, IAbilityRule[]> = new Map()) {
+  const gs = makeGs()
+  const em = new GameEventEmitter()
+  const events: IGameEvent[] = []
+  em.addListener({ onEvent: (e) => events.push(e) })
+  const rm = new ReactionManager(gs, em)
+  new TaskManager(gs, em, rm, abilities)
+  return { gs, em, rm, events }
+}
+
+/** Records every owner the ability ran for, so scope is directly observable. */
+const spyAbility = (
+  on: GameEventType,
+  scope: TriggerScope,
+  ranFor: string[],
+): IAbilityRule => ({
+  trigger: { on, scope },
+  steps: [{ execute: (_gs, ctx) => {
+        ranFor.push(ctx.ownerId)
+      } }],
+})
+
+const rolled = (playerId: string, cardId?: string) =>
+  new GameEvent(GameEventType.DiceRolled, playerId, cardId ? { cardId } : {})
+
+describe('trigger scope', () => {
+  it('SelfCard fires only when the event names this card', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'hero-1',
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.SelfCard, ranFor)],
+        ],
+      ]),
+    )
+    seat(gs, 'p1', ['hero-1'])
+    gs.registerCard(hero('hero-1'))
+
+    em.emit(rolled('p1', 'someone-else'))
+    expect(ranFor).toHaveLength(0)
+
+    em.emit(rolled('p1', 'hero-1'))
+    expect(ranFor).toEqual(['p1'])
+  })
+
+  it("Anyone fires on another player's event — the case the old check could not express", () => {
+    // The expansion's "-1 to a roll" card: it must see rolls that are neither
+    // the owner's nor named after it.
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'hero-1',
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.Anyone, ranFor)],
+        ],
+      ]),
+    )
+    seat(gs, 'p1', ['hero-1'])
+    seat(gs, 'p2')
+    gs.registerCard(hero('hero-1'))
+
+    em.emit(rolled('p2', 'p2-hero'))
+
+    expect(ranFor).toEqual(['p1'])
+  })
+
+  it("OwnerEvent fires for the owner's events only", () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'hero-1',
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerEvent, ranFor)],
+        ],
+      ]),
+    )
+    seat(gs, 'p1', ['hero-1'])
+    seat(gs, 'p2')
+    gs.registerCard(hero('hero-1'))
+
+    em.emit(rolled('p2'))
+    expect(ranFor).toHaveLength(0)
+
+    em.emit(rolled('p1'))
+    expect(ranFor).toEqual(['p1'])
+  })
+
+  it("OwnerTurn fires only while it is the owner's turn", () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'hero-1',
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerTurn, ranFor)],
+        ],
+      ]),
+    )
+    seat(gs, 'p1', ['hero-1'])
+    seat(gs, 'p2')
+    gs.registerCard(hero('hero-1'))
+
+    gs.setCurrentPlayerId('p2')
+    em.emit(rolled('p2'))
+    expect(ranFor).toHaveLength(0)
+
+    gs.setCurrentPlayerId('p1')
+    em.emit(rolled('p2')) // someone else's roll, but on the owner's turn
+    expect(ranFor).toEqual(['p1'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Eligibility follows the card, with nothing to keep in sync
+// ---------------------------------------------------------------------------
+
+describe('a card ability is live because the card is in play', () => {
+  it('a hero leaving the party stops firing, with no bookkeeping', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'hero-1',
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.Anyone, ranFor)],
+        ],
+      ]),
+    )
+    seat(gs, 'p1', ['hero-1'])
+    gs.registerCard(hero('hero-1'))
+
+    em.emit(rolled('p1'))
+    expect(ranFor).toEqual(['p1'])
+
+    gs.getParty('p1').removeHero('hero-1', em, 'Destroyed')
+    em.emit(rolled('p1'))
+
+    expect(ranFor).toEqual(['p1']) // no second run
+  })
+
+  it("a stolen hero's ability belongs to the thief immediately", () => {
+    const ranFor: string[] = []
+    const { gs, em, rm } = setup(
+      new Map([
+        [
+          'victim',
+          [spyAbility(GameEventType.DiceRolled, TriggerScope.OwnerEvent, ranFor)],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    seat(gs, 'p2', ['victim'])
+    gs.registerCard(hero('victim'))
+
+    const ctx = new AbilityContext('thief-card', 'p1')
+    ctx.set(CTX_CHOSEN_CARD, ['victim'])
+    new StealFromPartyTask().execute(gs, ctx, em, rm)
+
+    em.emit(rolled('p2'))
+    expect(ranFor).toHaveLength(0) // no longer p2's ability
+
+    em.emit(rolled('p1'))
+    expect(ranFor).toEqual(['p1']) // now the thief's, derived from the party
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The monster pile — cards in play that belong to nobody
+// ---------------------------------------------------------------------------
+
+const monster = (id: string) =>
+  new MonsterCard({
+    id,
+    name: id,
+    type: CardType.Monster,
+    image: '',
+    description: '',
+    set: 'test',
+    partyReq: { classes: [] },
+    higherReq: 9,
+    lowerReq: 3,
+    rollCompareMode: RollCompareMode.HighToWin,
+  })
+
+const foughtBack = (attackerId: string, cardId: string) =>
+  new GameEvent(GameEventType.MonsterFoughtBack, attackerId, { cardId })
+
+describe('a monster still in the pile', () => {
+  it('is a live ability source — its rules do not wait to be won', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    em.emit(foughtBack('p1', 'monster-1'))
+
+    expect(ranFor).toEqual(['p1'])
+  })
+
+  it('runs for whoever attacked it — the pile has no owner to inherit', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    seat(gs, 'p2')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    em.emit(foughtBack('p2', 'monster-1'))
+
+    // Once, owned by the attacker — not once per seated player.
+    expect(ranFor).toEqual(['p2'])
+  })
+
+  it('Attacker ignores a fight-back that names another monster', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    em.emit(foughtBack('p1', 'monster-2'))
+
+    expect(ranFor).toHaveLength(0)
+  })
+
+  it('stops being found in the pile once it is slain into a party', () => {
+    const ranFor: string[] = []
+    const { gs, em } = setup(
+      new Map([
+        [
+          'monster-1',
+          [
+            spyAbility(
+              GameEventType.MonsterFoughtBack,
+              TriggerScope.Attacker,
+              ranFor,
+            ),
+          ],
+        ],
+      ]),
+    )
+    seat(gs, 'p1')
+    gs.registerCard(monster('monster-1'))
+    gs.getMonsterPile().add('monster-1')
+
+    gs.getMonsterPile().pick('monster-1')
+    gs.getParty('p1').addMonster('monster-1')
+
+    // Found once now, as p1's — the party source, not the pile one.
+    em.emit(foughtBack('p1', 'monster-1'))
+    expect(ranFor).toEqual(['p1'])
+  })
+})

@@ -1,20 +1,31 @@
-import { ActionType } from 'shared'
-import { IAction } from '../interfaces'
-import { GameState } from '../game-state'
-import { ReactionManager } from '../reactions/reaction-manager'
+import { ActionType, RefusalReason, RequestResult } from 'shared'
+import { accepted, IAction, refused } from '../interfaces'
+import { GameState } from '../pipelines/game-state'
+import { PlayMagic } from '../tasks/magic-tasks'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
 
 const COST = 1
 
-export class PlayMagicAction implements IAction {
+// ---------------------------------------------------------------------------
+// The player-request half of playing a magic card. The mechanic itself is
+// PlayMagic, in `tasks/magic-tasks.ts`, shared with PlayMagicTask (§1); this
+// adds what only a request needs — a price, the guards, a queue identity.
+//
+// The frameId PlayMagic returns is dropped here: an action has no pipeline to
+// suspend, and TurnManager's drain already stops on the open window.
+// ---------------------------------------------------------------------------
+
+export class PlayMagicAction extends PlayMagic implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
     private readonly reactionManager: ReactionManager,
     private readonly emmiter: GameEventEmitter,
-  ) {}
+  ) {
+    super()
+  }
 
   getId(): string {
     return this.id
@@ -31,39 +42,29 @@ export class PlayMagicAction implements IAction {
   getCost(): number {
     return COST
   }
-  isReactable(): boolean { return true }
-
-  canExecute(gs: GameState): boolean {
-    const player = gs.getPlayer(this.playerId)
-    if (!player) return false
-    if (gs.getCurrentPlayerId() !== this.playerId) return false
-    if (player.getActionPoints() < COST) return false
-    if (!player.getHand().includes(this.cardId)) return false
+  isReactable(): boolean {
     return true
   }
 
+  canExecute(gs: GameState): RequestResult {
+    if (gs.getActionPoints(this.playerId) < COST) {
+      return refused(RefusalReason.NoActionPoints)
+    }
+    if (!gs.hasInHand(this.playerId, this.cardId)) {
+      return refused(RefusalReason.CardNotInHand)
+    }
+    return accepted()
+  }
+
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
-
-    // Move card from hand to party instance pile
-    player.removeFromHand(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardRemovedFromHand(this.playerId, this.cardId),
-    )
-
-    const party = gs.getParty(this.playerId)
-    party.addInstanceCard(this.cardId)
-
-    // Emit MagicPlayed — AbilityProcessor picks this up via onEvent(),
-    // finds the card in instance sources, and executes its ability synchronously.
-    this.emmiter.emit(GameEventFactory.magicPlayed(this.playerId, this.cardId))
-
-    // Resolve: remove from instance, move to discard
-    party.removeInstanceCard(this.cardId)
-    gs.getDiscardPile().add(this.cardId)
-    this.emmiter.emit(
-      GameEventFactory.cardDiscarded(this.playerId, this.cardId),
+    // Spent before the frame opens, so a lost challenge still costs the point.
+    gs.decreaseActionPoints(this.playerId, COST)
+    this.playMagic(
+      gs,
+      this.playerId,
+      this.cardId,
+      this.emmiter,
+      this.reactionManager,
     )
   }
 }

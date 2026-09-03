@@ -1,19 +1,14 @@
-import {
-  CardType,
-  GameEventType,
-  IGameEvent,
-  ReactionType,
-  ReactionWindowType,
-} from 'shared'
+import { CardType, GameEventType, IGameEvent, ReactionType, ReactionWindowType, RefusalReason } from 'shared'
 import { PlayChallengeReaction } from './play-challenge-reaction'
-import { GameState } from '../game-state'
+import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { Player } from '../player'
-import { Party } from '../party'
-import { CardStack } from '../card-stack'
-import { CardPile } from '../card-pile'
+import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
 import { ChallengeCard } from '../cards/challenge-card'
-import { IReactionWindow } from '../interfaces'
+import { accepted, IModifiableWindow, IReactionWindow } from '../interfaces'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -46,7 +41,6 @@ const makeChallengeCard = (id: string) =>
     image: '',
     description: '',
     set: '',
-    ability: { trigger: GameEventType.CardPlayAttempted },
   })
 
 const collect = (em: GameEventEmitter): IGameEvent[] => {
@@ -55,13 +49,27 @@ const collect = (em: GameEventEmitter): IGameEvent[] => {
   return events
 }
 
-/** Stub challenge window with a jest spy on submitReaction. */
-const makeStubWindow = (): IReactionWindow & { submitReaction: jest.Mock } => ({
+/**
+ * Stub challenge window. `cardSpent` is declared because the reaction probes
+ * for that capability to keep the contest alive while the card resolves.
+ */
+const makeStubWindow = (): IModifiableWindow & {
+  submitReaction: jest.Mock
+  cardSpent: jest.Mock
+} => ({
   getId: () => 'w1',
   getType: () => ReactionWindowType.Challenge,
+  getRespondentId: () => 'defender',
+  getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
+  resultKey: () => NO_CONTEXT_RESULT,
+  getDetail: () => ({}),
+  getDeadline: () => 0,
+  acceptsModifierFor: () => accepted(),
+  cardSpent: jest.fn(),
+  valueBiasFor: () => 'highest' as const,
 })
 
 /** Add a challenge frame to gs with a stub window. */
@@ -71,8 +79,10 @@ const openFrame = (gs: GameState, stub: IReactionWindow) => {
   return frameId
 }
 
+const CHAL = 'challenge-102'
+
 const makeReaction = (targetedCardId = 'hero-1') =>
-  new PlayChallengeReaction('r1', 'p1', 'chal-1', targetedCardId)
+  new PlayChallengeReaction('r1', 'p1', CHAL, targetedCardId)
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -87,9 +97,9 @@ describe('PlayChallengeReaction', () => {
     gs = makeGs()
     em = new GameEventEmitter()
     events = collect(em)
-    gs.registerPlayer(makePlayer('p1', ['chal-1']))
+    gs.registerPlayer(makePlayer('p1', [CHAL]))
     gs.registerParty(makeParty('p1'))
-    gs.registerCard(makeChallengeCard('chal-1'))
+    gs.registerCard(makeChallengeCard(CHAL))
   })
 
   // ---------------------------------------------------------------------------
@@ -113,27 +123,27 @@ describe('PlayChallengeReaction', () => {
   // ---------------------------------------------------------------------------
 
   it('canExecute returns false when no challenge frame is open', () => {
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
   })
 
   it('canExecute returns false when card not in player hand', () => {
-    gs.getPlayer('p1')!.removeFromHand('chal-1')
+    gs.getPlayer('p1')!.removeFromHand(CHAL)
     const stub = makeStubWindow()
     openFrame(gs, stub)
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.CardNotInHand })
   })
 
   it('canExecute returns false when target card already challenged this turn', () => {
     const stub = makeStubWindow()
     openFrame(gs, stub)
     gs.markCardChallenged('hero-1')
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.AlreadyChallengedThisTurn })
   })
 
   it('canExecute returns true when frame is open, card is in hand, target not yet challenged', () => {
     const stub = makeStubWindow()
     openFrame(gs, stub)
-    expect(makeReaction().canExecute(gs)).toBe(true)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: true })
   })
 
   // ---------------------------------------------------------------------------
@@ -141,7 +151,7 @@ describe('PlayChallengeReaction', () => {
   // ---------------------------------------------------------------------------
 
   describe('execute', () => {
-    let stub: IReactionWindow & { submitReaction: jest.Mock }
+    let stub: ReturnType<typeof makeStubWindow>
     let frameId: string
 
     beforeEach(() => {
@@ -151,38 +161,58 @@ describe('PlayChallengeReaction', () => {
 
     it('removes the challenge card from the current player hand', () => {
       makeReaction().execute(gs, em)
-      expect(gs.getPlayer('p1')!.getHand()).not.toContain('chal-1')
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain(CHAL)
     })
 
-    it('adds the challenge card to the current discard pile', () => {
+    it('puts it in the INSTANCE pile — it is on the table while the contest is', () => {
       makeReaction().execute(gs, em)
-      expect(gs.getDiscardPile().getAll()).toContain('chal-1')
+      expect(gs.getParty('p1').getInstanceCardIds()).toContain(CHAL)
+      expect(gs.getDiscardPile().getAll()).not.toContain(CHAL)
     })
 
-    it('removes the challenge card from the snapshot player hand', () => {
+    it('releasing the frame is what discards it', () => {
       makeReaction().execute(gs, em)
-      const snapshot = gs.frames.get(frameId)?.snapshot
-      expect(snapshot?.getPlayer('p1')?.getHand()).not.toContain('chal-1')
+      gs.releaseFrame(frameId)
+      expect(gs.getDiscardPile().getAll()).toContain(CHAL)
     })
 
-    it('adds the challenge card to the snapshot discard pile', () => {
+    it('a ROLLBACK still leaves it spent', () => {
       makeReaction().execute(gs, em)
-      const snapshot = gs.frames.get(frameId)?.snapshot
-      expect(snapshot?.getDiscardPile().getAll()).toContain('chal-1')
+      gs.restoreFrame(frameId)
+
+      expect(gs.getPlayer('p1')!.getHand()).not.toContain(CHAL)
+      expect(gs.getDiscardPile().getAll()).toContain(CHAL)
     })
 
-    it('calls window.submitReaction with { type: "challenge", challengerId }', () => {
+    it('does NOT contest the play itself — StartChallengeTask does', () => {
       makeReaction().execute(gs, em)
-      expect(stub.submitReaction).toHaveBeenCalledWith('p1', {
-        type: 'challenge',
-        challengerId: 'p1',
+      expect(stub.submitReaction).not.toHaveBeenCalled()
+    })
+
+    it('announces ChallengePlayed, naming the card and its target', () => {
+      const seen = collect(em)
+      makeReaction().execute(gs, em)
+
+      const played = seen.filter(
+        (e) => e.getType() === GameEventType.ChallengePlayed,
+      )
+      expect(played).toHaveLength(1)
+      expect(played[0].getPlayerId()).toBe('p1')
+      expect(played[0].getPayload()).toEqual({
+        cardId: CHAL,
+        targetedCardId: 'hero-1',
       })
+    })
+
+    it('keeps the contest alive while the card resolves', () => {
+      makeReaction().execute(gs, em)
+      expect(stub.cardSpent).toHaveBeenCalled()
     })
 
     it('does nothing when no challenge frame is open', () => {
       gs.releaseFrame(frameId)
       expect(() => makeReaction().execute(gs, em)).not.toThrow()
-      expect(stub.submitReaction).not.toHaveBeenCalled()
+      expect(gs.getPlayer('p1')!.getHand()).toContain(CHAL)
     })
   })
 })

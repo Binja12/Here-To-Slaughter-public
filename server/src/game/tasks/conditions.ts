@@ -1,36 +1,45 @@
 import { CardType, IGameEventEmitter } from 'shared'
-import { IIfTask, ITask } from '../interfaces'
-import { GameState } from '../game-state'
-import { AbilityContext, CTX_LAST_DRAWN_CARD_ID } from '../ability-context'
-import type { ReactionManager } from '../reactions/reaction-manager'
+import { IReactionManager, ITask } from '../interfaces'
+import { GameState } from '../pipelines/game-state'
+import { AbilityContext } from '../abilities/ability-context'
+import { GameEventFactory } from '../events/game-event-factory'
 
 // ---------------------------------------------------------------------------
-// CardTypeCondition — branches on the type of the last drawn card
+// CardTypeCondition — do the card(s) in a named slot have this type?
 //
-// Reads CTX_LAST_DRAWN_CARD_ID from the ability context and compares the
-// card's type to the expected type.  If no card was drawn yet the condition
-// is treated as false.
+// Holds no steps. On a match it emits ConditionMet; whatever it guards is a
+// separate registry entry triggered by that event. No match emits nothing.
+//
+// True when ANY card in the slot matches. An absent or empty slot is false.
 // ---------------------------------------------------------------------------
 
-export class CardTypeCondition implements IIfTask {
-  condition: (gs: GameState, ctx: AbilityContext) => boolean
-  ifTrue: ITask[]
-  ifFalse?: ITask[]
+export class CardTypeCondition implements ITask {
+  constructor(
+    private readonly cardType: CardType,
+    /** Context slot naming the card(s) to test, e.g. CTX_DRAWN_CARD_IDS. */
+    private readonly sourceKey: string,
+    /** Announced on ConditionMet; a continuation matches it with `when`. */
+    private readonly label: string,
+  ) {}
 
-  constructor(cardType: CardType, ifTrue: ITask[], ifFalse?: ITask[]) {
-    this.condition = (_gs: GameState, ctx: AbilityContext): boolean => {
-      const cardId = ctx.get<string>(CTX_LAST_DRAWN_CARD_ID)
-      if (!cardId) return false
-      return _gs.getCard(cardId)?.getType() === cardType
-    }
-    this.ifTrue = ifTrue
-    this.ifFalse = ifFalse
-  }
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const cardIds = ctx.get<string[]>(this.sourceKey) ?? []
+    const held = cardIds.some(
+      (cardId) => gs.getCard(cardId)?.getType() === this.cardType,
+    )
+    if (!held) return
 
-  execute(gs: GameState, ctx: AbilityContext, em: IGameEventEmitter, rm: ReactionManager): void {
-    const branch = this.condition(gs, ctx) ? this.ifTrue : (this.ifFalse ?? [])
-    for (const task of branch) {
-      task.execute(gs, ctx, em, rm)
-    }
+    // The tested slot rides along: the entry this unlocks runs with a fresh
+    // context and cannot see this one.
+    em.emit(
+      GameEventFactory.conditionMet(ctx.ownerId, ctx.sourceCardId, this.label, {
+        [this.sourceKey]: cardIds,
+      }),
+    )
   }
 }

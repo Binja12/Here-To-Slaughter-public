@@ -1,19 +1,25 @@
-import { ActionType, Audience, GameEventType, IGameEvent } from 'shared'
-import { IAction } from '../interfaces'
-import { GameState } from '../game-state'
-import { GameEvent } from '../events/game-event'
+import { ActionType, RefusalReason, RequestResult } from 'shared'
+import { accepted, IAction, refused } from '../interfaces'
+import { GameState } from '../pipelines/game-state'
+import { RedrawHand } from '../tasks/redraw-hand-task'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { GameEventFactory } from '../events/game-event-factory'
 
-const MAX_HAND_SIZE = 10
 const COST = 3
 
-export class redrawHandAction implements IAction {
+// ---------------------------------------------------------------------------
+// The player-request half of redrawing a hand. The mechanic is RedrawHand, in
+// `tasks/redraw-hand-task.ts`, shared with RedrawHandTask (§1); this adds the
+// cost, the guards and a queue identity.
+// ---------------------------------------------------------------------------
+
+export class RedrawHandAction extends RedrawHand implements IAction {
   constructor(
     private readonly id: string,
     private readonly playerId: string,
-    private readonly emmiter: GameEventEmitter,
-  ) {}
+    private readonly emitter: GameEventEmitter,
+  ) {
+    super()
+  }
 
   getId(): string {
     return this.id
@@ -30,23 +36,20 @@ export class redrawHandAction implements IAction {
   getCost(): number {
     return COST
   }
-  isReactable(): boolean { return false }
 
-  canExecute(gs: GameState): boolean {
-    const player = gs.getPlayer(this.playerId)
-    if (!player) return false
-    if (player.getActionPoints() < COST) return false
-    if (gs.getMainDeck().getSize() < 5) return false
-    return true
+  isReactable(): boolean {
+    return false
+  }
+
+  canExecute(gs: GameState): RequestResult {
+    if (gs.getActionPoints(this.playerId) < COST) {
+      return refused(RefusalReason.NoActionPoints)
+    }
+    return accepted()
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(COST)
-    for (let i = 1; i <= 5; i++) {
-      const cardId = gs.getMainDeck().draw()!
-      player.addToHand(cardId)
-      this.emmiter.emit(GameEventFactory.cardDrawn(this.playerId, cardId))
-    }
+    gs.decreaseActionPoints(this.playerId, COST)
+    this.redrawHand(gs, this.playerId, this.emitter)
   }
 }

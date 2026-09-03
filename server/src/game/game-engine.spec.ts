@@ -1,11 +1,12 @@
 import { GameEventType, IGameEvent } from 'shared'
 import { GameEngine } from './game-engine'
-import { GameState } from './game-state'
-import { TurnManager } from './turn-manager'
+import { GameState } from './pipelines/game-state'
+import { TurnManager } from './pipelines/turn-manager'
 import { GameEventEmitter } from './events/game-event-emitter'
-import { Player } from './player'
-import { Party } from './party'
-import { CardStack } from './card-stack'
+import { Player } from './state-structures/player'
+import { Party } from './state-structures/party'
+import { CardStack } from './state-structures/card-stack'
+import { CardPile } from './state-structures/card-pile'
 import { IWinCondition } from './interfaces'
 
 const makePlayer = (id: string, points = 3) =>
@@ -22,12 +23,17 @@ const makeParty = (playerId: string) =>
     playerId,
     leaderId: `leader-${playerId}`,
     heroIds: [],
-    MonsterIds: [],
+    monsterIds: [],
   })
 
 const makeGs = (...playerIds: string[]) => {
   const deck = new CardStack('deck', 'main')
-  const gs = new GameState(deck)
+  const gs = new GameState(
+    deck,
+    new CardPile('discard', 'discard-pile'),
+    new CardStack('mdeck', 'monster-deck'),
+    new CardPile('mpile', 'monster-pile'),
+  )
   for (const id of playerIds) {
     gs.registerPlayer(makePlayer(id))
     gs.registerParty(makeParty(id))

@@ -1,0 +1,515 @@
+import {
+  ICard,
+  IGameEvent,
+  GameEventType,
+  Audience,
+  CardType,
+  TriggerScope,
+} from 'shared'
+import { TaskManager } from './task-manager'
+import { GameState } from './game-state'
+import { CardStack } from '../state-structures/card-stack'
+import { CardPile } from '../state-structures/card-pile'
+import { AbilityContext } from '../abilities/ability-context'
+import { IAbilityRule, ITask } from '../interfaces'
+import { GameEvent } from '../events/game-event'
+import { GameEventEmitter } from '../events/game-event-emitter'
+import { Player } from '../state-structures/player'
+import { Party } from '../state-structures/party'
+import { HeroCard } from '../cards/hero-card'
+import { HeroClass } from 'shared'
+import { ReactionManager } from './reaction-manager'
+
+const makeRm = (gs: GameState, em: GameEventEmitter) =>
+  new ReactionManager(gs, em)
+
+/**
+ * Stands in for the real ability registry: behaviour is bound to a card ID
+ * here, not carried on the card itself. The builders below write into it, so a
+ * test still declares a card and its ability in one place.
+ */
+let abilities = new Map<string, IAbilityRule[]>()
+beforeEach(() => {
+  abilities = new Map()
+})
+
+const makeAp = (gs: GameState, em: GameEventEmitter) =>
+  new TaskManager(gs, em, makeRm(gs, em), abilities)
+
+// ---------------------------------------------------------------------------
+// Builders
+// ---------------------------------------------------------------------------
+
+const makeGs = () =>
+  new GameState(
+    new CardStack('deck', 'main'),
+    new CardPile('discard', 'discard'),
+    new CardStack('mdeck', 'monster-deck'),
+    new CardPile('mpile', 'monster-pile'),
+  )
+
+const makeTask = (events: IGameEvent[] = [], spy?: () => void): ITask => ({
+  execute: (_gs, _ctx, em, _rm) => {
+    spy?.()
+    for (const e of events) em.emit(e)
+  },
+})
+
+/** Minimal ICard. Any ability passed is registered against the card's id. */
+const makeFakeCard = (id: string, ability?: IAbilityRule): ICard => {
+  if (ability) abilities.set(id, [ability])
+  return {
+    getId: () => id,
+    getName: () => id,
+    getType: () => CardType.Hero,
+    getImage: () => '',
+    getDescription: () => '',
+    getData: () => ({
+      id,
+      name: id,
+      type: CardType.Hero,
+      image: '',
+      description: '',
+      set: 'test',
+      heroClass: HeroClass.Fighter,
+      rollReq: 5,
+    }),
+  }
+}
+
+const makeHeroCard = (id: string, ability?: IAbilityRule): HeroCard => {
+  if (ability) abilities.set(id, [ability])
+  return new HeroCard({
+    id,
+    name: id,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    set: 'test',
+    heroClass: HeroClass.Fighter,
+    rollReq: 5,
+  })
+}
+
+const makePlayer = (id: string) =>
+  new Player({
+    id,
+    name: id,
+    hand: [],
+    partyId: `${id}-party`,
+    actionPoints: 3,
+  })
+
+const makeParty = (
+  playerId: string,
+  leaderId: string,
+  heroIds: string[] = [],
+  monsterIds: string[] = [],
+) => new Party({ playerId, leaderId, heroIds, monsterIds })
+
+const makeEvent = (
+  type: GameEventType,
+  payload?: Record<string, unknown>,
+): IGameEvent => new GameEvent(type, 'p1', payload ?? {}, Audience.All)
+
+// ---------------------------------------------------------------------------
+// Helpers to populate GameState
+// ---------------------------------------------------------------------------
+
+function setupPlayer(
+  gs: GameState,
+  playerId: string,
+  leaderId: string,
+  heroes: Array<{ cardId: string; ability?: IAbilityRule }> = [],
+): void {
+  gs.registerPlayer(makePlayer(playerId))
+  const heroIds = heroes.map((h) => h.cardId)
+  gs.registerParty(makeParty(playerId, leaderId, heroIds))
+  gs.registerCard(makeFakeCard(leaderId)) // leader without ability by default
+  for (const { cardId, ability } of heroes) {
+    gs.registerCard(makeFakeCard(cardId, ability))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('TaskManager — a step that opens a frame must return it', () => {
+  it('throws when a step returns a frameId whose frame has already settled', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const rm = makeRm(gs, em)
+
+    class RawReturnTask implements ITask {
+      execute(_gs: GameState, _ctx: AbilityContext, _em: never, r: typeof rm): string {
+        const id = r.openFrame()
+        gs.releaseFrame(id)
+        return id
+      }
+    }
+
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: 'p1', leaderId: 'lead-1', heroIds: [], monsterIds: [] }),
+    )
+    abilities.set('lead-1', [{
+      trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
+      steps: [new RawReturnTask() as unknown as ITask],
+    }])
+    new TaskManager(gs, em, rm, abilities)
+
+    expect(() =>
+      em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' })),
+    ).toThrow(/is not an open frame/)
+    // A dead frameId can never be woken, so the throw is the only outcome —
+    // it must not leave a run paused on it.
+    expect(gs.abilityPipelines.some((r) => r.pausedOn)).toBe(false)
+  })
+
+  it('carries on when a step opened a frame that settled and returned nothing', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const rm = makeRm(gs, em)
+    const ran: string[] = []
+
+    // A window that settled before its own step returned.
+    class SettledTask implements ITask {
+      execute(_gs: GameState, _ctx: AbilityContext, _em: never, r: typeof rm): void {
+        const id = r.openFrame()
+        gs.releaseFrame(id)
+      }
+    }
+
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: 'p1', leaderId: 'lead-1', heroIds: [], monsterIds: [] }),
+    )
+    abilities.set('lead-1', [{
+      trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
+      steps: [
+        new SettledTask() as unknown as ITask,
+        makeTask([], () => ran.push('after')),
+      ],
+    }])
+    new TaskManager(gs, em, rm, abilities)
+
+    em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' }))
+
+    expect(gs.abilityPipelines).toHaveLength(0) // nothing stranded
+    expect(ran).toEqual(['after']) // and the pipeline was not cut short
+  })
+
+  it('does not throw for a step that opens nothing', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-p', actionPoints: 3 }),
+    )
+    gs.registerParty(
+      new Party({ playerId: 'p1', leaderId: 'lead-1', heroIds: [], monsterIds: [] }),
+    )
+    abilities.set('lead-1', [{
+      trigger: { on: GameEventType.TurnStarted, scope: TriggerScope.Anyone },
+      steps: [makeTask()],
+    }])
+    makeAp(gs, em)
+
+    expect(() =>
+      em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' })),
+    ).not.toThrow()
+  })
+})
+
+describe('TaskManager', () => {
+  // -------------------------------------------------------------------------
+  // onEvent() — scan-based passive triggering
+  // -------------------------------------------------------------------------
+
+  describe('onEvent()', () => {
+    it('does not crash when GameState has no players', () => {
+      const ap = makeAp(makeGs(), new GameEventEmitter())
+      expect(() =>
+        ap.onEvent(makeEvent(GameEventType.DiceRolled)),
+      ).not.toThrow()
+    })
+
+    // ----------------------------------------------------------------------- P...
+
+    it('fires leader ability when trigger matches', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1'))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(fired).toHaveLength(1)
+    })
+
+    it('fires leader ability even when payload carries an unrelated cardId', () => {
+      // Passive sources are NOT filtered by payload.cardId — they always fire on trigger match
+      const gs = makeGs()
+      const fired: boolean[] = []
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1'))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(
+        makeEvent(GameEventType.DiceRolled, { cardId: 'some-other-card' }),
+      )
+
+      expect(fired).toHaveLength(1)
+    })
+
+    it('fires passive abilities for all players whose leader trigger matches', () => {
+      const gs = makeGs()
+      const firedBy: string[] = []
+
+      const makeAbility = (tag: string): IAbilityRule => ({
+        trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+        steps: [makeTask([], () => firedBy.push(tag))],
+      })
+
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1'))
+      gs.registerCard(makeFakeCard('leader-1', makeAbility('p1-leader')))
+
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2', 'leader-2'))
+      gs.registerCard(makeFakeCard('leader-2', makeAbility('p2-leader')))
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(firedBy).toContain('p1-leader')
+      expect(firedBy).toContain('p2-leader')
+    })
+
+    it('fires monster ability when trigger matches', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1', [], ['monster-1']))
+      gs.registerCard(makeFakeCard('leader-1'))
+      gs.registerCard(
+        makeFakeCard('monster-1', {
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(fired).toHaveLength(1)
+    })
+
+    it('fires equipped item ability when trigger matches', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+
+      const hero = makeHeroCard('hero-1')
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1', ['hero-1']))
+      gs.getParty('p1').equipItem('hero-1', 'item-1')
+      gs.registerCard(makeFakeCard('leader-1'))
+      gs.registerCard(hero)
+      gs.registerCard(
+        makeFakeCard('item-1', {
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+          steps: [makeTask([], () => fired.push(true))],
+        }),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(fired).toHaveLength(1)
+    })
+
+    it('does NOT fire equipped item ability when hero has no item', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+
+      const hero = makeHeroCard('hero-1')
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1', ['hero-1']))
+      gs.registerCard(makeFakeCard('leader-1'))
+      gs.registerCard(hero)
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(fired).toHaveLength(0)
+    })
+
+    it('skips passive cards with no ability', () => {
+      const gs = makeGs()
+      setupPlayer(gs, 'p1', 'leader-1') // leader has no ability
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      expect(() =>
+        ap.onEvent(makeEvent(GameEventType.DiceRolled)),
+      ).not.toThrow()
+    })
+
+    it('skips passive cards whose ability has no trigger', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1'))
+      gs.registerCard(
+        // Deliberately malformed: an ability with steps but no trigger. The type
+        // forbids it, so the cast is what lets us assert the runtime guard.
+        makeFakeCard('leader-1', {
+          steps: [makeTask([], () => fired.push(true))],
+        } as unknown as IAbilityRule),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(fired).toHaveLength(0)
+    })
+
+    // ----------------------------------------------------------------------- A...
+
+    it('fires hero ability when payload.cardId matches', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+      setupPlayer(gs, 'p1', 'leader-1', [
+        {
+          cardId: 'hero-1',
+          ability: {
+            trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
+            steps: [makeTask([], () => fired.push(true))],
+          },
+        },
+      ])
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.RollSuccess, { cardId: 'hero-1' }))
+
+      expect(fired).toHaveLength(1)
+    })
+
+    it('does NOT fire hero ability when payload has no cardId', () => {
+      const gs = makeGs()
+      const fired: boolean[] = []
+      setupPlayer(gs, 'p1', 'leader-1', [
+        {
+          cardId: 'hero-1',
+          ability: {
+            // SelfCard needs the event to name this card; a payload-less event
+            // cannot satisfy it.
+            trigger: {
+              on: GameEventType.DiceRolled,
+              scope: TriggerScope.SelfCard,
+            },
+            steps: [makeTask([], () => fired.push(true))],
+          },
+        },
+      ])
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled)) // no cardId in payload
+
+      expect(fired).toHaveLength(0)
+    })
+
+    it('does NOT fire hero ability when payload.cardId targets a different hero', () => {
+      const gs = makeGs()
+      const firedBy: string[] = []
+
+      const makeAbility = (tag: string): IAbilityRule => ({
+        trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
+        steps: [makeTask([], () => firedBy.push(tag))],
+      })
+
+      setupPlayer(gs, 'p1', 'leader-1', [
+        { cardId: 'hero-1', ability: makeAbility('hero-1') },
+        { cardId: 'hero-2', ability: makeAbility('hero-2') },
+      ])
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.RollSuccess, { cardId: 'hero-1' }))
+
+      expect(firedBy).toContain('hero-1')
+      expect(firedBy).not.toContain('hero-2')
+    })
+
+    // ----------------------------------------------------------------------- E...
+
+    it('emits events produced by a triggered passive task through the shared emitter', () => {
+      const gs = makeGs()
+      const emitter = new GameEventEmitter()
+      const received: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => received.push(e) })
+
+      const taskEvent = new GameEvent(
+        GameEventType.CardDrawn,
+        'p1',
+        {},
+        Audience.PlayerOnly,
+      )
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1'))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+          steps: [makeTask([taskEvent])],
+        }),
+      )
+
+      const ap = makeAp(gs, emitter)
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(received).toContain(taskEvent)
+    })
+
+    it('passes correct cardId and ownerId to AbilityContext', () => {
+      const gs = makeGs()
+      let capturedCtx: AbilityContext | undefined
+
+      const step: ITask = {
+        execute: (_gs, ctx, _em) => {
+          capturedCtx = ctx
+        },
+      }
+
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1'))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+          steps: [step],
+        }),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+      expect(capturedCtx).toBeDefined()
+      expect(capturedCtx!.sourceCardId).toBe('leader-1')
+      expect(capturedCtx!.ownerId).toBe('p1')
+    })
+  })
+})

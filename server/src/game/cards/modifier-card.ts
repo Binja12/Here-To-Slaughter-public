@@ -4,6 +4,10 @@ import { ModifierCardData, CardType } from 'shared'
 export class ModifierCard implements ICard {
   constructor(private data: ModifierCardData) {}
 
+  getData(): ModifierCardData {
+    return { ...this.data }
+  }
+
   getId(): string {
     return this.data.id
   }
@@ -19,10 +23,7 @@ export class ModifierCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
-  getAbility() {
-    return this.data.ability
-  }
   getValues() {
-    this.data.values
+    return this.data.values
   }
 }
