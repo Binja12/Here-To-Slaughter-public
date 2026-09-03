@@ -4,6 +4,7 @@ import {
   HeroClass,
   IGameEvent,
   ReactionWindowType,
+  RefusalReason,
 } from 'shared'
 import { ModifierAbility } from './modifier-ability'
 import { abilityRegistry } from './index'
@@ -14,7 +15,6 @@ import { CardStack } from '../../state-structures/card-stack'
 import { CardPile } from '../../state-structures/card-pile'
 import { HeroCard } from '../../cards/hero-card'
 import { ModifierCard } from '../../cards/modifier-card'
-import { IReactionWindow } from '../../interfaces'
 import { GameEventEmitter } from '../../events/game-event-emitter'
 import { ReactionManager } from '../../pipelines/reaction-manager'
 import { TaskManager } from '../../pipelines/task-manager'
@@ -24,7 +24,7 @@ import { PlayModifierReaction } from '../../reactions/play-modifier-reaction'
 // ---------------------------------------------------------------------------
 // Modifier (modifier-077 …) — what the card is WORTH, as a registry entry.
 //
-// The reaction spends the card; this decides the number and lands it. The two
+// The reaction verifies the value and spends the card; this lands it. The two
 // halves are tested separately: play-modifier-reaction.spec.ts owns the play.
 //
 //   hero roll = ceil(random * 11) + 1  -> 0 => 1
@@ -106,22 +106,26 @@ function setup(values: number[]) {
 const windowOf = (gs: GameState, type: ReactionWindowType) =>
   gs.getFrameByWindowType(type)?.frame.windows.find((w) => w.getType() === type)
 
-const valueChoice = (gs: GameState): IReactionWindow | undefined =>
-  windowOf(gs, ReactionWindowType.ValueChoice)
-
 const payloadsOf = (events: IGameEvent[], type: GameEventType) =>
   events
     .filter((e) => e.getType() === type)
     .map((e) => e.getPayload() as Record<string, unknown>)
 
-/** p1 rolls on their hero, then p2 plays the modifier at that roll. */
-function rollAndPlayModifier(values: number[]) {
+/** p1 rolls on their hero, then p2 plays the modifier at that roll, naming `value`. */
+function rollAndPlayModifier(values: number[], value = values[0]) {
   const ctx = setup(values)
   jest.spyOn(Math, 'random').mockReturnValue(LOW)
   new RollOnHeroAction('a1', 'p1', HERO, ctx.em, ctx.rm).execute(ctx.gs)
-  ctx.rm.submitReaction(new PlayModifierReaction('r1', 'p2', MOD, 'p1'))
-  return ctx
+  const result = ctx.rm.submitReaction(
+    new PlayModifierReaction('r1', 'p2', MOD, 'p1', value),
+  )
+  return { ...ctx, result }
 }
+
+const openedValueChoices = (events: IGameEvent[]) =>
+  payloadsOf(events, GameEventType.ReactionWindowOpened).filter(
+    (p) => p['windowType'] === ReactionWindowType.ValueChoice,
+  )
 
 describe('ModifierAbility', () => {
   beforeEach(() => jest.useFakeTimers())
@@ -140,36 +144,24 @@ describe('ModifierAbility', () => {
     expect(ids).toHaveLength(25)
   })
 
-  it('is ONE entry, on the card being played', () => {
+  it('is ONE entry of ONE step, on the card being played', () => {
     expect(ModifierAbility).toHaveLength(1)
     expect(ModifierAbility[0].trigger.on).toBe(GameEventType.ModifierPlayed)
+    expect(ModifierAbility[0].steps).toHaveLength(1)
   })
 
-  it('offers the card its OWN printed values', () => {
-    const { events } = rollAndPlayModifier([2, -2])
+  it('lands the value the play named, at once, with no window', () => {
+    const { events, result } = rollAndPlayModifier([2, -2], -2)
 
-    const opened = payloadsOf(events, GameEventType.ReactionWindowOpened).find(
-      (p) => p['windowType'] === ReactionWindowType.ValueChoice,
-    )
-    expect(opened?.['options']).toEqual([2, -2])
-    // Asked of the player who spent the card, not the one being rolled at.
-    expect(opened?.['respondentId']).toBe('p2')
-  })
-
-  it('lands the value the player picked', () => {
-    const { gs, events } = rollAndPlayModifier([2, -2])
-
-    valueChoice(gs)!.submitReaction('p2', { choice: -2 })
-
+    expect(result).toEqual({ accepted: true })
+    expect(openedValueChoices(events)).toEqual([])
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
     expect(applied).toHaveLength(1)
     expect(applied[0]).toMatchObject({ cardId: MOD, value: -2, finalRoll: -1 })
   })
 
-  it('lands the other one just as happily', () => {
-    const { gs, events } = rollAndPlayModifier([2, -2])
-
-    valueChoice(gs)!.submitReaction('p2', { choice: 2 })
+  it('lands the other printed value just as happily', () => {
+    const { events } = rollAndPlayModifier([2, -2], 2)
 
     expect(payloadsOf(events, GameEventType.ModifierApplied)[0]).toMatchObject({
       value: 2,
@@ -177,84 +169,20 @@ describe('ModifierAbility', () => {
     })
   })
 
-  it('refuses a number the card does not print', () => {
-    const { gs, events } = rollAndPlayModifier([2, -2])
+  it('refuses a number the card does not print, before anything is spent', () => {
+    const { gs, events, result } = rollAndPlayModifier([2, -2], 99)
 
-    // The whole point of moving the value off the reaction: it used to arrive
-    // as a constructor argument, checked against nothing.
-    valueChoice(gs)!.submitReaction('p2', { choice: 99 })
-
+    // The value used to arrive checked against nothing; now the card decides.
+    expect(result).toEqual({
+      accepted: false,
+      reason: RefusalReason.ValueNotOnCard,
+    })
     expect(payloadsOf(events, GameEventType.ModifierApplied)).toEqual([])
-    expect(valueChoice(gs)).toBeDefined() // still waiting for a legal pick
-  })
-
-  it('an idle player still lands one — the card is already spent', () => {
-    const { gs, events } = rollAndPlayModifier([5])
-    jest.advanceTimersByTime(3000)
-
-    expect(payloadsOf(events, GameEventType.ModifierApplied)[0]).toMatchObject({
-      value: 5,
-    })
-    expect(valueChoice(gs)).toBeUndefined()
-  })
-
-  // =========================================================================
-  // Which way silence falls
-  //
-  // Not random, the way a CARD choice defaults: a number has a direction, and
-  // the direction is derivable from what the player aimed at. The window being
-  // modified owns the rule — see IModifiableWindow.valueBiasFor.
-  // =========================================================================
-
-  describe('the silent default', () => {
-    it('a bonus on ANOTHER player roll falls to the lowest value', () => {
-      // p2 spent it on p1's roll: they meant to spoil it.
-      const { events } = rollAndPlayModifier([2, -2])
-      jest.advanceTimersByTime(3000)
-
-      expect(payloadsOf(events, GameEventType.ModifierApplied)[0]).toMatchObject(
-        { value: -2 },
-      )
-    })
-
-    it('a bonus on your OWN roll falls to the highest value', () => {
-      const ctx = setup([2, -2])
-      jest.spyOn(Math, 'random').mockReturnValue(LOW)
-      new RollOnHeroAction('a1', 'p1', HERO, ctx.em, ctx.rm).execute(ctx.gs)
-      // p1 rolls and p1 pushes it: they meant to help it.
-      ctx.gs.getPlayer('p1')!.addToHand(MOD)
-      ctx.gs.getPlayer('p2')!.removeFromHand(MOD)
-      ctx.rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD, 'p1'))
-      jest.advanceTimersByTime(3000)
-
-      expect(
-        payloadsOf(ctx.events, GameEventType.ModifierApplied)[0],
-      ).toMatchObject({ value: 2 })
-    })
-
-    it('rides in the opened payload, so the table can see it coming', () => {
-      const { events } = rollAndPlayModifier([2, -2])
-
-      const opened = payloadsOf(events, GameEventType.ReactionWindowOpened).find(
-        (p) => p['windowType'] === ReactionWindowType.ValueChoice,
-      )
-      expect(opened?.['bias']).toBe('lowest')
-    })
-
-    it('a picked value beats the default either way', () => {
-      const { gs, events } = rollAndPlayModifier([2, -2])
-
-      valueChoice(gs)!.submitReaction('p2', { choice: 2 })
-
-      expect(payloadsOf(events, GameEventType.ModifierApplied)[0]).toMatchObject(
-        { value: 2 },
-      )
-    })
+    expect(gs.getPlayer('p2')!.getHand()).toContain(MOD)
   })
 
   it('rescues a roll the die alone would fail', () => {
-    const { gs, events } = rollAndPlayModifier([5]) // 1 + 5 = 6 >= 6
-    jest.advanceTimersByTime(3000) // the value settles
+    const { events } = rollAndPlayModifier([5]) // 1 + 5 = 6 >= 6
     jest.advanceTimersByTime(5000) // the roll settles
 
     expect(events.map((e) => e.getType())).toContain(GameEventType.RollSuccess)
@@ -273,18 +201,17 @@ describe('ModifierAbility', () => {
     })
 
     it('stays there after its own ability has finished', () => {
-      const { gs } = rollAndPlayModifier([5])
-      jest.advanceTimersByTime(3000) // value picked, bonus landed, entry done
+      const { gs, events } = rollAndPlayModifier([5])
 
       // AbilityDone fired, but the card belongs to the roll until the roll is
       // over — its run finishing is not its time on the table finishing.
+      expect(events.map((e) => e.getType())).toContain(GameEventType.AbilityDone)
       expect(gs.getParty('p2').getInstanceCardIds()).toContain(MOD)
       expect(gs.getDiscardPile().getAll()).not.toContain(MOD)
     })
 
     it('is discarded when the roll SUCCEEDS and the frame is released', () => {
       const { gs } = rollAndPlayModifier([5]) // 1 + 5 = 6, clears
-      jest.advanceTimersByTime(3000)
       jest.advanceTimersByTime(5000)
 
       expect(gs.getParty('p2').getInstanceCardIds()).not.toContain(MOD)
@@ -293,7 +220,6 @@ describe('ModifierAbility', () => {
 
     it('is discarded when the roll FAILS and the frame rolls back', () => {
       const { gs } = rollAndPlayModifier([1]) // 1 + 1 = 2, misses 6
-      jest.advanceTimersByTime(3000)
       jest.advanceTimersByTime(5000)
 
       // The snapshot predates the burn, so the rollback hands the card back to
@@ -304,7 +230,6 @@ describe('ModifierAbility', () => {
 
     it('never returns to the hand on either path', () => {
       const { gs } = rollAndPlayModifier([1])
-      jest.advanceTimersByTime(3000)
       jest.advanceTimersByTime(5000)
 
       expect(gs.getPlayer('p2')!.getHand()).not.toContain(MOD)

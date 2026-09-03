@@ -211,9 +211,7 @@ describe('a full game', () => {
     fixDice(MIDDLING)
     rollOnHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Modifier)
-    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE))
-    const values = await windowFor(t, ALICE, ReactionWindowType.ValueChoice)
-    answer(t, values, 3)
+    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE, 3))
     await settle(t)
 
     const applied = payloads(t, GameEventType.ModifierApplied)

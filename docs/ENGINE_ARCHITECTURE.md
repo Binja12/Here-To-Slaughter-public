@@ -1254,16 +1254,19 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **A REACTION is the play; the registry is the effect.** `PlayModifierReaction`
   and `PlayChallengeReaction` spend the card, keep the window alive and
   announce `ModifierPlayed` / `ChallengePlayed`. What the card DOES —
-  `[ChooseValue, ApplyModifier]`, `[StartChallenge]` — is its own entry, keyed
-  by id like every other card type. That is what makes a modifier's value
-  unforgeable: it used to arrive as a constructor argument off a socket,
-  compared with nothing, and is now a pick from the card's own printed
-  `values`. `ChooseValueTask` with no argument reads them off its own card, so
-  all 25 printed copies share one declaration and all 14 challenges share
+  `[ApplyModifier]`, `[StartChallenge]` — is its own entry, keyed by id like
+  every other card type. A modifier's VALUE comes with the play, the way a
+  target does: `PlayModifierReaction.canExecute` verifies it against the
+  card's printed `values` and refuses `ValueNotOnCard` before anything is
+  spent, and `ModifierPlayed` carries it as `ctxSeed` to the card's entry, so
+  the entry is one step and opens no window. The value is unforgeable because
+  the card decides what it may be, not because the player is asked twice. All
+  25 printed copies share one declaration and all 14 challenges share
   another.
 - **The Protecting Horn is why that split pays.** A leader granting "+1 or -1
-  on each Modifier you play" runs the *same two steps* a modifier card runs,
-  with the numbers passed in instead of read off a card. Before it, nothing
+  on each Modifier you play" runs the same `ApplyModifier` a card runs, with a
+  `ChooseValueTask` in front of it asking its own two numbers — the one
+  `ValueChoiceWindow` left in the engine. Before it, nothing
   could put a bonus into an open window except the reaction that spent a card.
 - **`ApplyModifierTask` must not park on the roll's frame.** Reading "the card
   is not finished until the roll is" as a pause would deadlock: the pipelines
@@ -1306,13 +1309,12 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **Nothing stops two challenges nesting.** A magic card played by an ability
   opens a challenge from inside a pipeline. Every ability that plays one has
   settled its own window first, so the case does not arise; nothing enforces it.
-- **A nested value choice races the roll's own timer.** The choice window is
-  given a shorter timeout than the roll, and the burn resets the roll's, so the
-  ordinary case is safe. Two bonuses on one roll (the Horn's, then the card's)
-  are two choices in sequence, and a player who sits on both can still let the
-  roll lapse in between; `ApplyModifierTask` checks `isOpen()` and drops the
-  bonus rather than submitting into a settled window. The card is spent either
-  way.
+- **The Horn's nested value choice races the roll's own timer.** The choice
+  window is given a shorter timeout than the roll, and the burn resets the
+  roll's, so the ordinary case is safe. A player who sits on the Horn's
+  question can still let the roll lapse; `ApplyModifierTask` checks `isOpen()`
+  and drops the bonus rather than submitting into a settled window. The card's
+  own bonus is not exposed to this: it lands inside the play's own emission.
 - **A magic card with no registry entry is stranded in the instance pile.**
   Disposal hangs off `AbilityDone`, which is emitted when a PIPELINE leaves the
   stack. A card with no entry never gets a pipeline, so nothing ever announces

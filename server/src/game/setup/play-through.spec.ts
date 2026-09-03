@@ -564,15 +564,12 @@ describe('a game played through', () => {
     rollOnHero(t, playerId, 'hero-037')
     await windowFor(t, playerId, ReactionWindowType.Modifier)
 
-    // The play spends the card; what it is WORTH is the card's own entry, and
-    // arrives as a value the player picks off its printed face (§7).
+    // The play names the value off the card's printed face, and the card's own
+    // entry lands it (§7).
     react(
       t,
-      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId),
+      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId, 3),
     )
-    const values = await windowFor(t, playerId, ReactionWindowType.ValueChoice)
-    expect(values.options).toEqual([3, -1])
-    answer(t, values, 3)
     await settle(t)
 
     const view = see(t, playerId)
@@ -603,10 +600,8 @@ describe('a game played through', () => {
 
     react(
       t,
-      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId),
+      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId, -1),
     )
-    const values = await windowFor(t, playerId, ReactionWindowType.ValueChoice)
-    answer(t, values, -1)
     await settle(t)
 
     expect(payloads(t, GameEventType.ModifierApplied)[0]['value']).toBe(-1)

@@ -3,7 +3,10 @@
 Status: IN PROGRESS on worktree `htsr-4-api-contract` (branch
 `HTSR-4-API-And-Sockets`, which is `develop` = engine + HTSR-6 lobby/auth).
 Built so far: §4.1 steps 1-2 — `game.create` over TCP, `GameRegistryService`,
-`GameServerModule`, `main.game.ts` and the `start:game` scripts. Decisions
+`GameServerModule`, `main.game.ts` and the `start:game` scripts; §4.2 steps 1
+and 3-4 — the command contract (`shared/src/contracts/game-commands.ts`) and
+`CommandDispatcherService`, tested through a real dealt table. Not yet: the
+socket gateway, `commandId` dedupe, snapshots out. Decisions
 taken so far are in §9.
 Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
@@ -179,7 +182,8 @@ Delete the three 0-byte placeholders; they have no readers.
 
    Emitter and reaction manager are constructor slots the dispatcher fills
    from `RunningGame`; they never appear on the wire. Note the contract's
-   `ApplyModifierPayload.value` is gone: the value is a `SubmitChoice` on the
+   `ApplyModifierPayload.value` is BACK (see §9): the value comes with the play,
+   verified against the card. (Superseded note: it was briefly a `SubmitChoice` on the
    `ValueChoice` window the card opens (engine §7, "unforgeable").
 4. Ack truthfully. This needs the engine to SAY what it did (§5, E1).
    Today all three doors return `void` and drop silently.
@@ -236,7 +240,7 @@ bonuses and requirement). An audience-filtered event feed is a later ticket.
   TCP request. Alternative: ids only and the client resolves names itself.
 - **E3 — delete** the three 0-byte files.
 - Contract fixes that fall out: add `RollOnLeader`, drop
-  `ApplyModifierPayload.value`, the value-choice note above.
+  the value-choice note above (superseded: `value` stays on the payload).
 
 Nothing else in `server/src/game/**` moves. No engine rule is duplicated in
 the transport: legality is asked of the doors, visibility of the view.
@@ -367,6 +371,25 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   `PlayerView.phase`); `TurnPhase.Start | Action | End` is `TurnManager`'s
   own, engine logic only, never on the wire. The unused `ReactionWindow`
   member is gone.
+- **Commands in, and what a client may learn** (2026-09-03). Envelope stays
+  `{ commandId, type, payload }` as the contract had it, one zod schema per
+  command in a discriminated union on `type`, types inferred.
+  `CommandResult` is `RequestResult` + `commandId`. The owner: a malformed
+  command is not a game refusal, so it gets a SEPARATE shape,
+  `{ accepted: false, error: 'InternalError' }`, and the detail (zod's
+  issues, or an engine stack) stays in the server log. An engine THROW
+  gets the same treatment: the dispatcher catches, logs with the command,
+  and answers InternalError — never a refusal, never a dropped socket.
+  `commandId` doubles as the engine action id; dedupe is the gateway's.
+- **A modifier's value comes with the play** (2026-09-03). The owner: make
+  reactions consistent — challenge is one request, so a modifier is one
+  request too; the client sends the value and the engine verifies it.
+  `ApplyModifier { cardId, targetPlayerId, value }`;
+  `PlayModifierReaction.canExecute` refuses `NotAModifier` / `ValueNotOnCard`
+  before spending; `ModifierPlayed` seeds `CTX_CHOSEN_VALUE`; the card's entry
+  is `[ApplyModifier]` alone. `ValueChoiceWindow` and `ChooseValueTask` stay
+  for the Protecting Horn, which asks its own two numbers. The engine doc's
+  §7/§8 updated; the "unforgeable" argument now rests on verification.
 - **`Stale` was a coding error in disguise** (2026-09-03). The owner: a
   player must never be offered an illegal option, so a pick that was offered
   and is now illegal is the engine's bug. `RefusalReason.Stale` removed;

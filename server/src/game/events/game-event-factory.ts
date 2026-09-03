@@ -1,13 +1,9 @@
-import {
-  Audience,
-  GameEventType,
-  IGameEvent,
-  ReactionWindowType,
-} from 'shared'
+import { Audience, GameEventType, IGameEvent, ReactionWindowType } from 'shared'
 import { GameEvent } from './game-event'
 import {
   CTX_DRAWN_CARD_IDS,
   CTX_MODIFIER_TARGET,
+  CTX_CHOSEN_VALUE,
 } from '../abilities/ability-context'
 
 export class GameEventFactory {
@@ -232,6 +228,7 @@ export class GameEventFactory {
     playerId: string,
     cardId: string,
     targetPlayerId: string,
+    value: number,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.ModifierPlayed,
@@ -239,7 +236,12 @@ export class GameEventFactory {
       {
         cardId,
         targetPlayerId,
-        ctxSeed: { [CTX_MODIFIER_TARGET]: [targetPlayerId] },
+        value,
+        // The card's entry runs with a fresh context: what it needs travels here.
+        ctxSeed: {
+          [CTX_MODIFIER_TARGET]: [targetPlayerId],
+          [CTX_CHOSEN_VALUE]: [value],
+        },
       },
       Audience.All,
     )
@@ -346,7 +348,11 @@ export class GameEventFactory {
     )
   }
 
-  static heroStolen(toPlayerId: string, fromPlayerId: string, heroId: string): IGameEvent {
+  static heroStolen(
+    toPlayerId: string,
+    fromPlayerId: string,
+    heroId: string,
+  ): IGameEvent {
     return new GameEvent(
       GameEventType.HeroStolen,
       toPlayerId,
@@ -532,5 +538,4 @@ export class GameEventFactory {
       Audience.All,
     )
   }
-
 }

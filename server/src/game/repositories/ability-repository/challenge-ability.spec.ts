@@ -259,14 +259,13 @@ describe('ChallengeAbility', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Which way an unanswered value choice falls INSIDE a challenge
+// A modifier INSIDE a challenge lands on the side it was aimed at
 //
-// Read against the card being contested, not against whoever spent the
-// modifier: aimed at the defender it falls low, aimed at the challenger it
-// falls high. Silence therefore tips a contest toward the play being defeated.
+// The value comes with the play; which of the two rolls it lands on is the
+// target the player named, challenger or defender.
 // ---------------------------------------------------------------------------
 
-describe('the silent default in a challenge', () => {
+describe('a modifier inside a challenge', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => {
     jest.useRealTimers()
@@ -288,29 +287,19 @@ describe('the silent default in a challenge', () => {
   const appliedValues = (ctx: ReturnType<typeof setup>) =>
     payloadsOf(ctx.events, GameEventType.ModifierApplied).map((p) => p['value'])
 
-  it('aimed at the DEFENDER, silence falls to the lowest', () => {
+  it('aimed at the DEFENDER lands the value named on the defender', () => {
     const ctx = contested()
-    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, 'p1'))
-    jest.advanceTimersByTime(3000)
+    ctx.rm.submitReaction(
+      new PlayModifierReaction('r2', 'p2', MOD_2, 'p1', -3),
+    )
 
     expect(appliedValues(ctx)).toEqual([-3])
   })
 
-  it('aimed at the CHALLENGER, silence falls to the highest', () => {
+  it('aimed at the CHALLENGER lands the value named on the challenger', () => {
     const ctx = contested()
-    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, 'p2'))
-    jest.advanceTimersByTime(3000)
+    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, 'p2', 3))
 
     expect(appliedValues(ctx)).toEqual([3])
-  })
-
-  it('the rule is the CARD being contested, not who spent the modifier', () => {
-    // The defender pushes their own defence and walks away: it still falls
-    // low, because the bias is read against the challenged card's owner.
-    const ctx = contested()
-    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p1', MOD, 'p1'))
-    jest.advanceTimersByTime(3000)
-
-    expect(appliedValues(ctx)).toEqual([-3])
   })
 })

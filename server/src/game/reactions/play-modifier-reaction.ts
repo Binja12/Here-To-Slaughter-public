@@ -7,16 +7,17 @@ import {
 import { IReaction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
+import { ModifierCard } from '../cards/modifier-card'
 
 // ---------------------------------------------------------------------------
 // The play, and only the play: spend the card and announce it. WHAT a modifier
 // is worth is the card's own entry in the abilityRegistry, the same split
 // every other card type has (§1).
 //
-// That is what makes the value unforgeable. It used to arrive here as a
-// constructor argument straight off a socket, and nothing compared it with the
-// `values` printed on the card; now the card offers its own numbers through a
-// ValueChoiceWindow and the player picks one of those.
+// The value comes WITH the play, the way a target does, and is verified here
+// against the `values` printed on the card before anything is spent — a
+// number the card does not print is refused by name. It rides to the card's
+// entry on the event, so the entry is one step and no window opens.
 // ---------------------------------------------------------------------------
 
 export class PlayModifierReaction implements IReaction {
@@ -26,6 +27,8 @@ export class PlayModifierReaction implements IReaction {
     private readonly cardId: string,
     /** Whose roll this is aimed at — a challenge has two. */
     private readonly targetPlayerId: string,
+    /** One of the card's printed values. Verified in canExecute. */
+    private readonly value: number,
   ) {}
 
   getId(): string {
@@ -41,6 +44,13 @@ export class PlayModifierReaction implements IReaction {
   canExecute(gs: GameState): RequestResult {
     if (!gs.hasInHand(this.playerId, this.cardId)) {
       return refused(RefusalReason.CardNotInHand)
+    }
+    const card = gs.getCard(this.cardId)
+    if (!(card instanceof ModifierCard)) {
+      return refused(RefusalReason.NotAModifier)
+    }
+    if (!card.getValues().includes(this.value)) {
+      return refused(RefusalReason.ValueNotOnCard)
     }
 
     // One question, and it covers both halves: is a window open, and would it
@@ -60,12 +70,13 @@ export class PlayModifierReaction implements IReaction {
     // part of spending, and happens in there.
     gs.spendCard(this.playerId, this.cardId)
 
-    // The card's entry triggers on this, and the target rides along on it.
+    // The card's entry triggers on this; the target and the value ride on it.
     em.emit(
       GameEventFactory.modifierPlayed(
         this.playerId,
         this.cardId,
         this.targetPlayerId,
+        this.value,
       ),
     )
   }

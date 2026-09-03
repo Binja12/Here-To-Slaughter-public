@@ -376,6 +376,10 @@ export enum RefusalReason {
   TargetNotRolling = "TargetNotRolling",
   /** Aimed at somebody who is neither challenger nor defender. */
   TargetNotInChallenge = "TargetNotInChallenge",
+  /** The card named is not a modifier card. */
+  NotAModifier = "NotAModifier",
+  /** The value sent is not one printed on the card. */
+  ValueNotOnCard = "ValueNotOnCard",
   // SubmitChoice — the windows
   NoSuchWindow = "NoSuchWindow",
   WrongRespondent = "WrongRespondent",

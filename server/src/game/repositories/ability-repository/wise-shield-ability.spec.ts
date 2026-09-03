@@ -157,9 +157,8 @@ const acceptRollOffer = (gs: GameState) =>
 const typesOf = (events: IGameEvent[]) => events.map((e) => e.getType())
 
 /**
- * A played modifier now asks the player WHICH of its printed values to use, so
- * the bonus lands a choice later rather than inside submitReaction. The window
- * is deliberately shorter than the roll it is about.
+ * A played modifier's value comes with the play and lands inside the same
+ * emission, so this is a plain wait now: shorter than the roll it sits in.
  */
 const settleValueChoice = () => jest.advanceTimersByTime(3000)
 
@@ -414,7 +413,7 @@ describe('Wise Shield — full life cycle', () => {
 
     it('FAILED roll rescued by a modifier: RollSuccess fires and the effect installs', () => {
       const { gs, rm, events } = toModifierWindow(LOW) // baseRoll 1
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1')) // 1 + 5 = 6
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1', 5)) // 1 + 5 = 6
       settleValueChoice()
       jest.advanceTimersByTime(5000)
 
@@ -442,7 +441,7 @@ describe('Wise Shield — full life cycle', () => {
 
     it('a played modifier is recorded against the card that paid for it', () => {
       const { rm, events } = toModifierWindow(LOW)
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1', 5))
       settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
@@ -523,7 +522,7 @@ describe('Wise Shield — full life cycle', () => {
       rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
 
       // p2 pushes their OWN challenge roll with a +5 modifier.
-      rm.submitReaction(new PlayModifierReaction('r4', 'p2', MOD, 'p2'))
+      rm.submitReaction(new PlayModifierReaction('r4', 'p2', MOD, 'p2', 5))
       settleValueChoice()
       jest.advanceTimersByTime(5000)
 
@@ -541,7 +540,7 @@ describe('Wise Shield — full life cycle', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(LOW) // baseRoll 1
       tm.enqueue(new RollOnHeroAction('a2', 'p1', 'hero-099', em, rm))
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1', 5))
       settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
