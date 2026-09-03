@@ -5,9 +5,15 @@ Status: IN PROGRESS on worktree `htsr-4-api-contract` (branch
 Built so far: §4.1 steps 1-2 — `game.create` over TCP, `GameRegistryService`,
 `GameServerModule`, `main.game.ts` and the `start:game` scripts; §4.2 steps 1
 and 3-4 — the command contract (`shared/src/contracts/game-commands.ts`) and
-`CommandDispatcherService`, tested through a real dealt table. Not yet: the
-socket gateway, `commandId` dedupe, snapshots out. Decisions
-taken so far are in §9.
+`CommandDispatcherService`, tested through a real dealt table; the Socket.IO
+dependencies; the hybrid bootstrap (`main.game.ts`: HTTP 3001 with CORS for
+the socket, TCP 4001 for the lobby, addresses in `game-server.config.ts`);
+and §4.1 step 4's resolver (`session/`: `IGameSessionResolver` + the TCP
+adapter, tested against the real lobby auth controller). Not yet: the
+gateway itself, `findByAccount` and `RunningGame` state on the registry,
+start/complete lifecycle, `commandId` dedupe, snapshots out, `LeaveGame` on
+the wire (absent from the zod union), seat names (Q7). Decisions taken so
+far are in §9.
 Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
 
@@ -34,9 +40,10 @@ contract and fails at the first message.
   `playerView(game, playerId)` to read.
 - Nothing exists between the two. `server/src/runtime/runtime.service.ts`,
   `server/src/socket/socket.gateway.ts` and `server/src/lobby/lobby.ts` are
-  0-byte placeholders on every branch. The server has no Socket.IO
-  dependency at all (`@nestjs/websockets`, `@nestjs/platform-socket.io`,
-  `socket.io` are absent from the lockfile). The client on `HTSR-5-Frontend`
+  0-byte placeholders on every branch. The server had no Socket.IO
+  dependency at all until 2026-09-03, when `@nestjs/websockets`,
+  `@nestjs/platform-socket.io` and `socket.io` (plus `socket.io-client` for
+  specs) were added to the `server` workspace. The client on `HTSR-5-Frontend`
   has `socket.io-client` and a PRE-contract `useGameState` (events
   `game:action`, `game:state`, `game:catalog`, `game:event`).
 - Graphify (rebuilt from 40157d5): no import cycles; `GameState`,
@@ -104,14 +111,15 @@ Same `server` workspace, second Nest root and entry point (Q2):
 ```
 server/src/
   main.ts                      lobby/auth bootstrap (exists)
-  main.game.ts                 game-server bootstrap: Socket.IO + TCP listener
+  main.game.ts                 game-server bootstrap: Socket.IO + TCP listener (BUILT)
   game-server/
     game-server.module.ts      Nest root for the game process
+    game-server.config.ts      every address read from env once (BUILT)
     game-registry.service.ts   Map<gameId, RunningGame>; create / get / remove
     internal-game.controller.ts  @MessagePattern(CREATE_GAME_PATTERN)
     session/
-      game-session.resolver.ts   interface IGameSessionResolver
-      tcp-session.resolver.ts    adapter: RESOLVE_SESSION_PATTERN over TCP
+      game-session.resolver.ts   interface IGameSessionResolver (BUILT)
+      tcp-session.resolver.ts    adapter: RESOLVE_SESSION_PATTERN over TCP (BUILT)
       (in-memory resolver lives in specs only)
     commands/
       command-dispatcher.service.ts  command -> IAction | IReaction | choice
@@ -304,7 +312,8 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   stays STATIC for this ticket, allocation rule and registration deferred.
 - **Ports.** Lobby/auth: HTTP 3000 + TCP 4000 (existed). Game server: TCP
   4001 for the lobby, Socket.IO 3001 for browsers (public url
-  `GAME_SERVER_PUBLIC_URL`, default `http://127.0.0.1:3001`). Create-game
+  `GAME_SERVER_PUBLIC_URL`, default `http://localhost:3001` — was
+  `127.0.0.1`, changed for the cookie-host reason below). Create-game
   and player commands never share a listener: the TCP port is a trust
   boundary only the lobby speaks to.
 - **Work happens on the HTSR-4 worktree**, one `server` workspace, two
@@ -403,6 +412,35 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   `ChallengeNotStarted` or `TargetNotInChallenge`. Both `submitReaction`
   guards and `GameState.acceptsModifierFor` now ask that one method, so the
   rule lives once.
+
+- **The game process is a full Nest application, not a bare microservice**
+  (2026-09-03, items 1-3 of the playtest gap list). Nest mounts a gateway on
+  the HTTP server through its default IoAdapter, so `main.game.ts` became
+  `NestFactory.create` + `connectMicroservice` (the shape `main.ts` already
+  had), listening on `GAME_SERVER_PORT` (3001) for browsers and TCP 4001 for
+  the lobby. No cookie parser on it: a socket handshake never passes through
+  Express middleware, so the gateway reads the cookie header itself.
+- **CORS reflects any origin by default, with credentials.** The client's
+  dev-server port is not this process's business, and `*` would strip the
+  cookie from the handshake. `GAME_SERVER_CORS_ORIGIN` (comma-separated)
+  narrows it; production hardening is deferred with Docker/routing. One
+  declaration, `gameServerCors`, for the HTTP app and the gateway alike.
+- **Public url defaults to `localhost`, not `127.0.0.1`.** A browser's cookie
+  is bound to the host the lobby was reached as; a socket to a different
+  spelling of the same machine carries no cookie and is refused at the
+  handshake. Every default now spells the machine one way.
+- **Every address lives in `game-server.config.ts`**, read from `process.env`
+  once at load, so bootstrap, module and gateway cannot disagree. The lobby's
+  own `lobby.module.ts` keeps its inline `process.env` read; not this
+  ticket's code.
+- **A lobby outage THROWS out of the resolver; an unknown token returns
+  `undefined`.** Same line as the engine's refusal-vs-throw rule: a revoked
+  or expired session is the player's situation and becomes a refused
+  connection, an unreachable lobby is an outage and must not read as a
+  player being turned away. `TcpSessionResolver` is `NestTcpGameServerClient`
+  pointed the other way (5 s timeout), registered lazily so the game process
+  boots without the lobby up. Its spec boots the real `AppModule` over TCP
+  and mints sessions with the real `AuthService`, both halves live.
 
 ## 10. Deferred (recorded so they are not reinvented)
 
