@@ -1,5 +1,13 @@
 import { Logger } from '@nestjs/common'
-import { GAME_SNAPSHOT, RefusalReason } from 'shared'
+import type { ClientProxy } from '@nestjs/microservices'
+import { of } from 'rxjs'
+import {
+  GAME_COMPLETED,
+  GAME_COMPLETED_PATTERN,
+  GAME_SNAPSHOT,
+  GamePhase,
+  RefusalReason,
+} from 'shared'
 import type { GameSnapshot } from 'shared'
 import type { Server } from 'socket.io'
 import {
@@ -10,14 +18,17 @@ import {
 } from '../game/setup/play-through-helpers'
 import { playerView } from '../game/views/player-view'
 import { CommandDispatcherService } from './command-dispatcher.service'
+import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
+import { dealQuickWin, winFirstTurn } from './spec-helpers'
 
 // ---------------------------------------------------------------------------
 // The observer, on a real dealt table driven through the real dispatcher,
-// with the Socket.IO server stood in for by a recorder: what was pushed, to
-// which room, is the whole question. Real windows on the harness's short
-// clock, so a window lapsing on its own is a real timer firing.
+// with the Socket.IO server stood in for by a recorder and the lobby by a
+// spy: what was pushed, to which room, and what the lobby was told, is the
+// whole question. Real windows on the harness's short clock, so a window
+// lapsing on its own is a real timer firing.
 // ---------------------------------------------------------------------------
 
 const ALICE = 'alice'
@@ -31,6 +42,8 @@ describe('SnapshotPublisherService', () => {
   let running: RunningGame
   let dispatcher: CommandDispatcherService
   let sent: Sent[]
+  let lobby: { emit: jest.Mock }
+  let publisher: SnapshotPublisherService
 
   beforeAll(() => {
     Logger.overrideLogger(false)
@@ -44,11 +57,12 @@ describe('SnapshotPublisherService', () => {
       deck: ['hero-001', 'modifier-080', 'hero-002', 'modifier-081'],
     })
     expect(active(t)).toBe(ALICE)
-    running = { game: t.game, arrived: new Set(), version: 0 }
+    running = { game: t.game, arrived: new Set(), left: new Set(), version: 0 }
     dispatcher = new CommandDispatcherService()
     sent = []
+    lobby = { emit: jest.fn(() => of(undefined)) }
 
-    const publisher = new SnapshotPublisherService()
+    publisher = new SnapshotPublisherService(lobby as unknown as ClientProxy)
     publisher.bind(recorder(sent))
     publisher.watch(running)
   })
@@ -138,6 +152,43 @@ describe('SnapshotPublisherService', () => {
     }
   })
 
+  describe('the end', () => {
+    it('pushes the final board as game-completed to every seat, and tells the lobby once', async () => {
+      // A table this publisher watches from birth, won in one turn.
+      const registry = new GameRegistryService(publisher)
+      const won = dealQuickWin(registry, [ALICE, BOB])
+      for (const id of [ALICE, BOB]) registry.arrive(won, id)
+      const before = sent.length
+      const wonRoom = (id: string) => `${won.game.gameId}:${id}`
+
+      await winFirstTurn(won.game)
+      await nextTurn()
+
+      const ending = sent.slice(before).filter((s) => s.event === GAME_COMPLETED)
+      expect(ending.map((s) => s.room).sort()).toEqual([wonRoom(ALICE), wonRoom(BOB)])
+      expect(ending.every((s) => s.snapshot.version === won.version)).toBe(true)
+      expect(ending.every((s) => s.snapshot.state.phase === GamePhase.Concluded)).toBe(true)
+      expect(ending.find((s) => s.room === wonRoom(BOB))!.snapshot.state).toEqual(
+        playerView(won.game, BOB),
+      )
+      // The ending flush is game-completed INSTEAD of game:snapshot.
+      expect(
+        sent.slice(before).filter((s) => s.snapshot.version === won.version),
+      ).toHaveLength(2)
+      expect(lobby.emit).toHaveBeenCalledTimes(1)
+      expect(lobby.emit).toHaveBeenCalledWith(GAME_COMPLETED_PATTERN, {
+        gameId: won.game.gameId,
+      })
+    })
+
+    it('tells the lobby about no table that is still live', async () => {
+      dispatcher.dispatch(t.game, ALICE, command('PlayHero', { cardId: 'hero-001' }))
+      await settle(t)
+
+      expect(sent.some((s) => s.event === GAME_COMPLETED)).toBe(false)
+      expect(lobby.emit).not.toHaveBeenCalled()
+    })
+  })
 })
 
 /** A Socket.IO server that only remembers what it was told to emit, and where. */

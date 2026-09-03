@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { GameCommandSchema, INTERNAL_ERROR } from 'shared'
-import type { CommandResult, GameCommand, RequestResult } from 'shared'
+import { EngineCommandSchema, INTERNAL_ERROR } from 'shared'
+import type { CommandResult, EngineCommand, RequestResult } from 'shared'
 import type { ZodError } from 'zod'
 import type { Game } from '../game/setup/create-game'
 import {
@@ -39,7 +39,7 @@ export class CommandDispatcherService {
   private readonly logger = new Logger(CommandDispatcherService.name)
 
   dispatch(game: Game, accountId: string, raw: unknown): CommandResult {
-    const parsed = GameCommandSchema.safeParse(raw)
+    const parsed = EngineCommandSchema.safeParse(raw)
     if (!parsed.success) {
       this.logger.warn(
         `malformed command from ${accountId} in ${game.gameId}: ${describe(parsed.error)}`,
@@ -79,7 +79,7 @@ export class CommandDispatcherService {
   private route(
     game: Game,
     playerId: string,
-    command: GameCommand,
+    command: EngineCommand,
   ): RequestResult {
     const { emitter, reactionManager, turnManager } = game
     const id = command.commandId

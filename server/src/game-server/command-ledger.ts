@@ -22,6 +22,11 @@ export class CommandLedger {
     return this.bySeat.get(seat)?.get(commandId)
   }
 
+  /** A seat that left its table has no game left to retry into. */
+  forget(seat: string): void {
+    this.bySeat.delete(seat)
+  }
+
   remember(seat: string, commandId: string, result: CommandResult): void {
     let answers = this.bySeat.get(seat)
     if (!answers) {

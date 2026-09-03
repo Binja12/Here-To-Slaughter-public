@@ -7,7 +7,13 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets'
 import type { OnGatewayConnection, OnGatewayInit } from '@nestjs/websockets'
-import { GAME_COMMAND, GAME_STARTED, GamePhase, INTERNAL_ERROR } from 'shared'
+import {
+  GAME_COMMAND,
+  GAME_STARTED,
+  GamePhase,
+  INTERNAL_ERROR,
+  LeaveGameSchema,
+} from 'shared'
 import type { CommandResult } from 'shared'
 import type { Server, Socket } from 'socket.io'
 import { SESSION_COOKIE_NAME } from '../auth/session-cookie'
@@ -18,6 +24,7 @@ import {
 } from './command-dispatcher.service'
 import { CommandLedger } from './command-ledger'
 import { GameRegistryService } from './game-registry.service'
+import type { RunningGame } from './game-registry.service'
 import { gameServerCors } from './game-server.config'
 import { seatRoom } from './seat'
 import type { Seat } from './seat'
@@ -54,6 +61,8 @@ const LOBBY_UNAVAILABLE = 'Lobby unavailable'
 //      current snapshot as `game-started` — the view is whole state, so a
 //      resend is a replay. A seat still waiting for the others hears nothing.
 //   3. Answer commands — dedupe by command id, dispatch, ack truthfully.
+//      `LeaveGame` is the one command that is not the dispatcher's: it is
+//      the registry's, and only a concluded table accepts it.
 //
 // Pushing snapshots after the board changes is the publisher's job, not
 // this file's; the gateway only hands it the server it pushes through.
@@ -124,6 +133,13 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
       throw new Error('command on an unseated socket: middleware was bypassed')
     }
 
+    const room = seatRoom(seat)
+    const commandId = commandIdOf(raw)
+    // Memory first: a retried LeaveGame that emptied the table is answered
+    // from here after the table is gone.
+    const remembered = commandId && this.ledger.recall(room, commandId)
+    if (remembered) return remembered
+
     const running = this.registry.get(seat.gameId)
     if (!running) {
       // The table is gone from under a still-connected seat. Not a
@@ -131,17 +147,25 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
       this.logger.warn(
         `command from ${seat.accountId} for missing game ${seat.gameId}`,
       )
-      return { commandId: commandIdOf(raw), accepted: false, error: INTERNAL_ERROR }
+      return { commandId, accepted: false, error: INTERNAL_ERROR }
     }
 
-    const room = seatRoom(seat)
-    const commandId = commandIdOf(raw)
-    const remembered = commandId && this.ledger.recall(room, commandId)
-    if (remembered) return remembered
-
-    const result = this.dispatcher.dispatch(running.game, seat.accountId, raw)
+    const result = LeaveGameSchema.safeParse(raw).success
+      ? this.leave(running, seat, commandId!)
+      : this.dispatcher.dispatch(running.game, seat.accountId, raw)
     if (commandId) this.ledger.remember(room, commandId, result)
     return result
+  }
+
+  /** Out of a concluded table, and out of this seat's memory but for this answer. */
+  private leave(
+    running: RunningGame,
+    seat: Seat,
+    commandId: string,
+  ): CommandResult {
+    const result = this.registry.leave(running, seat.accountId)
+    if (result.accepted) this.ledger.forget(seatRoom(seat))
+    return { commandId, ...result }
   }
 
   /**

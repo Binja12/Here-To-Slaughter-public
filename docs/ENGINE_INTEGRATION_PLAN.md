@@ -19,9 +19,11 @@ lifecycle (`GameRegistryService.arrive`: the arrival completing the table
 starts it, every seat hears `game-started` — Q5 answered); §4.3 steps 1-3,
 the snapshot publisher (`snapshot-publisher.service.ts`: mark on every
 event, one flush per burst on `setImmediate`, `version + 1`, one view per
-seat to its room). Not yet: completion (§4.3 step 4) + `LeaveGame` on the
-wire (absent from the zod union), seat names (Q7), the capstone spec.
-Decisions taken so far are in §9.
+seat to its room); §4.3 step 4, completion (the ending flush pushes
+`game-completed`, tells the lobby over TCP, `LeaveGame` on the wire as
+`LeaveGameSchema`, `GameRegistryService.leave` forgets an emptied table).
+Not yet: seat names (Q7), the capstone spec. Decisions taken so far are in
+§9.
 Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
 
@@ -127,6 +129,7 @@ server/src/
                                findByAccount / arrive (BUILT) / remove
     command-ledger.ts          per-seat memory of answered commandIds (BUILT)
     seat.ts                    Seat + seatRoom, shared by gateway and publisher (BUILT)
+    spec-helpers.ts            a table won in one turn, for the specs (BUILT)
     snapshot-publisher.service.ts  emitter listener -> coalesce ->
                                playerView per seat -> room emit (BUILT; the
                                `projection/` folder was not worth a level)
@@ -204,7 +207,7 @@ Delete the three 0-byte placeholders; they have no readers.
    | ApplyModifier | submitReaction `PlayModifierReaction(cardId, targetPlayerId)` |
    | Challenge     | submitReaction `PlayChallengeReaction(cardId, targetedCardId)` |
    | SubmitChoice  | submitChoice(windowId, accountId, choice)       |
-   | LeaveGame     | not an engine call; accepted only after `finished` |
+   | LeaveGame     | not an engine call; `GameRegistryService.leave`, refused `GameNotOver` while live |
 
    Emitter and reaction manager are constructor slots the dispatcher fills
    from `RunningGame`; they never appear on the wire. Note the contract's
@@ -233,10 +236,12 @@ because the dispatcher is the one place a queue would go.
    a push with no command at all.
 3. Flush: `version++`, then for each seat `playerView(game, seat)` ->
    `game:snapshot { gameId, version, state }` to that seat's room. BUILT.
-4. `GameEnded` -> `finished = true`, `game-completed` to every seat, TCP
+4. `GameEnded` -> `game-completed` to every seat, TCP
    `emit(GAME_COMPLETED_PATTERN, { gameId })` to the lobby (exists on the
    receiving side). Accept `LeaveGame`; when the last seat has left, remove
-   the game from the registry.
+   the game from the registry. BUILT — no `finished` flag: the ending flush
+   is the one that follows the burst carrying `GameEnded`, and "may leave"
+   reads `PlayerView.phase === Concluded`.
 
 Raw engine events are NOT forwarded in v1 (Q4). The engine doc (§5) is
 explicit that payloads are unfiltered and would leak by that route; the view
@@ -542,6 +547,42 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
 - **`seatRoom` moved to `seat.ts`**: the gateway and the publisher both
   address rooms, and a value import between the two was a runtime cycle
   through Nest's decorator metadata.
+- **`LeaveGame` sits beside the engine commands, not among them**
+  (2026-09-03, items 8-9). `EngineCommandSchema` is the dispatcher's whole
+  vocabulary (twelve doors); `LeaveGameSchema` is the one command the game
+  server answers itself; `GameCommandSchema` is the union the wire accepts.
+  The gateway tries the leave schema first and hands everything else to the
+  dispatcher, so the dispatcher's exhaustive switch stays about doors. A
+  new `RefusalReason.GameNotOver` names the one guard: an active player
+  cannot walk out (contract §6). It is the first reason that is not an
+  engine guard, and the enum comment says so.
+- **The ending flush is `game-completed` INSTEAD of `game:snapshot`.** The
+  watcher reads one event by name, `GameEnded`, and the flush that follows
+  that burst pushes the final board under the other name: same envelope,
+  same version rule, and the event name is what tells a screen to show the
+  result. Two pushes of one board under two names would have been the
+  alternative; a client keeping "highest version wins" gains nothing from
+  the second. Then the lobby is told once, one-way, and an unreachable
+  lobby is logged rather than thrown — the seats have their final board
+  either way, and the assignment is the lobby's to clear when it is back.
+  Retry belongs with the outage story (§10).
+- **A table is forgotten when its last seat has left.** `RunningGame.left`
+  is the second set the board cannot know (after `arrived`);
+  `GameRegistryService.leave` refuses `GameNotOver` off the view's phase,
+  records the seat, and deletes the table after the last. A handshake from
+  any of its accounts then finds no game, which is right: the lobby cleared
+  their assignments on `game.completed`. The gateway consults the command
+  ledger BEFORE the registry, so a retried leave that emptied the table is
+  still answered `accepted` from memory; on an accepted leave the seat's
+  memory is dropped and only that answer kept.
+- **Specs seat a table they can win in one turn** (`spec-helpers.ts`,
+  beside the specs the way `play-through-helpers.ts` is beside the
+  engine's). `GameRegistryService.create` takes an optional `Deal` — the
+  printed pool and the config, which the wire never carries — as §6 planned.
+  The win is the engine's own shortcut: a pool with one hero class makes
+  `AllClassesInParty` mean "one hero", so the first Fighter played wins at
+  the end of that turn, driven through the dispatcher on the harness's
+  150 ms clock.
 
 ## 10. Deferred (recorded so they are not reinvented)
 

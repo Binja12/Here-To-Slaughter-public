@@ -384,4 +384,7 @@ export enum RefusalReason {
   NoSuchWindow = "NoSuchWindow",
   WrongRespondent = "WrongRespondent",
   NotAnOption = "NotAnOption",
+  // LeaveGame — the game server's own guard, not an engine one: a seat may
+  // leave only a concluded table. An active player cannot walk out.
+  GameNotOver = "GameNotOver",
 }

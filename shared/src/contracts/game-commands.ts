@@ -17,7 +17,8 @@ const id = z.string().trim().min(1);
 const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
   z.object({ commandId: z.uuid(), type: z.literal(type), payload });
 
-export const GameCommandSchema = z.discriminatedUnion("type", [
+/** The commands that reach an engine door. The dispatcher's whole vocabulary. */
+export const EngineCommandSchema = z.discriminatedUnion("type", [
   // actions — TurnManager.enqueue
   command("DrawCard", z.object({})),
   command("PlayHero", z.object({ cardId: id })),
@@ -39,6 +40,20 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
   command("SubmitChoice", z.object({ windowId: id, choice: z.unknown() })),
 ]);
 
+/**
+ * The one command that is not an engine call: a seat leaving a CONCLUDED
+ * table, which returns the account to the lobby. The game server answers it
+ * itself, refusing `GameNotOver` while the table is live.
+ */
+export const LeaveGameSchema = command("LeaveGame", z.object({}));
+
+/** Everything a client may send on `game:command`. */
+export const GameCommandSchema = z.discriminatedUnion("type", [
+  ...EngineCommandSchema.options,
+  LeaveGameSchema,
+]);
+
+export type EngineCommand = z.infer<typeof EngineCommandSchema>;
 export type GameCommand = z.infer<typeof GameCommandSchema>;
 export type GameCommandType = GameCommand["type"];
 

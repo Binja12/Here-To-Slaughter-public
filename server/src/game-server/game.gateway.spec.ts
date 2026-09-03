@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common'
 import type { AddressInfo } from 'node:net'
 import {
   GAME_COMMAND,
+  GAME_COMPLETED,
   GAME_SNAPSHOT,
   GAME_STARTED,
   GamePhase,
@@ -21,6 +22,7 @@ import type {
   IGameSessionResolver,
   ResolvedAccount,
 } from './session/game-session.resolver'
+import { dealQuickWin, heroInHand, untilIdle } from './spec-helpers'
 
 // ---------------------------------------------------------------------------
 // The browser's door, driven by real socket.io clients against the real
@@ -328,6 +330,85 @@ describe('GameGateway', () => {
         alicesView = gameStarted(socket)
       })
       expect((await alicesView).state).toEqual(playerView(game, alice))
+    })
+  })
+
+  describe('the end, and leaving', () => {
+    /** Wins a quick-win table over the sockets; returns the seats' sockets. */
+    async function winOverSockets(table: string[]) {
+      const running = dealQuickWin(registry, table)
+      const ends: Record<string, Promise<GameSnapshot>> = {}
+      const at: Record<string, Socket> = {}
+      for (const id of table) {
+        at[id] = await connect(tokenOf(id), (socket) => {
+          ends[id] = new Promise((resolve) =>
+            socket.once(GAME_COMPLETED, resolve),
+          )
+        })
+      }
+      const active = playerView(running.game, table[0]).currentPlayerId!
+
+      await expect(
+        send(at[active], 'PlayHero', { cardId: heroInHand(running.game, active) }),
+      ).resolves.toMatchObject({ accepted: true })
+      await untilIdle(running.game)
+      await expect(send(at[active], 'EndTurn', {}, UUID_2)).resolves.toMatchObject({
+        accepted: true,
+      })
+
+      return { running, at, ends }
+    }
+
+    it('announces the end to every seat as game-completed with the final board', async () => {
+      const table = seats('alice', 'bob')
+      const { running, ends } = await winOverSockets(table)
+
+      const [a, b] = await Promise.all(table.map((id) => ends[id]))
+
+      expect(a.state.phase).toBe(GamePhase.Concluded)
+      expect(a.version).toBe(running.version)
+      expect(b.version).toBe(running.version)
+      expect(a.state).toEqual(playerView(running.game, table[0]))
+      expect(b.state).toEqual(playerView(running.game, table[1]))
+    })
+
+    it('refuses LeaveGame while the table is live', async () => {
+      const { active } = liveTable(seats('alice', 'bob'))
+
+      const socket = await connect(tokenOf(active))
+
+      await expect(send(socket, 'LeaveGame')).resolves.toEqual({
+        commandId: UUID,
+        accepted: false,
+        reason: RefusalReason.GameNotOver,
+      })
+    })
+
+    it('lets every seat leave after the end, then forgets the table', async () => {
+      const table = seats('alice', 'bob')
+      const { running, at, ends } = await winOverSockets(table)
+      await Promise.all(table.map((id) => ends[id]))
+      const LEAVE = '33333333-3333-4333-8333-333333333333'
+
+      await expect(send(at[table[0]], 'LeaveGame', {}, LEAVE)).resolves.toEqual({
+        commandId: LEAVE,
+        accepted: true,
+      })
+      expect(registry.get(running.game.gameId)).toBe(running)
+
+      await expect(send(at[table[1]], 'LeaveGame', {}, LEAVE)).resolves.toEqual({
+        commandId: LEAVE,
+        accepted: true,
+      })
+      expect(registry.get(running.game.gameId)).toBeUndefined()
+      // A retry of the leave that emptied the table is still answered.
+      await expect(send(at[table[1]], 'LeaveGame', {}, LEAVE)).resolves.toEqual({
+        commandId: LEAVE,
+        accepted: true,
+      })
+      // And the seats belong to no table now: the lobby has them back.
+      at[table[0]].disconnect()
+      await expect(connect(tokenOf(table[0]))).rejects.toThrow('No game assigned')
     })
   })
 

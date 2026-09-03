@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common'
-import { GamePhase } from 'shared'
-import type { GameConfig, GameConfigId } from 'shared'
+import { GamePhase, RefusalReason } from 'shared'
+import type { CardBase, GameConfig, GameConfigId, RequestResult } from 'shared'
 import { defaultGameConfig } from '../game/config/game-config'
+import { accepted, refused } from '../game/interfaces'
 import { createGame, startGame } from '../game/setup/create-game'
 import type { Game } from '../game/setup/create-game'
 import { playerView } from '../game/views/player-view'
@@ -20,8 +21,8 @@ const GAME_CONFIGS: Record<GameConfigId, GameConfig> = {
  * One session this process hosts: the engine's game plus what the transport
  * knows about it and the engine does not. Data, not behaviour — the gateway
  * and the publisher drive it. Who is seated is not stored here: it is
- * `game.playerOrder`, and whether the table has started is on the board
- * (`PlayerView.phase`), so neither can go stale.
+ * `game.playerOrder`; whether the table has started or ended is on the
+ * board (`PlayerView.phase`); so neither can go stale.
  */
 export type RunningGame = {
   game: Game
@@ -33,10 +34,26 @@ export type RunningGame = {
    */
   arrived: Set<string>
   /**
+   * Seats that have left the concluded table. When the last one has, the
+   * table is forgotten.
+   */
+  left: Set<string>
+  /**
    * Bumped by the snapshot publisher on every flush, sent with every
    * snapshot so a client can keep the newest of two that crossed.
    */
   version: number
+}
+
+/**
+ * A spec's hand on the deal: the printed pool and the config, the two
+ * things `createGame` lets a caller fix. The wire never carries either — a
+ * browser names a config id and the lobby names the seats — so this is how
+ * a test seats a table it can predict (plan §6).
+ */
+export type Deal = {
+  cards?: CardBase[]
+  config?: GameConfig
 }
 
 // ---------------------------------------------------------------------------
@@ -61,9 +78,21 @@ export class GameRegistryService {
    * arrive (`arrive`). Watched from birth: the publisher's listener joins
    * the emitter here, so no event of the table's life goes unobserved.
    */
-  create(accountIds: readonly string[], configId: GameConfigId): RunningGame {
-    const game = createGame(accountIds, { config: GAME_CONFIGS[configId] })
-    const running: RunningGame = { game, arrived: new Set(), version: 0 }
+  create(
+    accountIds: readonly string[],
+    configId: GameConfigId,
+    deal: Deal = {},
+  ): RunningGame {
+    const game = createGame(accountIds, {
+      config: deal.config ?? GAME_CONFIGS[configId],
+      cards: deal.cards,
+    })
+    const running: RunningGame = {
+      game,
+      arrived: new Set(),
+      left: new Set(),
+      version: 0,
+    }
     this.games.set(game.gameId, running)
     this.publisher.watch(running)
     return running
@@ -105,5 +134,25 @@ export class GameRegistryService {
 
     startGame(game)
     return true
+  }
+
+  /**
+   * A seat leaving a concluded table. Refused while the table is live — an
+   * active player cannot walk out (contract §6). When the last seat has
+   * left, the table is forgotten: a later handshake from any of its
+   * accounts finds no game, which is right, because the lobby has already
+   * cleared their assignments on `game.completed`.
+   */
+  leave(running: RunningGame, accountId: string): RequestResult {
+    const { game } = running
+    if (playerView(game, accountId).phase !== GamePhase.Concluded) {
+      return refused(RefusalReason.GameNotOver)
+    }
+
+    running.left.add(accountId)
+    if (game.playerOrder.every((seat) => running.left.has(seat))) {
+      this.games.delete(game.gameId)
+    }
+    return accepted()
   }
 }

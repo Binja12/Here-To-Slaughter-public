@@ -1,14 +1,18 @@
-import { GamePhase } from 'shared'
+import { Logger } from '@nestjs/common'
+import type { ClientProxy } from '@nestjs/microservices'
+import { of } from 'rxjs'
+import { GamePhase, RefusalReason } from 'shared'
 import type { Server } from 'socket.io'
 import { playerView } from '../game/views/player-view'
 import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
+import { dealQuickWin, winFirstTurn } from './spec-helpers'
 
 // Reads the table through `playerView` only — the same door a client has.
-// The publisher is real but pushes into the void: what it pushes is its own
-// spec's question, and a started table here would otherwise flush into an
-// unbound server.
+// The publisher is real but pushes into the void and tells no lobby: what it
+// pushes is its own spec's question, and a started table here would
+// otherwise flush into an unbound server.
 
 const ACCOUNTS = ['account-1', 'account-2', 'account-3']
 
@@ -16,11 +20,17 @@ const NOWHERE = {
   to: () => ({ emit: () => true }),
 } as unknown as Server
 
+const NO_LOBBY = { emit: () => of(undefined) } as unknown as ClientProxy
+
 describe('GameRegistryService', () => {
   let registry: GameRegistryService
 
+  beforeAll(() => {
+    Logger.overrideLogger(false)
+  })
+
   beforeEach(() => {
-    const publisher = new SnapshotPublisherService()
+    const publisher = new SnapshotPublisherService(NO_LOBBY)
     publisher.bind(NOWHERE)
     registry = new GameRegistryService(publisher)
   })
@@ -68,6 +78,13 @@ describe('GameRegistryService', () => {
     expect(registry.create(ACCOUNTS, 'default').version).toBe(0)
   })
 
+  it('lets a spec fix the deal, which the wire never can', () => {
+    const running = dealQuickWin(registry, ACCOUNTS)
+
+    expect(running.game.playerOrder).toEqual(ACCOUNTS)
+    expect(playerView(running.game, 'account-1').hand).toHaveLength(2)
+  })
+
   describe('arriving', () => {
     it('holds the table in Setup until every seat has arrived, then starts it once', () => {
       const running = registry.create(ACCOUNTS, 'default')
@@ -101,6 +118,35 @@ describe('GameRegistryService', () => {
 
       expect(registry.arrive(running, 'account-2')).toBe(false)
       expect(playerView(running.game, 'account-1').currentPlayerId).toBe(active)
+    })
+  })
+
+  describe('leaving', () => {
+    it('refuses to let a seat leave a live table', () => {
+      const running = registry.create(ACCOUNTS, 'default')
+      for (const accountId of ACCOUNTS) registry.arrive(running, accountId)
+
+      expect(registry.leave(running, 'account-1')).toEqual({
+        accepted: false,
+        reason: RefusalReason.GameNotOver,
+      })
+      expect(registry.get(running.game.gameId)).toBe(running)
+    })
+
+    it('lets every seat leave a concluded table, and forgets it after the last', async () => {
+      const running = dealQuickWin(registry, ACCOUNTS)
+      for (const accountId of ACCOUNTS) registry.arrive(running, accountId)
+      await winFirstTurn(running.game)
+      expect(phaseOf(running)).toBe(GamePhase.Concluded)
+
+      expect(registry.leave(running, 'account-2')).toEqual({ accepted: true })
+      expect(registry.leave(running, 'account-1')).toEqual({ accepted: true })
+      expect(registry.get(running.game.gameId)).toBe(running)
+      expect(registry.findByAccount('account-3')).toBe(running)
+
+      expect(registry.leave(running, 'account-3')).toEqual({ accepted: true })
+      expect(registry.get(running.game.gameId)).toBeUndefined()
+      expect(registry.findByAccount('account-1')).toBeUndefined()
     })
   })
 
