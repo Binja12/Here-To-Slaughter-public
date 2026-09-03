@@ -35,7 +35,7 @@ export class InternalGameController {
     }
 
     const { accountIds, gameConfig } = parsed.data
-    const game = this.registry.create(accountIds, gameConfig)
+    const { game } = this.registry.create(accountIds, gameConfig)
     return { gameId: game.gameId, webSocketUrl: this.webSocketUrl }
   }
 }

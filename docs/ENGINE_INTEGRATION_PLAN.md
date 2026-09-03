@@ -9,11 +9,17 @@ and 3-4 — the command contract (`shared/src/contracts/game-commands.ts`) and
 dependencies; the hybrid bootstrap (`main.game.ts`: HTTP 3001 with CORS for
 the socket, TCP 4001 for the lobby, addresses in `game-server.config.ts`);
 and §4.1 step 4's resolver (`session/`: `IGameSessionResolver` + the TCP
-adapter, tested against the real lobby auth controller). Not yet: the
-gateway itself, `findByAccount` and `RunningGame` state on the registry,
-start/complete lifecycle, `commandId` dedupe, snapshots out, `LeaveGame` on
-the wire (absent from the zod union), seat names (Q7). Decisions taken so
-far are in §9.
+adapter, tested against the real lobby auth controller); the registry's
+`RunningGame` and `findByAccount`; the gateway (`game.gateway.ts`:
+handshake in middleware, seat rooms, `game:command` with ack through the
+dispatcher, `commandId` dedupe in `command-ledger.ts`, resend of a live
+table on (re)connect) with `shared/src/contracts/game-snapshots.ts`, all
+driven by real socket.io clients in `game.gateway.spec.ts`; the start
+lifecycle (`GameRegistryService.arrive`: the arrival completing the table
+starts it, every seat hears `game-started` — Q5 answered). Not yet: the
+snapshot publisher, completion + `LeaveGame` on the wire (absent from the
+zod union), seat names (Q7), the capstone spec. Decisions taken so far are
+in §9.
 Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
 
@@ -115,7 +121,9 @@ server/src/
   game-server/
     game-server.module.ts      Nest root for the game process
     game-server.config.ts      every address read from env once (BUILT)
-    game-registry.service.ts   Map<gameId, RunningGame>; create / get / remove
+    game-registry.service.ts   Map<gameId, RunningGame>; create / get /
+                               findByAccount / arrive (BUILT) / remove
+    command-ledger.ts          per-seat memory of answered commandIds (BUILT)
     internal-game.controller.ts  @MessagePattern(CREATE_GAME_PATTERN)
     session/
       game-session.resolver.ts   interface IGameSessionResolver (BUILT)
@@ -128,16 +136,21 @@ server/src/
       snapshot-publisher.service.ts  emitter listener -> coalesce ->
                                      playerView per seat -> room emit
     game.gateway.ts            handshake auth, room join, `game:command`
-                               with ack, resend-on-reconnect, LeaveGame
+                               with ack, resend-on-reconnect (BUILT); LeaveGame
 shared/src/contracts/
   game-commands.ts             GameCommand envelope + payload schemas
-  game-snapshots.ts            GameSnapshot<PlayerView>, server event names
+  game-snapshots.ts            GameSnapshot<PlayerView>, event names (BUILT)
 ```
 
-`RunningGame` is data: `{ game: Game, accountIds, started: boolean,
-version: number, finished: boolean }`. Nothing in `game-server/` reads
-`game.gameState`; the four doors and the emitter are the whole surface, same
-constraint the play-through harness works under.
+`RunningGame` is data: `{ game: Game, arrived: Set<string>, version: number }`
+as built — smaller than first planned. `accountIds` is `game.playerOrder`,
+`started` is `PlayerView.phase !== Setup`, and `finished` will be the same
+read of `Concluded`; none of the three is stored, so none can drift from the
+board. `arrived` (which seats have connected once) is the one thing the
+board cannot know.
+Nothing in `game-server/` reads `game.gameState`; the four doors, the
+emitter and `playerView` are the whole surface, same constraint the
+play-through harness works under.
 
 Delete the three 0-byte placeholders; they have no readers.
 
@@ -158,9 +171,11 @@ Delete the three 0-byte placeholders; they have no readers.
    lobby) -> accountId -> `GameRegistry.findByAccount(accountId)`. No
    assignment -> connection refused. Joins room `${gameId}:${accountId}`.
 5. `startGame(game)` runs when every assigned account has connected once
-   (Q5). Then `game-started` with each seat's first snapshot. A reconnecting
-   socket gets `game-started` with the CURRENT snapshot — the view is whole
-   state, so reconnect is a resend, no replay.
+   (Q5, BUILT as `GameRegistryService.arrive`). Then `game-started` with
+   each seat's first snapshot, to each seat's room. A reconnecting socket
+   gets `game-started` with the CURRENT snapshot — the view is whole state,
+   so reconnect is a resend, no replay. A seat still waiting for the others
+   hears nothing.
 
 ### 4.2 Commands in
 
@@ -290,9 +305,8 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   dice animation from raw events; the view has the numbers, the animation
   becomes a client diff. Confirm, or ask for an audience-filtered event
   feed now.
-- **Q5 Start timing.** Start the engine when every seat has connected once
-  (recommended; it is what the deal/start split exists for), or at creation.
-  No-show timeout is deferred either way.
+- ~~Q5 Start timing~~ — answered 2026-09-03: every seat connected once
+  (§9). No-show timeout deferred (§10).
 - **Q6 Validation.** Add `zod` for wire schemas, as the contract proposed,
   or hand-written guards. Recommended zod; one schema per command type is
   the whole file.
@@ -441,6 +455,51 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   pointed the other way (5 s timeout), registered lazily so the game process
   boots without the lobby up. Its spec boots the real `AppModule` over TCP
   and mints sessions with the real `AuthService`, both halves live.
+- **The handshake is Socket.IO middleware, not `handleConnection`**
+  (2026-09-03, items 4-5). Middleware runs BEFORE the connection exists: a
+  refused browser gets `connect_error` with the reason (`Authentication
+  required`, `No game assigned`, `Lobby unavailable`), and a seated socket
+  can never emit a command unseated — there is no window in which a
+  connected socket has no identity, so the command handler's "no seat"
+  branch is a THROW (bypassed middleware is a coding bug), not a refusal.
+  The cookie is read off the raw header (`session/handshake-cookie.ts`):
+  a handshake is not an Express request, so `cookie-parser` never sees it.
+  The cookie name is imported from `auth/session-cookie.ts` — one string,
+  one owner, though it is arguably contract vocabulary for `shared`.
+- **A table is found by ACCOUNT, never by game id from the wire.** The
+  socket arrives knowing only who it is; `GameRegistryService.findByAccount`
+  finds the one table that account was dealt into (the lobby never seats an
+  account twice). A room per seat, `${gameId}:${accountId}`, so many tabs of
+  one account are one audience.
+- **Dedupe is per SEAT and survives a reconnect.** The retry that matters
+  follows a dropped socket and arrives on a new connection, so
+  `CommandLedger` keys by seat, not by connection: the last 64 answers per
+  seat, insertion-ordered. A malformed envelope with a readable `commandId`
+  is remembered too — the repeat gets the same `InternalError`.
+- **`Setup` IS the seats arriving, and the last arrival starts the table**
+  (Q5, the owner, 2026-09-03: "the game starts only after all players are
+  connected"). `RunningGame.arrived` is the set of seats that have connected
+  at least once — transport state the board cannot know, so it is stored —
+  and `GameRegistryService.arrive` returns true exactly once, on the arrival
+  that completes it, having called `startGame`. The gateway then emits
+  `game-started` to EVERY seat's room with that seat's own view; the socket
+  that completed the table hears it through its room like the rest. A seat
+  that arrived and dropped still counts: the table does not wait for it
+  twice, it reconnects to a live game. A seat still waiting hears nothing.
+  A command sent to an unstarted table reaches the engine and THROWS there
+  (turn phase not `Action`), which the dispatcher answers as
+  `InternalError`: a correct client never sends one, since the view says
+  `phase: Setup` and names no current player. A seat that never arrives
+  holds the table in `Setup` for ever — the no-show timer that abandons it
+  is the owner's flagged edge case, deferred (§10).
+- **`RunningGame` is `{ game, arrived, version }`.** Seats, started and
+  finished are all readable off `game.playerOrder` and `PlayerView.phase`,
+  and a stored copy could only disagree with the board; `arrived` and
+  `version` are the two things the board does not know.
+- **`shared/src/contracts/game-snapshots.ts` exists**: the three server
+  event names, `GAME_COMMAND`, and `GameSnapshot<TState = PlayerView>`
+  with a per-game monotonic `version` that every seat's snapshot of one
+  flush shares.
 
 ## 10. Deferred (recorded so they are not reinvented)
 

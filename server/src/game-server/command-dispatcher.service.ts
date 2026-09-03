@@ -184,8 +184,12 @@ export class CommandDispatcherService {
   }
 }
 
-/** The id off an envelope that failed the schema, when it at least has one. */
-function commandIdOf(raw: unknown): string | undefined {
+/**
+ * The id off an envelope before it is trusted, when it at least has one —
+ * for the answer to a malformed command, and for the gateway to recognise a
+ * retry without parsing the envelope twice.
+ */
+export function commandIdOf(raw: unknown): string | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   const { commandId } = raw as { commandId?: unknown }
   return typeof commandId === 'string' ? commandId : undefined

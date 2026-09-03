@@ -5,3 +5,4 @@ export * from "./views";
 export * from "./contracts/internal-auth";
 export * from "./contracts/internal-game";
 export * from "./contracts/game-commands";
+export * from "./contracts/game-snapshots";

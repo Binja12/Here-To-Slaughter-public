@@ -45,11 +45,14 @@ describe('InternalGameController TCP contract', () => {
 
     expect(typeof result.gameId).toBe('string')
     expect(result.webSocketUrl).toBe(PUBLIC_URL)
-    const game = app
+    const running = app
       .get<GameRegistryService>(GameRegistryService)
       .get(result.gameId)
-    expect(game).toBeDefined()
-    expect([...game!.playerOrder].sort()).toEqual(['account-1', 'account-2'])
+    expect(running).toBeDefined()
+    expect([...running!.game.playerOrder].sort()).toEqual([
+      'account-1',
+      'account-2',
+    ])
   })
 
   it('hosts every game created on the one url', async () => {

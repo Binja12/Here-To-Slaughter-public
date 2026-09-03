@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { CommandDispatcherService } from './command-dispatcher.service'
+import { GameGateway } from './game.gateway'
 import { GameRegistryService } from './game-registry.service'
 import { gameServerConfig } from './game-server.config'
 import {
@@ -32,6 +33,7 @@ import {
   providers: [
     GameRegistryService,
     CommandDispatcherService,
+    GameGateway,
     TcpSessionResolver,
     {
       provide: GAME_SESSION_RESOLVER,
