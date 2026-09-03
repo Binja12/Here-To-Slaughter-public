@@ -5,6 +5,7 @@ import { defaultGameConfig } from '../game/config/game-config'
 import { createGame, startGame } from '../game/setup/create-game'
 import type { Game } from '../game/setup/create-game'
 import { playerView } from '../game/views/player-view'
+import { SnapshotPublisherService } from './snapshot-publisher.service'
 
 /**
  * Every config id the wire may name, and the config it stands for. Keyed by
@@ -52,15 +53,19 @@ export type RunningGame = {
 export class GameRegistryService {
   private readonly games = new Map<string, RunningGame>()
 
+  constructor(private readonly publisher: SnapshotPublisherService) {}
+
   /**
    * Deals a table seating exactly these accounts and holds it. NOT started:
    * the first turn is a point of no return, and it waits for every seat to
-   * arrive (`arrive`).
+   * arrive (`arrive`). Watched from birth: the publisher's listener joins
+   * the emitter here, so no event of the table's life goes unobserved.
    */
   create(accountIds: readonly string[], configId: GameConfigId): RunningGame {
     const game = createGame(accountIds, { config: GAME_CONFIGS[configId] })
     const running: RunningGame = { game, arrived: new Set(), version: 0 }
     this.games.set(game.gameId, running)
+    this.publisher.watch(running)
     return running
   }
 

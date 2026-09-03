@@ -1,17 +1,28 @@
 import { GamePhase } from 'shared'
+import type { Server } from 'socket.io'
 import { playerView } from '../game/views/player-view'
 import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
+import { SnapshotPublisherService } from './snapshot-publisher.service'
 
 // Reads the table through `playerView` only — the same door a client has.
+// The publisher is real but pushes into the void: what it pushes is its own
+// spec's question, and a started table here would otherwise flush into an
+// unbound server.
 
 const ACCOUNTS = ['account-1', 'account-2', 'account-3']
+
+const NOWHERE = {
+  to: () => ({ emit: () => true }),
+} as unknown as Server
 
 describe('GameRegistryService', () => {
   let registry: GameRegistryService
 
   beforeEach(() => {
-    registry = new GameRegistryService()
+    const publisher = new SnapshotPublisherService()
+    publisher.bind(NOWHERE)
+    registry = new GameRegistryService(publisher)
   })
 
   const phaseOf = (running: RunningGame) =>

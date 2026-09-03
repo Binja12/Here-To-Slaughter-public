@@ -8,7 +8,7 @@ import {
 } from '@nestjs/websockets'
 import type { OnGatewayConnection, OnGatewayInit } from '@nestjs/websockets'
 import { GAME_COMMAND, GAME_STARTED, GamePhase, INTERNAL_ERROR } from 'shared'
-import type { CommandResult, GameSnapshot, PlayerView } from 'shared'
+import type { CommandResult } from 'shared'
 import type { Server, Socket } from 'socket.io'
 import { SESSION_COOKIE_NAME } from '../auth/session-cookie'
 import { playerView } from '../game/views/player-view'
@@ -18,23 +18,18 @@ import {
 } from './command-dispatcher.service'
 import { CommandLedger } from './command-ledger'
 import { GameRegistryService } from './game-registry.service'
-import type { RunningGame } from './game-registry.service'
 import { gameServerCors } from './game-server.config'
+import { seatRoom } from './seat'
+import type { Seat } from './seat'
 import { GAME_SESSION_RESOLVER } from './session/game-session.resolver'
 import type { IGameSessionResolver } from './session/game-session.resolver'
 import { readCookie } from './session/handshake-cookie'
-
-/** What a socket IS once seated: bound at the handshake, read by everything after. */
-export type Seat = {
-  gameId: string
-  accountId: string
-}
+import {
+  SnapshotPublisherService,
+  snapshotOf,
+} from './snapshot-publisher.service'
 
 type SeatSocket = Socket & { data: { seat?: Seat } }
-
-/** The room one seat's snapshots go to. One seat, one room, any number of tabs. */
-export const seatRoom = (seat: Seat): string =>
-  `${seat.gameId}:${seat.accountId}`
 
 // Handshake refusals. Wording matches the lobby's HTTP guard where the
 // situation is the same.
@@ -61,7 +56,7 @@ const LOBBY_UNAVAILABLE = 'Lobby unavailable'
 //   3. Answer commands — dedupe by command id, dispatch, ack truthfully.
 //
 // Pushing snapshots after the board changes is the publisher's job, not
-// this file's.
+// this file's; the gateway only hands it the server it pushes through.
 // ---------------------------------------------------------------------------
 
 @WebSocketGateway({ cors: gameServerCors })
@@ -75,11 +70,13 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
   constructor(
     private readonly registry: GameRegistryService,
     private readonly dispatcher: CommandDispatcherService,
+    private readonly publisher: SnapshotPublisherService,
     @Inject(GAME_SESSION_RESOLVER)
     private readonly sessions: IGameSessionResolver,
   ) {}
 
   afterInit(server: Server): void {
+    this.publisher.bind(server)
     server.use((socket: SeatSocket, next) => {
       this.seat(socket).then(
         (seat) => {
@@ -106,14 +103,15 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
       for (const accountId of running.game.playerOrder) {
         this.server
           .to(seatRoom({ gameId: seat.gameId, accountId }))
-          .emit(GAME_STARTED, snapshot(running, accountId))
+          .emit(GAME_STARTED, snapshotOf(running, accountId))
       }
       return
     }
 
-    const state = playerView(running.game, seat.accountId)
-    if (state.phase === GamePhase.Setup) return
-    socket.emit(GAME_STARTED, snapshot(running, seat.accountId, state))
+    if (playerView(running.game, seat.accountId).phase === GamePhase.Setup) {
+      return
+    }
+    socket.emit(GAME_STARTED, snapshotOf(running, seat.accountId))
   }
 
   @SubscribeMessage(GAME_COMMAND)
@@ -172,12 +170,4 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
 
     return { gameId: running.game.gameId, accountId: account.accountId }
   }
-}
-
-function snapshot(
-  running: RunningGame,
-  accountId: string,
-  state: PlayerView = playerView(running.game, accountId),
-): GameSnapshot {
-  return { gameId: running.game.gameId, version: running.version, state }
 }

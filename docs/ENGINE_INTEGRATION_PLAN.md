@@ -16,10 +16,12 @@ dispatcher, `commandId` dedupe in `command-ledger.ts`, resend of a live
 table on (re)connect) with `shared/src/contracts/game-snapshots.ts`, all
 driven by real socket.io clients in `game.gateway.spec.ts`; the start
 lifecycle (`GameRegistryService.arrive`: the arrival completing the table
-starts it, every seat hears `game-started` — Q5 answered). Not yet: the
-snapshot publisher, completion + `LeaveGame` on the wire (absent from the
-zod union), seat names (Q7), the capstone spec. Decisions taken so far are
-in §9.
+starts it, every seat hears `game-started` — Q5 answered); §4.3 steps 1-3,
+the snapshot publisher (`snapshot-publisher.service.ts`: mark on every
+event, one flush per burst on `setImmediate`, `version + 1`, one view per
+seat to its room). Not yet: completion (§4.3 step 4) + `LeaveGame` on the
+wire (absent from the zod union), seat names (Q7), the capstone spec.
+Decisions taken so far are in §9.
 Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
 
@@ -124,6 +126,10 @@ server/src/
     game-registry.service.ts   Map<gameId, RunningGame>; create / get /
                                findByAccount / arrive (BUILT) / remove
     command-ledger.ts          per-seat memory of answered commandIds (BUILT)
+    seat.ts                    Seat + seatRoom, shared by gateway and publisher (BUILT)
+    snapshot-publisher.service.ts  emitter listener -> coalesce ->
+                               playerView per seat -> room emit (BUILT; the
+                               `projection/` folder was not worth a level)
     internal-game.controller.ts  @MessagePattern(CREATE_GAME_PATTERN)
     session/
       game-session.resolver.ts   interface IGameSessionResolver (BUILT)
@@ -132,9 +138,6 @@ server/src/
     commands/
       command-dispatcher.service.ts  command -> IAction | IReaction | choice
                                      -> engine door -> CommandResult
-    projection/
-      snapshot-publisher.service.ts  emitter listener -> coalesce ->
-                                     playerView per seat -> room emit
     game.gateway.ts            handshake auth, room join, `game:command`
                                with ack, resend-on-reconnect (BUILT); LeaveGame
 shared/src/contracts/
@@ -219,6 +222,8 @@ because the dispatcher is the one place a queue would go.
 
 1. `SnapshotPublisher` adds ONE listener to the game's emitter, after
    `createGame` (so after `TaskManager` and `GameEngine`, preserving §8).
+   BUILT: `GameRegistryService.create` calls `publisher.watch(running)`, so
+   a table is observed from birth and no path can create one unwatched.
 2. It does NOT project inside `onEvent`. Emission is synchronous and
    re-entrant: a listener can run in the middle of a step, between "card
    left hand" and "card joined party", and a snapshot taken there is a
@@ -227,7 +232,7 @@ because the dispatcher is the one place a queue would go.
    seat, taken after the burst, and a window lapsing on its timer produces
    a push with no command at all.
 3. Flush: `version++`, then for each seat `playerView(game, seat)` ->
-   `game:snapshot { gameId, version, state }` to that seat's room.
+   `game:snapshot { gameId, version, state }` to that seat's room. BUILT.
 4. `GameEnded` -> `finished = true`, `game-completed` to every seat, TCP
    `emit(GAME_COMPLETED_PATTERN, { gameId })` to the lobby (exists on the
    receiving side). Accept `LeaveGame`; when the last seat has left, remove
@@ -500,6 +505,43 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   event names, `GAME_COMMAND`, and `GameSnapshot<TState = PlayerView>`
   with a per-game monotonic `version` that every seat's snapshot of one
   flush shares.
+- **Snapshots are event-triggered, coalesced per BURST, never on a clock**
+  (2026-09-03, item 7, talked through with the owner). His instinct was one
+  snapshot per game event; the adjustment is that the snapshot is not
+  built INSIDE the event. One command is many synchronous events, and
+  emission is re-entrant, so a listener can see the board between two
+  halves of one step. The publisher therefore marks dirty on every event —
+  no filtering by type; which changes a seat may see is the view's
+  knowledge, and a copy here could disagree — and flushes once on
+  `setImmediate`, the first moment the stack that entered the engine has
+  unwound. That moment is always a resting point: idle, or paused on a
+  window. Snowball's mid-run confirm is the case that shows why this is
+  enough: a window opening ENDS the burst, because the pipeline pauses and
+  hands control back, so the flush shows the window open with its detail
+  and options; the answer starts a second burst and a second flush. The
+  burst is not tracked — Node runs each entry as one uninterrupted stack —
+  so ONE flag, "a flush is pending", is the whole mechanism. It began as
+  two (`dirty` + `scheduled`) until the owner asked why the event handler
+  did not just return when already dirty: the two were always equal, since
+  flushing builds views and emits nothing back into the engine, and a flag
+  that always equals another is one flag written twice. Not built on
+  purpose: a diff against the last snapshot to skip identical pushes (the
+  board is small, and a client redraws the same screen). Minecraft's fixed
+  20 TPS was the comparison: right for a world that moves on its own, wrong
+  for a table that only moves on a click or a timer.
+- **The publisher is bound to the Socket.IO server by the gateway** in
+  `afterInit`, since only a gateway class can own the server in Nest, and
+  it THROWS if asked to flush before that — a table cannot exist before
+  boot, so an unbound flush is a wiring bug. Specs that never open a socket
+  bind a server that pushes into the void.
+- **`game-started` at start, then `game:snapshot` right behind it.** The
+  start's own events (`GameStarted`, `TurnStarted`) mark the table dirty,
+  so the completing arrival sends `game-started` (version as it stands)
+  and the flush follows with `version + 1` of the same board. Harmless
+  under "highest version wins", and it keeps one rule for every push.
+- **`seatRoom` moved to `seat.ts`**: the gateway and the publisher both
+  address rooms, and a value import between the two was a runtime cycle
+  through Nest's decorator metadata.
 
 ## 10. Deferred (recorded so they are not reinvented)
 

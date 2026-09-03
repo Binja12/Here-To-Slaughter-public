@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common'
 import type { AddressInfo } from 'node:net'
 import {
   GAME_COMMAND,
+  GAME_SNAPSHOT,
   GAME_STARTED,
   GamePhase,
   INTERNAL_ERROR,
@@ -238,6 +239,36 @@ describe('GameGateway', () => {
       })
     })
 
+    it('is followed by one snapshot to every seat, each its own view', async () => {
+      const table = seats('alice', 'bob')
+      const { running, active } = liveTable(table)
+      const waiting = table.find((id) => id !== active)!
+      const snapshots: Record<string, Promise<GameSnapshot>> = {}
+      const listen = (id: string) => (socket: Socket) => {
+        snapshots[id] = new Promise((resolve) =>
+          socket.once(GAME_SNAPSHOT, resolve),
+        )
+      }
+      const actor = await connect(tokenOf(active), listen(active))
+      await connect(tokenOf(waiting), listen(waiting))
+      const before = running.version
+
+      await send(actor, 'DrawCard')
+      const [mine, theirs] = await Promise.all([
+        snapshots[active],
+        snapshots[waiting],
+      ])
+
+      expect(mine.version).toBe(before + 1)
+      expect(theirs.version).toBe(before + 1)
+      expect(mine.state).toEqual(playerView(running.game, active))
+      expect(theirs.state).toEqual(playerView(running.game, waiting))
+      expect(mine.state.hand).toHaveLength(6)
+      expect(
+        theirs.state.seats.find((s) => s.playerId === active)?.handCount,
+      ).toBe(6)
+    })
+
     it('keeps two tables in one process apart', async () => {
       const first = liveTable(seats('alice', 'bob'))
       const second = liveTable(seats('carol', 'dave'))
@@ -312,7 +343,9 @@ describe('GameGateway', () => {
       const { gameId, version, state } = await arrived
 
       expect(gameId).toBe(running.game.gameId)
-      expect(version).toBe(0)
+      // The start's own events were flushed already; the resend says so.
+      expect(version).toBe(running.version)
+      expect(version).toBeGreaterThan(0)
       expect(state.playerId).toBe(alice)
       expect(state.phase).toBe(GamePhase.Turns)
       expect(state.hand).toHaveLength(5)

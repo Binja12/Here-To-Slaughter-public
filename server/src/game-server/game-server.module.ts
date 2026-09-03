@@ -13,6 +13,7 @@ import {
   LOBBY_TCP_CLIENT,
   TcpSessionResolver,
 } from './session/tcp-session.resolver'
+import { SnapshotPublisherService } from './snapshot-publisher.service'
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import {
   providers: [
     GameRegistryService,
     CommandDispatcherService,
+    SnapshotPublisherService,
     GameGateway,
     TcpSessionResolver,
     {
