@@ -1,14 +1,9 @@
-import {
-  CardType,
-  GameEventType,
-  IGameEvent,
-  ReactionType,
-  ReactionWindowType,
-} from 'shared'
+import { CardType, GameEventType, IGameEvent, ReactionType, ReactionWindowType, RefusalReason } from 'shared'
 import { PlayModifierReaction } from './play-modifier-reaction'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import {
+  CTX_CHOSEN_VALUE,
   CTX_MODIFIER_TARGET,
   NO_CONTEXT_RESULT,
 } from '../abilities/ability-context'
@@ -17,16 +12,16 @@ import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import { ModifierCard } from '../cards/modifier-card'
-import { IModifiableWindow, IReactionWindow } from '../interfaces'
+import { accepted, IModifiableWindow, IReactionWindow, refused } from '../interfaces'
 import { ModifierWindow } from './modifier-window'
 
 // ---------------------------------------------------------------------------
 // PlayModifierReaction — the PLAY, and nothing else.
 //
 // What the card is WORTH is its own registry entry (modifier-ability.ts). This
-// spends the card, keeps the roll alive and announces it. The value used to
-// arrive here as a constructor argument off a socket, compared with nothing;
-// there is no value here at all any more.
+// verifies the value the play names against the card's printed values,
+// spends the card, keeps the roll alive and announces it with the value on
+// board.
 // ---------------------------------------------------------------------------
 
 const MOD = 'modifier-077'
@@ -87,7 +82,8 @@ const makeStubWindow = (
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => 0,
-  acceptsModifierFor: (playerId: string) => playerId === rollerId,
+  acceptsModifierFor: (playerId: string) =>
+    playerId === rollerId ? accepted() : refused(RefusalReason.TargetNotRolling),
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,
 })
@@ -98,8 +94,8 @@ const openFrame = (gs: GameState, stub: IReactionWindow) => {
   return frameId
 }
 
-const makeReaction = (targetPlayerId = 'p1') =>
-  new PlayModifierReaction('r1', 'p1', MOD, targetPlayerId)
+const makeReaction = (targetPlayerId = 'p1', value = 2) =>
+  new PlayModifierReaction('r1', 'p1', MOD, targetPlayerId, value)
 
 describe('PlayModifierReaction — target must be the roller', () => {
   let gs: GameState
@@ -126,21 +122,32 @@ describe('PlayModifierReaction — target must be the roller', () => {
 
   it('canExecute is true when the target IS the roller', () => {
     openRealWindow('p1')
-    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p1').canExecute(gs)).toBe(
-      true,
-    )
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p1', 2).canExecute(gs)).toEqual({ accepted: true })
   })
 
   it('canExecute is false when the target is not the roller', () => {
     openRealWindow('p1')
-    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p2').canExecute(gs)).toBe(
-      false,
-    )
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p2', 2).canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.TargetNotRolling })
+  })
+
+  it('refuses a value the card does not print — the player named it, the card decides', () => {
+    openRealWindow('p1')
+    expect(
+      new PlayModifierReaction('r1', 'p2', MOD, 'p1', 99).canExecute(gs),
+    ).toEqual({ accepted: false, reason: RefusalReason.ValueNotOnCard })
+  })
+
+  it('refuses a card that is not a modifier', () => {
+    openRealWindow('p1')
+    gs.getPlayer('p2')!.addToHand('hero-x')
+    expect(
+      new PlayModifierReaction('r1', 'p2', 'hero-x', 'p1', 2).canExecute(gs),
+    ).toEqual({ accepted: false, reason: RefusalReason.NotAModifier })
   })
 
   it('a refused modifier is NOT burned — execute() spends before anything lands', () => {
     openRealWindow('p1')
-    const r = new PlayModifierReaction('r1', 'p2', MOD, 'p2')
+    const r = new PlayModifierReaction('r1', 'p2', MOD, 'p2', 2)
 
     if (r.canExecute(gs)) r.execute(gs, em)
 
@@ -174,18 +181,18 @@ describe('PlayModifierReaction', () => {
   })
 
   it('canExecute returns false when no modifier frame is open', () => {
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoModifiableWindow })
   })
 
   it('canExecute returns false when card not in player hand', () => {
     gs.getPlayer('p1')!.removeFromHand(MOD)
     openFrame(gs, makeStubWindow())
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.CardNotInHand })
   })
 
   it('canExecute returns true when frame is open and card is in hand', () => {
     openFrame(gs, makeStubWindow())
-    expect(makeReaction().canExecute(gs)).toBe(true)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: true })
   })
 
   describe('execute', () => {
@@ -249,24 +256,25 @@ describe('PlayModifierReaction', () => {
       )
       expect(played).toHaveLength(1)
       expect(played[0].getPlayerId()).toBe('p1')
-      // No value: the card's own entry decides that. The target rides across
-      // as ctxSeed, because that entry runs with a fresh context.
+      // The target and the value ride across as ctxSeed, because the card's
+      // entry runs with a fresh context.
       expect(played[0].getPayload()).toEqual({
         cardId: MOD,
         targetPlayerId: 'p1',
-        ctxSeed: { [CTX_MODIFIER_TARGET]: ['p1'] },
+        value: 2,
+        ctxSeed: { [CTX_MODIFIER_TARGET]: ['p1'], [CTX_CHOSEN_VALUE]: [2] },
       })
     })
 
     it('does NOT submit anything to the window', () => {
       makeReaction('p2').execute(gs, em)
-      // ApplyModifierTask does, once the card has chosen a value.
+      // ApplyModifierTask does, from the card's own entry.
       expect(stub.submitReaction).not.toHaveBeenCalled()
     })
 
     it('keeps the window alive while the card resolves', () => {
       makeReaction().execute(gs, em)
-      // The submission used to reset the timer; it now arrives a choice later.
+      // The bonus lands from the card's entry, not from here.
       expect(stub.cardSpent).toHaveBeenCalled()
     })
 

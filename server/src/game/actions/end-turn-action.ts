@@ -1,5 +1,5 @@
-import { ActionType } from 'shared'
-import { IAction } from '../interfaces'
+import { ActionType, RequestResult } from 'shared'
+import { accepted, IAction } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 
 const COST = 0
@@ -36,12 +36,12 @@ export class EndTurnAction implements IAction {
     return false
   }
 
-  canExecute(gs: GameState): boolean {
-    return gs.getPlayer(this.playerId) !== undefined
+  canExecute(gs: GameState): RequestResult {
+    gs.requirePlayer(this.playerId)
+    return accepted()
   }
 
   execute(gs: GameState): void {
-    const player = gs.getPlayer(this.playerId)!
-    player.decreaseActionPoints(player.getActionPoints())
+    gs.decreaseActionPoints(this.playerId, gs.getActionPoints(this.playerId))
   }
 }

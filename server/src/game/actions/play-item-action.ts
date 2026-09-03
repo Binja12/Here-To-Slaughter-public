@@ -1,5 +1,5 @@
-import { ActionType } from 'shared'
-import { IAction } from '../interfaces'
+import { ActionType, RefusalReason, RequestResult } from 'shared'
+import { IAction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { PlayItem } from '../tasks/item-tasks'
 import { ReactionManager } from '../pipelines/reaction-manager'
@@ -40,19 +40,23 @@ export class PlayItemAction extends PlayItem implements IAction {
   getCost(): number {
     return COST
   }
-  isReactable(): boolean { return true }
+  isReactable(): boolean {
+    return true
+  }
 
-  canExecute(gs: GameState): boolean {
-    const player = gs.getPlayer(this.playerId)
-    if (!player) return false
-    if (player.getActionPoints() < COST) return false
-    if (!player.getHand().includes(this.cardId)) return false
+  canExecute(gs: GameState): RequestResult {
+    if (gs.getActionPoints(this.playerId) < COST) {
+      return refused(RefusalReason.NoActionPoints)
+    }
+    if (!gs.hasInHand(this.playerId, this.cardId)) {
+      return refused(RefusalReason.CardNotInHand)
+    }
 
     return this.canEquip(gs, this.playerId, this.cardId, this.targetHeroId)
   }
 
   execute(gs: GameState): void {
-    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    gs.decreaseActionPoints(this.playerId, COST)
     this.playItem(
       gs,
       this.playerId,

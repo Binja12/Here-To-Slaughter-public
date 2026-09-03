@@ -17,17 +17,28 @@ export enum HeroClass {
   Bard = "Bard",
 }
 
+/**
+ * The game's state, for the table and for the outside (`PlayerView.phase`).
+ * Held on the board, moved by GameEngine.
+ */
 export enum GamePhase {
+  /** Dealt, `startGame` not yet run. */
   Setup = "Setup",
-  Playthrough = "Playthrough",
-  EndGame = "EndGame",
+  /** Turns are being played. */
+  Turns = "Turns",
+  /** `GameEnded` went out and no turn follows. Requests are refused `GameOver`. */
+  Concluded = "Concluded",
 }
 
+/**
+ * Where TurnManager is inside one turn. Engine logic only — never shown to a
+ * player. End and the next Start run in one synchronous call, so nothing from
+ * outside can arrive between them.
+ */
 export enum TurnPhase {
-  TurnStart = "TurnStart",
-  ActionWindow = "ActionWindow",
-  ReactionWindow = "ReactionWindow",
-  TurnEnd = "TurnEnd",
+  Start = "Start",
+  Action = "Action",
+  End = "End",
 }
 
 export enum ReactionWindowType {
@@ -323,4 +334,57 @@ export enum ActionType {
 export enum ReactionType {
   ApplyModifier = "ApplyModifier",
   Challenge = "Challenge",
+}
+
+/**
+ * Why a player request was refused. A CODE, never a sentence: the client
+ * branches on it and the transport words it, in one place. `RequestResult` in
+ * types.ts carries it. Grouped by which door or check hands it back.
+ */
+export enum RefusalReason {
+  // TurnManager.enqueue, before the action is asked anything
+  GameOver = "GameOver",
+  NotYourTurn = "NotYourTurn",
+  Busy = "Busy",
+  // any action or reaction
+  NoActionPoints = "NoActionPoints",
+  CardNotInHand = "CardNotInHand",
+  // DrawCard
+  HandFull = "HandFull",
+  DeckEmpty = "DeckEmpty",
+  // RollOnHero, RollOnLeader
+  HeroNotInParty = "HeroNotInParty",
+  NotYourLeader = "NotYourLeader",
+  AbilityAlreadyUsed = "AbilityAlreadyUsed",
+  HeroEffectSealed = "HeroEffectSealed",
+  // PlayItem — the halves of `canEquip`
+  NotAnItem = "NotAnItem",
+  NotAHero = "NotAHero",
+  HeroAlreadyEquipped = "HeroAlreadyEquipped",
+  NotYourHero = "NotYourHero",
+  // AttackMonster — the halves of `GameState.canAttackMonster`
+  MonsterNotInRow = "MonsterNotInRow",
+  PartyRequirementUnmet = "PartyRequirementUnmet",
+  // Challenge
+  AlreadyChallengedThisTurn = "AlreadyChallengedThisTurn",
+  NoChallengeWindow = "NoChallengeWindow",
+  ChallengeAlreadyStarted = "ChallengeAlreadyStarted",
+  ChallengeNotStarted = "ChallengeNotStarted",
+  // ApplyModifier — no window, or the open window's own answer
+  NoModifiableWindow = "NoModifiableWindow",
+  /** Aimed at somebody who is not the one rolling. */
+  TargetNotRolling = "TargetNotRolling",
+  /** Aimed at somebody who is neither challenger nor defender. */
+  TargetNotInChallenge = "TargetNotInChallenge",
+  /** The card named is not a modifier card. */
+  NotAModifier = "NotAModifier",
+  /** The value sent is not one printed on the card. */
+  ValueNotOnCard = "ValueNotOnCard",
+  // SubmitChoice — the windows
+  NoSuchWindow = "NoSuchWindow",
+  WrongRespondent = "WrongRespondent",
+  NotAnOption = "NotAnOption",
+  // LeaveGame — the game server's own guard, not an engine one: a seat may
+  // leave only a concluded table. An active player cannot walk out.
+  GameNotOver = "GameNotOver",
 }

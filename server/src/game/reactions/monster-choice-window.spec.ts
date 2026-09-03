@@ -1,11 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  ReactionWindowType,
-  RollCompareMode,
-} from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason, RollCompareMode } from 'shared'
 import { MonsterChoiceWindow } from './monster-choice-window'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -136,13 +129,13 @@ describe('MonsterChoiceWindow', () => {
     const breakTheParty = (gs: GameState, em: GameEventEmitter) =>
       gs.getParty('p1').removeHero('hero-0', em, 'Stolen')
 
-    it('THROWS rather than being silently dropped', () => {
+    it('THROWS — an offered option that went illegal is an engine mistake, not a refusal', () => {
       const { gs, em } = setup([HeroClass.Bard, HeroClass.Thief])
       const win = makeWindow(gs, em)
       breakTheParty(gs, em)
 
       expect(() => win.submitReaction('p1', { choice: 'monster-1' })).toThrow(
-        /no longer a legal choice/,
+        /offered and is no longer legal/,
       )
     })
 
@@ -171,21 +164,24 @@ describe('MonsterChoiceWindow', () => {
     })
   })
 
-  it('a choice that was never offered is refused silently, not thrown', () => {
+  it('a choice that was never offered is refused as such', () => {
     const { gs, em } = setup([HeroClass.Bard, HeroClass.Thief])
     const win = makeWindow(gs, em)
 
-    expect(() =>
-      win.submitReaction('p1', { choice: 'monster-not-offered' }),
-    ).not.toThrow()
+    expect(win.submitReaction('p1', { choice: 'monster-not-offered' })).toEqual(
+      { accepted: false, reason: RefusalReason.NotAnOption },
+    )
     expect(win.isOpen()).toBe(true)
   })
 
-  it('a submission from another player is refused silently', () => {
+  it('a submission from another player is refused as such', () => {
     const { gs, em } = setup([HeroClass.Bard, HeroClass.Thief])
     const win = makeWindow(gs, em)
 
-    expect(() => win.submitReaction('p2', { choice: 'monster-1' })).not.toThrow()
+    expect(win.submitReaction('p2', { choice: 'monster-1' })).toEqual({
+      accepted: false,
+      reason: RefusalReason.WrongRespondent,
+    })
     expect(win.isOpen()).toBe(true)
   })
 

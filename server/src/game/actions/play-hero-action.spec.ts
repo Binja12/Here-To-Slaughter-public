@@ -1,10 +1,4 @@
-import {
-  ActionType,
-  CardType,
-  GameEventType,
-  HeroClass,
-  ReactionWindowType,
-} from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, ReactionWindowType, RefusalReason } from 'shared'
 import { PlayHeroAction } from './play-hero-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -109,12 +103,12 @@ describe('PlayHeroAction', () => {
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.setCurrentPlayerId('p1')
       const rm = new ReactionManager(emptyGs, emitter)
       const action = new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
-      expect(action.canExecute(emptyGs)).toBe(false)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
     it('returns false when player has insufficient action points', () => {
@@ -124,7 +118,7 @@ describe('PlayHeroAction', () => {
       gs2.setCurrentPlayerId('p1')
       const rm = new ReactionManager(gs2, emitter)
       const action = new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when card is not in player hand', () => {
@@ -134,11 +128,11 @@ describe('PlayHeroAction', () => {
       gs2.setCurrentPlayerId('p1')
       const rm = new ReactionManager(gs2, emitter)
       const action = new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.CardNotInHand })
     })
 
     it('returns true when all conditions are met', () => {
-      expect(makeAction().canExecute(gs)).toBe(true)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: true })
     })
   })
 

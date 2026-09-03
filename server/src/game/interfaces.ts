@@ -7,6 +7,8 @@ import {
   PassiveType,
   ReactionType,
   ReactionWindowType,
+  RefusalReason,
+  RequestResult,
   RollContext,
   RollResult,
   TriggerScope,
@@ -15,6 +17,17 @@ import type { GameState } from './pipelines/game-state'
 import type { AbilityContext } from './abilities/ability-context'
 import type { NO_CONTEXT_RESULT } from './abilities/ability-context'
 import type { Player } from './state-structures/player'
+
+// ---------------------------------------------------------------------------
+// Request results — what every player door hands back (shared/src/types.ts).
+// ---------------------------------------------------------------------------
+
+export const accepted = (): RequestResult => ({ accepted: true })
+
+export const refused = (reason: RefusalReason): RequestResult => ({
+  accepted: false,
+  reason,
+})
 
 // ---------------------------------------------------------------------------
 // Turn actions
@@ -26,7 +39,8 @@ export interface IAction {
   getPlayerId(): string
   getCost(): number
   isReactable(): boolean
-  canExecute(gs: GameState): boolean
+  /** Whether the board would take this now, and if not, why. */
+  canExecute(gs: GameState): RequestResult
   execute(gs: GameState): void
 }
 
@@ -34,7 +48,8 @@ export interface IReaction {
   getId(): string
   getType(): ReactionType
   getPlayerId(): string
-  canExecute(gs: GameState): boolean
+  /** Whether the board would take this now, and if not, why. */
+  canExecute(gs: GameState): RequestResult
   execute(gs: GameState, em: IGameEventEmitter): void
 }
 
@@ -180,8 +195,8 @@ export type ValueBias = 'highest' | 'lowest'
  * this method rather than testing instanceof.
  */
 export interface IModifiableWindow extends IReactionWindow {
-  /** True when a modifier aimed at `playerId` belongs in this window. */
-  acceptsModifierFor(playerId: string): boolean
+  /** Whether a modifier aimed at `playerId` belongs in this window, and if not, why. */
+  acceptsModifierFor(playerId: string): RequestResult
   /**
    * A card has been committed to this window and is working out what it is
    * worth. Keeps the window alive until it lands: the bonus arrives from the
@@ -210,8 +225,8 @@ export interface IReactionWindow {
   getOptions(): readonly unknown[]
   /** True while the window is waiting for responses; false after it resolves. */
   isOpen(): boolean
-  /** Route a player's reaction payload into the window. */
-  submitReaction(playerId: string, payload: unknown): void
+  /** Route a player's reaction payload into the window. Says whether it took it. */
+  submitReaction(playerId: string, payload: unknown): RequestResult
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
   /**

@@ -172,7 +172,11 @@ export class LobbyService {
       try {
         // Keep the ready list unchanged until the Game server accepts creation.
         game = await this.gameServer.createGame({
-          accountIds,
+          // The engine names each seat after its username (SeatView.name).
+          players: players.map(({ accountId, username }) => ({
+            accountId,
+            username,
+          })),
           gameConfig: settings.gameConfig,
         })
       } catch {

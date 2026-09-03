@@ -1,5 +1,5 @@
-import { ActionType } from 'shared'
-import { IAction } from '../interfaces'
+import { ActionType, RefusalReason, RequestResult } from 'shared'
+import { accepted, IAction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { RedrawHand } from '../tasks/redraw-hand-task'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -41,15 +41,15 @@ export class RedrawHandAction extends RedrawHand implements IAction {
     return false
   }
 
-  canExecute(gs: GameState): boolean {
-    const player = gs.getPlayer(this.playerId)
-    if (!player) return false
-    if (player.getActionPoints() < COST) return false
-    return true
+  canExecute(gs: GameState): RequestResult {
+    if (gs.getActionPoints(this.playerId) < COST) {
+      return refused(RefusalReason.NoActionPoints)
+    }
+    return accepted()
   }
 
   execute(gs: GameState): void {
-    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    gs.decreaseActionPoints(this.playerId, COST)
     this.redrawHand(gs, this.playerId, this.emitter)
   }
 }

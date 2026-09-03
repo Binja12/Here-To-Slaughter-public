@@ -131,7 +131,7 @@ function rollAndPlayModifier(leaderId: string, values: number[] = [2, -2]) {
   const ctx = setup(leaderId, values)
   jest.spyOn(Math, 'random').mockReturnValue(LOW)
   new RollOnHeroAction('a1', 'p1', HERO, ctx.em, ctx.rm).execute(ctx.gs)
-  ctx.rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD, 'p1'))
+  ctx.rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD, 'p1', values[0]))
   return ctx
 }
 
@@ -153,7 +153,7 @@ describe('ProtectingHornAbility', () => {
     )
   })
 
-  it('asks its own two numbers, and the card asks the card its own', () => {
+  it('asks its own two numbers; the card\'s value came with the play', () => {
     const { gs, events } = rollAndPlayModifier(HORN)
 
     // The leader is scanned before the instance pile, so the Horn goes first
@@ -163,15 +163,14 @@ describe('ProtectingHornAbility', () => {
 
     valueChoice(gs)!.submitReaction('p1', { choice: 1 })
 
-    expect(openedValueChoices(events)).toHaveLength(2)
-    expect(openedValueChoices(events)[1]['options']).toEqual([2, -2])
+    // The card's number came with the play; nobody is asked for it.
+    expect(openedValueChoices(events)).toHaveLength(1)
   })
 
   it('lands BOTH bonuses on the one roll', () => {
     const { gs, events } = rollAndPlayModifier(HORN)
 
     valueChoice(gs)!.submitReaction('p1', { choice: 1 }) // the Horn's
-    valueChoice(gs)!.submitReaction('p1', { choice: 2 }) // the card's
 
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
     expect(applied).toHaveLength(2)
@@ -187,7 +186,6 @@ describe('ProtectingHornAbility', () => {
     const { gs, events } = rollAndPlayModifier(HORN)
 
     valueChoice(gs)!.submitReaction('p1', { choice: -1 })
-    valueChoice(gs)!.submitReaction('p1', { choice: 2 })
 
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
     expect(applied[1]['finalRoll']).toBe(2) // 1 base - 1 Horn + 2 card
@@ -207,7 +205,7 @@ describe('ProtectingHornAbility', () => {
     jest.advanceTimersByTime(3000)
     jest.advanceTimersByTime(5000)
 
-    expect(openedValueChoices(events)).toHaveLength(1) // only the card asked
+    expect(openedValueChoices(events)).toHaveLength(0) // nobody asks: the value came with the play
     expect(events.map((e) => e.getType())).not.toContain(
       GameEventType.RollSuccess,
     )

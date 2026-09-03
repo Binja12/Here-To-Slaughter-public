@@ -1,14 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  Owner,
-  ReactionWindowType,
-  TriggerScope,
-  TurnPhase,
-  Zone,
-} from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, Owner, ReactionWindowType, TriggerScope, TurnPhase, Zone } from 'shared'
 import { heroRules, OFFERS_ROLL } from './hero-rules'
 import { WigglesAbility } from './wiggles-ability'
 import { GameState } from '../../pipelines/game-state'
@@ -338,7 +328,7 @@ describe('hero rules — the roll a played hero is offered', () => {
 
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(0)
       expect(rollOffer(gs)).toBeDefined()
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
 
     it('stays open across the roll the offer leads to', () => {
@@ -349,7 +339,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
 
       expect(modifierWindow(gs)).toBeDefined()
-      expect(tm.getPhase()).toBe(TurnPhase.ActionWindow)
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
 
     it('ends once the last pipeline is spent', () => {
@@ -358,7 +348,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       jest.advanceTimersByTime(5000) // the offer lapses, which is a DISMISS
 
       expect(gs.abilityPipelines).toHaveLength(0)
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      expect(tm.getPhase()).toBe(TurnPhase.End)
     })
 
     it('ends after an offered roll that FAILS — the offer is not left parked', () => {
@@ -374,7 +364,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       jest.advanceTimersByTime(5000) // the roll lapses -> RollFailed, rollback
 
       expect(gs.abilityPipelines).toHaveLength(0)
-      expect(tm.getPhase()).toBe(TurnPhase.TurnEnd)
+      expect(tm.getPhase()).toBe(TurnPhase.End)
     })
   })
 

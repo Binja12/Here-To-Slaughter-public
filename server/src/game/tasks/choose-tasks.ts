@@ -8,7 +8,6 @@ import {
   filterCards,
   filterPlayers,
 } from '../reactions/choice-filters'
-import { ModifierCard } from '../cards/modifier-card'
 import { CTX_MODIFIER_TARGET } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
@@ -129,8 +128,8 @@ export class ChooseMonsterTask implements ITask {
  * Protecting Horn's "+1 or -1" — passes its own list instead.
  */
 export class ChooseValueTask implements ITask {
-  /** Values to offer. Absent = the printed values of the entry's own card. */
-  constructor(private readonly values?: number[]) {}
+  /** Values to offer — an ability's own numbers, the Protecting Horn's `[1, -1]`. */
+  constructor(private readonly values: number[]) {}
 
   execute(
     gs: GameState,
@@ -138,10 +137,7 @@ export class ChooseValueTask implements ITask {
     _em: IGameEventEmitter,
     rm: IReactionManager,
   ): string | void {
-    const source = gs.getCard(ctx.sourceCardId)
-    const options =
-      this.values ??
-      (source instanceof ModifierCard ? source.getValues() : [])
+    const options = this.values
 
     // Which way silence falls is the window-being-modified's rule, not this
     // step's and not the choice window's: only the roll knows whose it is.

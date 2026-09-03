@@ -1,5 +1,7 @@
-import { ActionType } from 'shared'
+import { ActionType, RefusalReason, TurnPhase } from 'shared'
 import { EndTurnAction } from './end-turn-action'
+import { TurnManager } from '../pipelines/turn-manager'
+import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
 import { CardStack } from '../state-structures/card-stack'
@@ -48,14 +50,34 @@ describe('EndTurnAction', () => {
   })
 
   describe('canExecute', () => {
-    it('returns false when the player does not exist', () => {
-      expect(new EndTurnAction('a1', 'nobody').canExecute(makeGs())).toBe(false)
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
+      expect(() => new EndTurnAction('a1', 'nobody').canExecute(makeGs())).toThrow(/not seated/)
     })
 
     it('returns true with no points left — a pass needs no budget', () => {
       const gs = makeGs()
       gs.registerPlayer(makePlayer('p1', 0))
-      expect(new EndTurnAction('a1', 'p1').canExecute(gs)).toBe(true)
+      expect(new EndTurnAction('a1', 'p1').canExecute(gs)).toEqual({ accepted: true })
+    })
+  })
+
+  // Whose turn it is lives in the QUEUE, not in any action (engine doc §1):
+  // TurnManager.enqueue refuses before canExecute is asked, so no action
+  // can forget the rule and a pass cannot end somebody else's turn.
+  describe('through the door', () => {
+    it('is refused as NotYourTurn when another player sends it', () => {
+      const gs = makeGs()
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerPlayer(makePlayer('p2'))
+      const tm = new TurnManager(gs, new GameEventEmitter())
+      tm.startTurn('p1')
+
+      const result = tm.enqueue(new EndTurnAction('a1', 'p2'))
+
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.NotYourTurn })
+      expect(gs.getCurrentPlayerId()).toBe('p1')
+      expect(tm.getPhase()).toBe(TurnPhase.Action)
+      expect(gs.getPlayer('p1')!.getActionPoints()).toBe(3)
     })
   })
 

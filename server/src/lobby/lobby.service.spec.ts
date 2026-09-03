@@ -133,7 +133,7 @@ describe('LobbyService', () => {
       status: 'STARTING',
     })
     expect(gameServer.createGame).toHaveBeenCalledWith({
-      accountIds: [account(1).accountId, account(2).accountId],
+      players: [account(1), account(2)],
       gameConfig: 'default',
     })
     await expect(lobbyStore.getReadyPlayers()).resolves.toEqual([])

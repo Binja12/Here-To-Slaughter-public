@@ -131,7 +131,7 @@ describe('Lobby HTTP contract', () => {
     expect(response.status).toBe(202)
     expect(response.body).toEqual({ gameId: 'game-1', status: 'STARTING' })
     expect(gameServer.createGame).toHaveBeenCalledWith({
-      accountIds: [first.body.accountId, second.body.accountId],
+      players: [first.body, second.body],
       gameConfig: 'default',
     })
 

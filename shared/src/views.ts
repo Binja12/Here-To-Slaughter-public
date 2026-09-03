@@ -3,7 +3,7 @@ import {
   PassiveType,
   ReactionWindowType,
   RollContext,
-  TurnPhase,
+  GamePhase,
 } from "./enums";
 import {
   ChallengeCardData,
@@ -134,7 +134,9 @@ export type PlayerView = {
   /** Seat order, which is the turn rotation. */
   seats: SeatView[];
   currentPlayerId?: string;
-  turnPhase: TurnPhase;
+  phase: GamePhase;
+  /** Present once `phase` is `Concluded`: the seat that won. */
+  winnerId?: string;
   /** Your own hand, face up to you alone. */
   hand: CardView[];
   /** Every party, including your own. */

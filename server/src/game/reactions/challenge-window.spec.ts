@@ -1,4 +1,4 @@
-import { GameEventType, IGameEvent, PassiveType, ReactionWindowType } from 'shared'
+import { GameEventType, IGameEvent, PassiveType, ReactionWindowType, RefusalReason } from 'shared'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { ChallengeWindow } from './challenge-window'
@@ -151,7 +151,7 @@ describe('ChallengeWindow — standing roll bonuses', () => {
     const win = makeWindow({ gs, em, challengedId: 'p1' })
     jest.spyOn(Math, 'random').mockReturnValue(0.5)
     win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
-    win.submitReaction('p3', {
+    const result = win.submitReaction('p3', {
       type: 'modifier',
       value: 9,
       cardId: 'mod-x',
@@ -159,6 +159,7 @@ describe('ChallengeWindow — standing roll bonuses', () => {
     })
     win.resolve()
 
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.TargetNotInChallenge })
     expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 6 })
   })
 })
@@ -274,9 +275,11 @@ describe('ChallengeWindow', () => {
 
     it('second challenge submission is ignored (no duplicate)', () => {
       const win = makeWindow({ gs, em })
-      win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
-      win.submitReaction('p3', { type: 'challenge', challengerId: 'p3' })
+      const first = win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+      const second = win.submitReaction('p3', { type: 'challenge', challengerId: 'p3' })
       const count = events.filter((e) => e.getType() === GameEventType.ChallengeStarted).length
+      expect(first).toEqual({ accepted: true })
+      expect(second).toEqual({ accepted: false, reason: RefusalReason.ChallengeAlreadyStarted })
       expect(count).toBe(1)
     })
   })
@@ -288,7 +291,8 @@ describe('ChallengeWindow', () => {
   describe('submitReaction modifier', () => {
     it('modifier before challenge starts is ignored (no ModifierApplied emitted)', () => {
       const win = makeWindow({ gs, em })
-      win.submitReaction('p3', { type: 'modifier', value: 3, targetPlayerId: 'p2' })
+      const result = win.submitReaction('p3', { type: 'modifier', value: 3, targetPlayerId: 'p2' })
+      expect(result).toEqual({ accepted: false, reason: RefusalReason.ChallengeNotStarted })
       expect(events.some((e) => e.getType() === GameEventType.ModifierApplied)).toBe(false)
     })
 

@@ -1,5 +1,10 @@
-import { IGameEventEmitter, ReactionWindowType } from 'shared'
-import { IReactionWindow } from '../interfaces'
+import {
+  IGameEventEmitter,
+  ReactionWindowType,
+  RefusalReason,
+  RequestResult,
+} from 'shared'
+import { accepted, IReactionWindow, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -88,30 +93,29 @@ export abstract class ChoiceWindow implements IReactionWindow {
   }
 
   /** payload: { choice: unknown } — must be one of the offered options. */
-  submitReaction(playerId: string, payload: unknown): void {
-    if (this._resolved) return
-    if (playerId !== this.respondentId) return
+  submitReaction(playerId: string, payload: unknown): RequestResult {
+    if (this._resolved) return refused(RefusalReason.NoSuchWindow)
+    if (playerId !== this.respondentId)
+      return refused(RefusalReason.WrongRespondent)
 
     const { choice } = (payload ?? {}) as { choice?: unknown }
-    if (!this.options.includes(choice)) return
+    if (!this.options.includes(choice))
+      return refused(RefusalReason.NotAnOption)
 
-    // THROWS rather than returning, and the two guards above deliberately do
-    // not: those refuse noise off a socket, this one catches a pick that was
-    // legal when the options were built and is not legal now. The caller is
-    // told, and the window stays OPEN so the player can pick again.
-    //
-    // The clock is not touched. A ChoiceWindow sets its timer once in the
-    // constructor and never resets it, unlike the modifier windows, so a
-    // rejected submission cannot be used to stall the turn.
+    // An option the engine offered must still be legal when it is picked.
+    // One that is not means this window went stale under the player — an
+    // engine mistake, never the player's, so it fails here rather than
+    // becoming a reason. The window is left open and its clock untouched.
     if (!this.canSubmit(choice)) {
       throw new Error(
-        `${this.constructor.name}: ${String(choice)} is no longer a legal ` +
-          'choice — it was offered, but the board has moved since.',
+        `${this.constructor.name}: ${String(choice)} was offered and is no ` +
+          'longer legal — an offered option must stay legal while the window is open.',
       )
     }
 
     this.picked = choice
     this.resolve()
+    return accepted()
   }
 
   resolve(): void {
@@ -187,5 +191,4 @@ export abstract class ChoiceWindow implements IReactionWindow {
   protected isStillValid(_choice: unknown): boolean {
     return true
   }
-
 }

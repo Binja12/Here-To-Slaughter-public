@@ -1,7 +1,13 @@
-import { ReactionWindowType } from 'shared'
+import { ReactionWindowType, RefusalReason, RequestResult } from 'shared'
 import type { ValueBias } from '../interfaces'
 import { GameState } from './game-state'
-import { IReaction, IReactionManager, IReactionWindow } from '../interfaces'
+import {
+  accepted,
+  IReaction,
+  IReactionManager,
+  IReactionWindow,
+  refused,
+} from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from '../reactions/modifier-window'
 import { AttackWindow } from '../reactions/attack-window'
@@ -204,21 +210,26 @@ export class ReactionManager implements IReactionManager {
   // Reaction input — single entry point for all player reactions.
   // ---------------------------------------------------------------------------
 
-  submitReaction(reaction: IReaction): void {
-    if (!reaction.canExecute(this.gs)) return
+  submitReaction(reaction: IReaction): RequestResult {
+    const check = reaction.canExecute(this.gs)
+    if (!check.accepted) return check
     reaction.execute(this.gs, this.em)
+    return accepted()
   }
 
   /**
-   * A player answering a choice. The window validates the pick and THROWS on a
-   * stale one (§4); a window that has already lapsed is silently nothing to
-   * answer.
+   * A player answering a choice. The window validates the pick and says what
+   * it made of it (§4); a window that has already lapsed is nothing to answer.
    */
-  submitChoice(windowId: string, playerId: string, choice: unknown): void {
+  submitChoice(
+    windowId: string,
+    playerId: string,
+    choice: unknown,
+  ): RequestResult {
     const window = this.gs
       .getFrameByWindowId(windowId)
       ?.frame.windows.find((w) => w.getId() === windowId)
-    if (!window?.isOpen()) return
-    window.submitReaction(playerId, { choice })
+    if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
+    return window.submitReaction(playerId, { choice })
   }
 }

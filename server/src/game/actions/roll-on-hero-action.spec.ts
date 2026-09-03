@@ -1,11 +1,4 @@
-import {
-  ActionType,
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  TriggerScope,
-} from 'shared'
+import { ActionType, CardType, GameEventType, HeroClass, IGameEvent, RefusalReason, TriggerScope } from 'shared'
 import { RollOnHeroAction } from './roll-on-hero-action'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -122,12 +115,12 @@ describe('RollOnHeroAction', () => {
   // --- canExecute ---
 
   describe('canExecute', () => {
-    it('returns false when player does not exist', () => {
+    it('throws when the player is not seated — an engine mistake, not a refusal', () => {
       const emptyGs = makeGs()
       emptyGs.registerParty(makeParty('p1', ['hero-1']))
       const rm = new ReactionManager(emptyGs, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(emptyGs)).toBe(false)
+      expect(() => action.canExecute(emptyGs)).toThrow(/not seated/)
     })
 
     it('returns false when player has 0 action points', () => {
@@ -137,7 +130,7 @@ describe('RollOnHeroAction', () => {
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
     })
 
     it('returns false when hero is not in the player party', () => {
@@ -147,16 +140,16 @@ describe('RollOnHeroAction', () => {
       gs2.registerCard(makeHeroCard('hero-1'))
       const rm = new ReactionManager(gs2, emitter)
       const action = new RollOnHeroAction('a1', 'p1', 'hero-1', emitter, rm)
-      expect(action.canExecute(gs2)).toBe(false)
+      expect(action.canExecute(gs2)).toEqual({ accepted: false, reason: RefusalReason.HeroNotInParty })
     })
 
     it('returns false when ability has already been used this turn', () => {
       gs.markAbilityUsed('hero-1')
-      expect(makeAction().canExecute(gs)).toBe(false)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.AbilityAlreadyUsed })
     })
 
     it('returns true when all conditions are met', () => {
-      expect(makeAction().canExecute(gs)).toBe(true)
+      expect(makeAction().canExecute(gs)).toEqual({ accepted: true })
     })
   })
 
@@ -274,8 +267,7 @@ describe('RollOnHeroAction', () => {
             image: '',
             description: '',
             set: '',
-            // One value, so the choice window has one outcome and an idle
-            // player lands it.
+            // One printed value, the one each play below names.
             values: [value],
           }),
         )
@@ -348,7 +340,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + still fails: no RollSuccess emitted', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0) // baseRoll=1, +3 mod → 4 < 7
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.RollSuccess)).toBe(false)
     })
@@ -356,7 +348,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + still fails: modifier card removed from hand', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
       expect(gs.getPlayer('p1')!.getHand()).not.toContain(MOD_3)
     })
@@ -364,7 +356,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + still fails: modifier card in discard pile', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
       expect(gs.getDiscardPile().getAll()).toContain(MOD_3)
     })
@@ -372,7 +364,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + still fails: FrameResolved emitted', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_3, 'p1', 3))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
     })
@@ -382,7 +374,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: emits RollSuccess', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0) // baseRoll=1, +7 mod → 8 >= 7
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.RollSuccess)).toBe(true)
     })
@@ -390,7 +382,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: modifier card removed from hand', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(gs.getPlayer('p1')!.getHand()).not.toContain(MOD_7)
     })
@@ -398,7 +390,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: modifier card in discard pile', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(gs.getDiscardPile().getAll()).toContain(MOD_7)
     })
@@ -406,7 +398,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: FrameResolved emitted', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(hasEvent(GameEventType.FrameResolved)).toBe(true)
     })
@@ -414,7 +406,7 @@ describe('RollOnHeroAction', () => {
     it('modifier applied + succeeds: no open frames after resolve', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0)
       roll()
-      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1'))
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD_7, 'p1', 7))
       jest.runAllTimers()
       expect(gs.hasOpenFrames()).toBe(false)
     })

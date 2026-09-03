@@ -1,10 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  IGameEvent,
-  ReactionType,
-  ReactionWindowType,
-} from 'shared'
+import { CardType, GameEventType, IGameEvent, ReactionType, ReactionWindowType, RefusalReason } from 'shared'
 import { PlayChallengeReaction } from './play-challenge-reaction'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -14,7 +8,7 @@ import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
 import { ChallengeCard } from '../cards/challenge-card'
-import { IModifiableWindow, IReactionWindow } from '../interfaces'
+import { accepted, IModifiableWindow, IReactionWindow } from '../interfaces'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,7 +67,7 @@ const makeStubWindow = (): IModifiableWindow & {
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => 0,
-  acceptsModifierFor: () => true,
+  acceptsModifierFor: () => accepted(),
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,
 })
@@ -129,27 +123,27 @@ describe('PlayChallengeReaction', () => {
   // ---------------------------------------------------------------------------
 
   it('canExecute returns false when no challenge frame is open', () => {
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
   })
 
   it('canExecute returns false when card not in player hand', () => {
     gs.getPlayer('p1')!.removeFromHand(CHAL)
     const stub = makeStubWindow()
     openFrame(gs, stub)
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.CardNotInHand })
   })
 
   it('canExecute returns false when target card already challenged this turn', () => {
     const stub = makeStubWindow()
     openFrame(gs, stub)
     gs.markCardChallenged('hero-1')
-    expect(makeReaction().canExecute(gs)).toBe(false)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.AlreadyChallengedThisTurn })
   })
 
   it('canExecute returns true when frame is open, card is in hand, target not yet challenged', () => {
     const stub = makeStubWindow()
     openFrame(gs, stub)
-    expect(makeReaction().canExecute(gs)).toBe(true)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: true })
   })
 
   // ---------------------------------------------------------------------------

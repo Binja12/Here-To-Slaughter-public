@@ -1,5 +1,5 @@
-import { ActionType } from 'shared'
-import { IAction } from '../interfaces'
+import { ActionType, RefusalReason, RequestResult } from 'shared'
+import { accepted, IAction, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEventFactory } from '../events/game-event-factory'
@@ -58,21 +58,25 @@ export class RollOnLeaderAction implements IAction {
     return true
   }
 
-  canExecute(gs: GameState): boolean {
-    const player = gs.getPlayer(this.playerId)
-    if (!player) return false
+  canExecute(gs: GameState): RequestResult {
     // "spend an action point"
-    if (player.getActionPoints() < COST) return false
+    if (gs.getActionPoints(this.playerId) < COST) {
+      return refused(RefusalReason.NoActionPoints)
+    }
     // The leader has to be standing in the slot — an unassigned one has no
     // abilities to reach (§6).
-    if (gs.getParty(this.playerId).getLeaderId() !== this.cardId) return false
+    if (gs.getParty(this.playerId).getLeaderId() !== this.cardId) {
+      return refused(RefusalReason.NotYourLeader)
+    }
     // "once per turn"
-    if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) return false
-    return true
+    if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) {
+      return refused(RefusalReason.AbilityAlreadyUsed)
+    }
+    return accepted()
   }
 
   execute(gs: GameState): void {
-    gs.getPlayer(this.playerId)!.decreaseActionPoints(COST)
+    gs.decreaseActionPoints(this.playerId, COST)
     // Before the announcement, so an ability that ends the turn cannot leave
     // the slot unspent — the same order RollOnHero uses around its frame.
     gs.markAbilityUsed(this.cardId)

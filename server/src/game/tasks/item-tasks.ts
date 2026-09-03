@@ -1,5 +1,10 @@
-import { IGameEventEmitter, ReactionWindowType } from 'shared'
-import { IReactionManager, ITask } from '../interfaces'
+import {
+  IGameEventEmitter,
+  ReactionWindowType,
+  RefusalReason,
+  RequestResult,
+} from 'shared'
+import { accepted, IReactionManager, ITask, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { AbilityContext, CTX_CHOSEN_CARD } from '../abilities/ability-context'
 import { HeroCard } from '../cards/hero-card'
@@ -93,16 +98,24 @@ export abstract class PlayItem {
     playerId: string,
     itemId: string,
     heroId: string,
-  ): boolean {
+  ): RequestResult {
     const item = gs.getCard(itemId)
-    if (!(item instanceof ItemCard)) return false
-    if (!(gs.getCard(heroId) instanceof HeroCard)) return false
+    if (!(item instanceof ItemCard)) return refused(RefusalReason.NotAnItem)
+    if (!(gs.getCard(heroId) instanceof HeroCard)) {
+      return refused(RefusalReason.NotAHero)
+    }
 
     const heroOwnerId = gs.getCardOwner(heroId)
-    if (!heroOwnerId) return false
-    if (gs.getEquippedItem(heroId)) return false
+    if (!heroOwnerId) return refused(RefusalReason.HeroNotInParty)
+    if (gs.getEquippedItem(heroId)) {
+      return refused(RefusalReason.HeroAlreadyEquipped)
+    }
 
-    return item.isCursed() || heroOwnerId === playerId
+    // A cursed item is played AT somebody; a plain one only dresses your own.
+    if (!item.isCursed() && heroOwnerId !== playerId) {
+      return refused(RefusalReason.NotYourHero)
+    }
+    return accepted()
   }
 }
 
@@ -137,7 +150,7 @@ export class PlayItemTask extends PlayItem implements ITask {
     // Discovered at runtime, so the item may have left the hand since the slot
     // was written — the action's equivalent guard lives in canExecute.
     if (!gs.getPlayer(ctx.ownerId)?.getHand().includes(itemId)) return
-    if (!this.canEquip(gs, ctx.ownerId, itemId, heroId)) return
+    if (!this.canEquip(gs, ctx.ownerId, itemId, heroId).accepted) return
 
     // Returned, so the rest of the declaring card's entry waits on the same
     // challenge.

@@ -553,24 +553,89 @@ stop, carry on when it resolves.
 is refused when the board says no; `submitChoice(windowId, playerId, choice)`
 names one of the options the engine itself put in front of exactly one player,
 so it only has to find the window and hand the pick over. The window owns the
-rest — a wrong respondent and an option never offered are dropped in silence, a
-stale pick throws — which is why the route is three lines and holds no rules of
-its own. A window that has already lapsed is not an error either: the player is
-late, and there is nothing left to answer.
+rest — a wrong respondent, an option never offered and a stale pick are each
+refused by name — which is why the route is three lines and holds no rules of
+its own: it answers `NoSuchWindow` for a window that is not open, and otherwise
+returns whatever the window said. A window that has already lapsed is not an
+error either: the player is late, and there is nothing left to answer.
+
+**Every player door returns a `RequestResult`** (`shared/src/types.ts`):
+`{ accepted: true }` or `{ accepted: false, reason }`, where the reason is a
+member of the `RefusalReason` enum (`shared/src/enums.ts`) rather than a
+sentence, so a client can branch on it and a test can assert it. Expected
+refusals are RESULTS, never exceptions: a throw inside the engine is an engine
+mistake, a refusal is a player's. `accepted` means the request was TAKEN, not
+that the play succeeded — a challenged hero that loses its roll was still
+accepted; what happened to it is on the board and in the events. `accepted()`
+and `refused(reason)` in `interfaces.ts` build the two shapes.
+
+**The reason comes from wherever the rule is, and is passed up unchanged.**
+`IAction.canExecute` and `IReaction.canExecute` return a `RequestResult`, one
+named refusal per guard in the order the guards run — `NoActionPoints`,
+`CardNotInHand`, then whatever the action is about
+(`HandFull`, `HeroNotInParty`, `AbilityAlreadyUsed`, `HeroEffectSealed`,
+`NotYourLeader`, …). `TurnManager.enqueue` adds only what the action cannot
+know — `GameOver`, `NotYourTurn`, `Busy` — and otherwise returns the
+action's own answer. Two phases at two altitudes decide the rest.
+`GamePhase` (`Setup`, `Turns`, `Concluded`) is the GAME's state: held on the
+board, moved by `GameEngine` at `start` and at `GameEnded` — the last move is
+`GameState.conclude(winnerId)`, phase and winner in one call, so a concluded
+board always names who won and `PlayerView.winnerId` can show it to a screen
+that has no `GameEnded` to read (2026-09-03) — and shown to a
+player as `PlayerView.phase`. `TurnPhase` (`Start`, `Action`, `End`) is where
+`TurnManager` is inside one turn: engine logic only, never on the wire.
+`enqueue` refuses `GameOver` off the game phase — a late request is a
+player's — and THROWS when the turn phase is not `Action`: before the first
+turn the transport routed input to a table it never started, and between one
+turn's `End` and the next `Start` the cascade is synchronous, so nothing from
+outside can arrive. `drain` reads `.accepted` when it re-asks a queued
+action. `ReactionManager.submitReaction` returns the reaction's answer; the
+choice route and the windows answer `NoSuchWindow`, `WrongRespondent`,
+or `NotAnOption`, and the roll and challenge windows name their own
+refusals (`TargetNotRolling`, `TargetNotInChallenge`,
+`ChallengeAlreadyStarted`, `ChallengeNotStarted`).
+
+**A refusal is a PLAYER'S mistake; anything else throws.** `canExecute`
+checks game logic and nothing below it. The SHAPE of a request — every field
+present and typed — is the transport's job (zod, in `shared/src/contracts`),
+so no guard here re-checks it. And a player id that the table never seated is
+neither: the transport bound it at the handshake, so an unseated id is an
+engine mistake and `GameState.requirePlayer` THROWS on it (§11.2) — no
+`RefusalReason` names it. An action never holds a `Player`: it asks the
+BOARD — `getActionPoints`, `decreaseActionPoints`, `hasInHand`,
+`getHandSize`, each of which goes through `requirePlayer` — so an action
+depends on `GameState` alone and the identity check needs no line of its
+own. Card ids ARE the player's to get wrong, which is why
+`CardNotInHand`, `NotAnItem` and `NotAHero` are refusals.
+
+Three questions are compound, and a reason has to say which half failed, so
+they return a `RequestResult` too: `GameState.canAttackMonster`
+(`MonsterNotInRow` | `PartyRequirementUnmet`), `GameState.acceptsModifierFor`
+(`NoModifiableWindow`, else the open window's own `acceptsModifierFor`:
+`TargetNotRolling`, `TargetNotInChallenge`, `ChallengeNotStarted`) and
+`PlayItem.canEquip`
+(`NotAnItem` | `NotAHero` | `HeroNotInParty` | `HeroAlreadyEquipped` |
+`NotYourHero`). The projection, the choice filters, the tasks and
+`MonsterChoiceWindow.canSubmit` read `.accepted` off the same call, so the
+rule still lives once and the sites that ask it still cannot disagree; the
+question that has ONE answer, `canUseHeroEffect`, stays a boolean and the
+action names it.
 
 Finding the window is what `IReactionWindow.getRespondentId()` and
 `getOptions()` are for, together with the projection that shows a player what
 they are being asked (§5). Both are plain readers of fields every window
 already had.
 
-**A choice window refuses a STALE pick loudly, and a wrong one quietly.**
-`canSubmit(choice)` runs the moment an answer arrives and THROWS when it fails;
-the two guards ahead of it — wrong respondent, choice not among the options —
-still return silently, because those are noise off a socket while this is a
-pick that WAS legal when the options were built and is not legal now. The
-window stays open so the player can send another, and the clock is untouched:
-a `ChoiceWindow` sets its timer once in the constructor and never resets it,
-unlike the modifier windows, so a refused submission cannot stall the turn.
+**An offered option must stay legal, so a stale pick THROWS.** The engine
+built the window's options from the board; a pick that was offered and is not
+legal now means the window went stale under the player, which is the engine's
+mistake and never a `RefusalReason`. `canSubmit(choice)` is that check, run
+the moment an answer arrives, after the two guards that refuse socket noise
+(`WrongRespondent`, `NotAnOption`). It leaves the window open with its clock
+untouched — a `ChoiceWindow` sets its timer once in the constructor and never
+resets it — but nothing downstream should rely on that: the throw is a
+defect report, and the defect is whatever moved the board without closing or
+rebuilding the window (§8).
 
 It is distinct from `isStillValid`, which runs at RESOLVE and quietly drops a
 stale pick. Two hooks because they answer to different audiences — one tells
@@ -1192,16 +1257,19 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **A REACTION is the play; the registry is the effect.** `PlayModifierReaction`
   and `PlayChallengeReaction` spend the card, keep the window alive and
   announce `ModifierPlayed` / `ChallengePlayed`. What the card DOES —
-  `[ChooseValue, ApplyModifier]`, `[StartChallenge]` — is its own entry, keyed
-  by id like every other card type. That is what makes a modifier's value
-  unforgeable: it used to arrive as a constructor argument off a socket,
-  compared with nothing, and is now a pick from the card's own printed
-  `values`. `ChooseValueTask` with no argument reads them off its own card, so
-  all 25 printed copies share one declaration and all 14 challenges share
+  `[ApplyModifier]`, `[StartChallenge]` — is its own entry, keyed by id like
+  every other card type. A modifier's VALUE comes with the play, the way a
+  target does: `PlayModifierReaction.canExecute` verifies it against the
+  card's printed `values` and refuses `ValueNotOnCard` before anything is
+  spent, and `ModifierPlayed` carries it as `ctxSeed` to the card's entry, so
+  the entry is one step and opens no window. The value is unforgeable because
+  the card decides what it may be, not because the player is asked twice. All
+  25 printed copies share one declaration and all 14 challenges share
   another.
 - **The Protecting Horn is why that split pays.** A leader granting "+1 or -1
-  on each Modifier you play" runs the *same two steps* a modifier card runs,
-  with the numbers passed in instead of read off a card. Before it, nothing
+  on each Modifier you play" runs the same `ApplyModifier` a card runs, with a
+  `ChooseValueTask` in front of it asking its own two numbers — the one
+  `ValueChoiceWindow` left in the engine. Before it, nothing
   could put a bonus into an open window except the reaction that spent a card.
 - **`ApplyModifierTask` must not park on the roll's frame.** Reading "the card
   is not finished until the roll is" as a pause would deadlock: the pipelines
@@ -1244,13 +1312,12 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **Nothing stops two challenges nesting.** A magic card played by an ability
   opens a challenge from inside a pipeline. Every ability that plays one has
   settled its own window first, so the case does not arise; nothing enforces it.
-- **A nested value choice races the roll's own timer.** The choice window is
-  given a shorter timeout than the roll, and the burn resets the roll's, so the
-  ordinary case is safe. Two bonuses on one roll (the Horn's, then the card's)
-  are two choices in sequence, and a player who sits on both can still let the
-  roll lapse in between; `ApplyModifierTask` checks `isOpen()` and drops the
-  bonus rather than submitting into a settled window. The card is spent either
-  way.
+- **The Horn's nested value choice races the roll's own timer.** The choice
+  window is given a shorter timeout than the roll, and the burn resets the
+  roll's, so the ordinary case is safe. A player who sits on the Horn's
+  question can still let the roll lapse; `ApplyModifierTask` checks `isOpen()`
+  and drops the bonus rather than submitting into a settled window. The card's
+  own bonus is not exposed to this: it lands inside the play's own emission.
 - **A magic card with no registry entry is stranded in the instance pile.**
   Disposal hangs off `AbilityDone`, which is emitted when a PIPELINE leaves the
   stack. A card with no entry never gets a pipeline, so nothing ever announces
@@ -1277,6 +1344,13 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   answer, not the frame.
 - **`CantBeStolen` guards the steal but does not filter choices** — a protected
   hero can still be *offered* by a `ChooseCardTask`; the steal then no-ops.
+- **`MonsterChoiceWindow.canSubmit` re-asks `canAttackMonster` because a hero
+  can leave the party while the window is open.** Under the rule that an
+  offered option stays legal (§4), the board moving under an open choice
+  window is the defect — the window should be closed or rebuilt when the
+  party changes — and the re-check is where that defect is reported, not a
+  tolerance for it. `isStillValid`, the same re-check at RESOLVE, still drops
+  a stale default quietly; it belongs in the same fix.
 - **`TaskManager` must be added to the emitter before `GameEngine`.** Nothing
   enforces it. The last drain of a turn is whichever `FrameResolved` leaves the
   board idle, and only `GameEngine.resumeDrain` runs it; with `GameEngine`
@@ -1368,10 +1442,12 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **`DecisionType.PickMonster` still has no reader.** `ChooseMonsterTask` and
   `ReactionWindowType.MonsterChoice` cover the mechanic; the `DecisionType`
   enum is a parallel vocabulary nothing consults.
-- **Nothing catches what `canSubmit` throws.** `ReactionManager.submitChoice`
-  is the route a choice submission takes (§4) and it does not catch: the throw
-  is an engine contract, and the API layer has to turn it into a client error
-  when it arrives, or one bad packet kills the request.
+- **`views/player-view.spec.ts` "shows the whole table a roll as it stands" is
+  nondeterministic.** It deals a REAL table and asserts `bonuses: []` on a
+  roll, so it fails whenever seat 0 draws one of the three leaders that
+  install a `RollBonus` on `GameStarted` (`leader-116`, `118`, `119`) — about
+  half of all runs. The fix is the one `play-through-helpers.ts` already
+  uses: deal from `QUIET_LEADERS`, or assert on `baseRoll` alone.
 - **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
   like `MonsterCard.trySlay`, and read by nothing.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
@@ -1385,7 +1461,11 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 dealt, wired game. It is the only thing that builds a `GameState` — everything
 else receives one — and it sits below the transport deliberately: how the
 request arrived is not the engine's business, so it takes player IDS and
-nothing else.
+nothing else. The one concession is `CreateGameOptions.names`, what each
+seat is CALLED (2026-09-03, for the socket transport): display only,
+nothing in the engine reads it, defaulting to the id exactly as before, and
+shaped like the `cards` option — a thing the caller may fix rather than a
+thing the engine needs.
 
 **Card DATA becomes card OBJECTS in one place.** `cards/card-factory.ts` holds
 the only switch from `CardType` to a card class, and it is exhaustive, so a new
@@ -1437,8 +1517,8 @@ make that mistake — and it asks `PlayerView.busy`, so it cannot disagree with
 the drain about whether anything is still running.
 
 **It reaches the engine only where a PLAYER does.** Four doors: `enqueue` an
-action, `submitReaction` a card, `submitChoice` an answer, and read
-`playerView`. `GameState` is never touched — not to stack a board, not to
+action, `submitReaction` a card, `submitChoice` an answer — each returning a
+`RequestResult` (§4) — and read `playerView`. `GameState` is never touched — not to stack a board, not to
 decide a move, not to check a result. That is the constraint doing the work
 rather than a style rule: every position it reaches is one the API can reach,
 so a case that cannot be written here is a case a real client cannot play, and

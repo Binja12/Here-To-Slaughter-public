@@ -11,9 +11,10 @@ import {
 // Modifier tasks — the two steps that turn "a modifier was played" into a
 // number inside an open window.
 //
-// A modifier card's own entry is these two steps, and so is the Protecting
-// Horn's: the leader grants the same thing a card does, so it runs the same
-// mechanic rather than a copy of it.
+// A modifier card's own entry is ApplyModifierTask alone — its value came with
+// the play, on the event's ctxSeed. The Protecting Horn puts a ChooseValueTask
+// in front of the same step: the leader grants the same thing a card does, so
+// it runs the same mechanic rather than a copy of it.
 // ---------------------------------------------------------------------------
 
 /**
@@ -38,8 +39,8 @@ export class ApplyModifierTask implements ITask {
     // Absent = no step ahead was declared to supply a value.
     if (values === undefined) {
       throw new Error(
-        `ApplyModifierTask: nothing has written ${CTX_CHOSEN_VALUE} — the ` +
-          'ability is missing a ChooseValueTask before this step.',
+        `ApplyModifierTask: nothing has written ${CTX_CHOSEN_VALUE} — no ` +
+          'ChooseValueTask ahead of this step, and no value on the event seed.',
       )
     }
 

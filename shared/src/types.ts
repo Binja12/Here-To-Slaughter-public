@@ -8,6 +8,7 @@ import {
   WinConditionType,
   RollCompareMode,
   ChallengeResult,
+  RefusalReason,
 } from "./enums";
 
 export type HeroClassReq = HeroClass | "Any";
@@ -151,3 +152,14 @@ export type WinConditionConfig = {
   type: WinConditionType;
   value: number; // SlayMonsters: how many, PartyClasses: how many different classes
 };
+
+// ---------------------------------------------------------------------------
+// What a player request comes back with. Expected refusals are RESULTS, never
+// exceptions: a throw inside the engine is an engine mistake, this is a
+// player's. `accepted` means the engine TOOK the request, not that the play
+// succeeded — a challenged hero that loses its roll was still accepted.
+// ---------------------------------------------------------------------------
+
+export type RequestResult =
+  | { accepted: true }
+  | { accepted: false; reason: RefusalReason };

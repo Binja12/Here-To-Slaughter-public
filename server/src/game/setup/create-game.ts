@@ -64,6 +64,13 @@ export type CreateGameOptions = {
   config?: GameConfig
   /** All printed cards to draw the deck from. Filtered by `config.cardSets`. */
   cards?: CardBase[]
+  /**
+   * What to call each seat, by player id; a seat not named here is called by
+   * its id. Display only — nothing in the engine reads a name — and shaped
+   * like `cards`: an option the caller may fix, defaulting to the same thing
+   * the engine would have done.
+   */
+  names?: Readonly<Record<string, string>>
 }
 
 export function createGame(
@@ -119,7 +126,7 @@ export function createGame(
     gameState.registerPlayer(
       new Player({
         id: playerId,
-        name: playerId,
+        name: options.names?.[playerId] ?? playerId,
         hand: [],
         partyId: `${playerId}-party`,
         actionPoints: config.actionPointsPerTurn,

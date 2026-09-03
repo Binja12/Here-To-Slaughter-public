@@ -211,9 +211,7 @@ describe('a full game', () => {
     fixDice(MIDDLING)
     rollOnHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Modifier)
-    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE))
-    const values = await windowFor(t, ALICE, ReactionWindowType.ValueChoice)
-    answer(t, values, 3)
+    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE, 3))
     await settle(t)
 
     const applied = payloads(t, GameEventType.ModifierApplied)
@@ -275,6 +273,8 @@ describe('a full game', () => {
     const ended = payloads(t, GameEventType.GameEnded)
     expect(ended).toHaveLength(1)
     expect(ended[0]['winnerId']).toBe(CAROL)
+    expect(end.winnerId).toBe(CAROL)
+    expect(see(t, ALICE).winnerId).toBe(CAROL)
     expect(end.pendingWindows).toEqual([])
     expect(end.busy).toBe(false)
 

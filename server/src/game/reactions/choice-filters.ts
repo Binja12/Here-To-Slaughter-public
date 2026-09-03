@@ -16,7 +16,6 @@ import { HeroCard } from '../cards/hero-card'
 // receives the whole GameState, so visibility cannot be a per-window concern.
 // ---------------------------------------------------------------------------
 
-
 export type PlayerFilter = {
   owner?: Owner
   /**
@@ -165,7 +164,9 @@ export function filterCards(
     // Asked of the board rather than answered here: the same question the
     // action's canExecute and the window's canSubmit ask, so an option offered
     // is an option that can be acted on.
-    if (filter.partyReqMet && !gs.canAttackMonster(ctx.ownerId, id)) return false
+    if (filter.partyReqMet && !gs.canAttackMonster(ctx.ownerId, id).accepted) {
+      return false
+    }
 
     return true
   })

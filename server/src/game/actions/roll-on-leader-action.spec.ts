@@ -1,4 +1,11 @@
-import { ActionType, CardType, GameEventType, HeroClass, IGameEvent } from 'shared'
+import {
+  ActionType,
+  CardType,
+  GameEventType,
+  HeroClass,
+  IGameEvent,
+  RefusalReason,
+} from 'shared'
 import { RollOnLeaderAction } from './roll-on-leader-action'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
@@ -78,28 +85,40 @@ describe('RollOnLeaderAction', () => {
   describe('canExecute', () => {
     it('allows the owner to activate their own leader', () => {
       const { gs, em } = setup()
-      expect(action(em).canExecute(gs)).toBe(true)
+      expect(action(em).canExecute(gs)).toEqual({ accepted: true })
     })
 
     it('refuses a card that is not the leader in the slot', () => {
       const { gs, em } = setup()
-      expect(action(em, 'p1', 'leader-116').canExecute(gs)).toBe(false)
+      expect(action(em, 'p1', 'leader-116').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NotYourLeader,
+      })
     })
 
     it('refuses another player reaching for it', () => {
       const { gs, em } = setup()
-      expect(action(em, 'p2').canExecute(gs)).toBe(false)
+      expect(action(em, 'p2').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NotYourLeader,
+      })
     })
 
     it('refuses without the action point', () => {
       const { gs, em } = setup(CLAW, 0)
-      expect(action(em).canExecute(gs)).toBe(false)
+      expect(action(em).canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NoActionPoints,
+      })
     })
 
     it('refuses a second time in one turn', () => {
       const { gs, em } = setup()
       action(em).execute(gs)
-      expect(action(em).canExecute(gs)).toBe(false)
+      expect(action(em).canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.AbilityAlreadyUsed,
+      })
     })
 
     it('allows it again on the next turn', () => {
@@ -109,7 +128,7 @@ describe('RollOnLeaderAction', () => {
 
       tm.startTurn('p1') // clears the spent slots and refills the points
 
-      expect(action(em).canExecute(gs)).toBe(true)
+      expect(action(em).canExecute(gs)).toEqual({ accepted: true })
     })
   })
 
