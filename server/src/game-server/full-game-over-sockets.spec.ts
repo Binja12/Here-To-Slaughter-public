@@ -373,13 +373,15 @@ describe('a full game over sockets', () => {
     expect(partyOf(see(CAROL), ALICE).heroes[0].equippedItem?.id).toBe('item-067')
 
     // ----- Turn 2: Bob -----------------------------------------------------
+    // Bob's leader is the Cloaked Sage, a passive: the snapshot never offers
+    // it, the ack refuses it by name, and the point stays.
     const leaderId = partyOf(see(BOB), BOB).leader.id
-    expect(partyOf(see(BOB), BOB).canRollOnLeader).toBe(true)
-    await accepted(BOB, 'RollOnLeader', { leaderId })
-    await settled(BOB)
-
     expect(partyOf(see(BOB), BOB).canRollOnLeader).toBe(false)
-    expect(seatOf(see(BOB), BOB).actionPoints).toBe(2)
+    expect(await send(BOB, 'RollOnLeader', { leaderId })).toMatchObject({
+      accepted: false,
+      reason: 'LeaderNotActivatable',
+    })
+    expect(seatOf(see(BOB), BOB).actionPoints).toBe(3)
 
     await accepted(BOB, 'EndTurn')
     await shows(CAROL, 'her turn', (v) => v.currentPlayerId === CAROL)

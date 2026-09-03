@@ -75,6 +75,17 @@ describe('CommandDispatcherService', () => {
       expect(view.pendingWindows.map((w) => w.type)).toContain('Challenge')
     })
 
+    it('a forfeit: PassWindow closes the challenge a hero play opened', () => {
+      send(ALICE, command('PlayHero', { cardId: 'hero-001' }))
+      const contest = see(t, ALICE).pendingWindows.find((w) => w.type === 'Challenge')
+
+      expect(send(BOB, command('PassWindow', { windowId: contest!.windowId }))).toEqual({
+        commandId: UUID,
+        accepted: true,
+      })
+      expect(see(t, ALICE).pendingWindows.map((w) => w.type)).not.toContain('Challenge')
+    })
+
     it('a pass: EndTurn hands the turn to the next seat', async () => {
       const result = send(ALICE, command('EndTurn'))
 

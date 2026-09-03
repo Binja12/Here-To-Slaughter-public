@@ -10,8 +10,8 @@ export default function AuthView({
   onAuthenticated: () => void
 }) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [username, setUsername] = useState('Player One')
-  const [password, setPassword] = useState('slaughter')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 

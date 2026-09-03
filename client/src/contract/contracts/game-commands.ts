@@ -37,6 +37,7 @@ export type GameCommand =
       type: 'SubmitChoice'
       payload: { windowId: string; choice: unknown }
     }
+  | { commandId: string; type: 'PassWindow'; payload: { windowId: string } }
   | { commandId: string; type: 'LeaveGame'; payload: {} }
 
 export type GameCommandInput = GameCommand extends infer Command

@@ -534,15 +534,19 @@ function ImageButton({
   label,
   enabled,
   onClick,
+  caption,
 }: {
   src: string
   label: string
   enabled: boolean
   onClick: () => void
+  /** a word over the art, for a slot reused before its own art exists (Forfeit) */
+  caption?: string
 }) {
   return (
     <button
       aria-label={label}
+      title={label}
       disabled={!enabled}
       onClick={onClick}
       className="group relative h-full w-full transition-transform duration-[120ms] ease-out enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50"
@@ -552,8 +556,15 @@ function ImageButton({
         alt=""
         aria-hidden
         draggable={false}
-        className="dimmable absolute inset-0 h-full w-full object-contain group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)]"
+        className={`dimmable absolute inset-0 h-full w-full object-contain group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)] ${
+          caption ? '[filter:hue-rotate(-45deg)_saturate(1.6)]' : ''
+        }`}
       />
+      {caption && (
+        <span className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-heading text-[0.85cqw] font-bold uppercase tracking-widest text-amber-100 drop-shadow-[0_0.12cqw_0.25cqw_rgba(0,0,0,1)]">
+          {caption}
+        </span>
+      )}
     </button>
   )
 }
@@ -811,6 +822,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       if (handleResult(result)) onLeave?.()
     })
   }
+
+  /** Give the table's open window up (the Forfeit button, HUD or overlay). */
+  const forfeitWindow = (): Promise<boolean> =>
+    flags.passable
+      ? run({ type: 'PassWindow', payload: { windowId: flags.passable } })
+      : Promise.resolve(false)
 
   const run = async (command: GameCommandInput): Promise<boolean> => {
     // another action while an optional question is open = "no, thanks":
@@ -1190,6 +1207,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
+          ) : flags.passable ? (
+            // a roll or a challenge is open: nobody can end a turn, so the slot
+            // gives the window up instead (End Turn art, tinted and captioned,
+            // until the owner's Forfeit art lands)
+            <ImageButton
+              src={HUD.endTurn}
+              label="Forfeit reaction"
+              caption="Forfeit"
+              enabled
+              onClick={() => void forfeitWindow()}
+            />
           ) : (
             <ImageButton
               src={HUD.endTurn}
@@ -1221,7 +1249,11 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           }
         />
         <DiceRoll roll={dice} tone={diceTone} />
-        <ChallengeWindow hidden={overlayHidden} onHide={() => setOverlayHidden(true)} />
+        <ChallengeWindow
+          hidden={overlayHidden}
+          onHide={() => setOverlayHidden(true)}
+          onForfeit={flags.passable ? () => void forfeitWindow() : undefined}
+        />
 
         {discardOpen && (
           <DiscardPileModal

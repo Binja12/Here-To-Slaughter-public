@@ -356,6 +356,17 @@ modifier window — and because it is the same event a hero's roll emits, the
 registry needs no leader-shaped special case. No task twin, deliberately: a
 second caller could only be a system rule.
 
+**Only an ACTIVATED leader can be activated.** Five of the six leaders are
+passives — a standing bonus or a draw on a Magic play — and have nothing to
+fire on the announcement; before 2026-09-04 the action took the point anyway
+(seen live: the Cloaked Sage glowed, was pressed, and the point was gone).
+`canExecute` now asks the registry whether the card has an entry on its OWN
+`RollSuccess` (`firesOnOwnRoll` in the ability repository — the Shadow Claw
+is the one leader that does) and refuses `LeaderNotActivatable` otherwise;
+`playerView.canRollOnLeader` reads the same predicate, so the guard and the
+glow cannot disagree. Rejected: a flag on the card data — the registry already
+IS the fact, and a second copy could drift.
+
 **A leader needs no registration step.** `abilitySources` reads the slot fresh
 on every event, exactly as it reads heroes and equipped items, so standing
 there is the whole of what makes a leader's printed ability live (§6). Nothing
@@ -558,6 +569,24 @@ refused by name — which is why the route is three lines and holds no rules of
 its own: it answers `NoSuchWindow` for a window that is not open, and otherwise
 returns whatever the window said. A window that has already lapsed is not an
 error either: the player is late, and there is nothing left to answer.
+
+**`pass(windowId, playerId)` gives a table window up — TEMPORARY rule
+(2026-09-04).** The playtest's "Forfeit" button: with a human-length countdown
+every roll and challenge sat through the whole clock when nobody meant to
+react, so the wire got a thirteenth door, `PassWindow { windowId }`. Today the
+FIRST pass resolves the window for everyone — `resolve()`, the same call the
+clock makes, so nothing downstream can tell a pass from a lapse. Only the
+table's windows can be passed (Modifier, Attack, Challenge); a choice is one
+player's question and is answered or dismissed through `submitChoice`, so a
+pass on one is `WindowNotPassable`. The async version keeps the door and
+tightens the rule to "resolves once every seat that could still act has
+passed" — which is why the player id is taken now and not yet read.
+
+**A player never contests their own play.** `PlayChallengeReaction.canExecute`
+reads the open Challenge window's respondent — the defender, whoever played
+the contested card — and refuses `CannotChallengeOwnCard` when that is the
+challenger. The client mirrors it in its glow rule (the challenge card in the
+defender's hand stays dark).
 
 **Every player door returns a `RequestResult`** (`shared/src/types.ts`):
 `{ accepted: true }` or `{ accepted: false, reason }`, where the reason is a

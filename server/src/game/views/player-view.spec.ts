@@ -11,6 +11,7 @@ import { createGame, startGame, Game } from '../setup/create-game'
 import { playerView } from './player-view'
 import { DrawCardAction } from '../actions/draw-card-action'
 import { PlayHeroAction } from '../actions/play-hero-action'
+import { firesOnOwnRoll } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // The projection, pinned from both sides: what a player IS told, and what no
@@ -162,7 +163,9 @@ describe('playerView', () => {
       expect(party.heroes).toEqual([])
       expect(party.monsters).toEqual([])
       expect(party.instanceCards).toEqual([])
-      expect(party.canRollOnLeader).toBe(true)
+      // ready = activatable at all (the Shadow Claw) and unspent; a passive
+      // leader is never ready, whoever drew it
+      expect(party.canRollOnLeader).toBe(firesOnOwnRoll(party.leader.id))
     }
     expect(view.discardPile).toEqual([])
   })

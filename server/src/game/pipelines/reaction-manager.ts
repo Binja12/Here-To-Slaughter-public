@@ -232,4 +232,34 @@ export class ReactionManager implements IReactionManager {
     if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
     return window.submitReaction(playerId, { choice })
   }
+
+  /**
+   * A player giving a table window up — the "Forfeit" button. TEMPORARY rule
+   * for the playtest: the FIRST pass resolves the window for everyone, so a
+   * table does not sit through the whole countdown when nobody means to
+   * react. The async version tightens this, behind the same door, to
+   * "resolves once every seat that could still act has passed" — which is why
+   * the player is taken and not yet read. Only the table's windows (a roll or
+   * a challenge) can be passed: a choice is one player's question, answered
+   * or dismissed through submitChoice. Resolving early is the same call the
+   * clock makes, so nothing downstream can tell a pass from a lapse.
+   */
+  pass(windowId: string, _playerId: string): RequestResult {
+    const window = this.gs
+      .getFrameByWindowId(windowId)
+      ?.frame.windows.find((w) => w.getId() === windowId)
+    if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
+    if (!PASSABLE.has(window.getType())) {
+      return refused(RefusalReason.WindowNotPassable)
+    }
+    window.resolve()
+    return accepted()
+  }
 }
+
+/** The table's windows: everyone may react, so anyone may give one up. */
+const PASSABLE: ReadonlySet<ReactionWindowType> = new Set([
+  ReactionWindowType.Modifier,
+  ReactionWindowType.Attack,
+  ReactionWindowType.Challenge,
+])

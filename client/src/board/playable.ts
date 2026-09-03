@@ -8,6 +8,14 @@ export interface PlayableFlags {
   hand: boolean[]
   endTurn: boolean
   redraw: boolean
+  /**
+   * The table's open window — a roll or a challenge — that the Forfeit button
+   * gives up (PassWindow), or null. Any seat may press it, the active player
+   * included: the turn cannot end while a window is open, so the End Turn
+   * slot shows Forfeit instead. TEMPORARY rule on the server: the first pass
+   * settles the window for everyone.
+   */
+  passable: string | null
 }
 
 /**
@@ -82,12 +90,24 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
       window.type === 'Attack' ||
       (window.type === 'Challenge' && window.detail?.challenged === true),
   )
+  // ... and never by the defender: the window's respondent is whoever played
+  // the card (the server refuses CannotChallengeOwnCard).
   const challengeable = view.pendingWindows.some(
     (window) =>
       window.type === 'Challenge' &&
       !!window.cardId &&
+      window.respondentId !== view.playerId &&
       window.detail?.challenged !== true,
   )
+  const passable =
+    view.phase === 'Turns'
+      ? (view.pendingWindows.find(
+          (window) =>
+            window.type === 'Modifier' ||
+            window.type === 'Attack' ||
+            window.type === 'Challenge',
+        )?.windowId ?? null)
+      : null
 
   return {
     mainDeck: afford(AP_COST.draw) && view.hand.length < MAX_HAND_SIZE && view.mainDeck.count > 0,
@@ -104,5 +124,6 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     ),
     redraw: afford(AP_COST.redraw),
     endTurn: actionWindow,
+    passable,
   }
 }

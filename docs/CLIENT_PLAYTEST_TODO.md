@@ -214,6 +214,35 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
    challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
    refuses `GameNotOver`, completion sets `winnerId`.
 
+22. **First human table (HTSR-7, 2026-09-04)** — three engine findings, all
+    fixed on the server with the client following:
+    - **Passive leaders were activatable.** `RollOnLeaderAction` never asked
+      whether the leader had anything to fire; the Cloaked Sage glowed, was
+      pressed, and the point was spent for nothing. Now `LeaderNotActivatable`
+      from the engine and `canRollOnLeader` false in the view for the five
+      passives (only the Shadow Claw activates).
+    - **Forfeit.** No door existed to give a window up, so with 30 s windows
+      every roll and challenge waited the whole clock. New `PassWindow
+      { windowId }` command (TEMPORARY rule: the first pass settles the
+      window for everyone). The End Turn slot shows **Forfeit** (End Turn
+      art, red-tinted and captioned, until the owner's art lands) whenever a
+      Modifier / Attack / Challenge window is open — for every seat, the
+      active player included, since a turn cannot end under an open window —
+      and the challenge overlay has its own **Forfeit challenge** button.
+      `flags.passable` in `playable.ts` is the window it sends.
+    - **Own-card challenges.** The engine refuses `CannotChallengeOwnCard`
+      (the window's respondent is the defender) and the glow rule skips the
+      challenge card while the open window's respondent is the viewer.
+21. **Lobby, first human playtest (HTSR-7)**: the seat list is the server's
+    ready list and nothing else. `LobbyView` used to append the IDLE viewer
+    as an unready occupant, so every window showed its own account on a
+    bench and never the other idle accounts ("who is Player One?"). Now an
+    idle viewer sees four plus medallions and appears only after pressing
+    one, as item 19 says. The login form's "Player One" / "slaughter"
+    prefill (`AuthView`) is gone too — three windows registered under the
+    same default name by accident. The fake's `?autostart=1` still logs in
+    as Player One (fake only).
+
 Verified live in this order: register → lobby → three ready → Start →
 "Waiting for the table…" until the last seat's socket arrived → board
 from the real view (art for every card) → PlayHero with its challenge
@@ -263,12 +292,35 @@ another browser), all at `http://localhost:3002` — `localhost`, never
 `127.0.0.1`, or the cookie does not reach the game server. Register three
 usernames, Ready in each; the first to ready is the host and presses
 Start at 2–4 ready. The table starts when the LAST seat's socket arrives.
-Reaction windows lapse after 5 s. After `game-completed` every seat
+Reaction windows lapse after 5 s with the engine's default; the Docker
+table sets `REACTION_COUNTDOWN_MS=30000` on the game process (§2b). After `game-completed` every seat
 presses Leave to return to the lobby.
 
 Restarting the lobby process forgets every account and session (in-memory
 stores): re-register. Restarting the game process while a game runs
 strands the seats' assignments until the lobby is restarted too.
+
+### 2b. The same table in Docker (HTSR-7)
+
+One `docker compose up --build` from the repo root replaces the four
+commands above: the lobby (3000), the game server (3001) and the client
+(nginx on 3002) each run in a container, browsers still go to
+`http://localhost:3002`. Internal TCP (4000/4001) stays inside the compose
+network; the lobby dials `game`, the game dials `lobby` — the same env
+names the processes already read, set per container in `compose.yaml`.
+
+```
+docker compose up --build -d      # build once, start the three containers
+docker compose logs -f lobby game # watch the two processes
+docker compose down               # stop; in-memory accounts are gone
+```
+
+The client build bakes `REACT_APP_LOBBY_URL` (build arg, default
+`http://localhost:3000`); the game server announces
+`GAME_SERVER_PUBLIC_URL=http://localhost:3001`. `NODE_ENV` is left off
+`production` on purpose: the session cookie turns `secure` there and this
+table is plain http. Restarting a container is the same as restarting the
+process: accounts and sessions are forgotten.
 
 ## 3. Bot seats (solo testing)
 

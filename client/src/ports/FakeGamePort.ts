@@ -269,6 +269,10 @@ export class FakeGamePort implements GamePort {
         // either roll (the real server gives 5 s; the fake is for looking)
         this.after(12_000, () => this.advanceChallenge())
         break
+      case 'PassWindow':
+        // the temporary forfeit: the window settles at once, as a lapse would
+        this.closeWindow(command.payload.windowId)
+        break
       case 'SubmitChoice': {
         const answered = this.view.pendingWindows.find(
           (window) => window.windowId === command.payload.windowId,

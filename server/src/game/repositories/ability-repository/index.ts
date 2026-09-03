@@ -1,3 +1,4 @@
+import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ChallengeAbility } from './challenge-ability'
 import { CharismaticSongAbility } from './charismatic-song-ability'
@@ -155,3 +156,17 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['leader-120', CloakedSageAbility], // The Cloaked Sage — DRAW on each Magic card you play
   ['leader-121', ProtectingHornAbility], // The Protecting Horn — +1 or -1 on each Modifier you play
 ])
+
+/**
+ * Whether a card's printed ability fires on the card's OWN RollSuccess — the
+ * event RollOnLeaderAction announces. That is what makes a leader ACTIVATED:
+ * the Shadow Claw has such an entry, the five passives have nothing to fire,
+ * so activating them would only spend the point. The action and the view
+ * both read this, so the guard and the glow cannot disagree.
+ */
+export const firesOnOwnRoll = (cardId: string): boolean =>
+  (abilityRegistry.get(cardId) ?? []).some(
+    (rule) =>
+      rule.trigger.on === GameEventType.RollSuccess &&
+      rule.trigger.scope === TriggerScope.SelfCard,
+  )

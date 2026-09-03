@@ -103,6 +103,43 @@ describe('ReactionManager', () => {
   // openWindow
   // ---------------------------------------------------------------------------
 
+  describe('pass — the temporary forfeit', () => {
+    const openRoll = () => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, ReactionWindowType.Modifier, 'p1', {
+        baseRoll: 5,
+        rollReq: 7,
+        heroId: 'hero-1',
+      })
+      return gs.frames.get(frameId)!.windows[0]
+    }
+
+    it('resolves an open table window at once, as the clock would', () => {
+      const window = openRoll()
+      expect(rm.pass(window.getId(), 'p1')).toEqual({ accepted: true })
+      expect(window.isOpen()).toBe(false)
+    })
+
+    it('NoSuchWindow once it has resolved', () => {
+      const window = openRoll()
+      rm.pass(window.getId(), 'p1')
+      expect(rm.pass(window.getId(), 'p1')).toEqual({
+        accepted: false,
+        reason: RefusalReason.NoSuchWindow,
+      })
+    })
+
+    it("WindowNotPassable for a choice — one player's question", () => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, ReactionWindowType.PlayerChoice, 'p1', { options: ['p1'] })
+      const window = gs.frames.get(frameId)!.windows[0]
+      expect(rm.pass(window.getId(), 'p1')).toEqual({
+        accepted: false,
+        reason: RefusalReason.WindowNotPassable,
+      })
+    })
+  })
+
   describe('openWindow', () => {
     it('inserts a ModifierWindow with the correct type', () => {
       const frameId = rm.openFrame()
