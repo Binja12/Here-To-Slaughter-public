@@ -1707,6 +1707,30 @@ left. Rejected: a reveal window with a
 timer the engine enforces on the player — a window gates actions, and a
 look gates nothing.
 
+**Round five (2026-09-04) — the last six.** Two picks in one entry get
+two slots: `ChooseCardTask(filter, { resultKey })` files the pick where
+it is told (the window carries the slot), so Hook keeps its item in
+`CTX_CHOSEN_ITEM` while the hero pick takes the default. A choice skipped
+on its precondition now WRITES an empty pick rather than leaving the
+previous one in the slot. `DiscardTask` says what it discarded
+(`CTX_DISCARDED_CARDS`, written on every run), which is all Qi Bear's "for
+each card discarded" needs: each round's choices hang on the round
+before, and "up to" is picking nothing. "The cards discarded during this
+ability" (Beary Wise) is read off the pile, not collected — the per-seat
+runs have contexts of their own, but the pile is a stack: a mark before
+the loop (`MarkDiscardPileTask`), a count after it (`DiscardedCountTask`),
+and the count is a `top` over `Zone.Discard` (`CardFilter.top` may name a
+slot). `DestroyTask` names the gear that fell (`CTX_DESTROYED_HERO_ITEM`);
+it still drops on the pile silently, and Shurikitty's "to your hand
+instead" is a retrieve straight after — two moves, no discard announced
+between them, which is the owner's reading of how fallen gear should
+behave. `TradeHandsTask` swaps two whole hands through the hand doors and
+announces one `HandsTraded`, not a pull per card. Crowned Serpent is a
+declaration: `ModifierPlayed` on `Anyone`, a confirm, a draw. Rejected: a
+per-seat discard writing a counter for its parent (contexts do not share),
+and a destroy variant that hands the gear over itself (the retrieve
+already exists).
+
 **Only GameState mutates the board (2026-09-04).** Nothing outside
 `game-state.ts` calls a mutator on a `Player`, a `Party` or a pile: a task,
 an action, a window or the deal asks the board through a door —

@@ -102,10 +102,12 @@ Round four (same day, 2 more ids): Sharp Fox (`RevealTask` → the
 view's `revealedCards`, 5 s), Bullseye (a choice over `Zone.MainDeckTop`, then
 `DrawTask(CTX_CHOSEN_CARD)`). Pan Chucks and Rex Major now reveal the drawn card
 to the table on their yes — no longer approximations.
-Still open from those groups: Beary Wise (its second half needs "the cards
-discarded during this ability"), Bloodwing (a scope for "another player
-challenges YOU"), Shurikitty (destroy keeping the gear for the owner),
-Decoy Doll (a replacement effect on destroy / sacrifice).
+Round five (same day, 6 more ids): Beary Wise (a mark and a count on
+the discard pile, then a choice over its top that many), Qi Bear
+(`CTX_DISCARDED_CARDS` gating each round), Hook (`resultKey`: two picks,
+two slots), Shurikitty (`CTX_DESTROYED_HERO_ITEM` + retrieve), Dodgy
+Dealer (`TradeHandsTask`, `HandsTraded`), Crowned Serpent (declaration
+only). Left: Slippery Paws (a card filter limited to a slot).
 
 ## B. Needs a mechanic the engine does not have — 41 cards (the owner + Claude)
 

@@ -33,8 +33,12 @@ export type PlayerFilter = {
 
 export type CardFilter = {
   zone: Zone
-  /** MainDeckTop only: how many cards from the top are looked at. */
-  top?: number
+  /**
+   * How many cards from the top are looked at: MainDeckTop ("the top
+   * three", Bullseye) or Discard ("the cards discarded during this ability",
+   * Beary Wise — a slot name, read as a number). Without it, all of a pile.
+   */
+  top?: number | string
   /**
    * Who this step runs AS — who answers the choice. The ability owner unless
    * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
@@ -133,7 +137,7 @@ function idsInZone(
   gs: GameState,
   zone: Zone,
   ownerId: string,
-  top = 1,
+  top?: number,
 ): string[] {
   switch (zone) {
     case Zone.Hand:
@@ -146,14 +150,17 @@ function idsInZone(
         .getHeroIds()
         .map((heroId) => gs.getEquippedItem(heroId))
         .filter((id): id is string => !!id)
-    case Zone.Discard:
-      return gs.getDiscardPile().getAll()
+    case Zone.Discard: {
+      // Top first — the pile is a stack, so "the last N discarded" is its top N.
+      const all = gs.getDiscardPile().getAll()
+      return top === undefined ? all : all.slice(0, top)
+    }
     case Zone.MonsterPile:
       return gs.getMonsterPile().getAll()
     case Zone.MainDeckTop:
       // Looked at where they lie: the choice's options are the look, and the
       // ones not taken stay in the deck in the order they were (Bullseye).
-      return gs.peekMainDeck(top)
+      return gs.peekMainDeck(top ?? 1)
   }
 }
 
@@ -164,11 +171,14 @@ export function filterCards(
 ): string[] {
   const exclude = new Set(filter.excludeIds ?? [])
 
+  const top =
+    typeof filter.top === 'string' ? (ctx.get<number>(filter.top) ?? 0) : filter.top
+
   // A shared zone is read once, with no owner — see SHARED_ZONES.
   const ids = SHARED_ZONES.has(filter.zone)
-    ? idsInZone(gs, filter.zone, '', filter.top)
+    ? idsInZone(gs, filter.zone, '', top)
     : playersFor(gs, ctx, filter.owner).flatMap((ownerId) =>
-        idsInZone(gs, filter.zone, ownerId, filter.top),
+        idsInZone(gs, filter.zone, ownerId, top),
       )
 
   return ids.filter((id) => {

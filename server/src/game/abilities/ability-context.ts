@@ -34,6 +34,37 @@ export const CTX_CHOSEN_PLAYER = "chosenPlayer";
  */
 export const CTX_SOURCE_CARD = "sourceCard";
 
+/**
+ * A second card pick, kept apart from CTX_CHOSEN_CARD — a ChooseCardTask
+ * given `{ resultKey: CTX_CHOSEN_ITEM }`. Hook picks the item to play, then
+ * the hero to wear it: two picks, so two slots.
+ */
+export const CTX_CHOSEN_ITEM = "chosenItem";
+
+/**
+ * string[] — what the last DiscardTask actually discarded: one id, or none
+ * when the player was asked and picked nothing. Written on every run, so a
+ * later choice can hang on it (Qi Bear: a destroy per card discarded).
+ */
+export const CTX_DISCARDED_CARDS = "discardedCards";
+
+/** number — the discard pile's size when MarkDiscardPileTask ran. */
+export const CTX_DISCARD_PILE_MARK = "discardPileMark";
+
+/**
+ * number — how many cards landed on the discard pile since the mark
+ * (DiscardedCountTask): "the cards discarded during this ability", read as a
+ * `top` over Zone.Discard.
+ */
+export const CTX_DISCARDED_COUNT = "discardedCount";
+
+/**
+ * string[] — the item the hero DestroyTask just destroyed was wearing, now on
+ * the discard pile; empty when it wore none, or nothing was destroyed.
+ * Shurikitty takes it back out.
+ */
+export const CTX_DESTROYED_HERO_ITEM = "destroyedHeroItem";
+
 /** number — written by ModifierWindow. Scalar; only set on a successful roll. */
 export const CTX_FINAL_ROLL = "finalRoll";
 

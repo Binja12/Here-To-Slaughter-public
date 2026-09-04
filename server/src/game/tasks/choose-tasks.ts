@@ -1,7 +1,7 @@
 import { IGameEventEmitter, ReactionWindowType, Zone } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { chosenPlayers, AbilityContext } from '../abilities/ability-context'
+import { chosenPlayers, AbilityContext, CTX_CHOSEN_CARD } from '../abilities/ability-context'
 import {
   CardFilter,
   PlayerFilter,
@@ -41,22 +41,40 @@ export class ChoosePlayerTask implements ITask {
   }
 }
 
+export type ChooseCardOptions = {
+  /**
+   * A slot that must hold something before this choice is worth asking.
+   *
+   * Not a filter — the question is whether the choice has a POINT, not which
+   * cards qualify. Forced Exchange asks "which of yours do you hand over?"
+   * only once there is somebody to hand it to; without this the player is
+   * prompted and the step behind then skips on the same empty slot, which
+   * reads as a bug from the table.
+   *
+   * Absent slot = mis-declared, empty slot = a step ahead produced nothing.
+   */
+  requiresKey?: string
+  /**
+   * Where the pick lands: CTX_CHOSEN_CARD unless a second pick has to
+   * survive the first. Hook keeps its item in CTX_CHOSEN_ITEM while the hero
+   * pick takes the default; PlayItemTask then reads both.
+   */
+  resultKey?: string
+}
+
 export class ChooseCardTask implements ITask {
+  private readonly requiresKey?: string
+  private readonly resultKey: string
+
+  /** A bare string is the `requiresKey`. */
   constructor(
     private readonly filter: CardFilter,
-    /**
-     * A slot that must hold something before this choice is worth asking.
-     *
-     * Not a filter — the question is whether the choice has a POINT, not which
-     * cards qualify. Forced Exchange asks "which of yours do you hand over?"
-     * only once there is somebody to hand it to; without this the player is
-     * prompted and the step behind then skips on the same empty slot, which
-     * reads as a bug from the table.
-     *
-     * Absent slot = mis-declared, empty slot = a step ahead produced nothing.
-     */
-    private readonly requiresKey?: string,
-  ) {}
+    options: string | ChooseCardOptions = {},
+  ) {
+    const opts = typeof options === 'string' ? { requiresKey: options } : options
+    this.requiresKey = opts.requiresKey
+    this.resultKey = opts.resultKey ?? CTX_CHOSEN_CARD
+  }
 
   execute(
     gs: GameState,
@@ -72,7 +90,9 @@ export class ChooseCardTask implements ITask {
             'ability named it as a precondition but no step ahead fills it.',
         )
       }
-      if (required.length === 0) return
+      // Asked nothing, picked nothing — said in the slot, or the step behind
+      // would read the PREVIOUS pick (Qi Bear's later rounds).
+      if (required.length === 0) return void ctx.set(this.resultKey, [])
     }
 
     const options = filterCards(gs, ctx, this.filter)
@@ -81,11 +101,12 @@ export class ChooseCardTask implements ITask {
     // nobody to ask, and the step behind skips on the empty result.
     const respondentId =
       this.filter.executor === 'chosen' ? chosenPlayers(ctx)[0] : ctx.ownerId
-    if (!respondentId) return
+    if (!respondentId) return void ctx.set(this.resultKey, [])
 
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.CardChoice, respondentId, {
       options,
+      resultKey: this.resultKey,
     })
 
     // Suspends even on an empty option set: ChoiceWindow settles that on a

@@ -17,7 +17,12 @@ import { CardPile } from '../state-structures/card-pile'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
-import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
+import {
+  AbilityContext,
+  CTX_CHOSEN_PLAYER,
+  CTX_CHOSEN_CARD,
+  CTX_CHOSEN_ITEM,
+} from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../pipelines/reaction-manager'
 
@@ -472,3 +477,30 @@ describe('ConfirmTask', () => {
     expect(win.isOpen()).toBe(false)
   })
 })
+
+describe('ChooseCardTask — the output slot, and a skipped choice', () => {
+  const build = () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: ['a'], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    gs.registerCard(new HeroCard({ id: 'a', name: 'a', type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    const em = new GameEventEmitter()
+    return { gs, em, rm: new ReactionManager(gs, em), ctx: new AbilityContext('src', 'p1') }
+  }
+
+  it('files the pick where `resultKey` says, so a second pick does not overwrite it', () => {
+    const { gs, em, rm, ctx } = build()
+    new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, { resultKey: CTX_CHOSEN_ITEM }).execute(gs, ctx, em, rm)
+    const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    expect(window.resultKey()).toBe(CTX_CHOSEN_ITEM)
+  })
+
+  it('a choice skipped on its precondition writes an EMPTY pick, not the previous one', () => {
+    const { gs, em, rm, ctx } = build()
+    ctx.set(CTX_CHOSEN_CARD, ['stale'])
+    ctx.set('gate', [])
+    expect(new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, 'gate').execute(gs, ctx, em, rm)).toBeUndefined()
+    expect(ctx.get(CTX_CHOSEN_CARD)).toEqual([])
+  })
+})
+

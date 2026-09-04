@@ -81,7 +81,7 @@ describe('createGame', () => {
     it('leaves a card the registry does not implement out of the deal — the pool is exactly the registry', () => {
       const game = createGame(SEATS)
 
-      expect(game.gameState.getCard('hero-046')).toBeUndefined() // Dodgy Dealer: no entry yet
+      expect(game.gameState.getCard('hero-022')).toBeUndefined() // Slippery Paws: no entry yet
       expect(game.gameState.getCard('hero-028')).toBeDefined() // Wise Shield
     })
 

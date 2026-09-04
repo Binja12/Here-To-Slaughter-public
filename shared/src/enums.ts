@@ -131,6 +131,8 @@ export enum GameEventType {
    * HAND is announced as CardPulled instead.
    */
   CardRetrieved = "CardRetrieved",
+  /** Two whole hands swapped (Dodgy Dealer). One event, not a pull per card: nothing was taken. */
+  HandsTraded = "HandsTraded",
   /** Cards shown to a seat (or the table) without moving — RevealTask. */
   CardsRevealed = "CardsRevealed",
   /** The reveal clock ran out; the cards are off the view again. */

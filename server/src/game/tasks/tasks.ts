@@ -11,7 +11,11 @@ import {
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
   CTX_PULLED_CARD_IDS,
-  chosenPlayers,} from '../abilities/ability-context'
+  CTX_DISCARDED_CARDS,
+  CTX_DISCARD_PILE_MARK,
+  CTX_DISCARDED_COUNT,
+  chosenPlayers,
+} from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
 import { filterPlayers, PlayerFilter, filterCards, CardFilter } from '../reactions/choice-filters'
 
@@ -51,6 +55,10 @@ export class DiscardTask implements ITask {
       )
     }
 
+    // Written on every run, so a step behind can tell "discarded nothing"
+    // from "never discarded" (Qi Bear hangs a destroy on it).
+    ctx.set(CTX_DISCARDED_CARDS, [])
+
     // Empty = the player was asked and picked nothing. Nothing to discard.
     const [cardId] = cards
     if (!cardId) return
@@ -60,6 +68,94 @@ export class DiscardTask implements ITask {
     if (!gs.getPlayer(executorId)?.getHand().includes(cardId)) return
 
     gs.discardFromHand(executorId, cardId, em)
+    ctx.set(CTX_DISCARDED_CARDS, [cardId])
+  }
+}
+
+// ---------------------------------------------------------------------------
+// MarkDiscardPileTask / DiscardedCountTask — "the cards discarded during
+// this ability"
+//
+// Beary Wise: each other player discards, then the owner takes one of THOSE.
+// The per-seat runs have contexts of their own (§6), so nothing they discard
+// can be written back to the parent's — but the pile knows. The parent notes
+// the pile's size before the loop and, once the runs have drained, how much
+// taller it is; that count is a `top` for a choice over Zone.Discard, the
+// Bullseye shape on the other pile. Derived from the board, never tracked.
+// ---------------------------------------------------------------------------
+
+export class MarkDiscardPileTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    _em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    ctx.set(CTX_DISCARD_PILE_MARK, gs.getDiscardPile().getSize())
+  }
+}
+
+export class DiscardedCountTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    _em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const mark = ctx.get<number>(CTX_DISCARD_PILE_MARK)
+    if (mark === undefined) {
+      throw new Error(
+        'DiscardedCountTask: nothing has written the discard pile mark — ' +
+          'a MarkDiscardPileTask belongs before the discards.',
+      )
+    }
+    ctx.set(CTX_DISCARDED_COUNT, Math.max(0, gs.getDiscardPile().getSize() - mark))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TradeHandsTask — swap the owner's whole hand with the chosen seat's
+//
+// Dodgy Dealer. Card by card through the hand doors, announced ONCE as
+// HandsTraded rather than as a pull per card: nothing was taken from anybody,
+// and a per-card announcement would wake every "when you pull" reaction.
+// Empty hands trade too — the printed text has no "if".
+// ---------------------------------------------------------------------------
+
+export class TradeHandsTask implements ITask {
+  /** Slot naming the other seat. Defaults to a ChoosePlayerTask's. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_PLAYER) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const chosen = ctx.get<string[]>(this.fromKey)
+    if (chosen === undefined) {
+      throw new Error(
+        `TradeHandsTask: nothing has written ${this.fromKey} — the ability is ` +
+          'missing a ChoosePlayerTask before this step.',
+      )
+    }
+    const [otherId] = chosen
+    if (!otherId || otherId === ctx.ownerId) return
+    const mine = gs.getPlayer(ctx.ownerId)
+    const theirs = gs.getPlayer(otherId)
+    if (!mine || !theirs) return
+
+    const myHand = [...mine.getHand()]
+    const theirHand = [...theirs.getHand()]
+    for (const cardId of myHand) {
+      gs.removeFromHand(ctx.ownerId, cardId)
+      gs.addToHand(otherId, cardId)
+    }
+    for (const cardId of theirHand) {
+      gs.removeFromHand(otherId, cardId)
+      gs.addToHand(ctx.ownerId, cardId)
+    }
+    em.emit(GameEventFactory.handsTraded(ctx.ownerId, otherId))
   }
 }
 

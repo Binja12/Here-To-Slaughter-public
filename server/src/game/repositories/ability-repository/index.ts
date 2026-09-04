@@ -52,6 +52,12 @@ import { CorruptedSabretoothAbility } from './corrupted-sabretooth-ability'
 import { DecoyDollAbility } from './decoy-doll-ability'
 import { SharpFoxAbility } from './sharp-fox-ability'
 import { BullseyeAbility } from './bullseye-ability'
+import { BearyWiseAbility } from './beary-wise-ability'
+import { QiBearAbility } from './qi-bear-ability'
+import { HookAbility } from './hook-ability'
+import { ShurikittyAbility } from './shurikitty-ability'
+import { DodgyDealerAbility } from './dodgy-dealer-ability'
+import { CrownedSerpentAbility } from './crowned-serpent-ability'
 import { SilentShadowAbility } from './silent-shadow-ability'
 import { BadAxeAbility } from './bad-axe-ability'
 import { PanChucksAbility } from './pan-chucks-ability'
@@ -182,6 +188,13 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['monster-130', TerratugaAbility], // Terratuga — your heroes cannot be destroyed
   ['monster-131', OrthusAbility], // Orthus — DRAW a Magic card, may play it at once
   ['monster-132', RexMajorAbility], // Rex Major — drawn Modifier may DRAW again
+  // Round five (2026-09-04): the last of what the mechanics were missing.
+  ['hero-003', BearyWiseAbility], // Beary Wise — everyone else DISCARDS, one of those to your hand
+  ['hero-007', QiBearAbility], // Qi Bear — DISCARD up to 3, a hero DESTROYED per card
+  ['hero-013', HookAbility], // Hook — play an Item from your hand, DRAW
+  ['hero-023', ShurikittyAbility], // Shurikitty — DESTROY; its gear to your hand
+  ['hero-046', DodgyDealerAbility], // Dodgy Dealer — trade hands
+  ['monster-125', CrownedSerpentAbility], // Crowned Serpent — anyone's Modifier, you may DRAW
   ['monster-133', DarkDragonKingAbility], // Dark Dragon King — +1 to Hero-effect rolls
   ['monster-134', MalamammothAbility], // Malamammoth — DRAW an Item card, may play it at once
   ['monster-135', WarwornOwlbearAbility], // Warworn Owlbear — your Items cannot be challenged

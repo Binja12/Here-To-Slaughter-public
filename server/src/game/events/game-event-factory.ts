@@ -298,6 +298,16 @@ export class GameEventFactory {
    * decides who may see which id (§5).
    */
   /** RetrieveCardTask: `playerId` is the hand the card landed in. */
+  /** TradeHandsTask: `playerId`'s whole hand and `withPlayerId`'s changed places. */
+  static handsTraded(playerId: string, withPlayerId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HandsTraded,
+      playerId,
+      { withPlayerId },
+      Audience.All,
+    )
+  }
+
   static cardRetrieved(
     playerId: string,
     cardId: string,

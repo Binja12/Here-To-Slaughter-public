@@ -17,6 +17,7 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
+  CTX_DESTROYED_HERO_ITEM,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
@@ -328,3 +329,43 @@ describe('DestroyTask', () => {
     expect(gs.getPlayer('p1')!.getHand()).toContain('in-hand')
   })
 })
+
+describe('DestroyTask — names the gear that went down', () => {
+  it('the carried item lands on the pile silently and is named in CTX_DESTROYED_HERO_ITEM', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1'))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['h2']))
+    gs.registerCard(makeHeroCard('h2'))
+    gs.registerCard(new ItemCard({ id: 'sword', name: 'sword', type: CardType.Item, image: '', description: '', set: 'base', cursed: false }))
+    gs.equipItem('h2', 'sword')
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_CHOSEN_CARD, ['h2'])
+    const em = new GameEventEmitter()
+    const emitted: IGameEvent[] = []
+    em.addListener({ onEvent: (e) => emitted.push(e) })
+    new DestroyTask().execute(gs, ctx, em, null as unknown as ReactionManager)
+    expect(ctx.get(CTX_DESTROYED_HERO_ITEM)).toEqual(['sword'])
+    expect(gs.getDiscardPile().getAll()).toEqual(['sword', 'h2'])
+    expect(emitted.map((e) => e.getType())).not.toContain(GameEventType.CardDiscarded)
+  })
+
+  it('a bare hero, or no destroy at all, names nothing', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1'))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['h2']))
+    gs.registerCard(makeHeroCard('h2'))
+    const ctx = new AbilityContext('src', 'p1')
+    const em = new GameEventEmitter()
+    ctx.set(CTX_CHOSEN_CARD, ['h2'])
+    new DestroyTask().execute(gs, ctx, em, null as unknown as ReactionManager)
+    expect(ctx.get(CTX_DESTROYED_HERO_ITEM)).toEqual([])
+    ctx.set(CTX_CHOSEN_CARD, [])
+    new DestroyTask().execute(gs, ctx, em, null as unknown as ReactionManager)
+    expect(ctx.get(CTX_DESTROYED_HERO_ITEM)).toEqual([])
+  })
+})
+

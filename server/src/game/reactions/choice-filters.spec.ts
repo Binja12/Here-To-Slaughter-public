@@ -440,3 +440,22 @@ describe('filterCards — the top of the main deck', () => {
   })
 })
 
+describe('filterCards — the top of the discard pile, top from a slot', () => {
+  it('offers the last N discarded, newest first; a slot names N; no top is the whole pile', () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    for (const id of ['a', 'b', 'c']) {
+      gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+      gs.getDiscardPile().add(id)
+    }
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set('n', 2)
+
+    expect(filterCards(gs, ctx, { zone: Zone.Discard })).toEqual(['c', 'b', 'a'])
+    expect(filterCards(gs, ctx, { zone: Zone.Discard, top: 2 })).toEqual(['c', 'b'])
+    expect(filterCards(gs, ctx, { zone: Zone.Discard, top: 'n' })).toEqual(['c', 'b'])
+    expect(filterCards(gs, ctx, { zone: Zone.Discard, top: 'unset' })).toEqual([])
+  })
+})
+

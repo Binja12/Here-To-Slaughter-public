@@ -5,6 +5,7 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
+  CTX_DESTROYED_HERO_ITEM,
   CTX_STOLEN_FROM_PLAYER,
   CTX_STOLEN_HERO_ID,
 } from '../abilities/ability-context'
@@ -71,6 +72,10 @@ export class DestroyTask implements ITask {
       )
     }
 
+    // Written on every run: Shurikitty retrieves whatever is named here, and
+    // a destroy that never happened (or a bare hero) names nothing.
+    ctx.set(CTX_DESTROYED_HERO_ITEM, [])
+
     // Empty = the player was asked and picked nothing.
     const [heroId] = heroes
     if (!heroId) return
@@ -98,8 +103,12 @@ export class DestroyTask implements ITask {
 
     const carriedItemId = gs.removeHero(ownerId, heroId, em, 'Destroyed')
     gs.addToDiscardPile(heroId)
-    // The gear goes down with its carrier rather than vanishing from every zone.
-    if (carriedItemId) gs.addToDiscardPile(carriedItemId)
+    // The gear goes down with its carrier rather than vanishing from every
+    // zone — silently: it was not discarded by anyone, it fell.
+    if (carriedItemId) {
+      gs.addToDiscardPile(carriedItemId)
+      ctx.set(CTX_DESTROYED_HERO_ITEM, [carriedItemId])
+    }
     em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
   }
 }
