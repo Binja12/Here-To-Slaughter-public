@@ -133,6 +133,8 @@ export type Deal = {
   slack?: number
   /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
   turnTimeMs?: number
+  /** `GameConfig.seamlessReactions`. Off by default, like the printed game. */
+  seamless?: boolean
 }
 
 export type Table = { game: Game; events: IGameEvent[] }
@@ -197,6 +199,7 @@ export function stacked(spec: Deal): Table {
             ...defaultGameConfig.timeControl,
             turnTimeMs: spec.turnTimeMs,
           },
+          seamlessReactions: spec.seamless ?? false,
         }),
         cards,
       }),

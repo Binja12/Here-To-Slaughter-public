@@ -231,8 +231,8 @@ describe('Wise Shield — full life cycle', () => {
       const { gs, em, rm, tm } = setup()
       playWiseShield(gs, em, rm, tm)
       const { frame } = gs.getFrameByWindowType(ReactionWindowType.Challenge)!
-      expect(frame.snapshot.getPlayer('p1')!.getHand()).not.toContain(WISE_SHIELD)
-      expect(frame.snapshot.getParty('p1').getHeroIds()).not.toContain(WISE_SHIELD)
+      expect(frame.snapshot.board.getPlayer('p1')!.getHand()).not.toContain(WISE_SHIELD)
+      expect(frame.snapshot.board.getParty('p1').getHeroIds()).not.toContain(WISE_SHIELD)
     })
   })
 

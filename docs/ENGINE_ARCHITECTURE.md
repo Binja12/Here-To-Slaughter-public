@@ -428,17 +428,46 @@ mutated. No cancel flag exists anywhere — `pausedOn` is the pause itself,
 read from the other side.
 
 **A rollback undoes everything after the snapshot, not just the board.**
-Every frame opened after the restored one is cancelled — its windows close
-with `ReactionWindowClosed { cancelled: true }`, no default pick, no
-`FrameResolved` — and every pipeline pushed since is dropped:
-`GameFrame.stackDepth` is the stack's height when the frame opened
-(`addFrame` records it), and `revert` truncates to it before the
-`pausedOn` filter. Today nothing can be there (the stack cannot move under
-an open frame); seamless reactions (`docs/SEAMLESS_REACTIONS_PLAN.md`) are
-what will. Two exits from the one rollback: `restoreFrame` deletes the
-frame (a failed outcome), `revertFrame` keeps it open so it can roll back
-AGAIN when a roll's total flips back — which is why the board is restored
-from a COPY of the snapshot, never by aliasing it.
+A frame's `snapshot` is the board AND the pipeline stack as they stood
+when it opened (`FrameSnapshot { board, pipelines }`) — steps copied,
+contexts cloned, a mark for a frame that no longer exists dropped
+(`copyPipelines`) — and `TaskManager` parks a pipeline through
+`GameState.parkOn`, which marks it live AND in that copy. `revert` puts the
+copy back: everything pushed since is gone with the board it changed, and
+the pipeline parked on the frame is dropped (`restoreFrame`, a failed
+outcome) or kept waiting (`revertFrame`, a frame that stays open so it can
+roll back AGAIN when a roll's total flips back — which is why the board is
+restored from a COPY of the snapshot, never by aliasing it). Every frame
+opened after the restored one is cancelled: its windows close with
+`ReactionWindowClosed { cancelled: true }`, no default pick, no
+`FrameResolved`, and only AFTER the board is whole again, because a close
+is announced and an announcement drains. Without seamless reactions
+nothing is ever there to undo (the stack cannot move under an open frame).
+
+**Optimistic frames (seamless reactions, `GameConfig.seamlessReactions`).**
+The same lever pulled earlier. A challenge or hero-roll window announces
+itself, starts its clock, and on the NEXT tick resolves provisionally
+(`AttackWindow.optimistic` says no: an attack is the one play that waits
+for its window — a monster slain before the roll settled read as wrong at
+the table — and its attacker waits with it): a challenge emits its `FrameResolved` with the card, a roll
+applies its standing outcome (`standing(finalRoll)` → `apply`, the two
+halves `settle` is also made of) and emits `FrameResolved` with the roll.
+The parked continuation runs, the card's entries fire, the board moves on
+— with the window still open. Every modifier landing re-reads the
+standing outcome (`reconcile`): unchanged, nothing; flipped, `revertFrame`
+then the new outcome applied and the continuation woken again with the new
+number. A challenge is different only in that the contest decides once:
+started, it blocks the active player; lost, `restoreFrame`. Settlement
+(lapse, every seat passed) is then a CLOSE, not a resolution — the frame
+is released FIRST, the close announced after with no second
+`FrameResolved` (the entries fired once), and `GameEngine` drains on that
+close, which is what ends a spent turn. A window that settles before its
+tick takes the ordinary path. `GameState.hasPendingOutcome` keeps the win
+check off a provisional board. Several table windows open at once route
+by subject: a challenge names the card it contests (`getFrameContesting`,
+seeded on `ChallengePlayed`), a modifier lands in the newest window that
+takes its target (`findOpenModifiableWindow`). `setup/seamless.spec.ts`
+plays it on a dealt table.
 
 **Rollback means an outcome FAILED**, never a player declining an offer. A
 declined confirm releases its frame like any other outcome (§4).
@@ -519,31 +548,31 @@ stop, carry on when it resolves.
   clears the mark. Asking whether the frame is still open would NOT do: a
   window releases its frame BEFORE it announces the outcome (§4), so the stack
   would carry on before the answer arrived.
-- **The stack is NOT in the snapshot.** A snapshot is the board — players,
-  parties, piles, hands, effects. Pipelines are work in progress ON the board,
-  and a rollback undoes what that work did without forgetting the work
-  existed: the live stack survives a rollback untouched except for the
-  pipelines paused on the restored frame and any pushed after it opened
-  (`stackDepth`), which it drops. That is the whole
-  cancellation rule, stated once, beside the rollback it belongs to. The
-  pipelines underneath could not have moved while the frame was open (only
-  the top of the stack runs, and the top was paused), so there is nothing a
-  copy could restore that the live record does not already hold. A copy
-  would be a second record of "P is waiting on F" beside `pausedOn`, and
-  the two can disagree: a confirm's `TaskConfirmed` goes out before its
-  `FrameResolved`, so a continuation opens its frame while the offer is
-  still marked paused on a frame already released, and a copy taken then
-  carried a mark nothing would ever clear. An offered roll that FAILED left
-  the board busy for ever that way. Pinned in `hero-rules.spec.ts` and in
-  the rollback case of `ability-pipelines.spec.ts`.
+- **The stack IS in the snapshot, as its own record.** A frame's snapshot
+  is `{ board, pipelines }`: the board as it was, and the stack as it
+  stood — steps copied, contexts cloned. Pipelines are work in progress ON
+  the board, and a rollback undoes what that work did AND puts the work
+  back where it was, because under seamless reactions a continuation that
+  ran on a provisional outcome has to run again on the next one. Two
+  rules on the way back, stated once beside the rollback they belong to:
+  the pipeline parked on the restored frame (`parkOn` marks it live and in
+  the copy) is dropped when the frame failed and kept waiting when the
+  frame stays open; and a mark for a frame that no longer exists is not
+  copied — a confirm's `TaskConfirmed` goes out before its `FrameResolved`,
+  so a continuation opens its frame while the offer is still marked paused
+  on a frame already released, and a copy carrying that mark would wait for
+  ever (an offered roll that FAILED once left the board busy that way).
+  Pinned in `hero-rules.spec.ts`, the rollback case of
+  `ability-pipelines.spec.ts`, and the frames block of `game-state.spec.ts`.
 - **`FrameResolved` drains even when nothing is paused on that frame.** After
   a rollback the pipeline that waited is gone, and the ones underneath still
   have to finish.
-- **A pipeline started inside a frame outlives its rollback.** It is on the
-  live stack, so it stays. The only way to be there at all is the timer race
-  of §8 — a modifier's value choice still open when the roll it was for
-  lapses — and `ApplyModifierTask` finds the roll settled and drops the
-  bonus. Not pinned.
+- **A pipeline started inside a frame goes with its rollback.** It is not
+  in the frame's copy of the stack, so the restore drops it. Without
+  seamless reactions the only way to be there at all is the timer race of
+  §8 — a modifier's value choice still open when the roll it was for
+  lapses — and the bonus it would have landed is lost with it, which is
+  what `ApplyModifierTask` would have done anyway. Not pinned.
 - **The declaration's `steps` are copied when matched.** That list is built
   once at module load (§1); the drain consumes what it is handed.
 
@@ -1608,6 +1637,20 @@ table while the last player connects.
 - Leaders are seated BEFORE `GameStarted`, or the three leaders carrying a
   passive install nothing.
 - `GameStarted` goes out before the first `TurnStarted`.
+
+**Under seamless reactions the active player is BLOCKED, and the clock
+held, by one predicate:** `GameState.refusesActions(player)` — a value
+being chosen for a modifier, a challenge contest running, or a question
+of the player's own standing that is not theirs to skip. Another player's
+question never blocks; a table window never blocks; an optional question
+(`TaskChoiceWindow.isOptional`, DISMISS among its labels) is forfeited by
+the player's next action (`TurnManager.enqueue` resolves it on its
+silence). The same predicate gates the drain and is what the view shows
+as `PlayerView.acceptsActions`. A turn whose budget is gone with windows
+still open caps every window's clock at `TURN_END_WINDOW_CAP_MS` (10 s;
+`GameState.cappedClock` sizes the clocks of windows that open after) and
+ends on the close that leaves the board idle; a lapsed clock under open
+windows forfeits the budget the same way rather than throwing.
 
 **A turn's clock is CONFIG too, it PAUSES under any window, and a lapse is
 a pass.** `TimeControl.turnTimeMs` is the whole of it: `TurnManager` gives

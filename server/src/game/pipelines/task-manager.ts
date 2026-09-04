@@ -329,6 +329,6 @@ export class TaskManager implements IGameEventListener {
       )
     }
 
-    pipeline.pausedOn = frameId
+    this.gs.parkOn(pipeline, frameId)
   }
 }

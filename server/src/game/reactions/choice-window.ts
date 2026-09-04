@@ -55,9 +55,16 @@ export abstract class ChoiceWindow implements IReactionWindow {
     // Nothing to choose from settles at once, but on a 0ms TIMER — never
     // inline, or the frame would settle before the task that opened it
     // returned and TaskManager would have nothing parked to resume.
-    const clockMs = this.options.length === 0 ? 0 : this.timeoutMs
+    const clockMs = this.options.length === 0 ? 0 : gs.cappedClock(this.timeoutMs)
     this.deadline = Date.now() + clockMs
     this.timer = setTimeout(() => this.resolve(), clockMs)
+  }
+
+  capClock(ms: number): void {
+    if (this._resolved || this.deadline - Date.now() <= ms) return
+    if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + ms
+    this.timer = setTimeout(() => this.resolve(), ms)
   }
 
   // --- IReactionWindow ---

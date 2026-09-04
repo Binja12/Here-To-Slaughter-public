@@ -73,8 +73,7 @@ export class ReactionManager implements IReactionManager {
    */
   openFrame(): string {
     const frameId = crypto.randomUUID()
-    const snapshot = this.gs.clone()
-    this.gs.addFrame(frameId, { snapshot, windows: [] })
+    this.gs.addFrame(frameId, this.gs.clone())
     return frameId
   }
 

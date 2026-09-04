@@ -41,6 +41,13 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
   private deadline = 0
   /** The subject's own fields, as handed to open(); reread by getDetail. */
   private detail: Record<string, unknown> = {}
+  /**
+   * Optimistic frames (seamless reactions, §3): the outcome the table
+   * currently shows, applied before the window settled. Undefined until the
+   * tick after opening, and always without the flag.
+   */
+  private applied: unknown = undefined
+  private provisional?: ReturnType<typeof setTimeout>
 
   constructor(
     private readonly id: string,
@@ -101,6 +108,46 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       ),
     )
     this.resetTimer()
+    // On a TIMER, never inline: the task that opened this has not returned
+    // yet, and the continuation it parks has to be parked before it is woken.
+    if (this.optimistic()) {
+      this.provisional = setTimeout(() => this.reconcile(), 0)
+    }
+  }
+
+  /**
+   * Whether this window resolves provisionally (§3). The seamless flag, for
+   * a roll whose outcome the table can take back; an attack says no.
+   */
+  protected optimistic(): boolean {
+    return this.gs.isSeamless()
+  }
+
+  /**
+   * Under seamless reactions the standing outcome is applied while the
+   * window is still open, and applied AGAIN whenever a modifier changes it —
+   * after a rollback, so the table only ever shows one outcome of this
+   * roll and the continuation runs once per outcome. What settles later is
+   * then a close (`resolve`), not a resolution.
+   */
+  private reconcile(): void {
+    if (this._resolved) return
+    const finalRoll = this.getFinalRoll()
+    const standing = this.standing(finalRoll)
+    if (this.applied !== undefined) {
+      if (standing === this.applied) return
+      this.gs.revertFrame(this.frameId)
+    }
+    this.applied = standing
+    this.apply(standing)
+    const key = this.resultKey()
+    this.emitter.emit(
+      GameEventFactory.frameResolved(
+        this.frameId,
+        [finalRoll],
+        key === NO_CONTEXT_RESULT ? undefined : { key, value: finalRoll },
+      ),
+    )
   }
 
   // --- IReactionWindow ---
@@ -208,6 +255,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       ),
     )
     this.resetTimer()
+    if (this.optimistic()) this.reconcile()
     return accepted()
   }
 
@@ -225,7 +273,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
   cancel(): void {
     if (this._resolved) return
     this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
+    this.stopClocks()
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
         this.getType(),
@@ -237,12 +285,36 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
     )
   }
 
+  capClock(ms: number): void {
+    if (this._resolved || this.deadline - Date.now() <= ms) return
+    if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + ms
+    this.timer = setTimeout(() => this.resolve(), ms)
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
+    this.stopClocks()
 
     const finalRoll = this.getFinalRoll()
+
+    if (this.applied !== undefined) {
+      // Already resolved, provisionally, and the board shows it: release
+      // BEFORE the announcement, which is what drains a spent turn under
+      // seamless reactions (GameEngine on ReactionWindowClosed).
+      this.gs.releaseFrame(this.frameId)
+      this.emitter.emit(
+        GameEventFactory.reactionWindowClosed(
+          this.getType(),
+          this.rollerId,
+          this.frameId,
+          finalRoll,
+          { finalRoll, ...this.closedDetail() },
+        ),
+      )
+      return
+    }
 
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
@@ -275,11 +347,23 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
    */
   protected abstract settle(finalRoll: number): void
 
+  /** What the number means to this window, as a value two readings can be compared by. */
+  protected abstract standing(finalRoll: number): unknown
+
+  /** What the outcome does to the table, the frame aside. */
+  protected abstract apply(outcome: unknown): void
+
   // --- Internal ---
 
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
-    this.deadline = Date.now() + this.timeoutMs
-    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+    const ms = this.gs.cappedClock(this.timeoutMs)
+    this.deadline = Date.now() + ms
+    this.timer = setTimeout(() => this.resolve(), ms)
+  }
+
+  private stopClocks(): void {
+    if (this.timer) clearTimeout(this.timer)
+    if (this.provisional) clearTimeout(this.provisional)
   }
 }

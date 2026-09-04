@@ -4,6 +4,7 @@ import {
   CTX_DRAWN_CARD_IDS,
   CTX_MODIFIER_TARGET,
   CTX_CHOSEN_VALUE,
+  CTX_CHALLENGED_CARD,
 } from '../abilities/ability-context'
 
 /** A context write a settled window asks for: its slot, its picks. */
@@ -263,7 +264,9 @@ export class GameEventFactory {
     return new GameEvent(
       GameEventType.ChallengePlayed,
       playerId,
-      { cardId, targetedCardId },
+      // Seeded so the card's own entry contests THAT play: under seamless
+      // reactions several may stand open at once.
+      { cardId, targetedCardId, ctxSeed: { [CTX_CHALLENGED_CARD]: [targetedCardId] } },
       Audience.All,
     )
   }

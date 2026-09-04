@@ -63,6 +63,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .map((window) => pendingWindowView(gs, window, playerId)),
     turnClock: turnClockView(game),
     busy: gs.isBusy(),
+    acceptsActions: !gs.refusesActions(playerId),
   }
 }
 

@@ -48,7 +48,9 @@ export class PlayChallengeReaction implements IReaction {
     if (!gs.hasInHand(this.playerId, this.cardId)) {
       return refused(RefusalReason.CardNotInHand)
     }
-    const contest = gs.getFrameByWindowType(ReactionWindowType.Challenge)
+    // By the card named, not the first window found: under seamless
+    // reactions several plays may stand open at once.
+    const contest = gs.getFrameContesting(this.targetedCardId)
     if (!contest) {
       return refused(RefusalReason.NoChallengeWindow)
     }
@@ -64,7 +66,7 @@ export class PlayChallengeReaction implements IReaction {
   }
 
   execute(gs: GameState, em: IGameEventEmitter): void {
-    if (!gs.getFrameByWindowType(ReactionWindowType.Challenge)) return
+    if (!gs.getFrameContesting(this.targetedCardId)) return
 
     // Into the instance pile, so the card is on the table for as long as the
     // contest is. Keeping the contest alive until the card's entry starts it

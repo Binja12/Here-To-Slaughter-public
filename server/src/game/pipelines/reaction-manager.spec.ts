@@ -81,7 +81,7 @@ describe('ReactionManager', () => {
     it('snapshot is captured at open time — later mutations do not affect it', () => {
       const id = rm.openFrame()
       gs.markAbilityUsed('hero-x')
-      const snap = gs.getFrames().get(id)!.snapshot
+      const snap = gs.getFrames().get(id)!.snapshot.board
       expect(snap.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
     })
 
@@ -267,7 +267,7 @@ describe('ReactionManager', () => {
       isOpen: () => open,
       submitReaction: jest.fn(() => verdict),
       resolve: () => {},
-      cancel: () => {},
+      cancel: () => {}, capClock: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
@@ -282,7 +282,7 @@ describe('ReactionManager', () => {
 
     it('refuses a window that has already lapsed, without asking it', () => {
       const lapsed = stubWindow('w1', false, { accepted: true })
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [lapsed] })
+      gs.addFrame('f1', gs.clone(), [lapsed])
 
       expect(rm.submitChoice('w1', 'p1', 'a')).toEqual({
         accepted: false,
@@ -297,7 +297,7 @@ describe('ReactionManager', () => {
         reason: RefusalReason.NotAnOption,
       }
       const open = stubWindow('w1', true, verdict)
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [open] })
+      gs.addFrame('f1', gs.clone(), [open])
 
       expect(rm.submitChoice('w1', 'p1', 'a')).toBe(verdict)
       expect(open.submitReaction).toHaveBeenCalledWith('p1', { choice: 'a' })

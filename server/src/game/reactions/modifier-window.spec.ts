@@ -51,7 +51,7 @@ function makeWindow({
   frameId?: string
 }): ModifierWindow {
   const win = new ModifierWindow(id, rollerId, baseRoll, rollReq, heroId, timeoutMs, gs, frameId, em)
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame(frameId, gs.clone(), [win])
   return win
 }
 

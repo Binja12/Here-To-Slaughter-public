@@ -632,6 +632,12 @@ Findings from building the transport, and what the owner decided
   settings own both clocks. The turn clock itself is the engine's
   (`TurnManager`, engine doc §11) and pauses while any reaction window is
   open, anyone's (the owner, same day).
+- **Seamless reactions (2026-09-05).** Built per
+  `docs/SEAMLESS_REACTIONS_PLAN.md`; the wire gained
+  `PlayerView.acceptsActions` (the engine's own refusal, read by the client
+  instead of `busy`). Nothing else on the wire changed: several pending
+  windows were already an array, a cancelled window is simply absent from
+  the next snapshot.
 - **CORS on the lobby** — added to `main.ts`, reflecting the asking origin
   with credentials, the same as the game server. A local client runs on
   its own dev-server port, and without this a browser would not let it

@@ -1,7 +1,7 @@
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { AbilityContext } from '../abilities/ability-context'
+import { AbilityContext, CTX_CHALLENGED_CARD } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
 // StartChallengeTask — what a challenge card DOES, once it has been spent.
@@ -21,7 +21,8 @@ export class StartChallengeTask implements ITask {
     _em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const entry = gs.getFrameByWindowType(ReactionWindowType.Challenge)
+    const [targetedCardId] = ctx.get<string[]>(CTX_CHALLENGED_CARD) ?? []
+    const entry = targetedCardId ? gs.getFrameContesting(targetedCardId) : undefined
     const window = entry?.frame.windows.find(
       (w) => w.getType() === ReactionWindowType.Challenge,
     )

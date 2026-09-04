@@ -100,6 +100,8 @@ export type PlayerView = {
   /** absent on a table played without a clock */
   turnClock?: TurnClockView
   busy: boolean
+  /** Whether an action from the viewer would be taken now, turn permitting. */
+  acceptsActions: boolean
 }
 
 export type GameSnapshot = {

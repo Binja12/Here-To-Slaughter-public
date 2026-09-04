@@ -52,16 +52,28 @@ const RESTORING_WINDOWS: ReadonlySet<ReactionWindowType> = new Set([
   ReactionWindowType.Attack,
 ])
 
-export type GameFrame = {
-  snapshot: GameState
-  windows: IReactionWindow[]
-  /**
-   * How many pipelines were on the stack when the frame opened. Everything
-   * pushed above that is work done AFTER the snapshot, and a rollback
-   * drops it with the board it changed. Recorded by `addFrame`.
-   */
-  stackDepth: number
+/**
+ * Everything a rollback goes back to: the board, and the pipeline stack as
+ * it stood when the frame opened, separately owned (steps copied, contexts
+ * cloned). The pipeline that parks on this frame is marked in `pipelines`
+ * by `parkOn`. Everything pushed after the snapshot is work done after it,
+ * and goes with the board it changed (§3).
+ */
+export type FrameSnapshot = {
+  board: GameState
+  pipelines: AbilityPipeline[]
 }
+
+export type GameFrame = {
+  snapshot: FrameSnapshot
+  windows: IReactionWindow[]
+}
+
+/**
+ * At the end of a turn every open window's clock is shortened to this, so
+ * the next turn is not held long by reactions nobody is making (§11).
+ */
+export const TURN_END_WINDOW_CAP_MS = 10_000
 
 // ---------------------------------------------------------------------------
 // AbilityPipeline — one ability part-way through its steps.
@@ -112,7 +124,13 @@ export class GameState {
     private discardPile: CardPile,
     private monsterDeck: CardStack,
     private monsterPile: CardPile,
+    /** `GameConfig.seamlessReactions`: optimistic frames, plays under open windows (§3). */
+    private readonly seamless = false,
   ) {}
+
+  isSeamless(): boolean {
+    return this.seamless
+  }
 
   // ---------------------------------------------------------------------------
   // Frame API
@@ -139,11 +157,27 @@ export class GameState {
     return this.abilityPipelines.pop()
   }
 
-  addFrame(frameId: string, frame: Omit<GameFrame, 'stackDepth'>): void {
+  /** Opens a frame over `board` (a clone taken by the caller, before the play's effect) with the stack as it stands now. */
+  addFrame(frameId: string, board: GameState, windows: IReactionWindow[] = []): void {
     this.frames.set(frameId, {
-      ...frame,
-      stackDepth: this.abilityPipelines.length,
+      snapshot: { board, pipelines: copyPipelines(this.abilityPipelines, this.frames) },
+      windows,
     })
+  }
+
+  /**
+   * Parks `pipeline` on `frameId`, live and in the frame's own copy of the
+   * stack, so a rollback that keeps the frame (`revertFrame`) finds the
+   * continuation still waiting for the frame's next resolution, and one
+   * that closes it (`restoreFrame`) knows which pipeline to drop. The copy
+   * was taken while this pipeline was running, so it sits at the same
+   * index in both.
+   */
+  parkOn(pipeline: AbilityPipeline, frameId: string): void {
+    pipeline.pausedOn = frameId
+    const index = this.abilityPipelines.indexOf(pipeline)
+    const copy = this.frames.get(frameId)?.snapshot.pipelines[index]
+    if (copy) copy.pausedOn = frameId
   }
 
   /**
@@ -187,7 +221,7 @@ export class GameState {
   restoreFrame(frameId: string): void {
     const frame = this.frames.get(frameId)
     if (!frame) return
-    this.revert(frameId, frame)
+    this.revert(frameId, frame, false)
   }
 
   /**
@@ -199,27 +233,30 @@ export class GameState {
   revertFrame(frameId: string): void {
     const frame = this.frames.get(frameId)
     if (!frame) return
-    this.revert(frameId, frame)
+    this.revert(frameId, frame, true)
     this.frames.set(frameId, frame)
   }
 
   /**
-   * The one rollback. Everything after the snapshot is undone: the frames
-   * opened since are cancelled (their windows close without an outcome),
-   * the pipelines pushed since are dropped along with the one that waited
-   * on this frame, and the board goes back to the snapshot. Spent cards
-   * are read BEFORE the swap: restoring is what erases the evidence.
+   * The one rollback. Everything after the snapshot is undone: the board
+   * goes back to the snapshot, the stack to the frame's copy of it — with
+   * the pipeline parked on this frame kept waiting (`keepWaiting`, a frame
+   * that stays open) or dropped (a frame that failed) — and the frames
+   * opened since are cancelled, their windows closing without an outcome
+   * AFTER the board is whole again, because a close is announced and an
+   * announcement drains. Spent cards are read BEFORE the swap: restoring is
+   * what erases the evidence.
    */
-  private revert(frameId: string, frame: GameFrame): void {
+  private revert(frameId: string, frame: GameFrame, keepWaiting: boolean): void {
     const spent = this.spentInto(frame)
-    this.cancelFramesAfter(frameId)
+    const later = this.windowsAfter(frameId)
+    // Copied while this frame is still held, so the mark on the pipeline
+    // parked on it survives the copy and can be kept or dropped by name.
+    this.abilityPipelines = copyPipelines(frame.snapshot.pipelines, this.frames).filter(
+      (p) => keepWaiting || p.pausedOn !== frameId,
+    )
     this.frames.delete(frameId)
-    // The stack is not in the snapshot, so this is the one place a
-    // rollback touches it (§3).
-    this.abilityPipelines = this.abilityPipelines
-      .slice(0, frame.stackDepth)
-      .filter((p) => p.pausedOn !== frameId)
-    this.copyFrom(frame.snapshot.clone())
+    this.copyFrom(frame.snapshot.board.clone())
 
     // The snapshot handed them back to their owners' hands. Spent is spent,
     // whichever way the window went.
@@ -227,18 +264,74 @@ export class GameState {
       this.players.get(playerId)?.removeFromHand(cardId)
       this.discardPile.add(cardId)
     }
+
+    for (const window of later) window.cancel()
   }
 
-  /** Frames are held in the order they opened; the ones after `frameId` are later work. */
-  private cancelFramesAfter(frameId: string): void {
+  /** The open windows of the frames after `frameId` — held in the order they opened, so those are later work. */
+  private windowsAfter(frameId: string): IReactionWindow[] {
+    const later: IReactionWindow[] = []
     let after = false
     for (const [id, frame] of this.frames) {
-      if (after) {
-        for (const window of frame.windows) if (window.isOpen()) window.cancel()
-        this.frames.delete(id)
-      }
+      if (after) later.push(...frame.windows.filter((w) => w.isOpen()))
       if (id === frameId) after = true
     }
+    return later
+  }
+
+  /**
+   * Whether an action from `playerId` would be refused right now, the turn
+   * aside. The one answer `TurnManager.enqueue`, its drain, the turn clock
+   * and `PlayerView.acceptsActions` all read.
+   *
+   * Without seamless reactions the board takes nothing mid-resolution. With
+   * them the player plays on under open windows and is refused only while
+   * a modifier or a challenge is being RESOLVED — a value being chosen, a
+   * contest running — while their own attack is being rolled (the one play
+   * that waits, AttackWindow.optimistic), or while a question of their own
+   * stands that is not theirs to skip (an optional one is forfeited by the
+   * action instead).
+   */
+  refusesActions(playerId: string): boolean {
+    if (!this.seamless) return this.isBusy()
+    return this.openWindows().some(
+      (window) =>
+        window.getType() === ReactionWindowType.ValueChoice ||
+        window.getType() === ReactionWindowType.Attack ||
+        (window.getType() === ReactionWindowType.Challenge &&
+          window.getDetail()['challenged'] === true) ||
+        (this.isQuestionFor(window, playerId) && !(window.isOptional?.() ?? false)),
+    )
+  }
+
+  /** The open questions `playerId` may walk away from — forfeited by their next action under seamless reactions. */
+  optionalQuestionsFor(playerId: string): IReactionWindow[] {
+    return this.openWindows().filter(
+      (window) => this.isQuestionFor(window, playerId) && (window.isOptional?.() ?? false),
+    )
+  }
+
+  /** A choice addressed to `playerId`; a table window (a roll, a challenge) is never one. */
+  private isQuestionFor(window: IReactionWindow, playerId: string): boolean {
+    return (
+      !RESTORING_WINDOWS.has(window.getType()) &&
+      window.getRespondentId() === playerId
+    )
+  }
+
+  /**
+   * A window's clock as the turn allows: once the active player's budget is
+   * gone under seamless reactions, no window runs longer than
+   * TURN_END_WINDOW_CAP_MS, so the next turn is not held for reactions
+   * nobody is making (§11). Every window sizes its clock through here.
+   */
+  cappedClock(ms: number): number {
+    const playerId = this.currentPlayerId
+    const ending =
+      this.seamless &&
+      playerId !== undefined &&
+      (this.players.get(playerId)?.getActionPoints() ?? 0) <= 0
+    return ending ? Math.min(ms, TURN_END_WINDOW_CAP_MS) : ms
   }
 
   /**
@@ -263,7 +356,7 @@ export class GameState {
     const spent: { cardId: string; playerId: string }[] = []
     for (const [playerId, party] of this.parties) {
       const before = new Set(
-        frame.snapshot.parties.get(playerId)?.getInstanceCardIds() ?? [],
+        frame.snapshot.board.parties.get(playerId)?.getInstanceCardIds() ?? [],
       )
       for (const cardId of party.getInstanceCardIds()) {
         if (before.has(cardId) || cardId === subject) continue
@@ -297,10 +390,23 @@ export class GameState {
    * still acting, or it lapses. A reaction that had to reach for the window
    * to say so would be holding one for no other reason.
    */
-  spendCard(playerId: string, cardId: string): void {
+  spendCard(playerId: string, cardId: string, targetPlayerId?: string): void {
     this.getPlayer(playerId)?.removeFromHand(cardId)
     this.getParty(playerId).addInstanceCard(cardId)
-    this.findOpenModifiableWindow()?.window.cardSpent()
+    this.findOpenModifiableWindow(targetPlayerId)?.window.cardSpent()
+  }
+
+  /** The frame contesting `cardId`, while its challenge window is open. */
+  getFrameContesting(
+    cardId: string,
+  ): { frameId: string; frame: GameFrame } | undefined {
+    for (const [frameId, frame] of this.frames) {
+      const contest = frame.windows.find(
+        (w) => w.getType() === ReactionWindowType.Challenge && w.isOpen(),
+      )
+      if (contest?.subjectCardId?.() === cardId) return { frameId, frame }
+    }
+    return undefined
   }
 
   getFrameByWindowId(
@@ -324,22 +430,28 @@ export class GameState {
    * OPEN means open: a window that has resolved is skipped even while its
    * frame is briefly still there, which it is between `resolve` setting the
    * flag and the release that follows its first emission.
+   *
+   * Under seamless reactions several may be open at once, so the NEWEST one
+   * that takes a bonus for `targetPlayerId` is the one meant; without a
+   * target, or when none takes it, the newest of them answers for itself.
    */
-  private findOpenModifiableWindow():
-    | { frameId: string; window: IModifiableWindow }
-    | undefined {
-    for (const type of [
-      ReactionWindowType.Modifier,
-      ReactionWindowType.Attack,
-      ReactionWindowType.Challenge,
-    ]) {
-      const entry = this.getFrameByWindowType(type)
-      const window = entry?.frame.windows.find((w) => w.getType() === type)
-      if (entry && window && window.isOpen() && isModifiable(window)) {
-        return { frameId: entry.frameId, window }
+  private findOpenModifiableWindow(
+    targetPlayerId?: string,
+  ): { frameId: string; window: IModifiableWindow } | undefined {
+    const open: { frameId: string; window: IModifiableWindow }[] = []
+    for (const [frameId, frame] of this.frames) {
+      for (const window of frame.windows) {
+        if (window.isOpen() && isModifiable(window)) open.push({ frameId, window })
       }
     }
-    return undefined
+    open.reverse()
+    if (targetPlayerId !== undefined) {
+      const takes = open.find(
+        (entry) => entry.window.acceptsModifierFor(targetPlayerId).accepted,
+      )
+      if (takes) return takes
+    }
+    return open[0]
   }
 
   /**
@@ -353,7 +465,7 @@ export class GameState {
    * for no other reason.
    */
   acceptsModifierFor(targetPlayerId: string): RequestResult {
-    const open = this.findOpenModifiableWindow()
+    const open = this.findOpenModifiableWindow(targetPlayerId)
     if (!open) return refused(RefusalReason.NoModifiableWindow)
     return open.window.acceptsModifierFor(targetPlayerId)
   }
@@ -374,7 +486,7 @@ export class GameState {
     playerId: string,
     bonus: { value: number; cardId: string; targetPlayerId: string },
   ): void {
-    const open = this.findOpenModifiableWindow()
+    const open = this.findOpenModifiableWindow(bonus.targetPlayerId)
     if (!open?.window.acceptsModifierFor(bonus.targetPlayerId).accepted) return
 
     open.window.submitReaction(playerId, { type: 'modifier', ...bonus })
@@ -388,7 +500,7 @@ export class GameState {
     playerId: string,
     targetPlayerId: string,
   ): ValueBias | undefined {
-    return this.findOpenModifiableWindow()?.window.valueBiasFor(
+    return this.findOpenModifiableWindow(targetPlayerId)?.window.valueBiasFor(
       playerId,
       targetPlayerId,
     )
@@ -458,6 +570,7 @@ export class GameState {
       this.discardPile.clone(),
       this.monsterDeck.clone(),
       this.monsterPile.clone(),
+      this.seamless,
     )
     for (const [id, player] of this.players)
       copy.players.set(id, player.clone())
@@ -1108,4 +1221,23 @@ export class GameState {
   clearChallengedCards(): void {
     this.cardsChallengedThisTurn = []
   }
+}
+
+/**
+ * A stack separately owned: steps copied, contexts cloned, and a mark for a
+ * frame that no longer exists dropped — a confirm's TaskConfirmed goes out
+ * before its FrameResolved, so a continuation can open its frame while the
+ * offer is still marked paused on a frame already released, and a copy
+ * carrying that mark would wait for ever (§3).
+ */
+function copyPipelines(
+  pipelines: readonly AbilityPipeline[],
+  frames: ReadonlyMap<string, GameFrame>,
+): AbilityPipeline[] {
+  return pipelines.map((p) => ({
+    steps: [...p.steps],
+    ctx: p.ctx.clone(),
+    pausedOn: p.pausedOn !== undefined && frames.has(p.pausedOn) ? p.pausedOn : undefined,
+    system: p.system,
+  }))
 }

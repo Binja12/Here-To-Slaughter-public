@@ -176,6 +176,14 @@ export type PlayerView = {
   pendingWindows: PendingWindowView[];
   /** Absent on a table played without a clock. */
   turnClock?: TurnClockView;
-  /** `GameState.isBusy` — mid-resolution, so no action will be accepted. */
+  /** `GameState.isBusy` — mid-resolution: a window is open or an ability still has steps. */
   busy: boolean;
+  /**
+   * Whether an action from the viewer would be taken now, turn permitting —
+   * `!GameState.refusesActions(viewer)`. Without seamless reactions this is
+   * `!busy`; with them the viewer plays on under open windows and is refused
+   * only while a modifier or challenge is being resolved or a question of
+   * their own stands (an optional one is forfeited by the next action).
+   */
+  acceptsActions: boolean;
 };

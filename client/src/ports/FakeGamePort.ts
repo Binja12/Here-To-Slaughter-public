@@ -136,6 +136,7 @@ const makeInitialView = (): PlayerView => {
     pendingWindows: [],
     turnClock: { turnTimeMs: 60_000, deadline: Date.now() + 60_000 },
     busy: false,
+    acceptsActions: true,
     phase: 'Turns',
   }
 }
@@ -535,6 +536,7 @@ export class FakeGamePort implements GamePort {
       winnerId: this.view.playerId,
       currentPlayerId: undefined,
       busy: false,
+      acceptsActions: true,
       revealedCards: [],
 
       pendingWindows: [],

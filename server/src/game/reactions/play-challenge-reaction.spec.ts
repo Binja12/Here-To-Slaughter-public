@@ -60,11 +60,12 @@ const makeStubWindow = (): IModifiableWindow & {
   getId: () => 'w1',
   getType: () => ReactionWindowType.Challenge,
   getRespondentId: () => 'defender',
+  subjectCardId: () => 'hero-1',
   getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
-  cancel: () => {},
+  cancel: () => {}, capClock: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => 0,
@@ -76,7 +77,7 @@ const makeStubWindow = (): IModifiableWindow & {
 /** Add a challenge frame to gs with a stub window. */
 const openFrame = (gs: GameState, stub: IReactionWindow) => {
   const frameId = 'frame-1'
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [stub] })
+  gs.addFrame(frameId, gs.clone(), [stub])
   return frameId
 }
 
@@ -210,6 +211,8 @@ describe('PlayChallengeReaction', () => {
       expect(played[0].getPayload()).toEqual({
         cardId: CHAL,
         targetedCardId: 'hero-1',
+        // the card's own entry contests THAT play, by this seed
+        ctxSeed: { challengedCard: ['hero-1'] },
       })
     })
 

@@ -48,7 +48,7 @@ function makeWindow({
   frameId?: string
 }): ChallengeWindow {
   const win = new ChallengeWindow(id, challengedId, cardId, timeoutMs, gs, frameId, em)
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame(frameId, gs.clone(), [win])
   return win
 }
 

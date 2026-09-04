@@ -120,7 +120,7 @@ function rollWindow(ctx: ReturnType<typeof setup>, rollerId: string) {
     'frame-1',
     ctx.em,
   )
-  ctx.gs.addFrame('frame-1', { snapshot: ctx.gs.clone(), windows: [win] })
+  ctx.gs.addFrame('frame-1', ctx.gs.clone(), [win])
   return win
 }
 
@@ -247,10 +247,7 @@ describe('Abyss Queen (monster-129)', () => {
         'frame-c',
         ctx.em,
       )
-      ctx.gs.addFrame('frame-c', {
-        snapshot: ctx.gs.clone(),
-        windows: [win],
-      })
+      ctx.gs.addFrame('frame-c', ctx.gs.clone(), [win])
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       return win
     }

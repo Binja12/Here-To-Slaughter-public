@@ -69,15 +69,15 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
       window.type === 'Attack' ||
       window.type === 'Challenge',
   )
-  // `busy` while the only open window is an optional question of ours does
-  // not freeze the table: pressing any other action forfeits the question
-  // (Board dismisses it first, then sends the action).
-  const idle = !view.busy || onlyOptionalWindows(view)
+  // The server's own answer: under seamless reactions the table stays live
+  // with windows open. An optional question of ours never freezes it either:
+  // pressing any other action forfeits the question (Board dismisses it
+  // first, then sends the action).
+  const idle = view.acceptsActions || onlyOptionalWindows(view)
   const actionWindow =
     view.phase === 'Turns' &&
     view.currentPlayerId === view.playerId &&
-    idle &&
-    !reactionOpen
+    idle
   // NOT gated on `busy`: the table is busy exactly while a window is open,
   // and an open window is the only time a reaction is legal (seen live —
   // with the gate, a modifier could never be played on anybody's roll).

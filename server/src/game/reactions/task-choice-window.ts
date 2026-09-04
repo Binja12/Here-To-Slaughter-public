@@ -60,6 +60,11 @@ export class TaskChoiceWindow extends ChoiceWindow {
     return NO_CONTEXT_RESULT
   }
 
+  /** DISMISS among the labels is what makes a question one the player may skip. */
+  isOptional(): boolean {
+    return this.getOptions().includes(DISMISS)
+  }
+
   /** Silence picks the silent label — DISMISS for a confirm. */
   protected override defaultChoice(): unknown {
     return this.silent()

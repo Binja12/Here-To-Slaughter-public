@@ -49,7 +49,7 @@ export class ModifierWindow extends ModifiableRollWindow {
    * the hero's own entries trigger on `RollSuccess`.
    */
   protected settle(finalRoll: number): void {
-    const hit = this.hits(finalRoll)
+    const hit = this.standing(finalRoll)
     if (hit) this.gs.releaseFrame(this.frameId)
     else this.gs.restoreFrame(this.frameId)
     // AFTER the frame exit, so what the outcome fires runs on live state
@@ -60,7 +60,7 @@ export class ModifierWindow extends ModifiableRollWindow {
   }
 
   /** What the number means: the requirement met or not. */
-  hits(finalRoll: number): boolean {
+  protected standing(finalRoll: number): boolean {
     return finalRoll >= this.rollReq
   }
 
@@ -70,7 +70,7 @@ export class ModifierWindow extends ModifiableRollWindow {
    * optimistic window can apply a standing outcome before it settles
    * (docs/SEAMLESS_REACTIONS_PLAN.md, Phase C).
    */
-  protected apply(hit: boolean): void {
+  protected apply(hit: unknown): void {
     this.emitter.emit(
       hit
         ? GameEventFactory.rollSuccess(this.rollerId, this.heroId)

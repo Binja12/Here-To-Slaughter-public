@@ -263,6 +263,17 @@ export interface IReactionWindow {
    */
   cancel(): void
   /**
+   * A question the respondent may simply walk away from — a TaskChoice
+   * offering DISMISS. Under seamless reactions the active player's next
+   * action forfeits one (TurnManager.enqueue) instead of being refused.
+   */
+  isOptional?(): boolean
+  /**
+   * Shortens the clock to `ms` when more than that is left; a shorter clock
+   * is untouched. The turn's end caps every window this way (§11).
+   */
+  capClock(ms: number): void
+  /**
    * What the window is asking, read LIVE: the fields it announced at open
    * plus whatever moved since — a bonus that landed, a challenge that
    * started. The view copies it, so a screen drawn from a snapshot alone can

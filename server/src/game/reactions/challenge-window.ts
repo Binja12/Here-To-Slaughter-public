@@ -48,6 +48,14 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
   private challengedBonuses: RollBonus[] = []
   /** Seats that gave the contest up; cleared whenever a card lands in it. */
   private readonly passes = new Set<string>()
+  /**
+   * Optimistic frames (seamless reactions, §3): the play was resolved
+   * provisionally on the tick after opening, so what settles later is a
+   * close — or, after a lost contest, a rollback — never a second
+   * resolution. Always false without the flag.
+   */
+  private optimistic = false
+  private provisional?: ReturnType<typeof setTimeout>
 
   constructor(
     private readonly id: string,
@@ -75,6 +83,19 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
       ),
     )
     this.resetTimer()
+    // On a TIMER, never inline: the play that opened this has not returned.
+    if (gs.isSeamless() && this.clockMs > 0) {
+      this.provisional = setTimeout(() => this.resolveProvisionally(), 0)
+    }
+  }
+
+  /** The play stands until somebody says otherwise: its entries fire now. */
+  private resolveProvisionally(): void {
+    if (this._resolved || this.challenged) return
+    this.optimistic = true
+    this.emitter.emit(
+      GameEventFactory.frameResolved(this.frameId, [true], undefined, this.cardId),
+    )
   }
 
   // --- IReactionWindow ---
@@ -193,7 +214,7 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
   cancel(): void {
     if (this._resolved) return
     this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
+    this.stopClocks()
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
         this.getType(),
@@ -205,10 +226,19 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     )
   }
 
+  capClock(ms: number): void {
+    if (this._resolved || this.deadline - Date.now() <= ms) return
+    if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + ms
+    this.timer = setTimeout(() => this.resolve(), ms)
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true
-    if (this.timer) clearTimeout(this.timer)
+    this.stopClocks()
+
+    if (this.optimistic) return this.close()
 
     if (!this.challenged) {
       // No challenger — card plays uncontested.
@@ -296,7 +326,68 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     )
   }
 
+  /**
+   * The settlement of a play already resolved provisionally. The frame exit
+   * comes FIRST — a close is announced, an announcement drains, and the
+   * drain must find the board whole — then the announcements, with no
+   * FrameResolved: the card's entries already fired on the provisional one.
+   */
+  private close(): void {
+    if (!this.challenged) {
+      this.gs.releaseFrame(this.frameId)
+      this.emitter.emit(
+        GameEventFactory.reactionWindowClosed(
+          this.getType(),
+          this.challengedId,
+          this.frameId,
+          true,
+          { cardId: this.cardId, contested: false },
+        ),
+      )
+      return
+    }
+
+    const challengerFinal = this.total(this.challengerRoll, this.challengerBonuses)
+    const challengedFinal = this.total(this.challengedRoll, this.challengedBonuses)
+    const challengedWins = challengedFinal > challengerFinal
+
+    if (challengedWins) {
+      this.gs.releaseFrame(this.frameId)
+      this.gs.markCardChallenged(this.cardId)
+    } else {
+      // Undoes the play, everything played since, and puts the card away —
+      // see the non-optimistic branch of `resolve` for why the card needs it.
+      this.gs.restoreFrame(this.frameId)
+      this.gs.addToDiscardPile(this.cardId)
+    }
+
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.challengedId,
+        this.frameId,
+        challengedWins,
+        { cardId: this.cardId, contested: true, challengerFinal, challengedFinal },
+      ),
+    )
+    this.emitter.emit(
+      GameEventFactory.challengeResolved(
+        this.challengedId,
+        this.challengerId!,
+        this.cardId,
+        challengerFinal,
+        challengedFinal,
+        challengedWins,
+      ),
+    )
+  }
+
   // --- Internal ---
+
+  private stopClocks(): void {
+    if (this.timer) clearTimeout(this.timer)
+    if (this.provisional) clearTimeout(this.provisional)
+  }
 
   private total(roll: number, bonuses: RollBonus[]): number {
     return roll + bonuses.reduce((sum, b) => sum + b.amount, 0)
@@ -382,7 +473,8 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
 
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)
-    this.deadline = Date.now() + this.clockMs
-    this.timer = setTimeout(() => this.resolve(), this.clockMs)
+    const ms = this.gs.cappedClock(this.clockMs)
+    this.deadline = Date.now() + ms
+    this.timer = setTimeout(() => this.resolve(), ms)
   }
 }

@@ -31,6 +31,7 @@ const stubWindow = (
   submitReaction: () => ({ accepted: true }) as const,
   resolve: () => {},
   cancel: onCancel,
+  capClock: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => 0,
@@ -43,7 +44,7 @@ describe('GameState.hasPendingOutcome', () => {
     ReactionWindowType.Attack,
   ])('is true under an open %s — its frame may still be restored', (type) => {
     const gs = makeGs()
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(type)] })
+    gs.addFrame('f1', gs.clone(), [stubWindow(type)])
     expect(gs.hasPendingOutcome()).toBe(true)
   })
 
@@ -55,21 +56,18 @@ describe('GameState.hasPendingOutcome', () => {
     ReactionWindowType.ValueChoice,
   ])('is false under an open %s — a question never restores anything', (type) => {
     const gs = makeGs()
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(type)] })
+    gs.addFrame('f1', gs.clone(), [stubWindow(type)])
     expect(gs.hasPendingOutcome()).toBe(false)
     expect(gs.isBusy()).toBe(true)
   })
 
   it('is true while a frame has nothing open — being built, or closed but not yet settled', () => {
     const gs = makeGs()
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+    gs.addFrame('f1', gs.clone(), [])
     expect(gs.hasPendingOutcome()).toBe(true)
 
     gs.releaseFrame('f1')
-    gs.addFrame('f2', {
-      snapshot: gs.clone(),
-      windows: [stubWindow(ReactionWindowType.TaskChoice, () => {}, false)],
-    })
+    gs.addFrame('f2', gs.clone(), [stubWindow(ReactionWindowType.TaskChoice, () => {}, false)])
     expect(gs.hasPendingOutcome()).toBe(true)
 
     gs.releaseFrame('f2')
@@ -81,14 +79,8 @@ describe('GameState.conclude', () => {
   it('closes every open window without an answer and drops the frames and the pipelines', () => {
     const gs = makeGs()
     const cancelled: string[] = []
-    gs.addFrame('offer', {
-      snapshot: gs.clone(),
-      windows: [stubWindow(ReactionWindowType.TaskChoice, () => cancelled.push('offer'))],
-    })
-    gs.addFrame('done', {
-      snapshot: gs.clone(),
-      windows: [stubWindow(ReactionWindowType.Challenge, () => cancelled.push('done'), false)],
-    })
+    gs.addFrame('offer', gs.clone(), [stubWindow(ReactionWindowType.TaskChoice, () => cancelled.push('offer'))])
+    gs.addFrame('done', gs.clone(), [stubWindow(ReactionWindowType.Challenge, () => cancelled.push('done'), false)])
     gs.pushPipeline({
       steps: [],
       stepIndex: 0,

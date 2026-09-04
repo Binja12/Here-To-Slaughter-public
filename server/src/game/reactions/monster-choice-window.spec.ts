@@ -86,7 +86,7 @@ function makeWindow(
     'frame-1',
     em,
   )
-  gs.addFrame('frame-1', { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame('frame-1', gs.clone(), [win])
   return win
 }
 
