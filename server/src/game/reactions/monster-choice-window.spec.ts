@@ -171,7 +171,9 @@ describe('MonsterChoiceWindow', () => {
     expect(win.submitReaction('p1', { choice: 'monster-not-offered' })).toEqual(
       { accepted: false, reason: RefusalReason.NotAnOption },
     )
-    expect(win.isOpen()).toBe(true)
+    // settled on what silence picks here: NO attack (an attack is an offer)
+    expect(win.isOpen()).toBe(false)
+    expect(win.picks()).toEqual([])
   })
 
   it('a submission from another player is refused as such', () => {

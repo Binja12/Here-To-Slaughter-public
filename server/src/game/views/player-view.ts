@@ -59,7 +59,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .filter((monsterId) => gs.canAttackMonster(playerId, monsterId).accepted),
     pendingWindows: gs
       .openWindows()
-      .map((window) => pendingWindowView(window, playerId)),
+      .map((window) => pendingWindowView(gs, window, playerId)),
     busy: gs.isBusy(),
   }
 }
@@ -145,7 +145,18 @@ const TABLE_WINDOWS = new Set<ReactionWindowType>([
  * hand lists card ids. A roll's `detail` goes to everyone — deciding whether
  * to spend a modifier on somebody else's roll needs the number.
  */
+/** The card options of a window as printed data; none when it offers no cards. */
+function optionCards(gs: GameState, window: IReactionWindow): CardView[] | undefined {
+  const cards = window
+    .getOptions()
+    .map((option) => (typeof option === 'string' ? gs.getCard(option) : undefined))
+    .filter((card): card is NonNullable<typeof card> => !!card)
+    .map((card) => card.getData())
+  return cards.length ? cards : undefined
+}
+
 function pendingWindowView(
+  gs: GameState,
   window: IReactionWindow,
   playerId: string,
 ): PendingWindowView {
@@ -157,6 +168,9 @@ function pendingWindowView(
     respondentId: window.getRespondentId(),
     cardId: window.subjectCardId?.(),
     options: isYours ? [...window.getOptions()] : undefined,
+    // the options that are cards, drawn for the respondent: a choice over the
+    // deck's top (Bullseye) offers cards that are in no zone the screen shows
+    optionCards: isYours ? optionCards(gs, window) : undefined,
     detail: shown ? window.getDetail() : undefined,
     deadline: window.getDeadline(),
     isYours,

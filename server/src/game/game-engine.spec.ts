@@ -8,6 +8,7 @@ import { Party } from './state-structures/party'
 import { CardStack } from './state-structures/card-stack'
 import { CardPile } from './state-structures/card-pile'
 import { IWinCondition } from './interfaces'
+import { GameEventFactory } from './events/game-event-factory'
 
 const makePlayer = (id: string, points = 3) =>
   new Player({
@@ -126,6 +127,49 @@ describe('GameEngine', () => {
       expect(
         received.some((e) => e.getType() === GameEventType.GameEnded),
       ).toBe(true)
+    })
+
+    it('ends the game the moment a settled frame qualifies, not at the end of the turn', () => {
+      const gs = makeGs('p1', 'p2')
+      const player = gs.getPlayer('p1')!
+      const emitter = new GameEventEmitter()
+      const tm = new TurnManager(gs, emitter)
+      let qualifies = false
+      const winCondition: IWinCondition = { check: () => (qualifies ? player : null) }
+      const engine = new GameEngine(gs, tm, emitter, [winCondition])
+
+      const received: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => received.push(e) })
+      engine.start(['p1', 'p2'])
+
+      // the sixth class lands inside a frame; the frame settles, the board is idle
+      qualifies = true
+      emitter.emit(GameEventFactory.frameResolved('frame-1', []))
+
+      expect(received.some((e) => e.getType() === GameEventType.GameEnded)).toBe(true)
+      expect(received.some((e) => e.getType() === GameEventType.TurnEnded)).toBe(false)
+      expect(gs.getWinnerId()).toBe('p1')
+    })
+
+    it('waits for a busy board — a frame settling under another still-open frame ends nothing', () => {
+      const gs = makeGs('p1', 'p2')
+      const player = gs.getPlayer('p1')!
+      const emitter = new GameEventEmitter()
+      const tm = new TurnManager(gs, emitter)
+      const winCondition: IWinCondition = { check: () => player }
+      const engine = new GameEngine(gs, tm, emitter, [winCondition])
+
+      const received: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => received.push(e) })
+      engine.start(['p1', 'p2'])
+      gs.addFrame('outer', {
+        snapshot: gs.clone(),
+        windows: [{ isOpen: () => true } as never],
+      })
+
+      emitter.emit(GameEventFactory.frameResolved('inner', []))
+
+      expect(received.some((e) => e.getType() === GameEventType.GameEnded)).toBe(false)
     })
 
     it('should not start next turn after game ends', () => {

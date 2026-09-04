@@ -40,7 +40,7 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
    (`useLiveDice`; the engine rolls ONE number, `facesOf` splits it into
    two faces deterministically per window — decoration, the total is the
    server's) and the turn banner reads e.g. `alice rolled 2 +2 = 4 · slay
-   8+ · hit back ≤5` (`rollLabel`). `board/useChallengeSync.ts` drives the
+8+ · hit back ≤5` (`rollLabel`). `board/useChallengeSync.ts` drives the
    existing challenge overlay from a Challenge window whose
    `detail.challenged` is true: opens it with both rolls and standing
    bonuses, lands a modifier card on a side when its bonus total grows,
@@ -98,49 +98,53 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
      (not hover), so a neighbour can no longer paint over it while the
      cursor is on the slid-out item (the Lucky Bucky / Wildshot screenshot).
 10. **Third UI round (2026-09-03, later still)**:
-   - Zoom animation: `index.css` had `transition: filter …` on every
-     `.dimmable`, a shorthand that discarded Tailwind's transform
-     transition — zooms snapped. Now `filter` and `transform` together.
-   - A zoomed leader is exactly as tall as a zoomed monster
-     (`MONSTER_ZOOMED_H` in Board.tsx) and grows from its edge nearest the
-     stage border (`LEADER_ZOOM_ORIGIN`), so it never leaves the stage.
-   - HUD: the owner's `End Turn Button.png` / `Redraw Button.png` (2172×724)
-     are `HUD.endTurn` / `HUD.redraw`; End Turn sits beside the action
-     points (`HUD_WIDGETS.endTurn`, where Redraw was), Redraw under the main
-     deck (`HUD_WIDGETS.redraw`, stage-centre anchored). The turn scroll is
-     text only now.
-   - An empty discard pile no longer opens the (empty) browser dialog.
-   - Item PNG margins are INCONSISTENT and that is the "gap" and the faint
-     outline: `Item Really Big Ring.png` has ~10 px transparent margins with
-     semi-transparent edge pixels, `Item Thief Mask.png` is opaque to its top
-     edge and transparent at the bottom; the hero scans have ~10 px margins
-     all round. The code draws no border. Fix is in the art (re-export items
-     with the heroes' margins) or an alpha-bbox trim like `lobbyAssets.ts`.
-   - A trial "readable" Fuzzy Cheeks copy (badge moved, description re-set
-     in Georgia) was made and REJECTED — the owner scrapped it; the original
-     scan is back and the copy is deleted. Re-setting card text needs the
-     card's own condensed typeface, which is not available.
+
+- Zoom animation: `index.css` had `transition: filter …` on every
+  `.dimmable`, a shorthand that discarded Tailwind's transform
+  transition — zooms snapped. Now `filter` and `transform` together.
+- A zoomed leader is exactly as tall as a zoomed monster
+  (`MONSTER_ZOOMED_H` in Board.tsx) and grows from its edge nearest the
+  stage border (`LEADER_ZOOM_ORIGIN`), so it never leaves the stage.
+- HUD: the owner's `End Turn Button.png` / `Redraw Button.png` (2172×724)
+  are `HUD.endTurn` / `HUD.redraw`; End Turn sits beside the action
+  points (`HUD_WIDGETS.endTurn`, where Redraw was), Redraw under the main
+  deck (`HUD_WIDGETS.redraw`, stage-centre anchored). The turn scroll is
+  text only now.
+- An empty discard pile no longer opens the (empty) browser dialog.
+- Item PNG margins are INCONSISTENT and that is the "gap" and the faint
+  outline: `Item Really Big Ring.png` has ~10 px transparent margins with
+  semi-transparent edge pixels, `Item Thief Mask.png` is opaque to its top
+  edge and transparent at the bottom; the hero scans have ~10 px margins
+  all round. The code draws no border. Fix is in the art (re-export items
+  with the heroes' margins) or an alpha-bbox trim like `lobbyAssets.ts`.
+- A trial "readable" Fuzzy Cheeks copy (badge moved, description re-set
+  in Georgia) was made and REJECTED — the owner scrapped it; the original
+  scan is back and the copy is deleted. Re-setting card text needs the
+  card's own condensed typeface, which is not available.
+
 11. **Fourth UI round (2026-09-03)**:
-   - Glow rule of thumb: the FIRST thing you may do is green (playable
-     card, reaction card in hand); every follow-up pick is GOLD — all
-     targeting targets (`.targeting .target-aura`), the challenge roll
-     panels, the engine's questions. No board pre-highlight for reactions.
-   - "Roll on the hero you just played" (TaskChoice with `detail.cardId`,
-     options confirm/dismiss) is a gold glow on that hero: press = confirm,
-     Escape / click-away = dismiss. Other yes/no windows keep buttons.
-   - HUD: End Turn under the action-point gems, the turn scroll down-left
-     of them (`HUD_WIDGETS`), Redraw under the main deck.
-   - Card PNGs trimmed IN PLACE to their opaque bounding box (alpha ≥ 200)
-     by `trim-cards.ps1` (scratch; re-runnable) — 104 files under
-     `client/public/board/{heroes,Items,Magics,Modifiers,Monsters,Leaders,
-     challenge}` + both card backs. Items now sit flush and alike. Git holds
-     the originals (`git checkout -- client/public/board` restores).
-   - Piles (main deck, monster deck, discard) show up to 4 cards, each
-     layer a little off and tilted (`pileJitter`), the top card straight.
-   - Fake table: the viewer always leads with The Shadow Claw; a played
-     hero asks the roll-on-it question; a started challenge stays open 12 s.
-     The REAL deal is the engine's shuffle — a "give seat X leader Y" dev
-     hook would be an HTSR-4 change.
+
+- Glow rule of thumb: the FIRST thing you may do is green (playable
+  card, reaction card in hand); every follow-up pick is GOLD — all
+  targeting targets (`.targeting .target-aura`), the challenge roll
+  panels, the engine's questions. No board pre-highlight for reactions.
+- "Roll on the hero you just played" (TaskChoice with `detail.cardId`,
+  options confirm/dismiss) is a gold glow on that hero: press = confirm,
+  Escape / click-away = dismiss. Other yes/no windows keep buttons.
+- HUD: End Turn under the action-point gems, the turn scroll down-left
+  of them (`HUD_WIDGETS`), Redraw under the main deck.
+- Card PNGs trimmed IN PLACE to their opaque bounding box (alpha ≥ 200)
+  by `trim-cards.ps1` (scratch; re-runnable) — 104 files under
+  `client/public/board/{heroes,Items,Magics,Modifiers,Monsters,Leaders,
+challenge}` + both card backs. Items now sit flush and alike. Git holds
+  the originals (`git checkout -- client/public/board` restores).
+- Piles (main deck, monster deck, discard) show up to 4 cards, each
+  layer a little off and tilted (`pileJitter`), the top card straight.
+- Fake table: the viewer always leads with The Shadow Claw; a played
+  hero asks the roll-on-it question; a started challenge stays open 12 s.
+  The REAL deal is the engine's shuffle — a "give seat X leader Y" dev
+  hook would be an HTSR-4 change.
+
 12. **Fifth UI round (2026-09-03)**: the turn scroll is gone — the gems
     and, right under them, End Turn fill the top-right strip
     (`HUD_WIDGETS.actionPoints/endTurn`); the words it carried (roll as it
@@ -154,7 +158,7 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
     Claw's PlayerChoice (gold on the other hand stacks — verified).
 13. **Optional questions (2026-09-03)**. The server's "roll on the hero
     you just played?" is a TaskChoice whose detail is `{ confirms:
-    'RollOnPlayedHero', sourceCardId }` — NO `cardId` — which is why the
+'RollOnPlayedHero', sourceCardId }` — NO `cardId` — which is why the
     gold ask never matched before (`askedCardOf` reads either). Such a
     window is OPTIONAL (its options include `dismiss`; there is no explicit
     flag on the wire — an `optional: boolean` on `PendingWindowView` would
@@ -209,23 +213,24 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
     empty seat while the viewer is IDLE (= Ready), "−" on the viewer's own
     ready seat (= unready), an initial on other players' seats.
 20. **Fakes follow the server's detail shapes** (`ports/FakeGamePort.ts`,
-   `fixtures/views.ts`): `bonuses` are `{ cardSource, amount }[]`, a
-   challenge carries `defenderId / challengerId / challenged /
-   challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
-   refuses `GameNotOver`, completion sets `winnerId`.
+    `fixtures/views.ts`): `bonuses` are `{ cardSource, amount }[]`, a
+    challenge carries `defenderId / challengerId / challenged /
+challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
+    refuses `GameNotOver`, completion sets `winnerId`.
 
-23. **Only implemented cards (2026-09-04)**. The registry implements 68 of
+21. **First playtest — only implemented cards (2026-09-04, retired for the
+    second playtest)**. At that point the registry implemented 68 of
     the 136 printed cards: all modifiers, challenges and leaders; 8 items,
     7 magics, 5 monster passives and 3 hero effects (Wise Shield, Wiggles,
     Snowball). Sharp Fox's roll of 5 "did nothing" because hero-016 has no
     entry — same as Buttons. The owner: "only use the cards we implemented".
-    The deal (`createGame`, `dealable` in the ability repository) is now
+    The deal (`createGame`, `dealable` in the ability repository) was then
     EXACTLY the registry, every type alike — the owner's call after a
     body-only middle ground (a temporary
     registry of implemented cards only). Known consequence he
     accepted: 3 heroes in a 57-card deck, so most hands hold none and
-    class-gated monsters are rarely attackable; the pool grows as entries
-    are written. Every dealt hero rolls and fires its effect.
+    class-gated monsters are rarely attackable; the pool grew as entries were
+    written. Every dealt hero rolled and fired its effect.
     Found by the strict pool at once: the "every class" win condition asked
     the POOL which classes exist, so Wiggles + Wise Shield was "all
     classes" and won on the second hero (`AllClassesInParty` now requires
@@ -236,7 +241,12 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
     Also fixed here: the item aim now mirrors the engine's equip rule (a
     plain item only on your own bare heroes, a cursed one on anybody's) —
     it used to offer every hero and let the server refuse.
-22. **First human table (HTSR-7, 2026-09-04)** — three engine findings, all
+22. **Second playtest — complete card set (2026-09-04).** Every printed id now
+    has a registry entry. The temporary `dealable` gate is gone and a default
+    game uses all 136 records from `baseGameCards`: 48 heroes, 15 items, 13
+    magic cards, 25 modifiers, 14 challenges, 15 monsters and 6 leaders.
+    Explicit stacked card lists used by specs are unchanged.
+23. **First human table (HTSR-7, 2026-09-04)** — three engine findings, all
     fixed on the server with the client following:
     - **Passive leaders were activatable.** `RollOnLeaderAction` never asked
       whether the leader had anything to fire; the Cloaked Sage glowed, was
@@ -245,7 +255,7 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
       passives (only the Shadow Claw activates).
     - **Skip.** No door existed to give a window up, so with 30 s windows
       every roll and challenge waited the whole clock. New `PassWindow
-      { windowId }` command: a pass is PER SEAT and the window settles once
+{ windowId }` command: a pass is PER SEAT and the window settles once
       every seat that could act on it has passed (a card landing clears the
       passes). The End Turn slot shows the owner's **Skip Reaction** button
       (`HUD.skipReaction`, 2172×724 like End Turn) whenever a Modifier /
@@ -272,7 +282,7 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
     - **Own-card challenges.** The engine refuses `CannotChallengeOwnCard`
       (the window's respondent is the defender) and the glow rule skips the
       challenge card while the open window's respondent is the viewer.
-21. **Lobby, first human playtest (HTSR-7)**: the seat list is the server's
+24. **Lobby, first human playtest (HTSR-7)**: the seat list is the server's
     ready list and nothing else. `LobbyView` used to append the IDLE viewer
     as an unready occupant, so every window showed its own account on a
     bench and never the other idle accounts ("who is Player One?"). Now an
@@ -281,6 +291,94 @@ Layout: `client/src/contract/` (hand mirror of `shared`), `ports/`
     prefill (`AuthView`) is gone too — three windows registered under the
     same default name by accident. The fake's `?autostart=1` still logs in
     as Player One (fake only).
+
+25. **Second human table (HTSR-7, 2026-09-04) — the owner's eight findings.**
+    - **Pink only while it matters.** `board/passiveRelevance.ts` decides
+      which standing effects glow: a RollBonus while a roll of its kind is
+      open for its owner (the Fist of Reason only while its owner could
+      challenge or is the challenger; a scoped ring / curse only on its
+      hero's roll), a ModifierCounterBonus while a modifier could land on the
+      owner's roll, an ActionPointBonus (Mega Slime) while its owner holds
+      more than the per-turn budget (`AP_PER_TURN`, a mirror of the engine's
+      config like `AP_COST`), a shield (CantBeStolen / CantBeDestroyed /
+      Decoy Doll) while an opponent is picking a card, the Sabretooth while
+      its owner is, CantBeChallenged while the owner's play is on the table,
+      a Sealing Key during its victim's turn. Trigger-only leaders have no
+      effect entry, so the Protecting Horn is a named rule: pink while a
+      modifier could be played. The open roll's own bonus sources still
+      always glow. `passiveRelevance.test.ts` pins each rule.
+    - **Winds of Change and the curse** (picture 1): the ENGINE returns the
+      curse to the hand of the player whose hero wore it — proven through
+      the real doors in `server/src/game/setup/winds-of-change.spec.ts`
+      (curse played by bob onto alice's hero, alice casts, alice's hand). If
+      it did not on the table, the CardChoice lapsed (30 s) and the window's
+      silence picked a random worn item, or the pick never reached the
+      server; the item strip under the hero is the gold target. Not
+      reproduced without the screenshot — watch `window.__htsr` next time.
+    - **The Protecting Horn's pick** (item 3) is no longer a strip window:
+      its ValueChoice now carries `detail.sourceCardId` (server) and the
+      board draws it like a modifier's value pick — the `Modifier +1.png` /
+      `-1.png` cards to press (`ValueArt`) with the Horn itself beside them
+      in the pink effect-working aura (the owner's shape).
+    - **Card movement animations** (item 4): noted, not built.
+    - **Choosing from the hand** (item 5): the closed hand stack wears the
+      gold ask (`HandCount asked`) while a CardChoice over the viewer's hand
+      is open, since the fan only opens on hover.
+    - **"Cannot be destroyed" picks** (item 6): the server never offers a
+      shielded hero (`CardFilter.destroyable`), and a pick the window never
+      offered is refused with `NotAnOption` AND settles the window on a
+      random offered card. Nothing to change on the client: it only sends
+      what it was shown.
+    - **Six classes, game not over** (item 7, pictures 2-3): the engine
+      checked the win conditions at the END of the turn only. It now checks
+      every time a frame settles on an idle board, so the sixth class (or
+      the third monster) ends the game on the spot. The rulebook words the
+      class win as "end your turn with a full party" and counts the party
+      LEADER's class among the six; the engine counts heroes only — both
+      are the owner's calls, flagged in the report.
+    - **Mellow Dee "no window"** (2026-09-04, after the rebuild): the
+      engine's "play the hero you just drew?" is a TaskChoice whose subject
+      (`detail.cardId`) is a card in the HAND, and the board only knew how to
+      glow a PARTY hero for a yes/no — so nothing glowed, the strip card was
+      hidden (a subject on the board hides it), and pressing the drawn hero
+      ran PlayHero through `run`, which dismisses the offer first and pays a
+      point. Now a hand card the question is about wears the gold ask
+      (`PlayerHand asked`), pressing it sends `confirm` (the free play), and
+      the closed stack shows the ask too. Pinned on the wire by
+      `server/src/game/setup/mellow-dee.spec.ts`.
+    - **Plundering Puma "no draw window"** (2026-09-04): the victim's "you
+      may DRAW" is a ConfirmTask asked of the CHOSEN seat and its subject is
+      the Puma itself, in the thief's party — so the victim's board hid the
+      strip window (a subject on the board hides it) and glowed nothing (only
+      the viewer's own cards take the ask). Now a yes/no keeps its strip
+      window with Confirm / Dismiss unless the asked card is the viewer's own
+      hand card or party hero (`askOnBoard`).
+    - **Challenging an item** (2026-09-04): a targeted item tucked under its
+      hero is raised above the hero (`zIndex` 40, as when the hero is
+      zoomed) so the whole glowing card is on top and pressable, instead of
+      a 10% strip the hero's dimmed click swallowed.
+    - **Winds of Change "old card model"** (item 8, solved with the
+      screenshot): the served file, the checkout and git are byte-identical
+      (the new scan); the old look was the BROWSER's cached copy — art is
+      replaced in place under the same url, and nginx sent `expires 7d`.
+      `docker/nginx.conf` now sends `Cache-Control: no-cache` for art (nginx
+      ETags make the revalidation a 304). The old template folder
+      `client/public/cards/` (hand-design hero scans + blank templates) and
+      its one reader `FramedCard.tsx` are deleted, as asked; `Call to the
+      Fallen` now points at `/board/Magics/Magic Call To The Fallen.png`,
+      which 404s until the scan lands.
+    - **Third round, same day (the owner's next eight):** Bullseye's pick
+      drew ids — a choice over the deck's top is over cards in no zone the
+      screen has, so the view now carries `optionCards` and the board draws
+      a card picker (`cardPick`) for any card choice that is not on the
+      board. Items go on ANY bare hero (engine + aim). Every card / player /
+      monster choice names its `sourceCardId`, and the asking card is drawn
+      big in the pink aura above the dimmed table (and inside the picker).
+      Mega Slime grants its point on the slaying turn too. Terratuga,
+      Corrupted Sabretooth, Crowned Serpent and Bloodwing had "SACRIFICE a
+      Hero card" as text only — now entries, pinned by a registry test and
+      `setup/terratuga.spec.ts`. The Party Leader's class counts for the
+      six-class win and for monster requirements (`getPartyClasses`).
 
 Verified live in this order: register → lobby → three ready → Start →
 "Waiting for the table…" until the last seat's socket arrived → board

@@ -42,6 +42,7 @@ export class ChoosePlayerTask implements ITask {
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.PlayerChoice, ctx.ownerId, {
       options,
+      sourceCardId: ctx.sourceCardId,
     })
 
     return frameId
@@ -111,9 +112,12 @@ export class ChooseCardTask implements ITask {
     if (!respondentId) return void ctx.set(this.resultKey, [])
 
     const frameId = rm.openFrame()
+    // The card asking rides in the detail, so a screen can show it big while
+    // the board is dimmed for its question.
     rm.openWindow(frameId, ReactionWindowType.CardChoice, respondentId, {
       options,
       resultKey: this.resultKey,
+      sourceCardId: ctx.sourceCardId,
     })
 
     // Suspends even on an empty option set: ChoiceWindow settles that on a
@@ -162,6 +166,7 @@ export class ChooseCardEachTask implements ITask {
       rm.openWindow(frameId, ReactionWindowType.CardChoice, seatId, {
         options: cardsOf(gs, ctx, this.filter, seatId),
         resultKey: chosenCardOf(seatId),
+        sourceCardId: ctx.sourceCardId,
       })
     }
     return frameId
@@ -195,6 +200,7 @@ export class ChooseMonsterTask implements ITask {
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.MonsterChoice, ctx.ownerId, {
       options,
+      sourceCardId: ctx.sourceCardId,
     })
 
     return frameId
@@ -228,9 +234,12 @@ export class ChooseValueTask implements ITask {
     const bias = gs.valueBiasFor(ctx.ownerId, targetPlayerId ?? ctx.ownerId)
 
     const frameId = rm.openFrame()
+    // The card asking — the Protecting Horn — rides in the detail so a screen
+    // can put the pick on that card rather than in a generic box.
     rm.openWindow(frameId, ReactionWindowType.ValueChoice, ctx.ownerId, {
       options,
       bias,
+      sourceCardId: ctx.sourceCardId,
     })
 
     // Suspends even on an empty list, for the reason ChooseCardTask does.

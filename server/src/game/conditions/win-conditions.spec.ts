@@ -1,4 +1,4 @@
-import { CardType, HeroClass } from 'shared'
+import { CardType, HeroCardData, HeroClass, PartyLeaderData } from 'shared'
 import { ItemCard } from '../cards/item-card'
 import { buildCard } from '../cards/card-factory'
 import { SlayMonsters } from './win-conditions'
@@ -11,6 +11,7 @@ import { CardPile } from '../state-structures/card-pile'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
+import { PartyLeaderCard } from '../cards/party-leader-card'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()
@@ -153,5 +154,38 @@ describe('win-condition', () => {
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)).toBeNull()
     })
+  })
+})
+
+describe('AllClassesInParty — the leader', () => {
+  const heroOf = (heroClass: HeroClass) =>
+    baseGameCards.find((c) => c.type === CardType.Hero && (c as HeroCardData).heroClass === heroClass)!.id
+
+  it("counts the Party Leader's class: five hero classes and a leader of the sixth win", () => {
+    const gs = makeGs()
+    const repo = new InMemoryCardRepository()
+    repo.addMany(baseGameCards)
+    const party = setupPlayer(gs, 'player-1')
+    const printedLeader = baseGameCards.find((c) => c.type === CardType.Leader && (c as PartyLeaderData).heroClass === HeroClass.Fighter)!
+    gs.registerCard(new PartyLeaderCard({ ...printedLeader, id: 'leader-player-1' } as never))
+    for (const cls of [HeroClass.Bard, HeroClass.Guardian, HeroClass.Ranger, HeroClass.Thief, HeroClass.Wizard]) {
+      field(gs, repo, party, heroOf(cls))
+    }
+
+    expect(new AllClassesInParty(repo).check(gs)?.getId()).toBe('player-1')
+  })
+
+  it('does not count a leader of a class a hero already brings', () => {
+    const gs = makeGs()
+    const repo = new InMemoryCardRepository()
+    repo.addMany(baseGameCards)
+    const party = setupPlayer(gs, 'player-1')
+    const printedLeader = baseGameCards.find((c) => c.type === CardType.Leader && (c as PartyLeaderData).heroClass === HeroClass.Bard)!
+    gs.registerCard(new PartyLeaderCard({ ...printedLeader, id: 'leader-player-1' } as never))
+    for (const cls of [HeroClass.Bard, HeroClass.Guardian, HeroClass.Ranger, HeroClass.Thief, HeroClass.Wizard]) {
+      field(gs, repo, party, heroOf(cls))
+    }
+
+    expect(new AllClassesInParty(repo).check(gs)).toBeNull()
   })
 })

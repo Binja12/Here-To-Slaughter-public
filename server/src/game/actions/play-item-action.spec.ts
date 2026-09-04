@@ -196,13 +196,13 @@ describe('PlayItemAction', () => {
       expect(makeAction('hero-1').canExecute(gs)).toEqual({ accepted: true })
     })
 
-    it("non-cursed item targeting an opponent hero can't execute", () => {
+    it("a plain item dresses an opponent's bare hero too — the rules do not say whose (the owner, 2026-09-04)", () => {
       const opponent = makePlayer('p2')
       const opponentParty = makeParty('p2', ['enemy-hero'])
       gs.registerPlayer(opponent)
       gs.registerParty(opponentParty)
       gs.registerCard(makeHeroCard('enemy-hero'))
-      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NotYourHero })
+      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({ accepted: true })
     })
   })
 

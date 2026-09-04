@@ -1,7 +1,8 @@
-import { GameEventType, TriggerScope } from 'shared'
+import { GameEventType, TriggerScope, Owner, Zone } from 'shared'
 import { IAbilityRule } from '../../interfaces'
-import { ConfirmTask } from '../../tasks/choose-tasks'
+import { ConfirmTask, ChooseCardTask } from '../../tasks/choose-tasks'
 import { DrawTask } from '../../tasks/draw-task'
+import { SacrificeTask } from '../../tasks/hero-tasks'
 
 // Crowned Serpent (monster-125): "Each time any player (including you) plays
 // a Modifier card, you may DRAW a card."
@@ -21,5 +22,15 @@ export const CrownedSerpentAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.TaskConfirmed, scope: TriggerScope.SelfCard, when: MAY_DRAW },
     steps: [new DrawTask(1)],
+  },
+  {
+    // Fight back: SACRIFICE a Hero card — the attacker gives one up (Mega
+    // Slime's shape; declared here because nothing reads the printed
+    // fight-back text on its own).
+    trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
+    steps: [
+      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new SacrificeTask(),
+    ],
   },
 ]

@@ -1,0 +1,21 @@
+:8080 {
+	encode zstd gzip
+
+	# Lobby HTTP + SSE. handle_path removes /api before forwarding.
+	handle_path /api/* {
+		reverse_proxy lobby:3000 {
+			# Deliver lobby SSE events immediately instead of buffering them.
+			flush_interval -1
+		}
+	}
+
+	# Socket.IO starts as HTTP and upgrades to WebSocket on this path.
+	handle /socket.io/* {
+		reverse_proxy game:3001
+	}
+
+	# The compiled React client, including all card assets.
+	handle {
+		reverse_proxy client:3002
+	}
+}

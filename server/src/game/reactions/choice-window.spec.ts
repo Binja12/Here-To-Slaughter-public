@@ -139,13 +139,29 @@ describe('ChoiceWindow', () => {
     expect(win.isOpen()).toBe(true)
   })
 
-  it('refuses a choice that was not offered', () => {
+  it('refuses a choice that was not offered AND settles on what silence picks', () => {
     const gs = makeGs()
-    const win = makeWindow({ gs, em: new GameEventEmitter(), options: ['a', 'b'] })
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em, options: ['a', 'b'] })
 
     const result = win.submitReaction('p1', { choice: 'zzz' })
 
     expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
+    // the base picks nothing for a silent player; the window is spent either way
+    expect(win.isOpen()).toBe(false)
+    expect(win.picks()).toEqual([])
+    expect(events.some((e) => e.getType() === GameEventType.FrameResolved)).toBe(true)
+  })
+
+  it('a wrong respondent is refused WITHOUT settling — another seat cannot spend the window', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter(), options: ['a', 'b'] })
+
+    expect(win.submitReaction('p2', { choice: 'a' })).toEqual({
+      accepted: false,
+      reason: RefusalReason.WrongRespondent,
+    })
     expect(win.isOpen()).toBe(true)
   })
 
@@ -351,6 +367,19 @@ describe('CardChoiceWindow', () => {
     // Empty means it ran and produced nothing; the steps behind it skip.
     const resolved = events.find((e) => e.getType() === GameEventType.FrameResolved)
     expect(payloadOf(resolved!)['results']).toEqual([])
+  })
+
+  it('a pick it never offered is refused and lands on one of the offered cards instead', () => {
+    const gs = makeGs()
+    for (const id of ['x', 'y']) gs.registerCard(makeCard(id))
+    const win = new CardChoiceWindow('win-1', 'p1', ['x', 'y'], 5000, gs, 'frame-1', new GameEventEmitter())
+    gs.addFrame('frame-1', { snapshot: gs.clone(), windows: [win] })
+
+    const result = win.submitReaction('p1', { choice: 'shielded-hero' })
+
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
+    expect(win.isOpen()).toBe(false)
+    expect(['x', 'y']).toContain(win.picks()[0])
   })
 
   it('still honours an explicit pick', () => {

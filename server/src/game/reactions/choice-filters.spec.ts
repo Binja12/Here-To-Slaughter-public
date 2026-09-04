@@ -3,6 +3,7 @@ import {
   HeroClass,
   HeroClassReq,
   Owner,
+  PassiveType,
   RollCompareMode,
   Zone,
 } from 'shared'
@@ -473,3 +474,36 @@ describe('filterCards — `among`: a limit to what a slot names', () => {
   })
 })
 
+
+describe('filterCards — destroyable', () => {
+  const table = () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    seat(gs, 'p2')
+    gs.registerCard(hero('mine'))
+    gs.registerCard(hero('theirs'))
+    gs.getParty('p1').addHero('mine', silentEm, 'Played')
+    gs.getParty('p2').addHero('theirs', silentEm, 'Played')
+    return gs
+  }
+
+  it('offers every hero on the table while nobody is shielded', () => {
+    const gs = table()
+    expect(
+      filterCards(gs, new AbilityContext('src', 'p1'), { zone: Zone.Party, owner: Owner.All, destroyable: true }).sort(),
+    ).toEqual(['mine', 'theirs'])
+  })
+
+  it('never offers a hero its owner has shielded (Mighty Blade, Terratuga)', () => {
+    const gs = table()
+    gs.addEffect({ id: 'e', sourceCardId: 'blade', ownerId: 'p2', type: PassiveType.CantBeDestroyed })
+
+    expect(
+      filterCards(gs, new AbilityContext('src', 'p1'), { zone: Zone.Party, owner: Owner.All, destroyable: true }),
+    ).toEqual(['mine'])
+    // without the flag the shield is not the filter's business
+    expect(
+      filterCards(gs, new AbilityContext('src', 'p1'), { zone: Zone.Party, owner: Owner.All }).sort(),
+    ).toEqual(['mine', 'theirs'])
+  })
+})

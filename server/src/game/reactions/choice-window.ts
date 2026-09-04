@@ -99,8 +99,15 @@ export abstract class ChoiceWindow implements IReactionWindow {
       return refused(RefusalReason.WrongRespondent)
 
     const { choice } = (payload ?? {}) as { choice?: unknown }
-    if (!this.options.includes(choice))
+    // A pick the window never offered is answered with the refusal AND
+    // settled by the window itself, on whatever its silence picks (a random
+    // option for a card choice): the client only ever sends what it was
+    // shown, so a request like this is a client that is out of step, and the
+    // table is not held for it (the owner, 2026-09-04).
+    if (!this.options.includes(choice)) {
+      this.resolve()
       return refused(RefusalReason.NotAnOption)
+    }
 
     // An option the engine offered must still be legal when it is picked.
     // One that is not means this window went stale under the player — an

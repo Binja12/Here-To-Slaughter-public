@@ -10,10 +10,15 @@ import { useTargetable, TargetKey } from "./targeting";
 export default function HandCount({
   count,
   playable = false,
+  asked = false,
   targetKey,
 }: {
   count: number;
   playable?: boolean;
+  /** a card is being chosen FROM this hand (the fan's cards are the gold
+   *  targets, but the fan is closed until hovered): the stack wears the gold
+   *  ask and stays bright through the choice dim */
+  asked?: boolean;
   /** the stack's identity for targeting mode (e.g. steal-a-card target) */
   targetKey?: TargetKey;
 }) {
@@ -22,7 +27,7 @@ export default function HandCount({
     <div className="flex h-full w-full items-center justify-center">
       <div
         className={`relative h-full w-full shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)]${
-          playable ? " card-aura" : ""
+          asked ? " ask-aura dim-exempt" : playable ? " card-aura" : ""
         } ${t.className}`}
         onClick={t.onClick}
       >

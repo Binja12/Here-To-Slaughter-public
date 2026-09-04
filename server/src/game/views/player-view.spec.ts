@@ -235,12 +235,19 @@ describe('playerView', () => {
     startGame(game)
     const view = playerView(game, game.playerOrder[0])
 
-    // Every printed monster asks for at least one hero; nobody has played one.
-    const needy = view.monsterRow.filter(
-      (m) => 'partyReq' in m && m.partyReq.classes.length > 0,
-    )
-    for (const monster of needy) {
-      expect(view.attackableMonsterIds).not.toContain(monster.id)
+    // Nobody has played a hero, but the PARTY LEADER is a card of a class
+    // (GameState.getPartyClasses): a monster asking for that class, or for
+    // any, is on offer; one asking only for other classes is not.
+    const leaderClass = view.parties[0].leader.heroClass
+    for (const monster of view.monsterRow) {
+      if (!('partyReq' in monster)) continue
+      // one card in the party: only a single requirement it answers is met
+      const [only, ...rest] = monster.partyReq.classes
+      const met = rest.length === 0 && (only === 'Any' || only === leaderClass)
+      expect({ id: monster.id, offered: view.attackableMonsterIds.includes(monster.id) }).toEqual({
+        id: monster.id,
+        offered: met,
+      })
     }
   })
 

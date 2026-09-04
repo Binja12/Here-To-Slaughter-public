@@ -33,6 +33,7 @@ export default function PlayerHand({
   cards,
   anchorCenterCqw,
   playable,
+  asked,
   onActivateCard,
   children,
 }: {
@@ -43,8 +44,11 @@ export default function PlayerHand({
   /** per-card playable flags, index-aligned with `cards` — true cards get
    *  the green Hearthstone aura (modifiers/challenges can glow off-turn) */
   playable?: boolean[];
+  /** per-card: the engine's open yes/no is ABOUT this card ("play the hero
+   *  you just drew?" — Mellow Dee): gold ask-aura, pressing it says yes */
+  asked?: boolean[];
   /** normal-mode click per card index (starting that card's action) —
-   *  only wired on cards whose `playable` flag is true */
+   *  wired on cards whose `playable` or `asked` flag is true */
   onActivateCard?: (index: number) => void;
   /** the closed-stack widget the fan is anchored to (e.g. <HandCount/>) */
   children: React.ReactNode;
@@ -142,8 +146,9 @@ export default function PlayerHand({
                 index={i}
                 hovered={hovered === i}
                 playable={playable?.[i]}
+                asked={asked?.[i]}
                 onActivate={
-                  playable?.[i] && onActivateCard
+                  (playable?.[i] || asked?.[i]) && onActivateCard
                     ? () => onActivateCard(i)
                     : undefined
                 }
@@ -163,6 +168,7 @@ function FanCard({
   index,
   hovered = false,
   playable,
+  asked = false,
   onActivate,
 }: {
   src: string;
@@ -170,6 +176,8 @@ function FanCard({
   /** the cell (resting footprint) is under the cursor — grow */
   hovered?: boolean;
   playable?: boolean;
+  /** the open yes/no is about this card: gold, pressing = yes */
+  asked?: boolean;
   /** normal-mode click (starting this card's action) */
   onActivate?: () => void;
 }) {
@@ -183,7 +191,7 @@ function FanCard({
       draggable={false}
       onClick={t.onClick}
       className={`h-full max-w-none origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
-        playable ? ' card-aura' : ''
+        asked ? ' ask-aura' : playable ? ' card-aura' : ''
       } ${t.className}`}
       style={{ transform: hovered && !dimmed ? 'scale(1.6)' : undefined }}
     />

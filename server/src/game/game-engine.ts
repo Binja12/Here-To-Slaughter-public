@@ -48,29 +48,42 @@ export class GameEngine implements IGameEventListener {
   onEvent(event: IGameEvent): void {
     switch (event.getType()) {
       case GameEventType.TurnEnded:
-        this.handleTurnEnded(event.getPlayerId())
+        if (!this.concludeIfWon()) {
+          this.startNextTurn(event.getPlayerId())
+        }
         break
 
       case GameEventType.FrameResolved:
-        this.turnManager.resumeDrain()
+        // TaskManager hears this first and continues the pipeline the frame
+        // was holding; a board still busy after that is not settled yet and
+        // is asked again on the next frame. A won game does not resume the
+        // drain: nothing else may run on a concluded board.
+        if (this.gs.isBusy() || !this.concludeIfWon()) {
+          this.turnManager.resumeDrain()
+        }
         break
     }
   }
 
-  private handleTurnEnded(currentPlayerId: string): void {
+  /**
+   * The game ends the moment a settled board qualifies — the sixth class or
+   * the third monster wins on the spot, not at the end of that turn. Asked
+   * after every frame settles (a hero, an item and an attack each land inside
+   * one) and at the end of a turn. Returns whether it ended.
+   */
+  private concludeIfWon(): boolean {
+    if (this.gs.getGamePhase() === GamePhase.Concluded) return true
     const winner = this.checkWinConditions()
-    if (winner) {
-      // Before the announcement, so whoever hears GameEnded sees a concluded
-      // board that already names its winner.
-      this.gs.conclude(winner.getId())
-      this.emitter.emit(
-        new GameEvent(GameEventType.GameEnded, winner.getId(), {
-          winnerId: winner.getId(),
-        }),
-      )
-      return
-    }
-    this.startNextTurn(currentPlayerId)
+    if (!winner) return false
+    // Before the announcement, so whoever hears GameEnded sees a concluded
+    // board that already names its winner.
+    this.gs.conclude(winner.getId())
+    this.emitter.emit(
+      new GameEvent(GameEventType.GameEnded, winner.getId(), {
+        winnerId: winner.getId(),
+      }),
+    )
+    return true
   }
 
   private checkWinConditions(): Player | null {

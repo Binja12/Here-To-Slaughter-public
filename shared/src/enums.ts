@@ -396,7 +396,6 @@ export enum RefusalReason {
   NotAnItem = "NotAnItem",
   NotAHero = "NotAHero",
   HeroAlreadyEquipped = "HeroAlreadyEquipped",
-  NotYourHero = "NotYourHero",
   // AttackMonster — the halves of `GameState.canAttackMonster`
   MonsterNotInRow = "MonsterNotInRow",
   PartyRequirementUnmet = "PartyRequirementUnmet",

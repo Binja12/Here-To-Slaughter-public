@@ -18,7 +18,6 @@ export const REFUSAL_MESSAGES: Record<RefusalReason, string> = {
   [RefusalReason.NotAnItem]: 'That card is not an item.',
   [RefusalReason.NotAHero]: 'That target is not a hero.',
   [RefusalReason.HeroAlreadyEquipped]: 'That hero already has an item.',
-  [RefusalReason.NotYourHero]: 'That hero is not yours.',
   [RefusalReason.MonsterNotInRow]: 'That monster is no longer in the row.',
   [RefusalReason.PartyRequirementUnmet]: 'Your party does not meet that requirement.',
   [RefusalReason.AlreadyChallengedThisTurn]: 'You already challenged this turn.',

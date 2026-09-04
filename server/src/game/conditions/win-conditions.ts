@@ -46,15 +46,10 @@ export class AllClassesInParty {
 
   check(gs: GameState): Player | null {
     for (const player of gs.getPlayers()) {
-      const party = gs.getParty(player.getId())!
-      // The class the BOARD reads, a mask included (GameState.getHeroClass).
-      const playerHeroClasses = party
-        .getHeroIds()
-        .map((id) => gs.getHeroClass(id))
-        .filter((cls): cls is HeroClass => cls !== undefined)
-
+      // The classes the BOARD reads: the leader's and each hero's, a mask
+      // included (GameState.getPartyClasses).
       const uniqueClasses = new Set(
-        playerHeroClasses.filter((cls) => this.reqHeroClasses.includes(cls)),
+        gs.getPartyClasses(player.getId()).filter((cls) => this.reqHeroClasses.includes(cls)),
       )
       if (uniqueClasses.size >= this.required) return player
     }

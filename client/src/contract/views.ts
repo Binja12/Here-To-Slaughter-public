@@ -63,6 +63,8 @@ export type PendingWindowView = {
   respondentId: string
   cardId?: string
   options?: unknown[]
+  /** the options that are cards, as printed data — respondent only */
+  optionCards?: CardView[]
   detail?: Record<string, unknown>
   deadline: number
   isYours: boolean

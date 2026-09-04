@@ -29,7 +29,9 @@ import HandCount from './HandCount'
 import DiceRoll from './DiceRoll'
 import ChallengeWindow from './ChallengeWindow'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
-import { bonusesOf, liveRollOf, rollLabel, subjectIdOf, useLiveDice } from './liveRoll'
+import { liveRollOf, rollLabel, subjectIdOf, useLiveDice } from './liveRoll'
+import { passiveSourceIds } from './passiveRelevance'
+import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
 import { derivePlayable, isOptionalWindow } from './playable'
 import {
@@ -52,11 +54,7 @@ import {
   REFUSAL_MESSAGES,
 } from '../contract'
 import { slotsFor } from './seats'
-import {
-  discardCardsForView,
-  idForTargetKey,
-  targetKeyForId,
-} from './viewTargets'
+import { cardById, discardCardsForView, idForTargetKey, targetKeyForId } from './viewTargets'
 import { useHoverZoom } from './useHoverZoom'
 import PendingWindows from './PendingWindows'
 import DiscardPileModal from './DiscardPileModal'
@@ -731,30 +729,20 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   //    its challenge window closes) or rolls on (hero / leader / monster,
   //    until the roll closes); the dice go red with it;
   //  - pink: every card whose effect is WORKING right now — a standing
-  //    effect that is live (the seats' effect lists) or one feeding the open
-  //    roll (the server names them as the roll's bonus sources: "each time
-  //    you roll to attack a monster, +1"). The owner's rule, 2026-09-04:
-  //    gold = can pick, green = can play, pink = effect working.
+  //    effect while it is RELEVANT (passiveRelevance.ts: the Fist of Reason
+  //    during a challenge window, Mega Slime while its owner is over budget)
+  //    or one feeding the open roll (the server names them as the roll's
+  //    bonus sources). The owner's rule, 2026-09-04: gold = can pick, green =
+  //    can play, pink = effect working — and only while it is.
   const enemyIds = new Set<string>()
-  const bonusSourceIds = new Set<string>()
   for (const window of view.pendingWindows) {
     if (window.type !== 'Modifier' && window.type !== 'Attack' && window.type !== 'Challenge') continue
     if (window.respondentId !== view.playerId) {
       const subject = subjectIdOf(window)
       if (subject) enemyIds.add(subject)
     }
-    const detail = window.detail ?? {}
-    for (const list of [detail.bonuses, detail.challengerBonuses, detail.challengedBonuses]) {
-      for (const bonus of bonusesOf(list)) if (bonus.cardSource) bonusSourceIds.add(bonus.cardSource)
-    }
   }
-  // pink: every card whose effect is working — a live standing effect at any
-  // seat (the seats' effect lists name their source card) or a bonus source
-  // of the open roll (heroes, items, leaders, a monster's counter)
-  const passiveIds = new Set([
-    ...view.seats.flatMap((seat) => seat.effects.map((effect) => effect.sourceCardId)),
-    ...Array.from(bonusSourceIds),
-  ])
+  const passiveIds = passiveSourceIds(view)
   const diceTone = liveRoll && liveRoll.rollerId !== view.playerId ? 'enemy' : 'mine'
 
   // A reaction being aimed (modifier / challenge card pressed, board dimmed,
@@ -937,6 +925,59 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       !window.options.includes('confirm') &&
       !window.options.includes('dismiss'),
   )
+  // A choice of VALUE the engine asks (the Protecting Horn's +1 / -1): the
+  // +1 / -1 modifier cards to pick from, with the card that asks
+  // (`detail.sourceCardId`) beside them wearing the pink "effect working"
+  // aura (the owner, 2026-09-04).
+  const valueAsk = view.pendingWindows.find(
+    (window) => window.isYours && window.type === 'ValueChoice' && !!window.options?.length,
+  )
+  const valueAskCard = cardById(
+    view,
+    typeof valueAsk?.detail?.sourceCardId === 'string' ? valueAsk.detail.sourceCardId : undefined,
+  )
+  // A card is being chosen FROM the viewer's hand: the fan only opens on
+  // hover, so the closed stack wears the gold ask until it is answered
+  // (the owner, 2026-09-04: "add a glow to the deck").
+  const handChoiceOpen =
+    !!boardChoice && boardChoice.pairs.some((pair) => pair.key.startsWith('handCard:'))
+  // The optional question may be about a card in the HAND — Mellow Dee's
+  // "play the hero you just drew?" names the drawn card — so that card
+  // wears the gold ask (pressing it says yes: a FREE play, not PlayHero)
+  // and the closed stack shows the ask as well.
+  const askedInHand = view.hand.map((card) => !!askedCardId && card.id === askedCardId)
+  const handAsked = handChoiceOpen || askedInHand.some(Boolean)
+  // A card choice whose options are NOT on the board — Bullseye's look at the
+  // deck's top three — is answered from a picker drawing the cards themselves
+  // (the view's `optionCards`), gold like any pick.
+  const cardPick = boardChoice
+    ? null
+    : (view.pendingWindows.find(
+        (window) =>
+          window.isYours &&
+          (window.type === 'CardChoice' || window.type === 'MonsterChoice') &&
+          !!window.optionCards?.length,
+      ) ?? null)
+  // The card whose ability is asking (`detail.sourceCardId`), shown big in
+  // the pink effect-working aura for as long as the board is dimmed for its
+  // question — the context the owner asked for (2026-09-04).
+  const askingWindow = boardChoice?.window ?? cardPick
+  const askingCard = cardById(
+    view,
+    typeof askingWindow?.detail?.sourceCardId === 'string' ? askingWindow.detail.sourceCardId : undefined,
+  )
+  // The ask lives on the board only when the viewer can PRESS the card it is
+  // about — their own hand card or their own party hero. A question about
+  // somebody else's card (Plundering Puma's "you may draw", asked of its
+  // victim and naming the Puma in the thief's party) keeps its strip window
+  // and its Confirm / Dismiss buttons; hiding it left the victim nothing.
+  const mySlot = (Object.entries(slots) as [PlayerId, string | null][]).find(
+    ([, id]) => id === view.playerId,
+  )?.[0]
+  const askedKey = askedCardId ? targetKeyForId(view, askedCardId) : null
+  const askOnBoard =
+    !!askedKey &&
+    (askedKey.startsWith('handCard:') || (!!mySlot && askedKey.startsWith(`hero:${mySlot}:`)))
   const forfeit = async (): Promise<boolean> => {
     if (!optionalAsk) return true
     const result = await send({
@@ -993,19 +1034,26 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
 
     const card = view.hand[Number(a)]
     if (!card) return
+    if (optionalAsk && card.id === askedCardId) {
+      // the card the question is about: pressing it is "yes" — the engine
+      // plays it for free; PlayHero would forfeit the offer and pay a point
+      void send({
+        type: 'SubmitChoice',
+        payload: { windowId: optionalAsk.windowId, choice: 'confirm' },
+      }).then(handleResult)
+      return
+    }
     if (card.type === 'Hero') {
       void run({ type: 'PlayHero', payload: { cardId: card.id } })
     } else if (card.type === 'Magic') {
       void run({ type: 'PlayMagic', payload: { cardId: card.id } })
     } else if (card.type === 'Item') {
-      // MIRROR of the engine's equip rule (item-tasks.ts canEquip): a cursed
-      // item is played AT anybody, a plain one only dresses your own; either
-      // way the hero must be bare (HeroAlreadyEquipped)
-      const cursed = 'cursed' in card && card.cursed === true
+      // MIRROR of the engine's equip rule (item-tasks.ts canEquip): any BARE
+      // hero on the table, cursed or plain (the owner, 2026-09-04: the rules
+      // do not say whose hero) — HeroAlreadyEquipped is the only bar
       const targets = view.parties.flatMap((party) => {
         const slot = (Object.entries(slots) as [PlayerId, string | null][]).find(([, id]) => id === party.playerId)?.[0]
         if (!slot) return []
-        if (!cursed && party.playerId !== view.playerId) return []
         return party.heroes.flatMap((hero, index) =>
           hero.equippedItem ? [] : [tkey.hero(slot, index)],
         )
@@ -1189,9 +1237,15 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                     cards={view.hand.map((card) => artFor(card).url)}
                     anchorCenterCqw={82}
                     playable={flags.hand}
+                    asked={askedInHand}
                     onActivateCard={(index) => activate(tkey.handCard(index))}
                   >
-                    <HandCount count={view.hand.length} playable={hasPlayableHandCard} targetKey={tkey.handStack(slot)} />
+                    <HandCount
+                      count={view.hand.length}
+                      playable={hasPlayableHandCard}
+                      asked={handAsked}
+                      targetKey={tkey.handStack(slot)}
+                    />
                   </PlayerHand>
                 ) : (
                   <HandCount count={player.handCount} targetKey={tkey.handStack(slot)} />
@@ -1272,9 +1326,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           view={view}
           hiddenWindowIds={[
             ...(boardChoice ? [boardChoice.window.windowId] : []),
-            ...(optionalAsk && askedCardId && targetKeyForId(view, askedCardId)
-              ? [optionalAsk.windowId]
-              : []),
+            ...(valueAsk ? [valueAsk.windowId] : []),
+            ...(cardPick ? [cardPick.windowId] : []),
+            ...(optionalAsk && askOnBoard ? [optionalAsk.windowId] : []),
           ]}
           onSubmit={(windowId, choice) =>
             void run({ type: 'SubmitChoice', payload: { windowId, choice } })
@@ -1366,6 +1420,100 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                     />
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {askingCard && boardChoice && (
+          // the asking card, big and bright above the dimmed table
+          <img
+            src={artFor(askingCard).url}
+            alt={askingCard.name}
+            draggable={false}
+            className="passive-aura pointer-events-none absolute left-1/2 top-[10cqh] z-[150] h-[30cqh] -translate-x-1/2 rounded-[.35cqw] object-contain"
+          />
+        )}
+
+        {cardPick && (
+          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {typeof cardPick.detail?.question === 'string'
+                  ? cardPick.detail.question
+                  : askingCard
+                    ? `${askingCard.name}: choose a card`
+                    : 'Choose a card'}
+              </div>
+              <div className="flex items-center justify-center gap-[1cqw]">
+                {askingCard && (
+                  <img
+                    src={artFor(askingCard).url}
+                    alt={askingCard.name}
+                    draggable={false}
+                    className="passive-aura mr-[1cqw] h-[30cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                {cardPick.optionCards!.map((card) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    aria-label={`Choose ${card.name}`}
+                    className="group rounded-[.45cqw] border border-amber-400/60 bg-amber-950/70 p-[.35cqw] transition hover:-translate-y-[.35cqh] hover:border-amber-200 hover:brightness-125"
+                    onClick={() =>
+                      void run({
+                        type: 'SubmitChoice',
+                        payload: { windowId: cardPick.windowId, choice: card.id },
+                      })
+                    }
+                  >
+                    <img
+                      src={artFor(card).url}
+                      alt={card.name}
+                      draggable={false}
+                      className="ask-aura h-[30cqh] rounded-[.35cqw] object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {valueAsk && (
+          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {valueAskCard ? `${valueAskCard.name}: choose value` : 'Choose value'}
+              </div>
+              <div className="flex items-center justify-center gap-[1cqw]">
+                {valueAskCard && (
+                  <img
+                    src={artFor(valueAskCard).url}
+                    alt={valueAskCard.name}
+                    draggable={false}
+                    className="passive-aura mr-[1cqw] h-[25cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                {(valueAsk.options as number[])
+                  .slice()
+                  .sort((a, b) => a - b)
+                  .map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-label={`Choose ${value > 0 ? '+' : ''}${value}`}
+                      className="group rounded-[.45cqw] border border-amber-400/60 bg-amber-950/70 p-[.35cqw] transition hover:-translate-y-[.35cqh] hover:border-amber-200 hover:brightness-125"
+                      onClick={() =>
+                        void run({
+                          type: 'SubmitChoice',
+                          payload: { windowId: valueAsk.windowId, choice: value },
+                        })
+                      }
+                    >
+                      <ValueArt value={value} />
+                    </button>
+                  ))}
               </div>
             </div>
           </div>

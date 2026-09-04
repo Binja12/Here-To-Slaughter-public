@@ -6,10 +6,8 @@ import { CardView } from "../contract";
 
 /**
  * Hero widget: the played hero/item cards of one seat, laid over the
- * background's hero strip. On the board we use the BOARD card design
- * (premium scans in /board/heroes/ with the ornate frame already baked in);
- * when a board scan is missing we fall back to FramedCard (hand scan + class
- * frame overlay).
+ * background's hero strip, drawn from the BOARD card design (premium scans
+ * in /board/heroes/ with the ornate frame already baked in).
  *
  * Overflow: cards NEVER change size at rest. Below the fan threshold they sit
  * side by side; from the threshold up they become a straight fan via a CSS
@@ -160,7 +158,11 @@ export function HeroCardWidget({
             itemIsTarget || heroZoomed ? "pointer-events-auto" : "pointer-events-none"
           }${itemEnemy ? " enemy-aura" : itemPlayable ? " card-aura" : itemPassive ? " passive-aura" : ""} ${itemTarget.className}`}
           style={{
-            zIndex: heroZoomed ? 40 : undefined,
+            // a TARGET item comes out on top of its hero as well: tucked
+            // under it, only a 10% strip could be pressed and the hero (or a
+            // neighbour) took the click (the owner, 2026-09-04, challenging
+            // an item just played)
+            zIndex: heroZoomed || itemIsTarget ? 40 : undefined,
             transformOrigin: origin,
             transform: heroZoomed
               ? `translateX(${

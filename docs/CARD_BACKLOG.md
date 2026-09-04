@@ -1,9 +1,10 @@
-# Card backlog — what the registry still lacks (2026-09-04)
+# Card implementation ledger (completed 2026-09-04)
 
-68 of 136 printed cards have an entry in `server/src/game/repositories/
-ability-repository/index.ts`; the deal is exactly that set (`dealable`).
-This lists the other 68, split by whether the engine's CURRENT tasks,
-effects and triggers already cover the wording.
+All 136 printed cards now have an entry in `server/src/game/repositories/
+ability-repository/index.ts`. The second playtest deals the complete printed
+set; `dealable` and the first playtest's registry-based pool are gone. The
+sections below are retained as the implementation ledger that split the final
+68 cards by the mechanics they needed at the time.
 
 The building blocks, all in `server/src/game/`:
 
@@ -17,7 +18,7 @@ The building blocks, all in `server/src/game/`:
   `PlayHeroTask(slot)`, `PlayItemTask(itemSlot, heroSlot)`,
   `PlayMagicTask(slot)`, `DestroyTask` (any party), `SacrificeTask` (own
   party), `StealFromPartyTask`, `GiveHeroTask`, `ApplyEffectTask({type,
-  value, rollContext, cardTypes, expiry})`, `RollOnHeroTask`.
+value, rollContext, cardTypes, expiry})`, `RollOnHeroTask`.
 - Effects (`PassiveType`): RollBonus, ActionPointBonus,
   ModifierCounterBonus, CantBeStolen, CantBeChallenged, CantUseHeroEffect.
   Expiries: `untilEndOfTurn`, `untilOwnersNextTurn`,
@@ -45,41 +46,41 @@ its line in the registry map in `index.ts`.
 
 Heroes (roll = `RollSuccess` SelfCard):
 
-| Card | Steps |
-|---|---|
-| hero-001 Bad Axe | ChooseCard(Party, All) → Destroy |
-| hero-009 Serious Grey | ChooseCard(Party, All) → Destroy → Draw(1) |
-| hero-012 Wildshot | Draw(3) → ChooseCard(Hand, Self) → Discard |
-| hero-017 Kit Napper | ChooseCard(Party, Others) → StealFromParty |
-| hero-018 Sly Pickings | ChoosePlayer(Others) → Pull → CardTypeCondition(Item, PULLED) → Confirm → ChooseCard(Party, Self, unequipped) → PlayItem(PULLED) |
-| hero-019 Meowzio | ChoosePlayer(Others, hasHeroes) → ChooseCard(Party, Chosen) → StealFromParty → Pull (from `CTX_CHOSEN_PLAYER`) |
-| hero-021 Silent Shadow | ChoosePlayer(Others) → ChooseCard(Hand, Chosen) → a small "take chosen card to hand" step — see B if that step does not exist; the choice itself is supported (the options reveal the hand, which IS the card) |
-| hero-029 Vibrant Glow | ApplyEffect(RollBonus 5, untilEndOfTurn) — Enchanted Spell with 5 |
-| hero-030 Iron Resolve | ApplyEffect(CantBeChallenged, untilEndOfTurn) — Owlbear's effect, no cardTypes |
-| hero-032 Calming Voice | ApplyEffect(CantBeStolen, untilOwnersNextTurn) |
-| hero-034 Buttons | ChoosePlayer(Others) → Pull → CardTypeCondition(Magic, PULLED) → Confirm → PlayMagic(PULLED) — Snowball's shape over the pulled slot |
-| hero-037 Whiskers | ChooseCard(Party, Others) → StealFromParty → ChooseCard(Party, All) → Destroy |
-| hero-038 Fluffy | ChooseCard(Party, All) → Destroy, twice |
-| hero-041 Mellow Dee | Draw(1) → CardTypeCondition(Hero, DRAWN) → Confirm → PlayHero(DRAWN) |
-| hero-042 Lucky Bucky | ChoosePlayer(Others) → Pull → CardTypeCondition(Hero, PULLED) → Confirm → PlayHero(PULLED) |
-| hero-043 Fuzzy Cheeks | Draw(1) → ChooseCard(Hand, Self, cardType Hero) → PlayHero |
-| hero-044 Napping Nibbles | one entry with no steps ("Do nothing") |
-| hero-048 Peanut | Draw(2) |
+| Card                     | Steps                                                                                                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| hero-001 Bad Axe         | ChooseCard(Party, All) → Destroy                                                                                                                                                                               |
+| hero-009 Serious Grey    | ChooseCard(Party, All) → Destroy → Draw(1)                                                                                                                                                                     |
+| hero-012 Wildshot        | Draw(3) → ChooseCard(Hand, Self) → Discard                                                                                                                                                                     |
+| hero-017 Kit Napper      | ChooseCard(Party, Others) → StealFromParty                                                                                                                                                                     |
+| hero-018 Sly Pickings    | ChoosePlayer(Others) → Pull → CardTypeCondition(Item, PULLED) → Confirm → ChooseCard(Party, Self, unequipped) → PlayItem(PULLED)                                                                               |
+| hero-019 Meowzio         | ChoosePlayer(Others, hasHeroes) → ChooseCard(Party, Chosen) → StealFromParty → Pull (from `CTX_CHOSEN_PLAYER`)                                                                                                 |
+| hero-021 Silent Shadow   | ChoosePlayer(Others) → ChooseCard(Hand, Chosen) → a small "take chosen card to hand" step — see B if that step does not exist; the choice itself is supported (the options reveal the hand, which IS the card) |
+| hero-029 Vibrant Glow    | ApplyEffect(RollBonus 5, untilEndOfTurn) — Enchanted Spell with 5                                                                                                                                              |
+| hero-030 Iron Resolve    | ApplyEffect(CantBeChallenged, untilEndOfTurn) — Owlbear's effect, no cardTypes                                                                                                                                 |
+| hero-032 Calming Voice   | ApplyEffect(CantBeStolen, untilOwnersNextTurn)                                                                                                                                                                 |
+| hero-034 Buttons         | ChoosePlayer(Others) → Pull → CardTypeCondition(Magic, PULLED) → Confirm → PlayMagic(PULLED) — Snowball's shape over the pulled slot                                                                           |
+| hero-037 Whiskers        | ChooseCard(Party, Others) → StealFromParty → ChooseCard(Party, All) → Destroy                                                                                                                                  |
+| hero-038 Fluffy          | ChooseCard(Party, All) → Destroy, twice                                                                                                                                                                        |
+| hero-041 Mellow Dee      | Draw(1) → CardTypeCondition(Hero, DRAWN) → Confirm → PlayHero(DRAWN)                                                                                                                                           |
+| hero-042 Lucky Bucky     | ChoosePlayer(Others) → Pull → CardTypeCondition(Hero, PULLED) → Confirm → PlayHero(PULLED)                                                                                                                     |
+| hero-043 Fuzzy Cheeks    | Draw(1) → ChooseCard(Hand, Self, cardType Hero) → PlayHero                                                                                                                                                     |
+| hero-044 Napping Nibbles | one entry with no steps ("Do nothing")                                                                                                                                                                         |
+| hero-048 Peanut          | Draw(2)                                                                                                                                                                                                        |
 
 Monsters (passive installs on `MonsterSlain` SelfCard; fight-backs are data):
 
-| Card | Steps |
-|---|---|
-| monster-124 Anuran Cauldron | ApplyEffect(RollBonus 1) — Divine Arrow with RollContext.Any |
-| monster-126 Dracos | trigger `HeroDestroyed` OwnerEvent → Confirm → Draw(1) |
-| monster-128 Arctic Aries | trigger `RollSuccess` OwnerEvent → Confirm → Draw(1). Caveat: a leader activation also announces RollSuccess, so it would draw on the Shadow Claw too — acceptable for now, note it in the spec |
-| monster-133 Dark Dragon King | ApplyEffect(RollBonus 1, RollContext.HeroEffect) — Charismatic Song's effect, Owlbear's trigger |
-| monster-136 Titan Wyvern | ApplyEffect(RollBonus 1, RollContext.Challenge) — Fist of Reason's effect, Owlbear's trigger |
+| Card                         | Steps                                                                                                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| monster-124 Anuran Cauldron  | ApplyEffect(RollBonus 1) — Divine Arrow with RollContext.Any                                                                                                                                    |
+| monster-126 Dracos           | trigger `HeroDestroyed` OwnerEvent → Confirm → Draw(1)                                                                                                                                          |
+| monster-128 Arctic Aries     | trigger `RollSuccess` OwnerEvent → Confirm → Draw(1). Caveat: a leader activation also announces RollSuccess, so it would draw on the Shadow Claw too — acceptable for now, note it in the spec |
+| monster-133 Dark Dragon King | ApplyEffect(RollBonus 1, RollContext.HeroEffect) — Charismatic Song's effect, Owlbear's trigger                                                                                                 |
+| monster-136 Titan Wyvern     | ApplyEffect(RollBonus 1, RollContext.Challenge) — Fist of Reason's effect, Owlbear's trigger                                                                                                    |
 
 Magic (`FrameResolved` SelfCard):
 
-| Card | Steps |
-|---|---|
+| Card                      | Steps                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------ |
 | magic-051 Entangling Trap | ChooseCard(Hand, Self) → Discard, twice → ChooseCard(Party, Others) → StealFromParty |
 
 ## Done on HTSR-8 (2026-09-04) — 25 registry ids

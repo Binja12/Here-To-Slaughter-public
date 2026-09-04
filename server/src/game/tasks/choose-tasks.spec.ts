@@ -6,6 +6,7 @@ import {
   IGameEvent,
   Owner,
   ReactionWindowType,
+  RefusalReason,
   Zone,
 } from 'shared'
 import { ChooseActionTask, ChooseCardEachTask, ChooseCardTask, ChoosePlayerTask, ConfirmTask } from './choose-tasks'
@@ -304,9 +305,13 @@ describe('ChooseCardTask', () => {
       cardType: CardType.Magic,
     }).execute(gs, new AbilityContext('src', 'p1'), em, new ReactionManager(gs, em))
 
-    openWindow(gs).submitReaction('p1', { choice: 'their-hero' })
+    const result = openWindow(gs).submitReaction('p1', { choice: 'their-hero' })
 
-    expect(openWindow(gs).isOpen()).toBe(true)
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
+    // and the window is spent on one of the cards it DID offer: a pick the
+    // window never showed is a client out of step, and the table is not held
+    expect(openWindow(gs)).toBeUndefined()
+    expect(gs.isBusy()).toBe(false)
   })
 })
 

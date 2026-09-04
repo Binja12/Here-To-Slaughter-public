@@ -19,8 +19,10 @@ export class CardChoiceWindow extends ChoiceWindow {
     emitter: IGameEventEmitter,
     /** The slot the pick is filed in — the task's choice (ChooseCardOptions.resultKey). */
     private readonly slot: string = CTX_CHOSEN_CARD,
+    /** The card whose ability asks, for the screen (`detail.sourceCardId`). */
+    sourceCardId?: string,
   ) {
-    super(id, respondentId, options, timeoutMs, gs, frameId, emitter)
+    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, sourceCardId ? { sourceCardId } : {})
   }
 
   getType(): ReactionWindowType {

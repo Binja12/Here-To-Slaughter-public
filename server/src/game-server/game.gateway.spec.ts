@@ -342,10 +342,9 @@ describe('GameGateway', () => {
       await expect(
         send(at[active], 'PlayHero', { cardId: heroInHand(running.game, active) }),
       ).resolves.toMatchObject({ accepted: true })
+      // the settled hero frame is the win: the engine concludes on the spot,
+      // and an EndTurn now would be a late request (GameOver)
       await untilIdle(running.game)
-      await expect(send(at[active], 'EndTurn', {}, UUID_2)).resolves.toMatchObject({
-        accepted: true,
-      })
 
       return { running, at, ends }
     }

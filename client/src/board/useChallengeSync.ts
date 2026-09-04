@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { PlayerView } from '../contract'
-import { artFor, boardChallengeUrl } from './assets'
+import { artFor, boardChallengeUrl, SMALL_BACK } from './assets'
 import { ChallengeRole, useChallenge } from './challenge'
 import { bonusesOf, bonusTotal, facesOf, RollBonusView } from './liveRoll'
 import { slotForPlayer } from './seats'
@@ -77,7 +77,7 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
       const card = cardById(view, live.cardId)
       const art = card ? artFor(card) : null
       challenge.open({
-        challengedCardUrl: art?.url ?? '/cards/magic.png',
+        challengedCardUrl: art?.url ?? SMALL_BACK,
         challengedCardAspect: art?.aspect,
         challengeCardUrl: boardChallengeUrl(),
         challengedSeat: slotForPlayer(view, live.defenderId) ?? 'p2',
@@ -108,7 +108,7 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
       challenge.addModifier(
         role,
         total - totals[role],
-        card ? artFor(card).url : '/cards/modifier.png',
+        card ? artFor(card).url : SMALL_BACK,
       )
       totals[role] = total
     }
