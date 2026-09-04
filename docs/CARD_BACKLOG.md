@@ -112,8 +112,8 @@ only). Round six (same day): Slippery Paws (`PullCardTask({ count: 2 })` +
 a choice `among` the pulled cards) — the registry holds the whole set.
 Corrupted Sabretooth's "may" is now asked (`ChooseActionTask`). Tough
 Teddy, Spooky, Greedy Cheeks answer together on the parallel frame; Smooth
-Mimimeow pulls from a seat filter. Quick Draw's "one of them" could use
-`among` over the drawn cards; today it plays the first drawn item.
+Mimimeow pulls from a seat filter. Quick Draw now chooses an Item `among` the
+two drawn cards, then immediately plays that choice.
 
 ## B. Needs a mechanic the engine does not have — 41 cards (the owner + Claude)
 
@@ -154,9 +154,8 @@ Grouped by the missing piece; one piece usually unlocks several cards.
    hands (hero-046 Dodgy Dealer); a `ChooseCardTask` output slot so two
    picks can coexist (hero-013 Hook: item from hand + hero to wear it);
    a card filter "only cards in slot X" (hero-022 Slippery Paws: discard
-   one of the two pulled; hero-010 Quick Draw: play the drawn card that IS
-   the item — `PlayItemTask(DRAWN)` takes the first drawn card, so a draw
-   of two can pick the wrong one, as Codex's note says); carry `CTX_CHOSEN_PLAYER` across `ConditionMet`
+   one of the two pulled; hero-010 Quick Draw: play one of the drawn Item
+   cards); carry `CTX_CHOSEN_PLAYER` across `ConditionMet`
    so a second pull hits the same player (hero-002 Fury Knuckle, hero-005
    Bear Claw); a "count what the previous step did" loop (hero-007 Qi Bear:
    one destroy per card actually discarded); a slot holding the source

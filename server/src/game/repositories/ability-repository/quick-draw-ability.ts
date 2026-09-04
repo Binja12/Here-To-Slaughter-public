@@ -1,5 +1,8 @@
 import { CardType, GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { CTX_DRAWN_CARD_IDS } from '../../abilities/ability-context'
+import {
+  CTX_CHOSEN_ITEM,
+  CTX_DRAWN_CARD_IDS,
+} from '../../abilities/ability-context'
 import { IAbilityRule } from '../../interfaces'
 import { ChooseCardTask, ConfirmTask } from '../../tasks/choose-tasks'
 import { CardTypeCondition } from '../../tasks/conditions'
@@ -39,12 +42,24 @@ export const QuickDrawAbility: IAbilityRule[] = [
       when: PLAY_AN_ITEM,
     },
     steps: [
-      new ChooseCardTask({
-        zone: Zone.Party,
-        owner: Owner.Self,
-        unequipped: true,
-      }),
-      new PlayItemTask(CTX_DRAWN_CARD_IDS),
+      new ChooseCardTask(
+        {
+          zone: Zone.Hand,
+          owner: Owner.Self,
+          cardType: CardType.Item,
+          among: CTX_DRAWN_CARD_IDS,
+        },
+        { resultKey: CTX_CHOSEN_ITEM },
+      ),
+      new ChooseCardTask(
+        {
+          zone: Zone.Party,
+          owner: Owner.Self,
+          unequipped: true,
+        },
+        { requiresKey: CTX_CHOSEN_ITEM },
+      ),
+      new PlayItemTask(CTX_CHOSEN_ITEM),
     ],
   },
 ]

@@ -9,12 +9,6 @@ exactly by those mechanics.
   that moves that chosen card into the ability owner's hand. `PullCardTask`
   cannot substitute because it is random, while Silent Shadow explicitly
   chooses after looking.
-- **Quick Draw (`hero-010`) has an existing-task limitation.** `DrawTask(2)`
-  stores both ids, `CardTypeCondition` can detect an Item among them, and
-  `PlayItemTask` can consume that slot, but the engine cannot choose/filter one
-  particular card inside a context slot. The current declaration therefore
-  plays the first drawn card when it is an Item; if only the second card is an
-  Item, the optional play cannot be completed exactly.
 - **Arctic Aries (`monster-128`) has an existing-trigger limitation.**
   `RollSuccess` does not carry a roll context that trigger matching can use.
   `OwnerEvent` correctly catches successful hero-effect rolls, but also catches
@@ -26,5 +20,5 @@ exactly by those mechanics.
   task or reveal event, so it cannot separately expose the qualifying card as
   the printed text requests.
 
-No new task, effect, trigger scope, event, or context-slot mechanic was added
-to work around these gaps.
+Quick Draw now uses the existing `among` card filter and separate item choice
+slot to choose an Item from the two drawn cards before choosing its wearer.
