@@ -11,7 +11,7 @@ import {
 import type { Game } from '../setup/create-game'
 import { GameState } from '../pipelines/game-state'
 import { IEffect, IReactionWindow } from '../interfaces'
-import { firesOnOwnRoll } from '../repositories/ability-repository'
+import { isActivatable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // The projection layer of §5: one player's screen, built from the board. The
@@ -48,6 +48,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .getDiscardPile()
       .getAll()
       .map((id) => cardOf(gs, id)),
+    revealedCards: gs.getRevealed(playerId).map((id) => cardOf(gs, id)),
     monsterRow: gs
       .getMonsterPile()
       .getAll()
@@ -128,7 +129,7 @@ function partyView(gs: GameState, playerId: string): PartyView {
     // The two questions RollOnLeaderAction.canExecute asks about the leader
     // itself: activatable at all, and not yet spent this turn.
     canRollOnLeader:
-      firesOnOwnRoll(party.getLeaderId()) && !spent.includes(party.getLeaderId()),
+      isActivatable(party.getLeaderId()) && !spent.includes(party.getLeaderId()),
   }
 }
 

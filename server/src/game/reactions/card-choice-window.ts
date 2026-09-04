@@ -1,5 +1,6 @@
-import { ReactionWindowType } from 'shared'
+import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { ChoiceWindow } from './choice-window'
+import { GameState } from '../pipelines/game-state'
 import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
@@ -8,12 +9,26 @@ import { CTX_CHOSEN_CARD, NO_CONTEXT_RESULT } from '../abilities/ability-context
 // ---------------------------------------------------------------------------
 
 export class CardChoiceWindow extends ChoiceWindow {
+  constructor(
+    id: string,
+    respondentId: string,
+    options: unknown[],
+    timeoutMs: number,
+    gs: GameState,
+    frameId: string,
+    emitter: IGameEventEmitter,
+    /** The slot the pick is filed in — the task's choice (ChooseCardOptions.resultKey). */
+    private readonly slot: string = CTX_CHOSEN_CARD,
+  ) {
+    super(id, respondentId, options, timeoutMs, gs, frameId, emitter)
+  }
+
   getType(): ReactionWindowType {
     return ReactionWindowType.CardChoice
   }
 
   override resultKey(): string | typeof NO_CONTEXT_RESULT {
-    return CTX_CHOSEN_CARD
+    return this.slot
   }
 
   /**

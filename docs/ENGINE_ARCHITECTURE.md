@@ -1314,6 +1314,13 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 
 ## 8. Known limitations (deliberate, documented)
 
+- **`GameState` is the engine's one big class, on purpose — for now.** Since
+  2026-09-04 nothing outside `game-state.ts` mutates a `Player`, a `Party` or a
+  pile, so every mutator has a one-to-one door on the board, and most of the
+  file is those thin setters and getters rather than logic. That is why it is
+  long, not why it is wrong. A later pass may group the doors by zone
+  (hands, parties, piles, effects) into modules the board composes; not now.
+
 - **No failure branches.** `restoreFrame` couples "undo state" with "cancel
   the run", so "roll; if you fail, discard instead" is currently impossible.
   What IS possible is somebody else's entry on the announcement: both failing
@@ -1586,6 +1593,194 @@ hero play). A caller's own `cards` list is dealt as given. The strict pool
 exposed a latent bug the same hour: `AllClassesInParty` derived "every
 class" from the pool, so two classes were all of them and the second hero
 played won; it now requires `HeroClass`'s six members, whatever was dealt.
+
+## 11b. HTSR-8 — the mechanics the remaining cards needed (2026-09-04)
+
+Six additions, each named by the card wordings it unlocks. Every one is a
+task, a filter field or an effect type — no new pipeline construct — and the
+declarations in the registry read like the ones before them.
+
+**A choice asked of ANOTHER player.** `CardFilter.executor: 'chosen'` opens
+the CardChoice window for the seat in `CTX_CHOSEN_PLAYER` instead of the
+ability owner, over that seat's own zone (`Owner.Chosen`): "that player must
+DISCARD a card" is the victim's pick over a hand only they can see. The
+step that acts then runs as the same seat: `DiscardTask` and `SacrificeTask` take
+`executor: 'chosen'` (`executorOf` in tasks.ts, the mirror of the choice's
+`respondent`), so the card leaves the victim's hand and the hero the
+victim's party, and the announcement names the victim as the loser. Heavy Bear, Hopper. Rejected: a second task class per victim
+variant — the only thing that changes is who answers and who pays.
+
+**"Each other player must …".** An entry's steps run once, in one line. A
+per-seat wording runs the same steps once PER seat, each waiting for that
+seat's answer: `ForEachPlayerTask(filter, label)` announces one
+`PlayerTargeted` per matching seat with the seat riding in `ctxSeed` as
+`CTX_CHOSEN_PLAYER`, and the card's continuation (`on: PlayerTargeted,
+when: label`) runs once per announcement with a fresh context — the hand-off
+CardTypeCondition and ConfirmTask already use. The runs an event starts go on
+top of the stack and finish last-in first-out, so the seats are announced in
+reverse and resolve in seat order; a step after the loop in its own entry
+runs once every per-seat run has finished. `PlayerFilter.hasClass` keeps
+"with a Fighter in their Party". Spooky, Greedy Cheeks, Tough Teddy, Smooth
+Mimimeow. Rejected: a repeater task holding sub-steps — a step that
+suspends inside a loop has nowhere to resume from in this pipeline; the
+event hand-off is the pipeline's own way of continuing.
+
+**A card back from the table into a hand.** `RetrieveCardTask(fromKey, to)`
+finds where the chosen card is and moves it: out of the discard pile
+(Lookie Rookie, Guiding Light, Radiant Horn, Bun Bun, Call to the Fallen —
+one declaration, `discard-search-abilities.ts`), off a hero's gear through
+`Party.unequipItem` with `ItemUnequipped` announced so the item's effects
+expire (Holy Curselifter; Winds of Change with `to: 'cardOwner'`, the item
+goes HOME), or out of another player's hand as a CHOSEN card, announced as
+CardPulled (Silent Shadow — the look IS the CardChoice over that hand).
+`ReturnAllItemsTask` is the whole table's gear going home (Forceful Winds).
+`CardFilter.cursed` keeps a cursed or a plain item. New event
+`CardRetrieved { cardId, from }`.
+
+**CantBeDestroyed.** A `PassiveType` read by `GameState.canBeDestroyed`
+against the hero's OWNER at the moment of the attempt, so a hero that joined
+after the rule was rolled is covered; `DestroyTask` leaves the hero where
+it stands, silently. Sacrifice is another reason and is not shielded — a
+fight-back still costs a hero. Mighty Blade (until the owner's next turn),
+Terratuga (no clock, Owlbear's shape).
+
+**A class the board reads.** A mask's class is data
+(`ItemCardData.heroClass`) and `GameState.getHeroClass` DERIVES a hero's
+class from what it wears: nothing is set on equip, nothing reverted on
+unequip — the moment the mask comes off, by any route, the default class from the data is what every reader sees. Every reader goes through that one method: party
+requirements, the "every class" win, the class choice filter,
+`whileClassInParty`, `hasClass`. The six masks are registered with an
+EMPTY rule list, because the deal is the registry. Rejected: setting the
+hero's class on equip and restoring it on unequip — two mutations to keep
+in step, and a steal carries the gear across parties without either running.
+
+**Round two of the small gaps (2026-09-04).** `DrawTask(count, executor)`:
+a NEGATIVE count draws "until you hold that many" (`-7` is Wily Red, `-5` is
+the redraw, which now shares the mechanic), one CardDrawn each, and
+`executor: 'chosen'` draws for the chosen seat (Plundering Puma's "that
+player may DRAW"). The chosen seat now RIDES across a condition and a
+confirm (`carriedSeat` in conditions.ts, added to their `ctxSeed`), so a
+continuation keeps acting on "that player" — Fury Knuckle and Bear Claw pull
+a second card from the same hand, and `ConfirmTask` takes `executor:
+'chosen'` so the victim answers their own "may". `CTX_SOURCE_CARD` is the
+context's own card as a slot, set at birth, so a step that reads "the hero
+to move" from a slot can be pointed at the card itself (Tipsy Tootie joins
+the party it stole from). `TriggerScope.TargetsOwner` is ANOTHER player's
+event aimed at one of my owner's cards (`payload.targetedCardId` is ours,
+the event's player is not); the matched run gets that player as its chosen
+seat, so "that player must DISCARD" reads them (Bloodwing).
+
+**A leader's own event, and two replacement effects (2026-09-04).**
+`RollOnLeaderAction` announces `LeaderActivated`, not a RollSuccess: a rule on
+"each time you successfully roll" (Arctic Aries) must not fire on an
+activation. The Shadow Claw's entry and the activatable-leader predicate
+(`isActivatable`, was `firesOnOwnRoll`) read the new event. Two effects
+change what a step of the owner's DOES rather than running steps of their
+own: `StealsInsteadOfDestroy` (Corrupted Sabretooth, on its slayer) makes
+`DestroyTask` run `StealFromPartyTask` for another party's hero instead of
+destroying it — the theft announces itself and honours CantBeStolen; a hero
+of your own is destroyed as printed. `TakesTheHit` (Decoy Doll, scoped to its
+carrier, until unequipped) makes `DestroyTask` and `SacrificeTask` take the
+doll off the hero (ItemUnequipped, which also ends the effect) and put IT on
+the pile; the hero stays (`decoyTakesTheHit` in hero-tasks.ts). Order of
+the reads in a destroy: CantBeDestroyed, then the doll, then the steal.
+Approximation, in the backlog: the Sabretooth's printed "may" is not asked —
+the steal always happens; a yes/no inside a destroy would need the step to
+suspend.
+
+**Reveals, and choices fed from a slot (2026-09-04).** A look is not a
+decision, so it is not a window: `RevealTask({ fromKey | filter, to })` puts
+cards on a seat's `revealedCards` (`GameState.revealTo`, `to: 'all'` for
+every seat), announces `CardsRevealed`, and a clock (`REVEAL_MS`, 5 s)
+takes them off again with `RevealEnded` so the table sees the change. The
+client decides how to show them; nothing is asked and the table is not held.
+Sharp Fox is a look; Pan Chucks and Rex Major reveal the drawn card to the
+table on their yes and stop being approximations. Bullseye is two steps
+(the owner's shape): a choice over `Zone.MainDeckTop` with `top: 3` — the
+options are the look, nothing moves — and `DrawTask(CTX_CHOSEN_CARD)`, which
+draws the NAMED card out of wherever it lies (`GameState.drawNamedIntoHand`,
+announced as a draw); the queue closes over the gap by itself, so "the other
+two return to the top" is what the deck already does. Rejected the same hour:
+a peek task writing the top three onto the context and a move-to-top task
+for the leftovers — stored what the deck derives, and put back what never
+left. Rejected: a reveal window with a
+timer the engine enforces on the player — a window gates actions, and a
+look gates nothing.
+
+**Round five (2026-09-04) — the last six.** Two picks in one entry get
+two slots: `ChooseCardTask(filter, { resultKey })` files the pick where
+it is told (the window carries the slot), so Hook keeps its item in
+`CTX_CHOSEN_ITEM` while the hero pick takes the default. A choice skipped
+on its precondition now WRITES an empty pick rather than leaving the
+previous one in the slot. `DiscardTask` says what it discarded
+(`CTX_DISCARDED_CARDS`, written on every run), which is all Qi Bear's "for
+each card discarded" needs: each round's choices hang on the round
+before, and "up to" is picking nothing. "Each other player must DISCARD a card"
+(Beary Wise) became the PARALLEL CHOICE FRAME, the owner's shape: a frame
+may hold one question per seat. `ChooseCardEachTask` opens one frame with
+one CardChoice window per asked seat, each over that seat's own cards and
+each filed under its own slot (`chosenCardOf(seat)`, via `resultKey`);
+`ChoiceWindow.resolve` releases the frame only when the last window in it
+has settled, and the one `FrameResolved` carries every window's write
+(`result` may be a list; TaskManager files them all). The table answers
+together, the pipeline wakes once, and everything stays in one context —
+no `PlayerTargeted` run per seat, nothing to carry back. `DiscardEachTask`
+then discards each seat's pick from its own hand and writes the lot to
+`CTX_DISCARDED_CARDS`; the owner's choice is the pile LIMITED to that
+(`CardFilter.among` — a limit, not a source, so the zone still has to hold
+the cards). Rejected the same hour: a mark-and-count on the discard pile
+around a per-seat loop (it worked, but it read the board to recover what
+the per-seat contexts could not hand back — and the seats had to answer
+one at a time). The four other per-seat cards (Tough Teddy, Spooky, Greedy
+Cheeks, Smooth Mimimeow) still go seat by seat on `ForEachPlayerTask`;
+the same two tasks would let them answer together. `DestroyTask` names the gear that fell (`CTX_DESTROYED_HERO_ITEM`);
+it still drops on the pile silently, and Shurikitty's "to your hand
+instead" is a retrieve straight after — two moves, no discard announced
+between them, which is the owner's reading of how fallen gear should
+behave. `TradeHandsTask` swaps two whole hands through the hand doors and
+announces one `HandsTraded`, not a pull per card. Crowned Serpent is a
+declaration: `ModifierPlayed` on `Anyone`, a confirm, a draw. Rejected: a
+per-seat discard writing a counter for its parent (contexts do not share),
+and a destroy variant that hands the gear over itself (the retrieve
+already exists).
+
+**Round six (2026-09-04) — a choice of action; the per-seat loop
+retires.** `TaskChoiceWindow` now takes N action LABELS as its options:
+picking one announces `TaskConfirmed` with that label, the one `silent`
+label (the last) announces nothing and is what a timeout picks; a confirm
+is the two-label case, CONFIRM standing for its `confirms` label, DISMISS
+silent, so nothing on the wire changed for it. `ChooseActionTask({
+actions, question?, subjectKey?, executor?, asCard? })` opens it; `asCard`
+announces the question as another card's, so THAT card's entries continue
+it. That is how Corrupted Sabretooth's "may" is asked from inside a
+destroy: `DestroyTask`, finding the effect on the destroyer, parks the
+hero in `CTX_WOULD_DESTROY` and returns the question's frame as the
+Sabretooth's; the Sabretooth's own entries continue with the steal or
+with `DestroyTask({ replaceable: false })`, which is the same destroy told
+not to ask again. The client draws a label window as buttons. The four
+per-seat cards moved onto the parallel frame (Tough Teddy and Greedy
+Cheeks: `ChooseCardEachTask` + `DiscardEachTask` / `RetrieveEachTask`;
+Spooky: + `SacrificeEachTask`; a shared `forEachAskedSeat` walk), and
+Smooth Mimimeow, which asks nobody anything, is one `PullCardTask({ from:
+<seat filter> })`. `ForEachPlayerTask` and `PlayerTargeted` had no readers
+left and are gone (§12.1). `PullCardTask` also takes `count`, which with
+`among` over the pulled cards is Slippery Paws — the registry is now the
+whole set. Rejected: a per-card "destroy or steal" flag on DestroyTask
+(the choice belongs to the card that grants it, not to every destroyer).
+
+**Only GameState mutates the board (2026-09-04).** Nothing outside
+`game-state.ts` calls a mutator on a `Player`, a `Party` or a pile: a task,
+an action, a window or the deal asks the board through a door —
+`addToHand` / `removeFromHand`, `addToDiscardPile` / `pickFromDiscardPile`,
+`addHero` / `removeHero`, `equipItem` / `unequipItem`, `addInstanceCard` /
+`removeInstanceCard`, `addEffect` / `removeEffect`, `increaseActionPoints` /
+`decreaseActionPoints` — each the structure's own method, one to one. No
+composite moves on the board: a pull is a `removeFromHand` then an
+`addToHand`, spelled out where it happens. The doors are silent, announcing
+stays with the caller (the reason is the caller's), except where the
+structure underneath announces on its own (`Party.addHero` / `removeHero`). The owner's SOLID call; before it the
+tasks reached into parties and players directly, which is what let a
+retrieve task hold a `Party` it had no business holding.
 
 ## 12. Working principles
 

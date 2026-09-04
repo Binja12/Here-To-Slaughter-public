@@ -83,6 +83,8 @@ export type PlayerView = {
   discardPile: CardView[]
   monsterRow: CardView[]
   attackableMonsterIds: string[]
+  /** cards the engine is showing you right now, for its reveal clock (5 s) */
+  revealedCards: CardView[]
   pendingWindows: PendingWindowView[]
   busy: boolean
 }

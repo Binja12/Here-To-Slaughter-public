@@ -5,7 +5,7 @@ import {
   IGameEvent,
   ReactionWindowType,
 } from 'shared'
-import { PlayItem, PlayItemTask } from './item-tasks'
+import { PlayItem, PlayItemTask, RetrieveCardTask, RetrieveEachTask, ReturnAllItemsTask } from './item-tasks'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
@@ -18,6 +18,8 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../pipelines/reaction-manager'
@@ -290,3 +292,161 @@ describe('PlayItemTask', () => {
     expect(gs.getEquippedItem('hero-1')).toBe('item-1')
   })
 })
+
+const stubRm = {} as ReactionManager
+
+// --- RetrieveCardTask: a two-seat table with a hero each, and the chosen card ---
+const makeHeroFor = (id: string) =>
+  new HeroCard({
+    id,
+    name: id,
+    type: CardType.Hero,
+    image: '',
+    description: '',
+    set: 'base',
+    heroClass: HeroClass.Thief,
+    rollReq: 5,
+  })
+
+function emitter() {
+  const em = new GameEventEmitter()
+  const emitted: IGameEvent[] = []
+  em.addListener({ onEvent: (e) => emitted.push(e) })
+  return { em, emitted }
+}
+
+/** The chosen card, as a ChooseCardTask would leave it. */
+const chose = (cardId: string, ownerId = 'p1') => {
+  const ctx = new AbilityContext('src', ownerId)
+  ctx.set(CTX_CHOSEN_CARD, [cardId])
+  return ctx
+}
+
+/** Two seats: p1 (the ability owner) and p2, each with one hero. */
+function table() {
+  const gs = makeGs()
+  for (const id of ['p1', 'p2']) {
+    gs.registerPlayer(makePlayer(id))
+    gs.registerParty(makeParty(id, [`${id}-hero`]))
+    gs.registerCard(makeHero(`${id}-hero`))
+  }
+  return gs
+}
+describe('RetrieveCardTask', () => {
+  it('takes a card out of the discard pile into the owner\'s hand', () => {
+    const gs = table()
+    gs.registerCard(makeItem('item-1'))
+    gs.getDiscardPile().add('item-1')
+    const { em, emitted } = emitter()
+
+    new RetrieveCardTask().execute(gs, chose('item-1'), em, stubRm)
+
+    expect(gs.getDiscardPile().getAll()).not.toContain('item-1')
+    expect(gs.getPlayer('p1')!.getHand()).toContain('item-1')
+    expect(emitted.map((e) => e.getType())).toEqual([GameEventType.CardRetrieved])
+    expect(emitted[0].getPayload()).toMatchObject({ cardId: 'item-1', from: 'Discard' })
+  })
+
+  it('takes gear off a hero, announcing ItemUnequipped, into the owner\'s hand', () => {
+    const gs = table()
+    gs.registerCard(makeItem('item-1', true))
+    gs.getParty('p1').equipItem('p1-hero', 'item-1')
+    const { em, emitted } = emitter()
+
+    new RetrieveCardTask().execute(gs, chose('item-1'), em, stubRm)
+
+    expect(gs.getEquippedItem('p1-hero')).toBeUndefined()
+    expect(gs.getParty('p1').getHeroIds()).toContain('p1-hero') // the hero stays
+    expect(gs.getPlayer('p1')!.getHand()).toContain('item-1')
+    expect(emitted.map((e) => e.getType())).toEqual([
+      GameEventType.ItemUnequipped,
+      GameEventType.CardRetrieved,
+    ])
+  })
+
+  it("returns another player's gear to THAT player's hand with to: 'cardOwner' — Winds of Change", () => {
+    const gs = table()
+    gs.registerCard(makeItem('item-1'))
+    gs.getParty('p2').equipItem('p2-hero', 'item-1')
+    const { em } = emitter()
+
+    new RetrieveCardTask(undefined, 'cardOwner').execute(gs, chose('item-1'), em, stubRm)
+
+    expect(gs.getPlayer('p2')!.getHand()).toContain('item-1')
+    expect(gs.getPlayer('p1')!.getHand()).not.toContain('item-1')
+  })
+
+  it("takes a chosen card out of another player's hand, announced as a pull — Silent Shadow", () => {
+    const gs = table()
+    gs.getPlayer('p2')!.addToHand('magic-1')
+    const { em, emitted } = emitter()
+
+    new RetrieveCardTask().execute(gs, chose('magic-1'), em, stubRm)
+
+    expect(gs.getPlayer('p2')!.getHand()).not.toContain('magic-1')
+    expect(gs.getPlayer('p1')!.getHand()).toContain('magic-1')
+    expect(emitted.map((e) => e.getType())).toEqual([GameEventType.CardPulled])
+  })
+
+  it('leaves a card that is nowhere it knows of alone — a hero standing in a party', () => {
+    const gs = table()
+    const { em, emitted } = emitter()
+
+    new RetrieveCardTask().execute(gs, chose('p2-hero'), em, stubRm)
+
+    expect(gs.getParty('p2').getHeroIds()).toContain('p2-hero')
+    expect(emitted).toEqual([])
+  })
+
+  it('skips an empty slot and throws on an absent one', () => {
+    const gs = table()
+    const { em } = emitter()
+    const empty = new AbilityContext('src', 'p1')
+    empty.set(CTX_CHOSEN_CARD, [])
+    expect(() => new RetrieveCardTask().execute(gs, empty, em, stubRm)).not.toThrow()
+    expect(() =>
+      new RetrieveCardTask().execute(gs, new AbilityContext('src', 'p1'), em, stubRm),
+    ).toThrow(/nothing has written/)
+  })
+})
+
+describe('ReturnAllItemsTask — Forceful Winds', () => {
+  it('sends every worn item on the table home, one ItemUnequipped each', () => {
+    const gs = table()
+    gs.registerCard(makeItem('item-1'))
+    gs.registerCard(makeItem('item-2'))
+    gs.getParty('p1').equipItem('p1-hero', 'item-1')
+    gs.getParty('p2').equipItem('p2-hero', 'item-2')
+    const { em, emitted } = emitter()
+
+    new ReturnAllItemsTask().execute(gs, new AbilityContext('magic-060', 'p1'), em, stubRm)
+
+    expect(gs.getEquippedItem('p1-hero')).toBeUndefined()
+    expect(gs.getEquippedItem('p2-hero')).toBeUndefined()
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['item-1'])
+    expect(gs.getPlayer('p2')!.getHand()).toEqual(['item-2'])
+    expect(emitted.filter((e) => e.getType() === GameEventType.ItemUnequipped)).toHaveLength(2)
+  })
+})
+
+describe('RetrieveEachTask', () => {
+  it('every asked seat\'s pick comes to the owner\'s hand, announced as a pull each', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['mine']))
+    gs.registerPlayer(makePlayer('p2', ['a', 'a2']))
+    gs.registerPlayer(makePlayer('p3', ['b']))
+    for (const id of ['p1', 'p2', 'p3']) gs.registerParty(makeParty(id))
+    for (const id of ['mine', 'a', 'a2', 'b']) gs.registerCard(makeHero(id))
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_ASKED_SEATS, ['p2', 'p3'])
+    ctx.set(chosenCardOf('p2'), ['a2'])
+    ctx.set(chosenCardOf('p3'), ['b'])
+    const { em, emitted } = emitter()
+    new RetrieveEachTask().execute(gs, ctx, em, stubRm)
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine', 'a2', 'b'])
+    expect(gs.getPlayer('p2')!.getHand()).toEqual(['a'])
+    expect(gs.getPlayer('p3')!.getHand()).toEqual([])
+    expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(2)
+  })
+})
+

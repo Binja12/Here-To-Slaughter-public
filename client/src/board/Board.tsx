@@ -60,6 +60,7 @@ import {
 import { useHoverZoom } from './useHoverZoom'
 import PendingWindows from './PendingWindows'
 import DiscardPileModal from './DiscardPileModal'
+import RevealedCards from './RevealedCards'
 
 function Widget({
   def,
@@ -925,6 +926,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     (window) => window.isYours && isOptionalWindow(window),
   )
   const askedCardId = optionalAsk ? askedCardOf(optionalAsk) : undefined
+  // A choice of ACTION ("steal it instead of destroying it?"): a TaskChoice
+  // whose options are labels rather than confirm/dismiss. Buttons, one per
+  // label; the engine treats the last label as what silence does.
+  const actionAsk = view.pendingWindows.find(
+    (window) =>
+      window.isYours &&
+      window.type === 'TaskChoice' &&
+      !!window.options?.length &&
+      !window.options.includes('confirm') &&
+      !window.options.includes('dismiss'),
+  )
   const forfeit = async (): Promise<boolean> => {
     if (!optionalAsk) return true
     const result = await send({
@@ -1275,11 +1287,40 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           onForfeit={flags.passable ? () => void forfeitWindow() : undefined}
         />
 
+        <RevealedCards cards={view.revealedCards ?? []} />
+
         {discardOpen && (
           <DiscardPileModal
             cards={discardCards}
             onClose={() => setDiscardOpen(false)}
           />
+        )}
+
+        {actionAsk && (
+          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {typeof actionAsk.detail?.question === 'string' ? actionAsk.detail.question : 'Choose'}
+              </div>
+              <div className="flex justify-center gap-[.8cqw]">
+                {actionAsk.options!.map((option) => (
+                  <button
+                    key={String(option)}
+                    type="button"
+                    className="rounded-[.45cqw] border border-amber-400/60 bg-amber-950/70 px-[1cqw] py-[.6cqh] font-heading text-[.8cqw] uppercase tracking-wider text-amber-100 transition hover:border-amber-200 hover:brightness-125"
+                    onClick={() =>
+                      void run({
+                        type: 'SubmitChoice',
+                        payload: { windowId: actionAsk.windowId, choice: option },
+                      })
+                    }
+                  >
+                    {String(option)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {modifierChoice && (

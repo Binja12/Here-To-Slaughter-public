@@ -878,9 +878,11 @@ describe('a game played through', () => {
     expect(ofType(t, GameEventType.MonsterSlain)).toEqual([])
     expect(view.monsterRow.map((m) => m.id)).toContain('monster-128')
     expect(partyOf(view, playerId).monsters).toEqual([])
-    // Priced in action points, not in the hero's once-per-turn slot.
+    // Priced in action points, and Arctic Aries' printed fight-back then
+    // sacrifices the attacker's only hero.
     expect(seatOf(view, playerId).actionPoints).toBe(0)
-    expect(partyOf(view, playerId).heroes[0].canRollOn).toBe(true)
+    expect(partyOf(view, playerId).heroes).toEqual([])
+    expect(inDiscard(view, 'hero-044')).toBe(true)
   })
 
   it('says nothing at all about a miss', async () => {

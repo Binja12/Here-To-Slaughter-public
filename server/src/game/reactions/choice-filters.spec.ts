@@ -7,7 +7,7 @@ import {
   Zone,
 } from 'shared'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import { filterCards, filterPlayers } from './choice-filters'
+import { filterCards, filterPlayers, cardsOf } from './choice-filters'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
@@ -17,6 +17,7 @@ import { HeroCard } from '../cards/hero-card'
 import { MagicCard } from '../cards/magic-card'
 import { MonsterCard } from '../cards/monster-card'
 import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
+import { ItemCard } from '../cards/item-card'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()
@@ -420,3 +421,55 @@ describe('filterCards — partyReqMet', () => {
     ).toEqual([])
   })
 })
+
+describe('filterCards — the top of the main deck', () => {
+  it('offers the top N where they lie, still filtered by type, and moves nothing', () => {
+    const main = new CardStack('deck', 'main')
+    for (const id of ['a', 'b', 'c', 'd']) main.addToBottom(id)
+    const gs = new GameState(main, new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    for (const id of ['a', 'b', 'c', 'd']) {
+      gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    }
+    const ctx = new AbilityContext('src', 'p1')
+
+    expect(filterCards(gs, ctx, { zone: Zone.MainDeckTop, top: 3 })).toEqual(['a', 'b', 'c'])
+    expect(filterCards(gs, ctx, { zone: Zone.MainDeckTop })).toEqual(['a'])
+    expect(filterCards(gs, ctx, { zone: Zone.MainDeckTop, top: 3, cardType: CardType.Item })).toEqual([])
+    expect(gs.getMainDeck().getSize()).toBe(4)
+  })
+})
+
+describe('filterCards — `among`: a limit to what a slot names', () => {
+  it('keeps only the zone\'s cards the slot names, in zone order; an empty slot keeps nothing', () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    for (const id of ['a', 'b', 'c']) {
+      gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+      gs.getDiscardPile().add(id)
+    }
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set('some', ['a', 'c', 'not-on-the-pile'])
+
+    expect(filterCards(gs, ctx, { zone: Zone.Discard })).toEqual(['c', 'b', 'a'])
+    expect(filterCards(gs, ctx, { zone: Zone.Discard, among: 'some' })).toEqual(['c', 'a'])
+    ctx.set('some', [])
+    expect(filterCards(gs, ctx, { zone: Zone.Discard, among: 'some' })).toEqual([])
+  })
+
+  it('cardsOf reads one seat\'s own zone under the same filter', () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: ['a'], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    gs.registerPlayer(new Player({ id: 'p2', name: 'p2', hand: ['b', 'i'], partyId: 'p2-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p2', leaderId: 'p2-leader', heroIds: [], monsterIds: [] }))
+    for (const id of ['a', 'b']) gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    gs.registerCard(new ItemCard({ id: 'i', name: 'i', type: CardType.Item, image: '', description: '', set: 'base', cursed: false }))
+    const ctx = new AbilityContext('src', 'p1')
+    expect(cardsOf(gs, ctx, { zone: Zone.Hand }, 'p2')).toEqual(['b', 'i'])
+    expect(cardsOf(gs, ctx, { zone: Zone.Hand, cardType: CardType.Hero }, 'p2')).toEqual(['b'])
+  })
+})
+

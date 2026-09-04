@@ -44,6 +44,11 @@ export type HeroCardData = CardBase & {
 
 export type ItemCardData = CardBase & {
   cursed: boolean;
+  /**
+   * A class mask: the hero wearing this is read as this class instead of its
+   * default one (`GameState.getHeroClass`). Absent on every other item.
+   */
+  heroClass?: HeroClass;
 };
 
 export type MagicCardData = CardBase;

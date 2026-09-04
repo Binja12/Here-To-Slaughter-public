@@ -62,7 +62,7 @@ export function whileClassInParty(heroClass: HeroClass): EffectExpiry {
         .getHeroIds()
         .some((heroId) => {
           const card = gs.getCard(heroId)
-          return card instanceof HeroCard && card.getHeroClass() === heroClass
+          return card instanceof HeroCard && gs.getHeroClass(card.getId()) === heroClass
         }),
   }
 }

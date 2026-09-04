@@ -11,18 +11,33 @@ import {
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
   CTX_PULLED_CARD_IDS,
+  CTX_DISCARDED_CARDS,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
+  chosenPlayers,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
+import { filterPlayers, PlayerFilter, filterCards, CardFilter } from '../reactions/choice-filters'
 
 // ---------------------------------------------------------------------------
 // DiscardTask — move a card from the owner's hand to the discard pile
 // ---------------------------------------------------------------------------
 
 export class DiscardTask implements ITask {
+  private readonly fromKey: string
+  private readonly executor: Executor
+
   /**
-   * Card to discard. Defaults to the card a ChooseCardTask put on the context.
+   * `fromKey`: the slot holding the card, the choice slot by default.
+   * `executor`: who runs this step, and so whose hand — the ability owner, or
+   * `'chosen'` for "that player must DISCARD", the seat a ChoosePlayerTask or a per-seat run put in
+   * CTX_CHOSEN_PLAYER (the mirror of a choice's `respondent`).
    */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+  constructor(options: string | { fromKey?: string; executor?: Executor } = {}) {
+    const opts = typeof options === 'string' ? { fromKey: options } : options
+    this.fromKey = opts.fromKey ?? CTX_CHOSEN_CARD
+    this.executor = opts.executor ?? 'owner'
+  }
 
   execute(
     gs: GameState,
@@ -40,14 +55,127 @@ export class DiscardTask implements ITask {
       )
     }
 
+    // Written on every run, so a step behind can tell "discarded nothing"
+    // from "never discarded" (Qi Bear hangs a destroy on it).
+    ctx.set(CTX_DISCARDED_CARDS, [])
+
     // Empty = the player was asked and picked nothing. Nothing to discard.
     const [cardId] = cards
     if (!cardId) return
 
-    if (!gs.getPlayer(ctx.ownerId)?.getHand().includes(cardId)) return
+    const executorId = executorOf(ctx, this.executor)
+    if (!executorId) return
+    if (!gs.getPlayer(executorId)?.getHand().includes(cardId)) return
 
-    gs.discardFromHand(ctx.ownerId, cardId, em)
+    gs.discardFromHand(executorId, cardId, em)
+    ctx.set(CTX_DISCARDED_CARDS, [cardId])
   }
+}
+
+// ---------------------------------------------------------------------------
+// DiscardEachTask — every asked seat discards its own pick
+//
+// The step behind a ChooseCardEachTask over hands: walks CTX_ASKED_SEATS,
+// discards each seat's pick from that seat's hand (a seat that picked nothing
+// discards nothing) and writes the lot to CTX_DISCARDED_CARDS — "the
+// discarded cards" a card like Beary Wise then chooses among.
+// ---------------------------------------------------------------------------
+
+export class DiscardEachTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const discarded: string[] = []
+    forEachAskedSeat(ctx, (seatId, cardId) => {
+      if (!gs.getPlayer(seatId)?.getHand().includes(cardId)) return
+      gs.discardFromHand(seatId, cardId, em)
+      discarded.push(cardId)
+    })
+    ctx.set(CTX_DISCARDED_CARDS, discarded)
+  }
+}
+
+/**
+ * The walk every "…Each" step shares: the seats a ChooseCardEachTask asked,
+ * in seat order, each with the card it picked — skipping the ones that
+ * picked nothing. Throws when no step ahead asked anybody.
+ */
+export function forEachAskedSeat(
+  ctx: AbilityContext,
+  act: (seatId: string, cardId: string) => void,
+): void {
+  const seats = ctx.get<string[]>(CTX_ASKED_SEATS)
+  if (seats === undefined) {
+    throw new Error(
+      'forEachAskedSeat: nothing has written the asked seats — a ' +
+        'ChooseCardEachTask belongs before this step.',
+    )
+  }
+  for (const seatId of seats) {
+    const [cardId] = ctx.get<string[]>(chosenCardOf(seatId)) ?? []
+    if (cardId) act(seatId, cardId)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TradeHandsTask — swap the owner's whole hand with the chosen seat's
+//
+// Dodgy Dealer. Card by card through the hand doors, announced ONCE as
+// HandsTraded rather than as a pull per card: nothing was taken from anybody,
+// and a per-card announcement would wake every "when you pull" reaction.
+// Empty hands trade too — the printed text has no "if".
+// ---------------------------------------------------------------------------
+
+export class TradeHandsTask implements ITask {
+  /** Slot naming the other seat. Defaults to a ChoosePlayerTask's. */
+  constructor(private readonly fromKey: string = CTX_CHOSEN_PLAYER) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const chosen = ctx.get<string[]>(this.fromKey)
+    if (chosen === undefined) {
+      throw new Error(
+        `TradeHandsTask: nothing has written ${this.fromKey} — the ability is ` +
+          'missing a ChoosePlayerTask before this step.',
+      )
+    }
+    const [otherId] = chosen
+    if (!otherId || otherId === ctx.ownerId) return
+    const mine = gs.getPlayer(ctx.ownerId)
+    const theirs = gs.getPlayer(otherId)
+    if (!mine || !theirs) return
+
+    const myHand = [...mine.getHand()]
+    const theirHand = [...theirs.getHand()]
+    for (const cardId of myHand) {
+      gs.removeFromHand(ctx.ownerId, cardId)
+      gs.addToHand(otherId, cardId)
+    }
+    for (const cardId of theirHand) {
+      gs.removeFromHand(otherId, cardId)
+      gs.addToHand(ctx.ownerId, cardId)
+    }
+    em.emit(GameEventFactory.handsTraded(ctx.ownerId, otherId))
+  }
+}
+
+/** Who a step runs AS: the ability owner, or the chosen seat — the target of a "that player must …". */
+export type Executor = 'owner' | 'chosen'
+
+/**
+ * The player a step runs as. `'chosen'` reads CTX_CHOSEN_PLAYER — the
+ * seat a ChoosePlayerTask answered with, or the one a per-seat run was
+ * started for. An empty slot = nobody to act on, and the step skips.
+ */
+export function executorOf(ctx: AbilityContext, executor: Executor): string | undefined {
+  return executor === 'chosen' ? chosenPlayers(ctx)[0] : ctx.ownerId
 }
 
 // ---------------------------------------------------------------------------
@@ -59,9 +187,25 @@ export class DiscardTask implements ITask {
 // Zone.Hand / Owner.Chosen — the card choice belongs to nobody.
 // ---------------------------------------------------------------------------
 
+export type PullSpec = {
+  /** Slot naming whose hand to reach into. A ChoosePlayerTask's by default. */
+  fromKey?: string
+  /**
+   * Instead of a slot: every seat the filter keeps, one pull each — "pull a
+   * card from each other player with a Thief" (Smooth Mimimeow).
+   */
+  from?: PlayerFilter
+  /** How many from the named hand. One by default; "pull 2 cards" (Slippery Paws). */
+  count?: number
+}
+
 export class PullCardTask implements ITask {
-  /** Slot naming whose hand to reach into. Defaults to a ChoosePlayerTask's. */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_PLAYER) {}
+  private readonly spec: PullSpec
+
+  /** A bare string is the `fromKey`. */
+  constructor(options: string | PullSpec = {}) {
+    this.spec = typeof options === 'string' ? { fromKey: options } : options
+  }
 
   execute(
     gs: GameState,
@@ -69,35 +213,42 @@ export class PullCardTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const chosen = ctx.get<string[]>(this.fromKey)
-
-    // Absent = no step ahead was declared to supply a player.
-    if (chosen === undefined) {
-      throw new Error(
-        `PullCardTask: nothing has written ${this.fromKey} — the ability is ` +
-          'missing a ChoosePlayerTask before this step.',
-      )
-    }
-
     // Declared up front, empty: every no-pull path leaves it that way, so a
     // later step can tell "pulled nothing" from "never pulled".
     ctx.set(CTX_PULLED_CARD_IDS, [])
 
+    const pulled: string[] = []
+    for (const fromPlayerId of this.hands(gs, ctx)) {
+      for (let n = 0; n < (this.spec.count ?? 1); n++) {
+        const hand = gs.getPlayer(fromPlayerId)!.getHand()
+        if (hand.length === 0) break
+        const cardId = hand[Math.floor(Math.random() * hand.length)]
+        gs.removeFromHand(fromPlayerId, cardId)
+        gs.addToHand(ctx.ownerId, cardId)
+        pulled.push(cardId)
+        em.emit(GameEventFactory.cardPulled(ctx.ownerId, fromPlayerId, cardId))
+      }
+    }
+    ctx.set(CTX_PULLED_CARD_IDS, pulled)
+  }
+
+  /** Whose hands: the filter's seats, or the one the slot names. Never the owner's own. */
+  private hands(gs: GameState, ctx: AbilityContext): string[] {
+    if (!gs.getPlayer(ctx.ownerId)) return []
+    if (this.spec.from) return filterPlayers(gs, ctx, this.spec.from)
+
+    const fromKey = this.spec.fromKey ?? CTX_CHOSEN_PLAYER
+    const chosen = ctx.get<string[]>(fromKey)
+    // Absent = no step ahead was declared to supply a player.
+    if (chosen === undefined) {
+      throw new Error(
+        `PullCardTask: nothing has written ${fromKey} — the ability is ` +
+          'missing a ChoosePlayerTask before this step.',
+      )
+    }
     const [fromPlayerId] = chosen
-    if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
-
-    const from = gs.getPlayer(fromPlayerId)
-    const to = gs.getPlayer(ctx.ownerId)
-    if (!from || !to) return
-
-    const hand = from.getHand()
-    if (hand.length === 0) return
-
-    const cardId = hand[Math.floor(Math.random() * hand.length)]
-    from.removeFromHand(cardId)
-    to.addToHand(cardId)
-    ctx.set(CTX_PULLED_CARD_IDS, [cardId])
-    em.emit(GameEventFactory.cardPulled(ctx.ownerId, fromPlayerId, cardId))
+    if (!fromPlayerId || fromPlayerId === ctx.ownerId || !gs.getPlayer(fromPlayerId)) return []
+    return [fromPlayerId]
   }
 }
 
@@ -159,5 +310,59 @@ export class ApplyEffectTask implements ITask {
         expiresOn: effect.expiry?.map((e) => e.on),
       }),
     )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RevealTask — show cards to a seat, or the table, without moving them
+//
+// A look is not a decision, so it is not a window: nothing is asked and the
+// table is not held. The cards go onto the seat's \`revealedCards\` in its view
+// (GameState.revealTo), CardsRevealed is announced, and a clock takes them off
+// again (hideRevealed + RevealEnded, so the table sees the change). How they
+// are shown, and whether at all, is the client's business.
+//
+// \`to: 'owner'\` shows the ability owner (Sharp Fox looks at a hand);
+// \`to: 'all'\` shows every seat ("you may reveal it" — Pan Chucks, Rex Major).
+// ---------------------------------------------------------------------------
+
+/** How long a reveal stays on the view. */
+export const REVEAL_MS = 5_000
+
+export class RevealTask implements ITask {
+  constructor(
+    private readonly spec: {
+      /** Cards in a slot … */
+      fromKey?: string
+      /** … or cards a filter finds (a chosen player's hand). */
+      filter?: CardFilter
+      to: 'owner' | 'all'
+    },
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    const cardIds = this.spec.fromKey
+      ? (ctx.get<string[]>(this.spec.fromKey) ?? [])
+      : this.spec.filter
+        ? filterCards(gs, ctx, this.spec.filter)
+        : []
+    if (cardIds.length === 0) return
+
+    const seats =
+      this.spec.to === 'all'
+        ? gs.getPlayers().map((player) => player.getId())
+        : [ctx.ownerId]
+    for (const seat of seats) gs.revealTo(seat, cardIds)
+    em.emit(GameEventFactory.cardsRevealed(ctx.ownerId, cardIds, this.spec.to === 'all'))
+
+    setTimeout(() => {
+      for (const seat of seats) gs.hideRevealed(seat, cardIds)
+      em.emit(GameEventFactory.revealEnded(ctx.ownerId, cardIds))
+    }, REVEAL_MS)
   }
 }

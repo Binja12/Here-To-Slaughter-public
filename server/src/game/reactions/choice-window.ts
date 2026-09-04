@@ -6,7 +6,7 @@ import {
 } from 'shared'
 import { accepted, IReactionWindow, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { GameEventFactory } from '../events/game-event-factory'
+import { ContextWrite, GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
@@ -131,18 +131,22 @@ export abstract class ChoiceWindow implements IReactionWindow {
       this.picked = undefined
     }
 
-    this.gs.releaseFrame(this.frameId)
+    // A frame may hold one question per seat (ChooseCardEachTask), and it
+    // settles when the LAST of them does: the others just close, the last
+    // releases the frame and wakes the pipeline with every window's pick in
+    // the one FrameResolved. A lone window is its own last. Read before the
+    // release, which forgets the frame.
+    const all = this.frameChoices()
+    const last = all.every((w) => w === this || !w.isOpen())
 
-    // Arrays, so multi-select needs no migration later.
-    const picks = this.picked === undefined ? [] : [this.picked]
-    const key = this.resultKey()
+    if (last) this.gs.releaseFrame(this.frameId)
 
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
         this.getType(),
         this.respondentId,
         this.frameId,
-        picks,
+        this.picks(),
       ),
     )
 
@@ -150,13 +154,35 @@ export abstract class ChoiceWindow implements IReactionWindow {
     // uses for RollSuccess, so anything this triggers sees the frame gone.
     this.announceOutcome(this.picked)
 
+    if (!last) return
+    const writes = all
+      .map((w) => w.contextWrite())
+      .filter((w): w is ContextWrite => w !== undefined)
     this.emitter.emit(
       GameEventFactory.frameResolved(
         this.frameId,
-        picks,
-        key === NO_CONTEXT_RESULT ? undefined : { key, value: picks },
+        all.flatMap((w) => w.picks()),
+        writes.length === 0 ? undefined : writes.length === 1 ? writes[0] : writes,
       ),
     )
+  }
+
+  /** Arrays, so multi-select needs no migration later. Empty until resolved with a pick. */
+  picks(): unknown[] {
+    return this.picked === undefined ? [] : [this.picked]
+  }
+
+  /** This window's outcome as the context write it asks for — none when the outcome is not an ability input. */
+  contextWrite(): ContextWrite | undefined {
+    const key = this.resultKey()
+    return key === NO_CONTEXT_RESULT ? undefined : { key, value: this.picks() }
+  }
+
+  /** The choice windows of this frame, in the order they were opened; just this one when it was opened outside a frame. */
+  private frameChoices(): ChoiceWindow[] {
+    const windows = this.gs.frames.get(this.frameId)?.windows ?? []
+    const choices = windows.filter((w): w is ChoiceWindow => w instanceof ChoiceWindow)
+    return choices.includes(this) ? choices : [this]
   }
 
   // --- Internal ---

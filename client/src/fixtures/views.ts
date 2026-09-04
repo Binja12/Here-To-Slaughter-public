@@ -236,6 +236,8 @@ export const threeSeatOpening: PlayerView = {
   discardPile: [],
   monsterRow: [megaSlime, titanWyvern, abyssQueen],
   attackableMonsterIds: [],
+  revealedCards: [],
+
   pendingWindows: [],
   busy: false,
 }

@@ -2,6 +2,7 @@ import { CardType, HeroClass, Owner, Zone } from 'shared'
 import { GameState } from '../pipelines/game-state'
 import { AbilityContext, chosenPlayers } from '../abilities/ability-context'
 import { HeroCard } from '../cards/hero-card'
+import { ItemCard } from '../cards/item-card'
 
 // ---------------------------------------------------------------------------
 // Choice filters — declarative descriptions of "which cards may be picked",
@@ -25,11 +26,27 @@ export type PlayerFilter = {
    * carried out.
    */
   hasHeroes?: boolean
+  /** Keep only players with a hero of this class standing — "each other player with a Fighter". */
+  hasClass?: HeroClass
   excludeIds?: string[]
 }
 
 export type CardFilter = {
   zone: Zone
+  /** MainDeckTop only: how many cards from the top are looked at. */
+  top?: number
+  /**
+   * Only cards a slot names, of those in the zone — a LIMIT, not a source:
+   * the zone still has to hold them. Beary Wise chooses among "the
+   * discarded cards" (CTX_DISCARDED_CARDS) off the pile.
+   */
+  among?: string
+  /**
+   * Who this step runs AS — who answers the choice. The ability owner unless
+   * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
+   * is the victim's pick over the victim's own hand, which only they can see.
+   */
+  executor?: 'owner' | 'chosen'
   /** Ignored for shared zones (Discard, MonsterPile), which belong to nobody. */
   owner?: Owner
   cardType?: CardType
@@ -46,6 +63,8 @@ export type CardFilter = {
    * offers only heroes that can actually take it. Non-heroes never match.
    */
   unequipped?: boolean
+  /** Items only: keep the cursed ones (true) or the plain ones (false). Non-items never match. */
+  cursed?: boolean
   excludeIds?: string[]
 }
 
@@ -56,6 +75,7 @@ export type CardFilter = {
 const SHARED_ZONES: ReadonlySet<Zone> = new Set([
   Zone.Discard,
   Zone.MonsterPile,
+  Zone.MainDeckTop,
 ])
 
 // ---------------------------------------------------------------------------
@@ -103,6 +123,9 @@ export function filterPlayers(
     if (filter.hasHeroes && gs.getParty(id).getHeroIds().length === 0) {
       return false
     }
+    if (filter.hasClass && !gs.getPartyHeroClasses(id).includes(filter.hasClass)) {
+      return false
+    }
     return true
   })
 }
@@ -111,8 +134,13 @@ export function filterPlayers(
 // Card resolution
 // ---------------------------------------------------------------------------
 
-/** Card ids in one zone for one player. Discard ignores the owner. */
-function idsInZone(gs: GameState, zone: Zone, ownerId: string): string[] {
+/** Card ids in one zone for one player. The shared zones ignore the owner. */
+function idsInZone(
+  gs: GameState,
+  zone: Zone,
+  ownerId: string,
+  top?: number,
+): string[] {
   switch (zone) {
     case Zone.Hand:
       return gs.getPlayer(ownerId)?.getHand() ?? []
@@ -128,6 +156,10 @@ function idsInZone(gs: GameState, zone: Zone, ownerId: string): string[] {
       return gs.getDiscardPile().getAll()
     case Zone.MonsterPile:
       return gs.getMonsterPile().getAll()
+    case Zone.MainDeckTop:
+      // Looked at where they lie: the choice's options are the look, and the
+      // ones not taken stay in the deck in the order they were (Bullseye).
+      return gs.peekMainDeck(top ?? 1)
   }
 }
 
@@ -136,29 +168,60 @@ export function filterCards(
   ctx: AbilityContext,
   filter: CardFilter,
 ): string[] {
-  const exclude = new Set(filter.excludeIds ?? [])
-
   // A shared zone is read once, with no owner — see SHARED_ZONES.
   const ids = SHARED_ZONES.has(filter.zone)
-    ? idsInZone(gs, filter.zone, '')
+    ? idsInZone(gs, filter.zone, '', filter.top)
     : playersFor(gs, ctx, filter.owner).flatMap((ownerId) =>
-        idsInZone(gs, filter.zone, ownerId),
+        idsInZone(gs, filter.zone, ownerId, filter.top),
       )
+  return keep(gs, ctx, filter, ids)
+}
+
+/**
+ * ONE seat's own cards in the zone, under the same filter — the question a
+ * ChooseCardEachTask puts to each seat in turn. `owner` is the seat itself.
+ */
+export function cardsOf(
+  gs: GameState,
+  ctx: AbilityContext,
+  filter: CardFilter,
+  ownerId: string,
+): string[] {
+  return keep(gs, ctx, filter, idsInZone(gs, filter.zone, ownerId, filter.top))
+}
+
+/** The filter's predicates over a candidate list. */
+function keep(
+  gs: GameState,
+  ctx: AbilityContext,
+  filter: CardFilter,
+  ids: string[],
+): string[] {
+  const exclude = new Set(filter.excludeIds ?? [])
+  const among = filter.among
+    ? new Set(ctx.get<string[]>(filter.among) ?? [])
+    : undefined
 
   return ids.filter((id) => {
     if (exclude.has(id)) return false
+    if (among && !among.has(id)) return false
 
     const card = gs.getCard(id)
     if (filter.cardType && card?.getType() !== filter.cardType) return false
 
     if (filter.heroClass) {
       if (!(card instanceof HeroCard)) return false
-      if (card.getHeroClass() !== filter.heroClass) return false
+      if (gs.getHeroClass(card.getId()) !== filter.heroClass) return false
     }
 
     if (filter.unequipped) {
       if (!(card instanceof HeroCard)) return false
       if (gs.getEquippedItem(id)) return false
+    }
+
+    if (filter.cursed !== undefined) {
+      if (!(card instanceof ItemCard)) return false
+      if (card.isCursed() !== filter.cursed) return false
     }
 
     // Asked of the board rather than answered here: the same question the

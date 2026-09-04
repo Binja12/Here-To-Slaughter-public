@@ -204,7 +204,7 @@ describe('a full game over sockets', () => {
       handSize: 5,
       winAt: 1,
       slack: 10,
-      monsters: ['monster-128'], // Arctic Aries: one hero of any class, 10 to slay, 6 and under fights back
+      monsters: ['monster-130'], // Terratuga: one hero of any class, 11 to slay, 7 and under fights back
       deck: [
         // Alice
         'hero-044', // Napping Nibbles — played, challenged, defeated
@@ -292,19 +292,19 @@ describe('a full game over sockets', () => {
     // ----- Turn 1: Bob -----------------------------------------------------
     await accepted(BOB, 'PlayHero', { cardId: 'hero-001' })
     await settled(BOB) // nobody challenges; the roll offer lapses
-    expect(see(BOB).attackableMonsterIds).toContain('monster-128')
+    expect(see(BOB).attackableMonsterIds).toContain('monster-130')
     // The party requirement, not the turn: Whiskers qualifies Alice too, and
     // it is the turn banner that greys her button out.
-    expect(see(ALICE).attackableMonsterIds).toContain('monster-128')
+    expect(see(ALICE).attackableMonsterIds).toContain('monster-130')
     expect(see(CAROL).attackableMonsterIds).toEqual([])
 
-    // A 2 is inside Arctic Aries' fight-back band.
+    // A 2 is inside Terratuga's fight-back band.
     fixDice(LOWEST)
-    await accepted(BOB, 'AttackMonster', { monsterId: 'monster-128' })
+    await accepted(BOB, 'AttackMonster', { monsterId: 'monster-130' })
     await shows(CAROL, 'her turn', (v) => v.currentPlayerId === CAROL)
     await settled(CAROL)
 
-    expect(see(CAROL).monsterRow.map((m) => m.id)).toContain('monster-128')
+    expect(see(CAROL).monsterRow.map((m) => m.id)).toContain('monster-130')
     expect(partyOf(see(CAROL), BOB).monsters).toEqual([])
     // Play (1) plus attack (2) is the whole budget.
     expect(active()).toBe(CAROL)
@@ -343,9 +343,30 @@ describe('a full game over sockets', () => {
       const w = v.pendingWindows.find((x) => x.type === ReactionWindowType.Modifier)
       return !!w && w.detail?.['finalRoll'] === 11
     })
+    const whiskersSteal = await windowOn(
+      ALICE,
+      ReactionWindowType.CardChoice,
+      true,
+    )
+    expect(whiskersSteal.options).toContain('hero-001')
+    await accepted(ALICE, 'SubmitChoice', {
+      windowId: whiskersSteal.windowId,
+      choice: 'hero-001',
+    })
+    const whiskersDestroy = await windowOn(
+      ALICE,
+      ReactionWindowType.CardChoice,
+      true,
+    )
+    expect(whiskersDestroy.options).toContain('hero-001')
+    await accepted(ALICE, 'SubmitChoice', {
+      windowId: whiskersDestroy.windowId,
+      choice: 'hero-001',
+    })
     await settled()
 
     expect(inDiscard(see(BOB), 'modifier-086')).toBe(true)
+    expect(inDiscard(see(ALICE), 'hero-001')).toBe(true)
     expect(partyOf(see(BOB), ALICE).heroes[0].canRollOn).toBe(false)
 
     // Critical Boost: draw three, pause on which to discard. The options
@@ -390,12 +411,12 @@ describe('a full game over sockets', () => {
     // ----- Turn 2: Carol ---------------------------------------------------
     await accepted(CAROL, 'PlayHero', { cardId: 'hero-010' })
     await settled(CAROL)
-    expect(see(CAROL).attackableMonsterIds).toContain('monster-128')
+    expect(see(CAROL).attackableMonsterIds).toContain('monster-130')
 
-    // A 12 slays Arctic Aries, and one monster wins this table.
+    // A 12 slays Terratuga, and one monster wins this table.
     expect(see(ALICE).winnerId).toBeUndefined()
     fixDice(HIGHEST)
-    await accepted(CAROL, 'AttackMonster', { monsterId: 'monster-128' })
+    await accepted(CAROL, 'AttackMonster', { monsterId: 'monster-130' })
     const ends = await Promise.all(SEATS.map((seat) => completed[seat]))
 
     for (const [i, seat] of SEATS.entries()) {
@@ -407,9 +428,9 @@ describe('a full game over sockets', () => {
       expect(ends[i].state.busy).toBe(false)
     }
     const end = ends[SEATS.indexOf(CAROL)].state
-    expect(partyOf(end, CAROL).monsters.map((m) => m.id)).toEqual(['monster-128'])
+    expect(partyOf(end, CAROL).monsters.map((m) => m.id)).toEqual(['monster-130'])
     expect(end.monsterRow).toHaveLength(3)
-    expect(end.monsterRow.map((m) => m.id)).not.toContain('monster-128')
+    expect(end.monsterRow.map((m) => m.id)).not.toContain('monster-130')
 
     // ----- Nothing was lost and nothing was doubled, on any screen ---------
     for (const seat of SEATS) {

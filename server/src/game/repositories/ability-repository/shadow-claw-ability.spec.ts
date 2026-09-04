@@ -25,7 +25,7 @@ import { RollOnLeaderAction } from '../../actions/roll-on-leader-action'
 // ---------------------------------------------------------------------------
 // The Shadow Claw (leader-117) — the one ACTIVATED card, end to end.
 //
-//   spend a point -> RollSuccess on the leader -> whose hand? -> pull one
+//   spend a point -> LeaderActivated on the leader -> whose hand? -> pull one
 // ---------------------------------------------------------------------------
 
 const CLAW = 'leader-117'
@@ -117,7 +117,7 @@ describe('ShadowClawAbility', () => {
 
   it('rides the activation, not a played card', () => {
     expect(ShadowClawAbility).toHaveLength(1)
-    expect(ShadowClawAbility[0].trigger.on).toBe(GameEventType.RollSuccess)
+    expect(ShadowClawAbility[0].trigger.on).toBe(GameEventType.LeaderActivated)
   })
 
   it('asks whose hand, offering only the opponents', () => {

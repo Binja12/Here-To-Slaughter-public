@@ -145,6 +145,12 @@ export type PlayerView = {
   monsterDeck: HiddenZoneView;
   /** Face up, newest first — the order `CardPile` holds. */
   discardPile: CardView[];
+  /**
+   * Cards being SHOWN to you right now — a look at a hand, a revealed draw —
+   * without moving. The engine puts them here (RevealTask) and takes them off
+   * when its clock runs out; how to show them is the client's.
+   */
+  revealedCards: CardView[];
   /** The face-up monster row. Refilled from the monster deck as it empties. */
   monsterRow: CardView[];
   /**

@@ -10,7 +10,7 @@ import { TaskManager } from './task-manager'
 import { GameState } from './game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
-import { AbilityContext } from '../abilities/ability-context'
+import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
 import { IAbilityRule, ITask } from '../interfaces'
 import { GameEvent } from '../events/game-event'
 import { GameEventEmitter } from '../events/game-event-emitter'
@@ -19,6 +19,7 @@ import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
 import { HeroClass } from 'shared'
 import { ReactionManager } from './reaction-manager'
+import { GameEventFactory } from '../events/game-event-factory'
 
 const makeRm = (gs: GameState, em: GameEventEmitter) =>
   new ReactionManager(gs, em)
@@ -239,6 +240,33 @@ describe('TaskManager', () => {
     })
 
     // ----------------------------------------------------------------------- P...
+
+    it('TriggerScope.TargetsOwner hands the run the acting player as its chosen seat', () => {
+      const gs = makeGs()
+      let seen: string[] | undefined
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1', 'leader-1', ['mine']))
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2', 'leader-2'))
+      gs.registerCard(makeHeroCard('mine'))
+      gs.registerCard(
+        makeFakeCard('leader-1', {
+          trigger: { on: GameEventType.ChallengePlayed, scope: TriggerScope.TargetsOwner },
+          steps: [
+            {
+              execute: (_gs: GameState, ctx: AbilityContext) => {
+                seen = ctx.get<string[]>(CTX_CHOSEN_PLAYER)
+              },
+            } as unknown as ITask,
+          ],
+        }),
+      )
+
+      const ap = makeAp(gs, new GameEventEmitter())
+      ap.onEvent(GameEventFactory.challengePlayed('p2', 'challenge-102', 'mine'))
+
+      expect(seen).toEqual(['p2'])
+    })
 
     it('fires leader ability when trigger matches', () => {
       const gs = makeGs()

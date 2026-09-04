@@ -1,6 +1,6 @@
 import { ICard } from 'shared'
 import type { GameState } from '../pipelines/game-state'
-import { ItemCardData, CardType } from 'shared'
+import { ItemCardData, CardType, HeroClass } from 'shared'
 
 export class ItemCard implements ICard {
   constructor(private data: ItemCardData) {}
@@ -34,6 +34,11 @@ export class ItemCard implements ICard {
 
   isCursed(): boolean {
     return this.data.cursed
+  }
+
+  /** The class this item makes its wearer — a mask; undefined for anything else. */
+  getHeroClass(): HeroClass | undefined {
+    return this.data.heroClass
   }
 
   clone(): ItemCard {
