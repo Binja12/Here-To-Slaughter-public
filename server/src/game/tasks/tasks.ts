@@ -88,21 +88,35 @@ export class DiscardEachTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const seats = ctx.get<string[]>(CTX_ASKED_SEATS)
-    if (seats === undefined) {
-      throw new Error(
-        'DiscardEachTask: nothing has written the asked seats — a ' +
-          'ChooseCardEachTask belongs before this step.',
-      )
-    }
     const discarded: string[] = []
-    for (const seatId of seats) {
-      const [cardId] = ctx.get<string[]>(chosenCardOf(seatId)) ?? []
-      if (!cardId || !gs.getPlayer(seatId)?.getHand().includes(cardId)) continue
+    forEachAskedSeat(ctx, (seatId, cardId) => {
+      if (!gs.getPlayer(seatId)?.getHand().includes(cardId)) return
       gs.discardFromHand(seatId, cardId, em)
       discarded.push(cardId)
-    }
+    })
     ctx.set(CTX_DISCARDED_CARDS, discarded)
+  }
+}
+
+/**
+ * The walk every "…Each" step shares: the seats a ChooseCardEachTask asked,
+ * in seat order, each with the card it picked — skipping the ones that
+ * picked nothing. Throws when no step ahead asked anybody.
+ */
+export function forEachAskedSeat(
+  ctx: AbilityContext,
+  act: (seatId: string, cardId: string) => void,
+): void {
+  const seats = ctx.get<string[]>(CTX_ASKED_SEATS)
+  if (seats === undefined) {
+    throw new Error(
+      'forEachAskedSeat: nothing has written the asked seats — a ' +
+        'ChooseCardEachTask belongs before this step.',
+    )
+  }
+  for (const seatId of seats) {
+    const [cardId] = ctx.get<string[]>(chosenCardOf(seatId)) ?? []
+    if (cardId) act(seatId, cardId)
   }
 }
 
@@ -173,9 +187,25 @@ export function executorOf(ctx: AbilityContext, executor: Executor): string | un
 // Zone.Hand / Owner.Chosen — the card choice belongs to nobody.
 // ---------------------------------------------------------------------------
 
+export type PullSpec = {
+  /** Slot naming whose hand to reach into. A ChoosePlayerTask's by default. */
+  fromKey?: string
+  /**
+   * Instead of a slot: every seat the filter keeps, one pull each — "pull a
+   * card from each other player with a Thief" (Smooth Mimimeow).
+   */
+  from?: PlayerFilter
+  /** How many from the named hand. One by default; "pull 2 cards" (Slippery Paws). */
+  count?: number
+}
+
 export class PullCardTask implements ITask {
-  /** Slot naming whose hand to reach into. Defaults to a ChoosePlayerTask's. */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_PLAYER) {}
+  private readonly spec: PullSpec
+
+  /** A bare string is the `fromKey`. */
+  constructor(options: string | PullSpec = {}) {
+    this.spec = typeof options === 'string' ? { fromKey: options } : options
+  }
 
   execute(
     gs: GameState,
@@ -183,33 +213,42 @@ export class PullCardTask implements ITask {
     em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    const chosen = ctx.get<string[]>(this.fromKey)
-
-    // Absent = no step ahead was declared to supply a player.
-    if (chosen === undefined) {
-      throw new Error(
-        `PullCardTask: nothing has written ${this.fromKey} — the ability is ` +
-          'missing a ChoosePlayerTask before this step.',
-      )
-    }
-
     // Declared up front, empty: every no-pull path leaves it that way, so a
     // later step can tell "pulled nothing" from "never pulled".
     ctx.set(CTX_PULLED_CARD_IDS, [])
 
+    const pulled: string[] = []
+    for (const fromPlayerId of this.hands(gs, ctx)) {
+      for (let n = 0; n < (this.spec.count ?? 1); n++) {
+        const hand = gs.getPlayer(fromPlayerId)!.getHand()
+        if (hand.length === 0) break
+        const cardId = hand[Math.floor(Math.random() * hand.length)]
+        gs.removeFromHand(fromPlayerId, cardId)
+        gs.addToHand(ctx.ownerId, cardId)
+        pulled.push(cardId)
+        em.emit(GameEventFactory.cardPulled(ctx.ownerId, fromPlayerId, cardId))
+      }
+    }
+    ctx.set(CTX_PULLED_CARD_IDS, pulled)
+  }
+
+  /** Whose hands: the filter's seats, or the one the slot names. Never the owner's own. */
+  private hands(gs: GameState, ctx: AbilityContext): string[] {
+    if (!gs.getPlayer(ctx.ownerId)) return []
+    if (this.spec.from) return filterPlayers(gs, ctx, this.spec.from)
+
+    const fromKey = this.spec.fromKey ?? CTX_CHOSEN_PLAYER
+    const chosen = ctx.get<string[]>(fromKey)
+    // Absent = no step ahead was declared to supply a player.
+    if (chosen === undefined) {
+      throw new Error(
+        `PullCardTask: nothing has written ${fromKey} — the ability is ` +
+          'missing a ChoosePlayerTask before this step.',
+      )
+    }
     const [fromPlayerId] = chosen
-    if (!fromPlayerId || fromPlayerId === ctx.ownerId) return
-
-    if (!gs.getPlayer(fromPlayerId) || !gs.getPlayer(ctx.ownerId)) return
-
-    const hand = gs.getPlayer(fromPlayerId)!.getHand()
-    if (hand.length === 0) return
-
-    const cardId = hand[Math.floor(Math.random() * hand.length)]
-    gs.removeFromHand(fromPlayerId, cardId)
-    gs.addToHand(ctx.ownerId, cardId)
-    ctx.set(CTX_PULLED_CARD_IDS, [cardId])
-    em.emit(GameEventFactory.cardPulled(ctx.ownerId, fromPlayerId, cardId))
+    if (!fromPlayerId || fromPlayerId === ctx.ownerId || !gs.getPlayer(fromPlayerId)) return []
+    return [fromPlayerId]
   }
 }
 
@@ -271,56 +310,6 @@ export class ApplyEffectTask implements ITask {
         expiresOn: effect.expiry?.map((e) => e.on),
       }),
     )
-  }
-}
-
-// ---------------------------------------------------------------------------
-// ForEachPlayerTask — "each other player must …"
-//
-// An entry's steps run once, in one line, for the ability owner. A wording
-// that acts on every seat in turn — each one discarding, sacrificing, handing
-// a card over — needs the same steps once PER seat, each waiting for that
-// seat's answer. The pipeline has no loop, and it does not need one: this
-// task announces one PlayerTargeted per seat that matches the filter, with
-// the seat riding along as CTX_CHOSEN_PLAYER, and the entry that continues
-// the card (`on: PlayerTargeted, when: label`) runs once per announcement
-// with a fresh context — the same hand-off CardTypeCondition and ConfirmTask
-// use for their continuations.
-//
-// Order: the runs an event starts go on TOP of the stack (§6), so they
-// finish last-in first-out. Announcing the seats in reverse order makes them
-// resolve in seat order — a detail for the table, never for the rules.
-//
-// Whatever follows this step in ITS entry runs after every per-seat run has
-// finished, because the stack drains top-down: a card that acts on each seat
-// and then does something with the whole result can put that something here.
-// ---------------------------------------------------------------------------
-
-export class ForEachPlayerTask implements ITask {
-  constructor(
-    /** Which seats. Defaults to the other players. */
-    private readonly filter: PlayerFilter = {},
-    /** Announced on each PlayerTargeted; the continuation matches it with `when`. */
-    private readonly label: string,
-  ) {}
-
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    em: IGameEventEmitter,
-    _rm: IReactionManager,
-  ): void {
-    const seats = filterPlayers(gs, ctx, this.filter)
-    for (const playerId of [...seats].reverse()) {
-      em.emit(
-        GameEventFactory.playerTargeted(
-          ctx.ownerId,
-          ctx.sourceCardId,
-          this.label,
-          { [CTX_CHOSEN_PLAYER]: [playerId] },
-        ),
-      )
-    }
   }
 }
 

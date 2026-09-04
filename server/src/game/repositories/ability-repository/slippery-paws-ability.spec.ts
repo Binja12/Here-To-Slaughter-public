@@ -32,33 +32,46 @@ const wire = (gs: GameState) => {
   em.addListener({ onEvent: (e) => emitted.push(e) })
   return { em, emitted, rm: new ReactionManager(gs, em) }
 }
-import { SpookyAbility } from './spooky-ability'
+import { SlipperyPawsAbility } from './slippery-paws-ability'
 
-// Spooky (hero-035): "Each other player must SACRIFICE a Hero card."
+// Slippery Paws (hero-022): "Pull 2 cards from another player's hand, then
+// DISCARD one of those cards."
 
-describe('Spooky (hero-035)', () => {
-  it('asks every seat with heroes at once, over its own party, and each sacrifices its pick', () => {
+describe('Slippery Paws (hero-022)', () => {
+  it('pulls two from the chosen hand, then offers exactly those two out of my hand, and discards the pick', () => {
     const gs = makeGs()
-    seat(gs, 'p1', [], ['hero-035'])
-    seat(gs, 'p2', [], ['h2', 'h2b'])
-    seat(gs, 'p3', [], [])
-    seat(gs, 'p4', [], ['h4'])
-    for (const id of ['hero-035', 'h2', 'h2b', 'h4']) gs.registerCard(hero(id))
+    seat(gs, 'p1', ['mine'], ['hero-022'])
+    seat(gs, 'p2', ['a', 'b'])
+    seat(gs, 'p3', ['c'])
+    for (const id of ['hero-022', 'mine', 'a', 'b', 'c']) gs.registerCard(hero(id))
     const { em, emitted, rm } = wire(gs)
-    new TaskManager(gs, em, rm, new Map([['hero-035', SpookyAbility]]))
+    new TaskManager(gs, em, rm, new Map([['hero-022', SlipperyPawsAbility]]))
 
-    em.emit(GameEventFactory.rollSuccess('p1', 'hero-035'))
+    em.emit(GameEventFactory.rollSuccess('p1', 'hero-022'))
 
-    expect(openWindows(gs).map((w) => w.getRespondentId())).toEqual(['p2', 'p4']) // p3 has nobody to give up
-    expect(windowOf(gs, 'p2').getOptions()).toEqual(['h2', 'h2b'])
-    expect(windowOf(gs, 'p2').getType()).toBe(ReactionWindowType.CardChoice)
-    windowOf(gs, 'p2').submitReaction('p2', { choice: 'h2b' })
-    windowOf(gs, 'p4').submitReaction('p4', { choice: 'h4' })
+    windowOf(gs, 'p1').submitReaction('p1', { choice: 'p2' })
+    expect(gs.getPlayer('p2')!.getHand()).toEqual([])
+    const which = windowOf(gs, 'p1')
+    expect(which.getType()).toBe(ReactionWindowType.CardChoice)
+    expect([...which.getOptions()].sort()).toEqual(['a', 'b']) // never 'mine'
+    which.submitReaction('p1', { choice: 'a' })
 
-    expect(gs.getParty('p2').getHeroIds()).toEqual(['h2'])
-    expect(gs.getParty('p4').getHeroIds()).toEqual([])
-    expect(gs.getParty('p1').getHeroIds()).toEqual(['hero-035'])
-    expect(emitted.filter((e) => e.getType() === GameEventType.HeroSacrificed).map((e) => e.getPlayerId())).toEqual(['p2', 'p4'])
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine', 'b'])
+    expect(gs.getDiscardPile().getAll()).toEqual(['a'])
+    expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(2)
+    expect(emitted.filter((e) => e.getType() === GameEventType.CardDiscarded)).toHaveLength(1)
     expect(gs.abilityPipelines).toEqual([])
+  })
+
+  it('a one-card hand: one pull, and that one is offered', () => {
+    const gs = makeGs()
+    seat(gs, 'p1', [], ['hero-022'])
+    seat(gs, 'p2', ['a'])
+    for (const id of ['hero-022', 'a']) gs.registerCard(hero(id))
+    const { em, rm } = wire(gs)
+    new TaskManager(gs, em, rm, new Map([['hero-022', SlipperyPawsAbility]]))
+    em.emit(GameEventFactory.rollSuccess('p1', 'hero-022'))
+    windowOf(gs, 'p1').submitReaction('p1', { choice: 'p2' })
+    expect(windowOf(gs, 'p1').getOptions()).toEqual(['a'])
   })
 })

@@ -5,8 +5,9 @@ import {
   HeroClass,
   IGameEvent,
   PassiveType,
+  ReactionWindowType,
 } from 'shared'
-import { DestroyTask, SacrificeTask } from './hero-tasks'
+import { DestroyTask, SacrificeTask, SacrificeEachTask, STEAL_INSTEAD, DESTROY_ANYWAY } from './hero-tasks'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
 import { CardPile } from '../state-structures/card-pile'
@@ -18,9 +19,12 @@ import {
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
   CTX_DESTROYED_HERO_ITEM,
+  CTX_WOULD_DESTROY,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
-import type { ReactionManager } from '../pipelines/reaction-manager'
+import { ReactionManager } from '../pipelines/reaction-manager'
 import { ItemCard } from '../cards/item-card'
 
 // ---------------------------------------------------------------------------
@@ -181,7 +185,7 @@ describe('DestroyTask', () => {
     expect(emitted.map((e: IGameEvent) => e.getType())).toEqual([GameEventType.ItemUnequipped])
   })
 
-  it('Corrupted Sabretooth: the destroyer STEALS the hero instead', () => {
+  it('Corrupted Sabretooth: the destroyer is ASKED, as the Sabretooth\'s question, and the hero waits', () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1'))
@@ -190,18 +194,70 @@ describe('DestroyTask', () => {
     gs.registerCard(makeHeroCard('theirs'))
     gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
     const { emitter, emitted } = makeEmitter()
+    const rm = new ReactionManager(gs, emitter)
+    const ctx = chose('theirs', 'p1')
 
-    new DestroyTask().execute(gs, chose('theirs', 'p1'), emitter, stubRm)
+    const frameId = new DestroyTask().execute(gs, ctx, emitter, rm)
 
-    expect(gs.getParty('p1').getHeroIds()).toEqual(['theirs'])
-    expect(gs.getParty('p2').getHeroIds()).toEqual([])
-    expect(gs.getDiscardPile().getAll()).toEqual([])
-    const types = emitted.map((e: IGameEvent) => e.getType())
-    expect(types).toContain(GameEventType.HeroStolen)
-    expect(types).not.toContain(GameEventType.HeroDestroyed)
+    expect(frameId).toBeTruthy()
+    expect(gs.getParty('p2').getHeroIds()).toEqual(['theirs']) // nothing happened yet
+    const window = gs.openWindows()[0]
+    expect(window.getType()).toBe(ReactionWindowType.TaskChoice)
+    expect(window.getRespondentId()).toBe('p1')
+    expect(window.getOptions()).toEqual([STEAL_INSTEAD, DESTROY_ANYWAY])
+    expect(window.getDetail()).toMatchObject({ sourceCardId: 'monster-122', cardId: 'theirs' })
+    expect(ctx.get(CTX_CHOSEN_CARD)).toEqual(['theirs']) // the asking card's own pick, untouched
+
+    window.submitReaction('p1', { choice: STEAL_INSTEAD })
+    const confirmed = emitted.find((e: IGameEvent) => e.getType() === GameEventType.TaskConfirmed)!
+    expect(confirmed.getPayload()).toMatchObject({
+      cardId: 'monster-122',
+      label: STEAL_INSTEAD,
+      ctxSeed: { [CTX_WOULD_DESTROY]: ['theirs'] },
+    })
   })
 
-  it('Corrupted Sabretooth does not turn destroying your OWN hero into a steal', () => {
+  it('Corrupted Sabretooth: silence destroys, as printed', () => {
+    jest.useFakeTimers()
+    try {
+      const gs = makeGs()
+      gs.registerPlayer(makePlayer('p1'))
+      gs.registerParty(makeParty('p1'))
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2', ['theirs']))
+      gs.registerCard(makeHeroCard('theirs'))
+      gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
+      const { emitter, emitted } = makeEmitter()
+      const rm = new ReactionManager(gs, emitter)
+      new DestroyTask().execute(gs, chose('theirs', 'p1'), emitter, rm)
+      jest.runOnlyPendingTimers()
+      const confirmed = emitted.find((e: IGameEvent) => e.getType() === GameEventType.TaskConfirmed)!
+      expect((confirmed.getPayload() as { label: string }).label).toBe(DESTROY_ANYWAY)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('Corrupted Sabretooth: `replaceable: false` destroys without asking — the "destroy it" continuation', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1'))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['theirs']))
+    gs.registerCard(makeHeroCard('theirs'))
+    gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
+    const { emitter, emitted } = makeEmitter()
+    const ctx = new AbilityContext('monster-122', 'p1')
+    ctx.set(CTX_WOULD_DESTROY, ['theirs'])
+
+    expect(new DestroyTask({ fromKey: CTX_WOULD_DESTROY, replaceable: false }).execute(gs, ctx, emitter, stubRm)).toBeUndefined()
+
+    expect(gs.getParty('p2').getHeroIds()).toEqual([])
+    expect(gs.getDiscardPile().getAll()).toEqual(['theirs'])
+    expect(emitted.map((e: IGameEvent) => e.getType())).toContain(GameEventType.HeroDestroyed)
+  })
+
+  it('Corrupted Sabretooth does not ask about destroying your OWN hero', () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', ['mine']))
@@ -209,7 +265,7 @@ describe('DestroyTask', () => {
     gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
     const { emitter } = makeEmitter()
 
-    new DestroyTask().execute(gs, chose('mine', 'p1'), emitter, stubRm)
+    expect(new DestroyTask().execute(gs, chose('mine', 'p1'), emitter, stubRm)).toBeUndefined()
 
     expect(gs.getParty('p1').getHeroIds()).toEqual([])
     expect(gs.getDiscardPile().getAll()).toEqual(['mine'])
@@ -366,6 +422,29 @@ describe('DestroyTask — names the gear that went down', () => {
     ctx.set(CTX_CHOSEN_CARD, [])
     new DestroyTask().execute(gs, ctx, em, null as unknown as ReactionManager)
     expect(ctx.get(CTX_DESTROYED_HERO_ITEM)).toEqual([])
+  })
+})
+
+describe('SacrificeEachTask', () => {
+  it('each asked seat gives up its own pick; a seat that picked nothing keeps its party', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', ['mine']))
+    gs.registerPlayer(makePlayer('p2'))
+    gs.registerParty(makeParty('p2', ['h2', 'h2b']))
+    gs.registerPlayer(makePlayer('p3'))
+    gs.registerParty(makeParty('p3', ['h3']))
+    for (const id of ['mine', 'h2', 'h2b', 'h3']) gs.registerCard(makeHeroCard(id))
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_ASKED_SEATS, ['p2', 'p3'])
+    ctx.set(chosenCardOf('p2'), ['h2b'])
+    ctx.set(chosenCardOf('p3'), [])
+    const { emitter, emitted } = makeEmitter()
+    new SacrificeEachTask().execute(gs, ctx, emitter, stubRm)
+    expect(gs.getParty('p2').getHeroIds()).toEqual(['h2'])
+    expect(gs.getParty('p3').getHeroIds()).toEqual(['h3'])
+    expect(gs.getParty('p1').getHeroIds()).toEqual(['mine'])
+    expect(emitted.filter((e: IGameEvent) => e.getType() === GameEventType.HeroSacrificed).map((e: IGameEvent) => e.getPlayerId())).toEqual(['p2'])
   })
 })
 

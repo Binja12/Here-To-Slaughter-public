@@ -8,9 +8,15 @@ import {
   CTX_DESTROYED_HERO_ITEM,
   CTX_STOLEN_FROM_PLAYER,
   CTX_STOLEN_HERO_ID,
+  CTX_WOULD_DESTROY,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
-import { Executor, executorOf } from './tasks'
+import { Executor, executorOf, forEachAskedSeat } from './tasks'
+import { ChooseActionTask } from './choose-tasks'
+
+/** Corrupted Sabretooth's two answers — its entries match them with `when`. */
+export const STEAL_INSTEAD = 'Steal it instead'
+export const DESTROY_ANYWAY = 'Destroy it'
 
 // ---------------------------------------------------------------------------
 // Hero tasks — steps that move a hero already on the table. The mechanics both
@@ -53,15 +59,27 @@ export function decoyTakesTheHit(
 // ---------------------------------------------------------------------------
 
 export class DestroyTask implements ITask {
-  /** Slot holding the hero to destroy. Defaults to the choice slot. */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+  private readonly fromKey: string
+  private readonly replaceable: boolean
+
+  /**
+   * `fromKey`: the slot holding the hero to destroy, the choice slot by
+   * default. `replaceable: false` skips the Sabretooth question — the
+   * "destroy anyway" continuation of that very question, which would
+   * otherwise ask again.
+   */
+  constructor(options: string | { fromKey?: string; replaceable?: boolean } = {}) {
+    const opts = typeof options === 'string' ? { fromKey: options } : options
+    this.fromKey = opts.fromKey ?? CTX_CHOSEN_CARD
+    this.replaceable = opts.replaceable ?? true
+  }
 
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
     rm: IReactionManager,
-  ): void {
+  ): string | void {
     const heroes = ctx.get<string[]>(this.fromKey)
 
     // Absent = no step ahead was declared to supply a hero.
@@ -89,16 +107,20 @@ export class DestroyTask implements ITask {
     if (!gs.canBeDestroyed(heroId)) return
     // Decoy Doll: the doll takes the hit, the hero stays.
     if (decoyTakesTheHit(gs, ownerId, heroId, em)) return
-    // Corrupted Sabretooth: what the destroyer would destroy, they steal —
-    // the steal step itself, so the theft announces itself and honours
-    // CantBeStolen. Their own hero is destroyed as printed; there is nothing
-    // to steal from yourself.
-    if (
-      ownerId !== ctx.ownerId &&
-      gs.hasEffect(PassiveType.StealsInsteadOfDestroy, ctx.ownerId)
-    ) {
-      new StealFromPartyTask(this.fromKey).execute(gs, ctx, em, rm)
-      return
+    // Corrupted Sabretooth: "you MAY steal it instead" — the destroyer's
+    // call, so the destroy hands over to a choice of action asked as the
+    // Sabretooth's own question: its entries continue with the steal or with
+    // the destroy (replaceable: false, or it would ask again). Their own hero
+    // is destroyed as printed; there is nothing to steal from yourself.
+    const [sabretooth] = gs.getEffects(PassiveType.StealsInsteadOfDestroy, ctx.ownerId)
+    if (this.replaceable && sabretooth && ownerId !== ctx.ownerId) {
+      ctx.set(CTX_WOULD_DESTROY, [heroId])
+      return new ChooseActionTask({
+        actions: [STEAL_INSTEAD, DESTROY_ANYWAY],
+        question: 'Steal it instead of destroying it?',
+        subjectKey: CTX_WOULD_DESTROY,
+        asCard: sabretooth.sourceCardId,
+      }).execute(gs, ctx, em, rm)
     }
 
     const carriedItemId = gs.removeHero(ownerId, heroId, em, 'Destroyed')
@@ -110,6 +132,32 @@ export class DestroyTask implements ITask {
       ctx.set(CTX_DESTROYED_HERO_ITEM, [carriedItemId])
     }
     em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SacrificeEachTask — every asked seat sacrifices its own pick
+//
+// The step behind a ChooseCardEachTask over parties (Spooky): each seat's
+// pick, out of that seat's party, with everything a sacrifice honours
+// (Decoy Doll takes the hit). A seat that picked nothing gives up nothing.
+// ---------------------------------------------------------------------------
+
+export class SacrificeEachTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    forEachAskedSeat(ctx, (seatId, heroId) => {
+      if (!gs.getParty(seatId).getHeroIds().includes(heroId)) return
+      if (decoyTakesTheHit(gs, seatId, heroId, em)) return
+      const carriedItemId = gs.removeHero(seatId, heroId, em, 'Sacrificed')
+      gs.addToDiscardPile(heroId)
+      if (carriedItemId) gs.addToDiscardPile(carriedItemId)
+      em.emit(GameEventFactory.heroSacrificed(seatId, heroId))
+    })
   }
 }
 

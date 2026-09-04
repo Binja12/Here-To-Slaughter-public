@@ -108,10 +108,12 @@ discards), Qi Bear
 (`CTX_DISCARDED_CARDS` gating each round), Hook (`resultKey`: two picks,
 two slots), Shurikitty (`CTX_DESTROYED_HERO_ITEM` + retrieve), Dodgy
 Dealer (`TradeHandsTask`, `HandsTraded`), Crowned Serpent (declaration
-only). Left: Slippery Paws — `CardFilter.among` now exists, so it is a
-declaration (`{ zone: Zone.Hand, owner: Owner.Self, among:
-CTX_PULLED_CARD_IDS }` then a discard); Quick Draw's "one of them" can
-use the same limit.
+only). Round six (same day): Slippery Paws (`PullCardTask({ count: 2 })` +
+a choice `among` the pulled cards) — the registry holds the whole set.
+Corrupted Sabretooth's "may" is now asked (`ChooseActionTask`). Tough
+Teddy, Spooky, Greedy Cheeks answer together on the parallel frame; Smooth
+Mimimeow pulls from a seat filter. Quick Draw's "one of them" could use
+`among` over the drawn cards; today it plays the first drawn item.
 
 ## B. Needs a mechanic the engine does not have — 41 cards (the owner + Claude)
 

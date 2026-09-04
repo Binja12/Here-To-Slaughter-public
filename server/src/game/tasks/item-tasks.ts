@@ -10,6 +10,7 @@ import { AbilityContext, CTX_CHOSEN_CARD } from '../abilities/ability-context'
 import { HeroCard } from '../cards/hero-card'
 import { ItemCard } from '../cards/item-card'
 import { GameEventFactory } from '../events/game-event-factory'
+import { forEachAskedSeat } from './tasks'
 
 // ---------------------------------------------------------------------------
 // Item tasks — steps that act on an item card.
@@ -218,6 +219,25 @@ export class RetrieveCardTask implements ITask {
     const [cardId] = cards
     if (!cardId) return
     retrieve(gs, cardId, ctx.ownerId, this.to, em)
+  }
+}
+
+/**
+ * RetrieveEachTask — every asked seat's pick comes to the owner's hand.
+ * The step behind a ChooseCardEachTask over hands (Greedy Cheeks: "each
+ * other player must give you a card"). Each move is announced as a pull, as
+ * RetrieveCardTask announces a card that left a hand for another.
+ */
+export class RetrieveEachTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    forEachAskedSeat(ctx, (_seatId, cardId) => {
+      retrieve(gs, cardId, ctx.ownerId, 'owner', em)
+    })
   }
 }
 

@@ -137,11 +137,6 @@ export enum GameEventType {
   CardsRevealed = "CardsRevealed",
   /** The reveal clock ran out; the cards are off the view again. */
   RevealEnded = "RevealEnded",
-  /**
-   * ForEachPlayerTask: one per seat a "each other player must …" card acts
-   * on. `label` names the card's continuation, `ctxSeed` carries the seat.
-   */
-  PlayerTargeted = "PlayerTargeted",
 
   // Game events
   GameStarted = "GameStarted",

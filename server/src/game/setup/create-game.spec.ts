@@ -78,10 +78,11 @@ describe('createGame', () => {
       }
     })
 
-    it('leaves a card the registry does not implement out of the deal — the pool is exactly the registry', () => {
+    it('deals the whole printed set now that the registry implements every card', () => {
       const game = createGame(SEATS)
 
-      expect(game.gameState.getCard('hero-022')).toBeUndefined() // Slippery Paws: no entry yet
+      expect(baseGameCards.filter(dealable)).toHaveLength(baseGameCards.length)
+      expect(game.gameState.getCard('hero-022')).toBeDefined() // Slippery Paws, the last one in
       expect(game.gameState.getCard('hero-028')).toBeDefined() // Wise Shield
     })
 

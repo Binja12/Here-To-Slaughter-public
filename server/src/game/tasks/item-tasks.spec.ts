@@ -5,7 +5,7 @@ import {
   IGameEvent,
   ReactionWindowType,
 } from 'shared'
-import { PlayItem, PlayItemTask, RetrieveCardTask, ReturnAllItemsTask } from './item-tasks'
+import { PlayItem, PlayItemTask, RetrieveCardTask, RetrieveEachTask, ReturnAllItemsTask } from './item-tasks'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
@@ -18,6 +18,8 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_DRAWN_CARD_IDS,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../pipelines/reaction-manager'
@@ -426,3 +428,25 @@ describe('ReturnAllItemsTask — Forceful Winds', () => {
     expect(emitted.filter((e) => e.getType() === GameEventType.ItemUnequipped)).toHaveLength(2)
   })
 })
+
+describe('RetrieveEachTask', () => {
+  it('every asked seat\'s pick comes to the owner\'s hand, announced as a pull each', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['mine']))
+    gs.registerPlayer(makePlayer('p2', ['a', 'a2']))
+    gs.registerPlayer(makePlayer('p3', ['b']))
+    for (const id of ['p1', 'p2', 'p3']) gs.registerParty(makeParty(id))
+    for (const id of ['mine', 'a', 'a2', 'b']) gs.registerCard(makeHero(id))
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_ASKED_SEATS, ['p2', 'p3'])
+    ctx.set(chosenCardOf('p2'), ['a2'])
+    ctx.set(chosenCardOf('p3'), ['b'])
+    const { em, emitted } = emitter()
+    new RetrieveEachTask().execute(gs, ctx, em, stubRm)
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine', 'a2', 'b'])
+    expect(gs.getPlayer('p2')!.getHand()).toEqual(['a'])
+    expect(gs.getPlayer('p3')!.getHand()).toEqual([])
+    expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(2)
+  })
+})
+

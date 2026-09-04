@@ -324,24 +324,6 @@ export class GameEventFactory {
     )
   }
 
-  /**
-   * ForEachPlayerTask, once per seat: `cardId` is the card acting (SelfCard
-   * matches it), `ctxSeed` carries the targeted seat as CTX_CHOSEN_PLAYER.
-   */
-  static playerTargeted(
-    playerId: string,
-    sourceCardId: string,
-    label: string,
-    ctxSeed: Record<string, unknown>,
-  ): IGameEvent {
-    return new GameEvent(
-      GameEventType.PlayerTargeted,
-      playerId,
-      { cardId: sourceCardId, label, ctxSeed },
-      Audience.All,
-    )
-  }
-
   /** RevealTask: `playerId` is who sees them; `toAll` when the table does. */
   static cardsRevealed(
     playerId: string,

@@ -261,6 +261,73 @@ export type ConfirmSpec = {
   executor?: Executor
 }
 
+// ---------------------------------------------------------------------------
+// ChooseActionTask — "which of these do you do?", via TaskChoiceWindow.
+//
+// ConfirmTask with N labels: the pick announces TaskConfirmed with the label
+// picked, and a separate entry per label continues on it (`when`). The LAST
+// label is what silence DOES — a timeout picks it and announces it — so a
+// "you may X instead of Y" puts the printed Y last. Must be the last step of
+// its entry, like a confirm.
+//
+// `asCard` announces the question as ANOTHER card's, so that card's entries
+// continue it: a replacement effect asks on behalf of the card that
+// installed it (Corrupted Sabretooth, from inside DestroyTask).
+// ---------------------------------------------------------------------------
+
+export type ActionChoiceSpec = {
+  /** The labels offered, in order. The last is what silence does. */
+  actions: string[]
+  /** For the client: what is being asked, in words. */
+  question?: string
+  /** Slot holding the subject; names it for the client and rides to the continuation. */
+  subjectKey?: string
+  /** Who is asked. The ability owner unless `'chosen'`. */
+  executor?: Executor
+  /** Announce as this card's question instead of the context's source card. */
+  asCard?: string
+}
+
+export class ChooseActionTask implements ITask {
+  constructor(private readonly spec: ActionChoiceSpec) {
+    if (spec.actions.length < 2) {
+      throw new Error('ChooseActionTask: a choice of action needs at least two labels.')
+    }
+  }
+
+  execute(
+    _gs: GameState,
+    ctx: AbilityContext,
+    _em: IGameEventEmitter,
+    rm: IReactionManager,
+  ): string | void {
+    const subject = this.spec.subjectKey
+      ? (ctx.get<unknown[]>(this.spec.subjectKey) ?? [])
+      : undefined
+    if (subject && subject.length === 0) return
+
+    const respondentId =
+      this.spec.executor === 'chosen' ? chosenPlayers(ctx)[0] : ctx.ownerId
+    if (!respondentId) return
+
+    const ctxSeed = {
+      ...(this.spec.subjectKey && subject && { [this.spec.subjectKey]: subject }),
+      ...carriedSeat(ctx),
+    }
+
+    const frameId = rm.openFrame()
+    rm.openWindow(frameId, ReactionWindowType.TaskChoice, respondentId, {
+      actions: this.spec.actions,
+      silent: this.spec.actions[this.spec.actions.length - 1],
+      ...(this.spec.question && { question: this.spec.question }),
+      sourceCardId: this.spec.asCard ?? ctx.sourceCardId,
+      ...(this.spec.subjectKey && subject && { cardId: subject[0] }),
+      ...(Object.keys(ctxSeed).length && { ctxSeed }),
+    })
+    return frameId
+  }
+}
+
 export class ConfirmTask implements ITask {
   constructor(private readonly spec: ConfirmSpec) {}
 

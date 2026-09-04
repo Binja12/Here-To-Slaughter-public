@@ -1,28 +1,22 @@
 import { GameEventType, HeroClass, Owner, TriggerScope, Zone } from 'shared'
-import { ChooseCardTask } from '../../tasks/choose-tasks'
-import { DiscardTask, ForEachPlayerTask } from '../../tasks/tasks'
+import { ChooseCardEachTask } from '../../tasks/choose-tasks'
+import { DiscardEachTask } from '../../tasks/tasks'
 import { IAbilityRule } from '../../interfaces'
 
 // Tough Teddy (hero-006): "Each other player with a Fighter in their Party must DISCARD a card."
 //
-//   [0] RollSuccess → one PlayerTargeted per matching seat
-//   [1] PlayerTargeted (this card's label) → that seat chooses a card of their hand and discards it
+//   [0] RollSuccess → every other seat with a Fighter picks a card of their
+//       own hand, all at once → each discards it
 //
-// Entry [1] runs once per seat with a fresh context; the seat rides in as
-// CTX_CHOSEN_PLAYER. Seats are announced in reverse so the runs, which stack,
-// resolve in seat order.
-const LABEL = 'ToughTeddy'
-
+// One frame, one question per seat (ChooseCardEachTask); the table answers
+// together and the picks come back in one go. A seat with no hand picks
+// nothing and discards nothing.
 export const ToughTeddyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
-    steps: [new ForEachPlayerTask({ owner: Owner.Others, hasClass: HeroClass.Fighter }, LABEL)],
-  },
-  {
-    trigger: { on: GameEventType.PlayerTargeted, scope: TriggerScope.SelfCard, when: LABEL },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),
-      new DiscardTask({ executor: 'chosen' }),
+      new ChooseCardEachTask({ owner: Owner.Others, hasClass: HeroClass.Fighter }, { zone: Zone.Hand }),
+      new DiscardEachTask(),
     ],
   },
 ]

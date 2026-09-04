@@ -1,30 +1,21 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
-import { ChooseCardTask } from '../../tasks/choose-tasks'
-import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
+import { ChooseCardEachTask } from '../../tasks/choose-tasks'
 import { IAbilityRule } from '../../interfaces'
-import { ForEachPlayerTask } from '../../tasks/tasks'
-import { RetrieveCardTask } from '../../tasks/item-tasks'
+import { RetrieveEachTask } from '../../tasks/item-tasks'
 
 // Greedy Cheeks (hero-047): "Each other player must give you a card from their hand."
 //
-//   [0] RollSuccess → one PlayerTargeted per matching seat
-//   [1] PlayerTargeted (this card's label) → that seat chooses a card of their hand; RetrieveCardTask brings it to mine
+//   [0] RollSuccess → every other seat picks a card of their own hand, all
+//       at once → each pick comes to my hand
 //
-// Entry [1] runs once per seat with a fresh context; the seat rides in as
-// CTX_CHOSEN_PLAYER. Seats are announced in reverse so the runs, which stack,
-// resolve in seat order.
-const LABEL = 'GreedyCheeks'
-
+// One frame, one question per seat (ChooseCardEachTask); the picks are the
+// seats' own, the moves are announced as pulls.
 export const GreedyCheeksAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
-    steps: [new ForEachPlayerTask({ owner: Owner.Others }, LABEL)],
-  },
-  {
-    trigger: { on: GameEventType.PlayerTargeted, scope: TriggerScope.SelfCard, when: LABEL },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),
-      new RetrieveCardTask(),
+      new ChooseCardEachTask({ owner: Owner.Others }, { zone: Zone.Hand }),
+      new RetrieveEachTask(),
     ],
   },
 ]

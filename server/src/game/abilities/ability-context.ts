@@ -59,6 +59,13 @@ export const chosenCardOf = (seatId: string): string =>
   `${CTX_CHOSEN_CARD}@${seatId}`;
 
 /**
+ * string[] — the hero a DestroyTask was about to destroy when a replacement
+ * effect asked its question (Corrupted Sabretooth); the continuation reads
+ * it. Its own slot, so the asking card's choice slot is not overwritten.
+ */
+export const CTX_WOULD_DESTROY = "wouldDestroy";
+
+/**
  * string[] — the item the hero DestroyTask just destroyed was wearing, now on
  * the discard pile; empty when it wore none, or nothing was destroyed.
  * Shurikitty takes it back out.

@@ -58,6 +58,7 @@ import { HookAbility } from './hook-ability'
 import { ShurikittyAbility } from './shurikitty-ability'
 import { DodgyDealerAbility } from './dodgy-dealer-ability'
 import { CrownedSerpentAbility } from './crowned-serpent-ability'
+import { SlipperyPawsAbility } from './slippery-paws-ability'
 import { SilentShadowAbility } from './silent-shadow-ability'
 import { BadAxeAbility } from './bad-axe-ability'
 import { PanChucksAbility } from './pan-chucks-ability'
@@ -195,6 +196,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['hero-023', ShurikittyAbility], // Shurikitty — DESTROY; its gear to your hand
   ['hero-046', DodgyDealerAbility], // Dodgy Dealer — trade hands
   ['monster-125', CrownedSerpentAbility], // Crowned Serpent — anyone's Modifier, you may DRAW
+  ['hero-022', SlipperyPawsAbility], // Slippery Paws — pull 2, DISCARD one of them
   ['monster-133', DarkDragonKingAbility], // Dark Dragon King — +1 to Hero-effect rolls
   ['monster-134', MalamammothAbility], // Malamammoth — DRAW an Item card, may play it at once
   ['monster-135', WarwornOwlbearAbility], // Warworn Owlbear — your Items cannot be challenged

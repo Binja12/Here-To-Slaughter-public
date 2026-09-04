@@ -1744,6 +1744,30 @@ per-seat discard writing a counter for its parent (contexts do not share),
 and a destroy variant that hands the gear over itself (the retrieve
 already exists).
 
+**Round six (2026-09-04) — a choice of action; the per-seat loop
+retires.** `TaskChoiceWindow` now takes N action LABELS as its options:
+picking one announces `TaskConfirmed` with that label, the one `silent`
+label (the last) announces nothing and is what a timeout picks; a confirm
+is the two-label case, CONFIRM standing for its `confirms` label, DISMISS
+silent, so nothing on the wire changed for it. `ChooseActionTask({
+actions, question?, subjectKey?, executor?, asCard? })` opens it; `asCard`
+announces the question as another card's, so THAT card's entries continue
+it. That is how Corrupted Sabretooth's "may" is asked from inside a
+destroy: `DestroyTask`, finding the effect on the destroyer, parks the
+hero in `CTX_WOULD_DESTROY` and returns the question's frame as the
+Sabretooth's; the Sabretooth's own entries continue with the steal or
+with `DestroyTask({ replaceable: false })`, which is the same destroy told
+not to ask again. The client draws a label window as buttons. The four
+per-seat cards moved onto the parallel frame (Tough Teddy and Greedy
+Cheeks: `ChooseCardEachTask` + `DiscardEachTask` / `RetrieveEachTask`;
+Spooky: + `SacrificeEachTask`; a shared `forEachAskedSeat` walk), and
+Smooth Mimimeow, which asks nobody anything, is one `PullCardTask({ from:
+<seat filter> })`. `ForEachPlayerTask` and `PlayerTargeted` had no readers
+left and are gone (§12.1). `PullCardTask` also takes `count`, which with
+`among` over the pulled cards is Slippery Paws — the registry is now the
+whole set. Rejected: a per-card "destroy or steal" flag on DestroyTask
+(the choice belongs to the card that grants it, not to every destroyer).
+
 **Only GameState mutates the board (2026-09-04).** Nothing outside
 `game-state.ts` calls a mutator on a `Player`, a `Party` or a pile: a task,
 an action, a window or the deal asks the board through a door —

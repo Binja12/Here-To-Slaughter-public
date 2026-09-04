@@ -1,5 +1,13 @@
-import { Audience, GameEventType, IGameEvent, HeroClass, Owner, CardType, Zone } from 'shared'
-import { DiscardTask, PullCardTask, ForEachPlayerTask, RevealTask, REVEAL_MS, DiscardEachTask, TradeHandsTask } from './tasks'
+import {
+  Audience,
+  GameEventType,
+  IGameEvent,
+  HeroClass,
+  Owner,
+  CardType,
+  Zone,
+} from 'shared'
+import { DiscardTask, PullCardTask, RevealTask, REVEAL_MS, DiscardEachTask, TradeHandsTask } from './tasks'
 import { DrawTask } from './draw-task'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
@@ -377,97 +385,6 @@ describe('PullCardTask', () => {
   })
 })
 
-// --- ForEachPlayerTask helpers: seats with typed heroes, and the announcements ---
-const seatWithHeroes = (gs: GameState, id: string, heroes: { id: string; cls: HeroClass }[] = []) => {
-  gs.registerPlayer(new Player({ id, name: id, hand: [], partyId: `${id}-party`, actionPoints: 3 }))
-  gs.registerParty(
-    new Party({ playerId: id, leaderId: `${id}-leader`, heroIds: heroes.map((h) => h.id), monsterIds: [] }),
-  )
-  for (const hero of heroes) {
-    gs.registerCard(
-      new HeroCard({
-        id: hero.id,
-        name: hero.id,
-        type: CardType.Hero,
-        image: '',
-        description: '',
-        set: 'base',
-        heroClass: hero.cls,
-        rollReq: 5,
-      }),
-    )
-  }
-}
-
-const targeted = (emitted: IGameEvent[]) =>
-  emitted
-    .filter((e) => e.getType() === GameEventType.PlayerTargeted)
-    .map((e) => e.getPayload() as { cardId: string; label: string; ctxSeed: Record<string, unknown> })
-
-const collectFrom = () => {
-  const em = new GameEventEmitter()
-  const emitted: IGameEvent[] = []
-  em.addListener({ onEvent: (e) => emitted.push(e) })
-  return { em, emitted }
-}
-describe('ForEachPlayerTask', () => {
-  it('announces one PlayerTargeted per other seat, carrying that seat and the label', () => {
-    const gs = makeGs()
-    seatWithHeroes(gs, 'p1')
-    seatWithHeroes(gs, 'p2')
-    seatWithHeroes(gs, 'p3')
-    const { em, emitted } = collectFrom()
-
-    new ForEachPlayerTask({ owner: Owner.Others }, 'Pay').execute(
-      gs,
-      new AbilityContext('hero-035', 'p1'),
-      em,
-      stubRm,
-    )
-
-    const hits = targeted(emitted)
-    expect(hits).toHaveLength(2)
-    for (const hit of hits) {
-      expect(hit.cardId).toBe('hero-035') // SelfCard matches the acting card
-      expect(hit.label).toBe('Pay')
-    }
-    // Reverse order, so the runs they start (a stack) resolve in seat order.
-    expect(hits.map((h) => h.ctxSeed[CTX_CHOSEN_PLAYER])).toEqual([['p3'], ['p2']])
-  })
-
-  it('honours the player filter — only seats with a Fighter standing', () => {
-    const gs = makeGs()
-    seatWithHeroes(gs, 'p1')
-    seatWithHeroes(gs, 'p2', [{ id: 'f', cls: HeroClass.Fighter }])
-    seatWithHeroes(gs, 'p3', [{ id: 'w', cls: HeroClass.Wizard }])
-    const { em, emitted } = collectFrom()
-
-    new ForEachPlayerTask({ owner: Owner.Others, hasClass: HeroClass.Fighter }, 'Pay').execute(
-      gs,
-      new AbilityContext('hero-006', 'p1'),
-      em,
-      stubRm,
-    )
-
-    expect(targeted(emitted).map((h) => h.ctxSeed[CTX_CHOSEN_PLAYER])).toEqual([['p2']])
-  })
-
-  it('announces nothing when no seat qualifies', () => {
-    const gs = makeGs()
-    seatWithHeroes(gs, 'p1')
-    const { em, emitted } = collectFrom()
-
-    new ForEachPlayerTask({ owner: Owner.Others }, 'Pay').execute(
-      gs,
-      new AbilityContext('hero-035', 'p1'),
-      em,
-      stubRm,
-    )
-
-    expect(emitted).toEqual([])
-  })
-})
-
 describe('RevealTask', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => jest.useRealTimers())
@@ -620,6 +537,47 @@ describe('DiscardEachTask', () => {
   it('throws when no step ahead asked anybody', () => {
     const { emitter } = makeEmitter()
     expect(() => new DiscardEachTask().execute(makeGs(), makeCtx(), emitter, stubRm)).toThrow(/ChooseCardEachTask/)
+  })
+})
+
+describe('PullCardTask — N at a time, or from every seat a filter keeps', () => {
+  it('pulls `count` from the chosen hand, all recorded, one CardPulled each; a short hand gives what it has', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerPlayer(makePlayer('p2', ['a', 'b', 'c']))
+    const ctx = makeCtx()
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+    const { emitter, emitted } = makeEmitter()
+    new PullCardTask({ count: 2 }).execute(gs, ctx, emitter, stubRm)
+    expect(gs.getPlayer('p1')!.getHand()).toHaveLength(2)
+    expect(gs.getPlayer('p2')!.getHand()).toHaveLength(1)
+    expect(ctx.get<string[]>(CTX_PULLED_CARD_IDS)).toEqual(gs.getPlayer('p1')!.getHand())
+    expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(2)
+
+    const short = makeGs()
+    short.registerPlayer(makePlayer('p1'))
+    short.registerPlayer(makePlayer('p2', ['only']))
+    const ctx2 = makeCtx()
+    ctx2.set(CTX_CHOSEN_PLAYER, ['p2'])
+    new PullCardTask({ count: 2 }).execute(short, ctx2, emitter, stubRm)
+    expect(ctx2.get(CTX_PULLED_CARD_IDS)).toEqual(['only'])
+  })
+
+  it('`from`: one pull from every seat the filter keeps, no slot needed', () => {
+    const gs = makeGs()
+    for (const [id, hand, heroes] of [['p1', ['mine'], []], ['p2', ['a'], ['t']], ['p3', ['b'], ['w']], ['p4', ['c'], ['t2']]] as [string, string[], string[]][]) {
+      gs.registerPlayer(makePlayer(id, hand))
+      gs.registerParty(makeParty(id, heroes))
+    }
+    gs.registerCard(new HeroCard({ id: 't', name: 't', type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    gs.registerCard(new HeroCard({ id: 't2', name: 't2', type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    gs.registerCard(new HeroCard({ id: 'w', name: 'w', type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Wizard, rollReq: 5 }))
+    const ctx = makeCtx()
+    const { emitter } = makeEmitter()
+    new PullCardTask({ from: { owner: Owner.Others, hasClass: HeroClass.Thief } }).execute(gs, ctx, emitter, stubRm)
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine', 'a', 'c'])
+    expect(gs.getPlayer('p3')!.getHand()).toEqual(['b']) // a Wizard only: left alone
+    expect(ctx.get(CTX_PULLED_CARD_IDS)).toEqual(['a', 'c'])
   })
 })
 
