@@ -47,6 +47,8 @@ export enum RefusalReason {
   DeckEmpty = 'DeckEmpty',
   HeroNotInParty = 'HeroNotInParty',
   NotYourLeader = 'NotYourLeader',
+  /** the leader in the slot carries a passive; there is nothing to activate */
+  LeaderNotActivatable = 'LeaderNotActivatable',
   AbilityAlreadyUsed = 'AbilityAlreadyUsed',
   HeroEffectSealed = 'HeroEffectSealed',
   NotAnItem = 'NotAnItem',
@@ -59,12 +61,16 @@ export enum RefusalReason {
   NoChallengeWindow = 'NoChallengeWindow',
   ChallengeAlreadyStarted = 'ChallengeAlreadyStarted',
   ChallengeNotStarted = 'ChallengeNotStarted',
+  /** the defender reaching for a challenge card against their own play */
+  CannotChallengeOwnCard = 'CannotChallengeOwnCard',
   NoModifiableWindow = 'NoModifiableWindow',
   TargetNotRolling = 'TargetNotRolling',
   TargetNotInChallenge = 'TargetNotInChallenge',
   NotAModifier = 'NotAModifier',
   ValueNotOnCard = 'ValueNotOnCard',
   NoSuchWindow = 'NoSuchWindow',
+  /** PassWindow on a choice: one player's question is answered, never passed */
+  WindowNotPassable = 'WindowNotPassable',
   WrongRespondent = 'WrongRespondent',
   NotAnOption = 'NotAnOption',
   /** LeaveGame on a table that is still live — the game server's own guard. */

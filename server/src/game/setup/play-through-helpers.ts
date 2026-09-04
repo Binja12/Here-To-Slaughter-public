@@ -157,9 +157,8 @@ export function table(
  * `createGame` only, which makes Fisher-Yates the identity: seat order,
  * leaders and the main deck all come out as written.
  *
- * The win conditions are pushed out of reach on purpose — `AllClassesInParty`
- * asks the POOL which classes exist, so a stacked deck of two Fighters makes
- * "every class" mean "one Fighter" and the first hero played wins.
+ * The win conditions are pushed out of reach on purpose, so a stacked case
+ * ends when its script says and not when the board happens to qualify.
  */
 export function stacked(spec: Deal): Table {
   const handSize = spec.handSize ?? 2

@@ -1,0 +1,11 @@
+# Only sources, manifests and assets go into the build context.
+**/node_modules
+**/dist
+**/build
+**/coverage
+.git
+.claude
+.codex
+graphify-out
+*.log
+*.pdf

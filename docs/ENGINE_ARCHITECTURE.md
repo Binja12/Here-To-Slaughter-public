@@ -356,6 +356,17 @@ modifier window — and because it is the same event a hero's roll emits, the
 registry needs no leader-shaped special case. No task twin, deliberately: a
 second caller could only be a system rule.
 
+**Only an ACTIVATED leader can be activated.** Five of the six leaders are
+passives — a standing bonus or a draw on a Magic play — and have nothing to
+fire on the announcement; before 2026-09-04 the action took the point anyway
+(seen live: the Cloaked Sage glowed, was pressed, and the point was gone).
+`canExecute` now asks the registry whether the card has an entry on its OWN
+`RollSuccess` (`firesOnOwnRoll` in the ability repository — the Shadow Claw
+is the one leader that does) and refuses `LeaderNotActivatable` otherwise;
+`playerView.canRollOnLeader` reads the same predicate, so the guard and the
+glow cannot disagree. Rejected: a flag on the card data — the registry already
+IS the fact, and a second copy could drift.
+
 **A leader needs no registration step.** `abilitySources` reads the slot fresh
 on every event, exactly as it reads heroes and equipped items, so standing
 there is the whole of what makes a leader's printed ability live (§6). Nothing
@@ -558,6 +569,30 @@ refused by name — which is why the route is three lines and holds no rules of
 its own: it answers `NoSuchWindow` for a window that is not open, and otherwise
 returns whatever the window said. A window that has already lapsed is not an
 error either: the player is late, and there is nothing left to answer.
+
+**`pass(windowId, playerId)` gives a table window up (2026-09-04).** The
+playtest's Skip button: with a human-length countdown every roll and challenge
+sat through the whole clock when nobody meant to react, so the wire got a
+thirteenth door, `PassWindow { windowId }`. A pass is PER SEAT, kept on the
+window (`IPassableWindow`: `pass`, `passedBy`, shown in the detail as
+`passedBy` so a screen can say "waiting for the others"). The window settles
+once every seat that could still act on it has passed — `resolve()`, the same
+call the clock makes, so nothing downstream can tell a pass from a lapse. Who
+could act is derived by `ReactionManager.eligiblePassers` from the window's
+own detail, never stored: every seat on a roll; on a challenge, everyone but
+the defender until it starts, then the two contestants alone. A card landing
+in the window clears its passes — the roll changed under them. Only the
+table's windows can be passed (Modifier, Attack, Challenge); a choice is one
+player's question and is answered or dismissed through `submitChoice`, so a
+pass on one is `WindowNotPassable`. Rejected: "first pass settles it for
+everyone" — built first as a stopgap and replaced the same day, since one
+seat could then close a window another seat was about to answer.
+
+**A player never contests their own play.** `PlayChallengeReaction.canExecute`
+reads the open Challenge window's respondent — the defender, whoever played
+the contested card — and refuses `CannotChallengeOwnCard` when that is the
+challenger. The client mirrors it in its glow rule (the challenge card in the
+defender's hand stays dark).
 
 **Every player door returns a `RequestResult`** (`shared/src/types.ts`):
 `{ accepted: true }` or `{ accepted: false, reason }`, where the reason is a
@@ -1442,12 +1477,9 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 - **`DecisionType.PickMonster` still has no reader.** `ChooseMonsterTask` and
   `ReactionWindowType.MonsterChoice` cover the mechanic; the `DecisionType`
   enum is a parallel vocabulary nothing consults.
-- **`views/player-view.spec.ts` "shows the whole table a roll as it stands" is
-  nondeterministic.** It deals a REAL table and asserts `bonuses: []` on a
-  roll, so it fails whenever seat 0 draws one of the three leaders that
-  install a `RollBonus` on `GameStarted` (`leader-116`, `118`, `119`) — about
-  half of all runs. The fix is the one `play-through-helpers.ts` already
-  uses: deal from `QUIET_LEADERS`, or assert on `baseRoll` alone.
+- ~~`views/player-view.spec.ts` "shows the whole table a roll as it stands" is
+  nondeterministic~~ — FIXED 2026-09-04: the case deals from quiet leaders
+  (`dealtQuiet`), so `bonuses: []` is true by construction.
 - **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
   like `MonsterCard.trySlay`, and read by nothing.
 - **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
@@ -1541,6 +1573,19 @@ have to find a legal way to spend the budget.
 `Game` is data — the pieces a caller drives — so `startGame(game)` is a
 function OVER it rather than a method on it. A closure in the bag would be the
 one thing in it that could not be inspected or handed across a boundary.
+
+**The deal is exactly the registry — TEMPORARY (2026-09-04).** `createGame`
+draws the default pool from `baseGameCards.filter(dealable)`, and `dealable`
+is `abilityRegistry.has(id)` for every type alike: the owner's call ("a temp
+registry with only cards that are implemented"), knowing it leaves 3 heroes
+in a 57-card deck for now. The pool grows by itself as entries are written.
+Tried the same day and dropped: keeping every hero and monster as a body
+while filtering items and magic (he wanted the strict set), and a view flag
+hiding the roll on unimplemented heroes (it took the dice out of nearly every
+hero play). A caller's own `cards` list is dealt as given. The strict pool
+exposed a latent bug the same hour: `AllClassesInParty` derived "every
+class" from the pool, so two classes were all of them and the second hero
+played won; it now requires `HeroClass`'s six members, whatever was dealt.
 
 ## 12. Working principles
 

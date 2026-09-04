@@ -45,6 +45,7 @@ export const HUD = {
   actionGem: WIDGETS + "Action Point Gem.png", // 1254x1254 aspect 1.0
   yourTurn: WIDGETS + "Your Turn Show.png", // 2508x627 aspect 4.0
   endTurn: WIDGETS + "End Turn Button.png", // 2172x724 aspect 3.0
+  skipReaction: WIDGETS + "Skip Reaction Button.png", // 2172x724 aspect 3.0 — the Forfeit slot
   redraw: WIDGETS + "Redraw Button.png", // 2172x724 aspect 3.0
 } as const;
 
