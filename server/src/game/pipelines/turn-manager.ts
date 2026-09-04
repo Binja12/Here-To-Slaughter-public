@@ -1,6 +1,8 @@
 import {
   GameEventType,
   GamePhase,
+  IGameEvent,
+  IGameEventListener,
   PassiveType,
   RefusalReason,
   RequestResult,
@@ -23,13 +25,48 @@ import { GameEvent } from '../events/game-event'
 // TaskManager this would otherwise have to hold (§9).
 // ---------------------------------------------------------------------------
 
-export class TurnManager {
+export class TurnManager implements IGameEventListener {
   private phase: TurnPhase = TurnPhase.Start
+  /**
+   * The turn's clock. `remainingMs` is what the turn has left, `clock` runs
+   * only while no reaction window is open — anyone's — and `runningSince`
+   * is when it last started, so a pause can take the elapsed part off.
+   * All three undefined without `turnTimeMs`.
+   */
+  private remainingMs?: number
+  private runningSince?: number
+  private clock?: ReturnType<typeof setTimeout>
+  /**
+   * Counts turns started. A lapse carries the number of the turn it belongs
+   * to, so one that outlives its turn does nothing.
+   */
+  private turn = 0
 
   constructor(
     private gs: GameState,
     private emitter: GameEventEmitter,
-  ) {}
+    /** A turn's clock, ms. `TimeControl.turnTimeMs`; undefined = no clock. */
+    private readonly turnTimeMs?: number,
+  ) {
+    // Only for the window events: the clock pauses on the first one opened
+    // and runs again once the last is closed. Nothing else is read here, so
+    // the listener order §8 requires of TaskManager and GameEngine is
+    // untouched.
+    this.emitter.addListener(this)
+  }
+
+  onEvent(event: IGameEvent): void {
+    switch (event.getType()) {
+      case GameEventType.ReactionWindowOpened:
+        this.pauseClock()
+        break
+      case GameEventType.ReactionWindowClosed:
+        // A window is closed before it announces it; what is left open is
+        // the others in its frame and any frame beneath.
+        if (!this.gs.hasOpenFrames()) this.resumeClock()
+        break
+    }
+  }
 
   getPhase(): TurnPhase {
     return this.phase
@@ -98,12 +135,45 @@ export class TurnManager {
     if (extra) this.gs.increaseActionPoints(playerId, extra)
 
     this.phase = TurnPhase.Action
+    this.turn += 1
+    this.stopClock()
+    this.remainingMs = this.turnTimeMs
     this.emitter.emit(
       new GameEvent(GameEventType.TurnStarted, playerId, { playerId }),
     )
+    // AFTER the announcement: an ability answering TurnStarted may have
+    // opened a window, and the clock does not run under one.
+    if (!this.gs.hasOpenFrames()) this.resumeClock()
+  }
+
+  /**
+   * Forgets the turn's clock. Called at the end of a turn and when the
+   * game concludes mid-turn, so no timer outlives the table.
+   */
+  stopClock(): void {
+    this.pauseClock()
+    this.remainingMs = undefined
+  }
+
+  private pauseClock(): void {
+    if (this.clock === undefined) return
+    clearTimeout(this.clock)
+    this.clock = undefined
+    this.remainingMs! -= Date.now() - this.runningSince!
+  }
+
+  private resumeClock(): void {
+    if (this.remainingMs === undefined || this.clock !== undefined) return
+    if (this.phase !== TurnPhase.Action) return
+    const turn = this.turn
+    this.runningSince = Date.now()
+    this.clock = setTimeout(() => this.lapse(turn), this.remainingMs)
+    // A clock on its own does not keep the process alive.
+    this.clock.unref()
   }
 
   endTurn(): void {
+    this.stopClock()
     this.gs.clearUsedAbilities()
     this.phase = TurnPhase.End
     const playerId = this.gs.getCurrentPlayerId() ?? ''
@@ -115,6 +185,28 @@ export class TurnManager {
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
+
+  /**
+   * The turn's clock has run out: the budget is forfeited and the drain
+   * ends the turn, the same way a pass does. The clock only runs while no
+   * window is open, so it lapses on an idle board; a pipeline can only be
+   * parked on a window, so a busy board here is an engine mistake.
+   */
+  private lapse(turn: number): void {
+    this.clock = undefined
+    if (turn !== this.turn || this.phase !== TurnPhase.Action) return
+    if (this.gs.getGamePhase() === GamePhase.Concluded) return
+    if (this.gs.isBusy()) {
+      throw new Error(
+        'TurnManager: the turn clock lapsed on a busy board — it pauses while a window is open.',
+      )
+    }
+
+    const playerId = this.gs.getCurrentPlayerId()
+    if (playerId === undefined) return
+    this.gs.decreaseActionPoints(playerId, this.gs.getActionPoints(playerId))
+    this.drain()
+  }
 
   private drain(): void {
     while (this.gs.actionQueue.length > 0) {
