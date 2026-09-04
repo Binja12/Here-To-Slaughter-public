@@ -538,7 +538,7 @@ describe('monster fight-back', () => {
 
       expect(ctx.gs.getDiscardPile().getSize()).toBe(0)
       expect(ctx.gs.hasOpenFrames()).toBe(false)
-      expect(ctx.gs.abilityPipelines).toHaveLength(0)
+      expect(ctx.gs.getPipelines()).toHaveLength(0)
     })
 
     it('leaves the monster in the row — it was not won', () => {
@@ -643,7 +643,7 @@ describe('Mega Slime (monster-123) — fight back SACRIFICES a Hero', () => {
 
     expect(ctx.gs.getDiscardPile().getSize()).toBe(0)
     expect(ctx.gs.hasOpenFrames()).toBe(false)
-    expect(ctx.gs.abilityPipelines).toHaveLength(0)
+    expect(ctx.gs.getPipelines()).toHaveLength(0)
   })
 
   it('hits the attacker, not the other seat', () => {

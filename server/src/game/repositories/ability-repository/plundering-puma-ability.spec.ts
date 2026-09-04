@@ -42,7 +42,7 @@ const collect = () => {
 }
 
 const openWindow = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
 // Plundering Puma (hero-020): "Pull 2 cards from another player's hand. That
 // player may DRAW a card."

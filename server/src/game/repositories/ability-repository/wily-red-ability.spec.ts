@@ -42,7 +42,7 @@ const collect = () => {
 }
 
 const openWindow = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
 // Wily Red (hero-015): "DRAW cards until you have 7 cards in your hand."
 

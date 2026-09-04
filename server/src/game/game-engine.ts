@@ -13,6 +13,8 @@ import { GameEvent } from './events/game-event'
 
 export class GameEngine implements IGameEventListener {
   private playerOrder: string[] = []
+  /** Set by every event — nothing moves the board without one — and cleared by asking the win conditions. */
+  private dirty = false
 
   constructor(
     private gs: GameState,
@@ -48,43 +50,33 @@ export class GameEngine implements IGameEventListener {
   }
 
   onEvent(event: IGameEvent): void {
+    this.dirty = true
+    const concluded = this.concludeIfDue()
     switch (event.getType()) {
       case GameEventType.TurnEnded:
-        if (!this.concludeIfWon()) {
-          this.startNextTurn(event.getPlayerId())
-        }
+        if (!concluded) this.startNextTurn(event.getPlayerId())
         break
 
       case GameEventType.FrameResolved:
-        // TaskManager hears this first and continues the pipeline the frame
-        // was holding. What that continuation OPENS does not hold the win
-        // back — the roll a played hero is offered is a question, and the
-        // sixth class has already landed — but a frame still waiting on an
-        // OUTCOME does: a hero under an open challenge is not on the board
-        // yet, and the board is asked again when that frame settles. A won
-        // game does not resume the drain: nothing else may run on a
-        // concluded board.
-        if (this.gs.hasPendingOutcome() || !this.concludeIfWon()) {
-          this.turnManager.resumeDrain()
-        }
+        // After TaskManager (§8), which continued the pipeline the frame held.
+        if (!concluded) this.turnManager.resumeDrain()
         break
     }
   }
 
   /**
-   * The game ends the moment a settled board qualifies — the sixth class or
-   * the third monster wins on the spot, not at the end of that turn. Asked
-   * after every frame settles (a hero, an item and an attack each land inside
-   * one) and at the end of a turn. Returns whether it ended.
+   * Asks the win conditions once per change, and only while no frame may
+   * still restore the board (GameState.hasPendingOutcome). Returns whether
+   * the game is concluded, now or earlier.
    */
-  private concludeIfWon(): boolean {
+  private concludeIfDue(): boolean {
     if (this.gs.getGamePhase() === GamePhase.Concluded) return true
+    if (!this.dirty || this.gs.hasPendingOutcome()) return false
+    this.dirty = false
     const winner = this.checkWinConditions()
     if (!winner) return false
-    // The clock first: concluding closes whatever is still open, and a close
-    // is what the clock would otherwise answer by running again. Then the
-    // board, before the announcement, so whoever hears GameEnded sees a
-    // concluded board that already names its winner.
+    // Clock before conclude: conclude closes windows, and a close is what
+    // resumes the clock. Board before GameEnded, so its hearers see the winner.
     this.turnManager.stopClock()
     this.gs.conclude(winner.getId())
     this.emitter.emit(
@@ -95,16 +87,7 @@ export class GameEngine implements IGameEventListener {
     return true
   }
 
-  /**
-   * The first party that has met the table's conditions — every one of them
-   * when the table requires all, any one of them otherwise. Asked per PLAYER
-   * rather than per condition, because "all" means one party meeting them
-   * together; two parties each holding half is nobody's win.
-   *
-   * A table with no conditions can never be won, so an empty list matches
-   * nobody either way (`every` on an empty list would hand the win to whoever
-   * sits first).
-   */
+  /** Per player, not per condition: "all" means one party meeting every one. An empty list is never met. */
   private checkWinConditions(): Player | null {
     if (this.winConditions.length === 0) return null
     return (

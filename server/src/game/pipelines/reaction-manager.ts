@@ -85,9 +85,8 @@ export class ReactionManager implements IReactionManager {
     respondent: string,
     config: Record<string, unknown> = {},
   ): void {
-    const frame = this.gs.frames.get(frameId)
-    if (!frame) return
-    frame.windows.push(this.buildWindow(type, respondent, config, frameId))
+    if (!this.gs.getFrames().has(frameId)) return
+    this.gs.addWindow(frameId, this.buildWindow(type, respondent, config, frameId))
   }
 
   // ---------------------------------------------------------------------------

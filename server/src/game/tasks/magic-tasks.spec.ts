@@ -79,7 +79,7 @@ const spyAbility = (taskSpy: jest.Mock): IAbilityRule[] => [
 ]
 
 const openChallenge = (gs: GameState) =>
-  [...gs.frames.values()]
+  [...gs.getFrames().values()]
     .flatMap((f) => f.windows)
     .find((w) => w.getType() === ReactionWindowType.Challenge && w.isOpen())
 
@@ -177,7 +177,7 @@ describe('PlayMagicTask', () => {
     )
 
     expect(typeof frameId).toBe('string')
-    expect(gs.frames.has(frameId as string)).toBe(true)
+    expect(gs.getFrames().has(frameId as string)).toBe(true)
   })
 
   it('announces the play from the instance pile — that is what gets challenged', () => {
@@ -283,8 +283,8 @@ describe('PlayMagicTask', () => {
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith(['magic-1']))
     challengedBy(CHALLENGER_WINS)
 
-    expect(gs.abilityPipelines).toHaveLength(0)
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getPipelines()).toHaveLength(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 
   // --- What the instance pile still cannot do ---
@@ -314,7 +314,7 @@ describe('PlayMagicTask', () => {
     run(new PlayMagicTask(CTX_DRAWN_CARD_IDS), ctxWith([]))
 
     expect(emitted).toHaveLength(0)
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 
   it('skips a card that is not Magic', () => {

@@ -863,6 +863,33 @@ describe('a game played through', () => {
     expect(ofType(t, GameEventType.DiceRolled)).toEqual([])
   })
 
+  it('ends the game on the slay itself, before the attack\u2019s frame settles or anything continues from it', async () => {
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+      monsters: ['monster-128'],
+      winAt: 1,
+    })
+    const playerId = active(t)
+    playHero(t, playerId, 'hero-044')
+    await settle(t)
+
+    fixDice(HIGHEST)
+    attack(t, playerId, 'monster-128')
+    await until(() => board(t).winnerId === playerId, 'the slay to end the game')
+
+    // MonsterSlain moved the board and the win was asked there, inside the
+    // attack's own settle: the attack's FrameResolved came AFTER the end.
+    // (The recorder hears GameEnded before MonsterSlain itself — it is
+    // emitted from inside that dispatch, and the recorder listens last.)
+    const types = t.events.map((e) => e.getType())
+    expect(types).toContain(GameEventType.MonsterSlain)
+    expect(types.indexOf(GameEventType.GameEnded)).toBeLessThan(
+      types.lastIndexOf(GameEventType.FrameResolved),
+    )
+    expect(board(t).busy).toBe(false)
+    expect(board(t).pendingWindows).toEqual([])
+  })
+
   it('offers a monster the moment the party fields every hero it asks for', async () => {
     const t = stacked({
       deck: ['hero-037', 'hero-001', 'hero-002', 'hero-003'],

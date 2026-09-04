@@ -40,13 +40,13 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   for (const step of steps) {
     const frameId = step.execute(gs, ctx, em, rm) as string | void
     if (frameId) {
-      const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+      const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
       // the pick the player would make, written where the window would write it
       ctx.set(window.resultKey() as string, pick === undefined ? [] : [pick])
       window.resolve()
     }
   }
-  return { emitted, window: () => [...gs.frames.values()].flatMap((f) => f.windows)[0] }
+  return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
 // Forceful Winds (magic-060): "Return every equipped Item card to its
@@ -69,6 +69,6 @@ describe('Forceful Winds (magic-060)', () => {
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['my-ring'])
     expect(gs.getPlayer('p2')!.getHand()).toEqual(['their-ring'])
     expect(emitted.filter((e) => e.getType() === GameEventType.ItemUnequipped)).toHaveLength(2)
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 })

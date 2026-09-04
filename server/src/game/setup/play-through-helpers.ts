@@ -127,7 +127,7 @@ export type Deal = {
   handSize?: number
   /** How many slain monsters win. Out of reach unless a case asks for it. */
   winAt?: number
-  /** How many distinct classes win (the leader's counts). Absent unless a case asks for it. */
+  /** How many distinct classes win, the leader's included. */
   classesWin?: number
   /** Cards left in the deck after the deal. Padded with filler heroes. */
   slack?: number

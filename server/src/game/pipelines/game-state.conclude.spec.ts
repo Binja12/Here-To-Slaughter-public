@@ -60,12 +60,19 @@ describe('GameState.hasPendingOutcome', () => {
     expect(gs.isBusy()).toBe(true)
   })
 
-  it('is false once the outcome window has closed, whatever is left in its frame', () => {
+  it('is true while a frame has nothing open — being built, or closed but not yet settled', () => {
     const gs = makeGs()
-    gs.addFrame('f1', {
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+    expect(gs.hasPendingOutcome()).toBe(true)
+
+    gs.releaseFrame('f1')
+    gs.addFrame('f2', {
       snapshot: gs.clone(),
-      windows: [stubWindow(ReactionWindowType.Challenge, () => {}, false)],
+      windows: [stubWindow(ReactionWindowType.TaskChoice, () => {}, false)],
     })
+    expect(gs.hasPendingOutcome()).toBe(true)
+
+    gs.releaseFrame('f2')
     expect(gs.hasPendingOutcome()).toBe(false)
   })
 })
@@ -82,7 +89,7 @@ describe('GameState.conclude', () => {
       snapshot: gs.clone(),
       windows: [stubWindow(ReactionWindowType.Challenge, () => cancelled.push('done'), false)],
     })
-    gs.abilityPipelines.push({
+    gs.pushPipeline({
       steps: [],
       stepIndex: 0,
       ctx: new AbilityContext('hero-1', 'p1'),
@@ -95,8 +102,8 @@ describe('GameState.conclude', () => {
     expect(gs.getWinnerId()).toBe('p1')
     // Only the OPEN one is told; a closed window has nothing to cancel.
     expect(cancelled).toEqual(['offer'])
-    expect(gs.frames.size).toBe(0)
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getFrames().size).toBe(0)
+    expect(gs.getPipelines()).toEqual([])
     expect(gs.isBusy()).toBe(false)
   })
 })

@@ -25,11 +25,7 @@ export function gameConfigFor(settings: GameSettings): GameConfig {
   }
 }
 
-/**
- * Both printed conditions, always: the mode says whether a party needs one of
- * them or both (`requireAllWinConditions`), never which of them the table has.
- * "Classes" is a hero of every class the game has; the engine caps it there.
- */
+/** Both printed conditions, always; `requireAllWinConditions` says whether a party needs one or both. */
 function winConditionsFor(settings: GameSettings): WinConditionConfig[] {
   return [
     { type: WinConditionType.SlayMonsters, value: settings.monsterCount },

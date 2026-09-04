@@ -89,7 +89,8 @@ export function quickWinDeal(): Deal {
     cards,
     config: config({
       startingHandSize: QUICK_WIN_HAND_SIZE,
-      winConditions: [{ type: WinConditionType.PartyClasses, value: 1 }],
+      // The leader's class plus the first Fighter played; one is met by the leader alone.
+      winConditions: [{ type: WinConditionType.PartyClasses, value: 2 }],
     }),
   }
 }

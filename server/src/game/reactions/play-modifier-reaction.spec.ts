@@ -225,7 +225,7 @@ describe('PlayModifierReaction', () => {
       // is the whole of what says it was spent into this one.
       expect(gs.getParty('p1').getInstanceCardIds()).toContain(MOD)
       expect(
-        gs.frames.get(frameId)?.snapshot.getParty('p1').getInstanceCardIds(),
+        gs.getFrames().get(frameId)?.snapshot.getParty('p1').getInstanceCardIds(),
       ).not.toContain(MOD)
       expect(gs.isSpentInOpenFrame(MOD)).toBe(true)
     })

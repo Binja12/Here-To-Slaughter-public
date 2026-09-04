@@ -96,22 +96,16 @@ export class GameState {
    */
   private revealed: Map<string, string[]> = new Map()
   private cardsChallengedThisTurn: string[] = []
-  /** Actions queued for draining this turn — GS is source of truth. */
-  actionQueue: IAction[] = []
 
   /**
-   * Ability pipelines, newest on top. TaskManager works on the top one.
-   *
-   * A step's own events trigger more abilities while it is still running, and
-   * those go on top — so they finish before the step's own pipeline continues.
-   *
-   * Kept here rather than on the processor so frames snapshot it: a pipeline
-   * started inside a frame is undone when that frame rolls back.
+   * Ability pipelines, newest on top; TaskManager works on the top one. Here
+   * rather than on TaskManager so a frame's rollback can drop the ones pushed
+   * after its snapshot (revert).
    */
-  abilityPipelines: AbilityPipeline[] = []
+  private abilityPipelines: AbilityPipeline[] = []
 
-  /** All open reaction frames. Each holds its own pre-open snapshot. */
-  frames: Map<string, GameFrame> = new Map()
+  /** Open reaction frames, in the order they opened. */
+  private frames: Map<string, GameFrame> = new Map()
 
   constructor(
     private mainDeck: CardStack,
@@ -123,6 +117,27 @@ export class GameState {
   // ---------------------------------------------------------------------------
   // Frame API
   // ---------------------------------------------------------------------------
+
+  getFrames(): ReadonlyMap<string, GameFrame> {
+    return this.frames
+  }
+
+  /** Nothing happens for a frame that is not open. */
+  addWindow(frameId: string, window: IReactionWindow): void {
+    this.frames.get(frameId)?.windows.push(window)
+  }
+
+  getPipelines(): readonly AbilityPipeline[] {
+    return this.abilityPipelines
+  }
+
+  pushPipeline(pipeline: AbilityPipeline): void {
+    this.abilityPipelines.push(pipeline)
+  }
+
+  popPipeline(): AbilityPipeline | undefined {
+    return this.abilityPipelines.pop()
+  }
 
   addFrame(frameId: string, frame: Omit<GameFrame, 'stackDepth'>): void {
     this.frames.set(frameId, {
@@ -398,15 +413,19 @@ export class GameState {
   }
 
   /**
-   * Whether an open window may still RESTORE its frame — a challenge, a
-   * roll on a hero, an attack. What stands under one is not settled: a lost
-   * challenge takes the played hero back out, a fight-back undoes the
-   * attack. A choice is a question and never restores, so a board waiting
-   * only on choices IS settled — the roll a played hero is offered must not
-   * hold up the win its sixth class just landed (the owner, 2026-09-04).
+   * Whether a frame may still restore the board: one holding an open
+   * challenge, hero roll or attack, or one with nothing open yet (between
+   * openFrame and its first window, or between a window's close and its
+   * settle). Choice windows never restore. GameEngine reads this before it
+   * asks the win conditions.
    */
   hasPendingOutcome(): boolean {
-    return this.openWindows().some((w) => RESTORING_WINDOWS.has(w.getType()))
+    for (const frame of this.frames.values()) {
+      const open = frame.windows.filter((w) => w.isOpen())
+      if (open.length === 0) return true
+      if (open.some((w) => RESTORING_WINDOWS.has(w.getType()))) return true
+    }
+    return false
   }
 
   /** Every open window on the table, in no particular order. */
@@ -450,7 +469,6 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     for (const [id, ids] of this.revealed) copy.revealed.set(id, [...ids])
-    copy.actionQueue = [...this.actionQueue]
     // Not the pipeline stack: it is work in progress ON the board, not the
     // board. A rollback undoes what that work did and drops what was waiting
     // on the frame (restoreFrame); it does not forget the work existed.
@@ -474,7 +492,6 @@ export class GameState {
     this.discardPile = src.discardPile
     this.monsterDeck = src.monsterDeck
     this.monsterPile = src.monsterPile
-    this.actionQueue = src.actionQueue
     this.frames = src.frames // outer frames survive; restored frame entry is gone
   }
 
@@ -840,9 +857,6 @@ export class GameState {
       return refused(RefusalReason.MonsterNotInRow)
     }
 
-    // HEROES only. A leader is not part of what a monster asks for, so a party
-    // with no heroes fields nothing and cannot attack even an 'Any' monster
-    // (Arctic Aries, monster-121, was attackable off a bare leader).
     if (!monster.canBeAttackedBy(this.getHeroClasses(playerId))) {
       return refused(RefusalReason.PartyRequirementUnmet)
     }
@@ -920,12 +934,7 @@ export class GameState {
     return masked ?? hero.getDefaultClass()
   }
 
-  /**
-   * The classes the HEROES standing in a party field, one per hero, a class
-   * mask included. What a monster's `partyReq` is matched against: a leader is
-   * never one of the heroes a monster asks for (the owner, 2026-09-04), so a
-   * party of none fields none.
-   */
+  /** One class per hero, a mask included. What a monster's `partyReq` is matched against; never the leader's. */
   getHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
       .getHeroIds()
@@ -933,13 +942,7 @@ export class GameState {
       .filter((cls): cls is HeroClass => cls !== undefined)
   }
 
-  /**
-   * Every class standing in a party: the leader's, then the heroes'. The
-   * rulebook counts the Party Leader toward the six-class win ("a Hero or
-   * Party Leader card of a certain class"; the owner, 2026-09-04: five hero
-   * classes plus the leader's is a full party). A monster's class requirement
-   * reads `getHeroClasses` instead — the leader does not answer for it.
-   */
+  /** The leader's class, then the heroes'. What the class win and the `hasClass` filter read. */
   getPartyClasses(playerId: string): HeroClass[] {
     const leader = this.getCard(this.getParty(playerId).getLeaderId())
     const heroClasses = this.getHeroClasses(playerId)
@@ -1004,10 +1007,6 @@ export class GameState {
   conclude(winnerId: string): void {
     this.gamePhase = GamePhase.Concluded
     this.winnerId = winnerId
-    // Nothing runs on a concluded board, so what was still in flight is put
-    // down here: a question still open closes without an answer (the roll a
-    // hero was offered after landing the sixth class), and the frames and
-    // the pipelines waiting on them go with it.
     for (const window of this.openWindows()) window.cancel()
     this.frames.clear()
     this.abilityPipelines = []

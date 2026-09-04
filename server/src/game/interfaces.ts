@@ -91,6 +91,17 @@ export interface ITask {
  * WHEN an ability runs: an event, plus whose events count. Shared by card
  * abilities and by ongoing effects, so the processor checks both the same way.
  */
+/** One ability to check against an event, and who owns it. Gathered fresh per event by TaskManager. */
+export type AbilitySource = {
+  trigger: AbilityTrigger
+  steps: ITask[]
+  sourceCardId: string
+  /** Empty for a monster still in the pile — see TaskManager's NO_OWNER and ownerFor. */
+  ownerId: string
+  /** Printed on the card, or a rule of the game — see AbilityPipeline.system. */
+  system: boolean
+}
+
 export type AbilityTrigger = {
   on: GameEventType
   scope: TriggerScope
@@ -166,11 +177,7 @@ export interface IEffect {
 // ---------------------------------------------------------------------------
 
 export interface IWinCondition {
-  /**
-   * Whether THIS party has met it right now. Per player rather than "who has
-   * won", because a table that requires every condition needs the same party
-   * to meet them all — an answer per condition cannot say that.
-   */
+  /** Per player: a table requiring every condition needs one party to meet them all. */
   isMetBy(gs: GameState, player: Player): boolean
 }
 

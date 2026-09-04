@@ -228,12 +228,6 @@ describe('AttackMonsterAction', () => {
         expect(canAttack(g)).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
 
-      /**
-       * The leader is NOT one of the heroes a monster asks for (the owner,
-       * 2026-09-04). Arctic Aries (monster-121) asks for one hero of any
-       * class and was attackable off a bare leader while the requirement
-       * read the leader's class too.
-       */
       it('does not answer a partyReq with the LEADER — a bare party attacks nothing', () => {
         const g = kingGs([])
         g.registerCard(

@@ -60,7 +60,7 @@ describe('Slippery Paws (hero-022)', () => {
     expect(gs.getDiscardPile().getAll()).toEqual(['a'])
     expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(2)
     expect(emitted.filter((e) => e.getType() === GameEventType.CardDiscarded)).toHaveLength(1)
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 
   it('a one-card hand: one pull, and that one is offered', () => {

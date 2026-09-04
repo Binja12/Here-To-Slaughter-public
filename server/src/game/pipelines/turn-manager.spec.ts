@@ -87,7 +87,7 @@ describe('TurnManager', () => {
       gs.getPlayer('p1')!.decreaseActionPoints(2)
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
-      expect(tm.getActionPoints()).toBe(3)
+      expect(gs.getActionPoints('p1')).toBe(3)
     })
 
     it('should clear cards challenged in the previous turn', () => {
@@ -181,8 +181,8 @@ describe('TurnManager', () => {
 
       expect(result).toEqual({ accepted: false, reason: RefusalReason.NotYourTurn })
       expect(executed).toHaveLength(0)
-      expect(gs.actionQueue).toHaveLength(0)
-      expect(tm.getActionPoints()).toBe(3)
+      expect(tm.getQueuedActions()).toHaveLength(0)
+      expect(gs.getActionPoints('p1')).toBe(3)
     })
 
     it('should execute a valid action', () => {
@@ -207,7 +207,7 @@ describe('TurnManager', () => {
       const tm = new TurnManager(gs, new GameEventEmitter())
       tm.startTurn('p1')
       tm.enqueue(makeAction(2))
-      expect(tm.getActionPoints()).toBe(1)
+      expect(gs.getActionPoints('p1')).toBe(1)
     })
 
     it('should skip actions when canExecute returns false (e.g. cost exceeds AP)', () => {
@@ -227,7 +227,7 @@ describe('TurnManager', () => {
       expect(result).toEqual({ accepted: false, reason: RefusalReason.NoActionPoints })
       expect(executed).toHaveLength(0)
       expect(tm.getPhase()).toBe(TurnPhase.Action) // turn not ended, just skipped
-      expect(tm.getActionPoints()).toBe(1)
+      expect(gs.getActionPoints('p1')).toBe(1)
     })
 
     it('should skip actions whose canExecute explicitly returns false', () => {
@@ -324,7 +324,7 @@ describe('TurnManager', () => {
   describe('a running ability holds the turn open', () => {
     /** A pipeline parked on a frame, exactly as TaskManager.pauseOn leaves one. */
     const parkAbility = (gs: GameState) => {
-      gs.abilityPipelines.push({
+      gs.pushPipeline({
         steps: [{ execute: () => {} }],
         ctx: new AbilityContext('src-card', 'p1'),
         pausedOn: 'f-ability',
@@ -346,7 +346,7 @@ describe('TurnManager', () => {
         },
       })
 
-      expect(tm.getActionPoints()).toBe(0)
+      expect(gs.getActionPoints('p1')).toBe(0)
       expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
 
@@ -364,7 +364,7 @@ describe('TurnManager', () => {
 
       // What TaskManager leaves behind when the last pipeline is spent; the
       // FrameResolved that emptied it is the same one GameEngine resumes on.
-      gs.abilityPipelines.length = 0
+      while (gs.popPipeline()) {}
       tm.resumeDrain()
 
       expect(tm.getPhase()).toBe(TurnPhase.End)
@@ -384,22 +384,20 @@ describe('TurnManager', () => {
         },
       }
 
-      gs.actionQueue.push(
-        {
-          ...makeAction(1),
-          execute: (g) => {
-            g.getPlayer('p1')?.decreaseActionPoints(1)
-            parkAbility(g)
-          },
+      tm.enqueue({
+        ...makeAction(1),
+        isReactable: () => false,
+        execute: (g) => {
+          g.getPlayer('p1')?.decreaseActionPoints(1)
+          parkAbility(g)
         },
-        later,
-      )
-      tm.resumeDrain()
+      })
+      tm.enqueue({ ...later, isReactable: () => false })
 
       expect(executed).toEqual([])
-      expect(gs.actionQueue).toEqual([later])
+      expect(tm.getQueuedActions().map((a) => a.execute)).toEqual([later.execute])
 
-      gs.abilityPipelines.length = 0
+      while (gs.popPipeline()) {}
       tm.resumeDrain()
       expect(executed).toEqual(['later'])
     })
@@ -423,7 +421,7 @@ describe('TurnManager', () => {
       // request rather than queueing it behind the resolution.
       expect(result).toEqual({ accepted: false, reason: RefusalReason.Busy })
       expect(executed).toEqual([])
-      expect(gs.actionQueue).toHaveLength(0)
+      expect(tm.getQueuedActions()).toHaveLength(0)
     })
 
     it('counts a pipeline parked between a released frame and its FrameResolved', () => {
@@ -510,7 +508,7 @@ describe('the turn clock', () => {
     tm.startTurn('p1')
     await sleep(30)
     expect(tm.getPhase()).toBe(TurnPhase.Action)
-    expect(tm.getActionPoints()).toBe(3)
+    expect(gs.getActionPoints('p1')).toBe(3)
   })
 
   it('ends an idle turn when it lapses: the budget is forfeited, TurnEnded goes out', async () => {
@@ -525,7 +523,7 @@ describe('the turn clock', () => {
     await sleep(60)
 
     expect(tm.getPhase()).toBe(TurnPhase.End)
-    expect(tm.getActionPoints()).toBe(0)
+    expect(gs.getActionPoints('p1')).toBe(0)
     expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(1)
   })
 
@@ -547,18 +545,18 @@ describe('the turn clock', () => {
     emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Challenge, 'p2', 'f1'))
     await sleep(100)
     expect(tm.getPhase()).toBe(TurnPhase.Action)
-    expect(tm.getActionPoints()).toBe(3)
+    expect(gs.getActionPoints('p1')).toBe(3)
 
     open = false
     gs.releaseFrame('f1')
-    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Challenge, 'p2', 'f1'))
+    emitter.emit(GameEventFactory.frameResolved('f1', []))
     await sleep(80)
 
     expect(tm.getPhase()).toBe(TurnPhase.End)
     expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(1)
   })
 
-  it('runs again when a frame settles with nothing open — a roll announces its close before it settles', async () => {
+  it('runs again on the frame settling, not on the close a roll announces before it', async () => {
     const gs = makeGs()
     const emitter = new GameEventEmitter()
     const tm = new TurnManager(gs, emitter, 200)
@@ -567,13 +565,9 @@ describe('the turn clock', () => {
     emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Attack, 'p1', 'f1'))
     expect(tm.getTurnDeadline()).toBeUndefined()
 
-    // The attack's Closed goes out while its frame still stands (the table
-    // has one here); the settle is what leaves nothing open.
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [{ isOpen: () => true } as never] })
     emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Attack, 'p1', 'f1'))
     expect(tm.getTurnDeadline()).toBeUndefined()
 
-    gs.releaseFrame('f1')
     emitter.emit(GameEventFactory.frameResolved('f1', [8]))
     expect(tm.getTurnDeadline()).toBeDefined()
     tm.stopClock()
@@ -588,7 +582,7 @@ describe('the turn clock', () => {
 
     emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Challenge, 'p2', 'f1'))
     await sleep(100)
-    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Challenge, 'p2', 'f1'))
+    emitter.emit(GameEventFactory.frameResolved('f1', []))
     // ~30 ms were left, not another 100.
     await sleep(60)
 
@@ -619,7 +613,7 @@ describe('the turn clock', () => {
     // Frozen: a held clock reads the same number however long the window stands.
     expect(tm.getRemainingMs()).toBe(held)
 
-    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Challenge, 'p2', 'f1'))
+    emitter.emit(GameEventFactory.frameResolved('f1', []))
     // A new deadline, further out by however long the window stood.
     expect(tm.getTurnDeadline()!).toBeGreaterThan(deadline)
 

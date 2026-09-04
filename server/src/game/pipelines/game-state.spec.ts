@@ -175,22 +175,22 @@ describe('GameState', () => {
       const pipeline = (pausedOn?: string) => ({ steps: [], ctx: {} as never, pausedOn })
 
       const outer = pipeline()
-      gs.abilityPipelines.push(outer)
+      gs.pushPipeline(outer)
       const opener = pipeline()
-      gs.abilityPipelines.push(opener)
+      gs.pushPipeline(opener)
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [window('w1')] })
       opener.pausedOn = 'f1'
       // later work: a pipeline pushed after the snapshot, parked on its own frame
       const later = pipeline()
-      gs.abilityPipelines.push(later)
+      gs.pushPipeline(later)
       gs.addFrame('f2', { snapshot: gs.clone(), windows: [window('w2')] })
       later.pausedOn = 'f2'
 
       gs.restoreFrame('f1')
 
       expect(cancelled).toEqual(['w2'])
-      expect(gs.frames.size).toBe(0)
-      expect(gs.abilityPipelines).toEqual([outer])
+      expect(gs.getFrames().size).toBe(0)
+      expect(gs.getPipelines()).toEqual([outer])
     })
 
     it('a cancelled window closes without an outcome: no default pick, no FrameResolved', () => {
@@ -217,25 +217,25 @@ describe('GameState', () => {
 
       gs.revertFrame('f1')
       expect(gs.getAbilitiesUsedThisTurn()).toEqual([])
-      expect(gs.frames.has('f1')).toBe(true)
+      expect(gs.getFrames().has('f1')).toBe(true)
       expect(gs.hasOpenFrames()).toBe(true)
 
       // the snapshot was not consumed by the first revert
       gs.markAbilityUsed('hero-y')
       gs.revertFrame('f1')
       expect(gs.getAbilitiesUsedThisTurn()).toEqual([])
-      expect(gs.frames.has('f1')).toBe(true)
+      expect(gs.getFrames().has('f1')).toBe(true)
     })
 
     it('frame is present after addFrame', () => {
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
-      expect(gs.frames.has('f1')).toBe(true)
+      expect(gs.getFrames().has('f1')).toBe(true)
     })
 
     it('frame is absent after releaseFrame', () => {
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
       gs.releaseFrame('f1')
-      expect(gs.frames.has('f1')).toBe(false)
+      expect(gs.getFrames().has('f1')).toBe(false)
     })
 
     it('restoreFrame reverts mutations made after the snapshot', () => {
@@ -249,7 +249,7 @@ describe('GameState', () => {
     it('frame is absent after restoreFrame', () => {
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
       gs.restoreFrame('f1')
-      expect(gs.frames.has('f1')).toBe(false)
+      expect(gs.getFrames().has('f1')).toBe(false)
     })
 
     it('hasOpenFrames returns false with no frames', () => {
@@ -321,7 +321,7 @@ describe('GameState', () => {
 
       it('leaves the SNAPSHOT alone — it predates the burn', () => {
         gs.spendCard('p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
+        const snap = gs.getFrames().get('f1')!.snapshot
         // The frame records what was spent instead of reaching back into a
         // past GameState to describe a decision the present just made.
         expect(snap.getPlayer('p1')!.getHand()).toContain('mod-1')

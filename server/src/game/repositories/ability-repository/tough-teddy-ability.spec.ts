@@ -63,6 +63,6 @@ describe('Tough Teddy (hero-006)', () => {
     expect(gs.getPlayer('p4')!.getHand()).toEqual([])
     expect(gs.getDiscardPile().getAll()).toEqual(['c', 'a'])
     expect(emitted.filter((e) => e.getType() === GameEventType.CardDiscarded).map((e) => e.getPlayerId())).toEqual(['p2', 'p4'])
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 })

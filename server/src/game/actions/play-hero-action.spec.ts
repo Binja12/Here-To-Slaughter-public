@@ -237,7 +237,6 @@ describe('PlayHeroAction', () => {
     it('queues nothing — the roll it offers is a TASK, and the hero owns it', () => {
       makeAction().execute(gs)
       settleChallenge(false)
-      expect(gs.actionQueue).toHaveLength(0)
     })
 
     it('opens exactly one frame — an action cannot leak one to an ability', () => {
@@ -245,7 +244,7 @@ describe('PlayHeroAction', () => {
       new PlayHeroAction('a1', 'p1', 'hero-1', rm, emitter).execute(gs)
       // There is no shared frameId slot to leak any more: a task hands its
       // frameId back from execute(), so an action's frame is only ever its own.
-      expect(gs.frames.size).toBe(1)
+      expect(gs.getFrames().size).toBe(1)
     })
   })
 

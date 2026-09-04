@@ -333,7 +333,7 @@ describe('monsters that react to a DRAW', () => {
         jest.advanceTimersByTime(1)
 
         expect(ctx.gs.hasOpenFrames()).toBe(false)
-        expect(ctx.gs.abilityPipelines).toHaveLength(0)
+        expect(ctx.gs.getPipelines()).toHaveLength(0)
       })
 
       it('behaves the same with no heroes in the party at all', () => {

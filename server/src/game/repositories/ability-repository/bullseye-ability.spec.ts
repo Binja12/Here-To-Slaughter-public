@@ -35,7 +35,7 @@ describe('Bullseye (hero-014)', () => {
     const [look, draw] = BullseyeAbility[0].steps
 
     look.execute(gs, ctx, em, rm)
-    const window = [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+    const window = [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
     expect(window.getType()).toBe(ReactionWindowType.CardChoice)
     expect(window.getOptions()).toEqual(['t1', 't2', 't3']) // the look
     expect(gs.getMainDeck().getSize()).toBe(4) // nothing moved

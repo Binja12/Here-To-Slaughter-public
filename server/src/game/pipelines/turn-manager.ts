@@ -27,6 +27,8 @@ import { GameEvent } from '../events/game-event'
 
 export class TurnManager implements IGameEventListener {
   private phase: TurnPhase = TurnPhase.Start
+  /** Actions taken but not yet run: a non-reactable one that arrived mid-resolution. */
+  private readonly actionQueue: IAction[] = []
   /**
    * The turn's clock. `remainingMs` is what the turn has left, `clock` runs
    * only while no reaction window is open — anyone's — and `runningSince`
@@ -48,10 +50,8 @@ export class TurnManager implements IGameEventListener {
     /** A turn's clock, ms. `TimeControl.turnTimeMs`; undefined = no clock. */
     private readonly turnTimeMs?: number,
   ) {
-    // Only for the window and frame events: the clock pauses on the first
-    // window opened and runs again once nothing is open. Nothing else is
-    // read here, so the listener order §8 requires of TaskManager and
-    // GameEngine is untouched.
+    // Only for the window and frame events, so the §8 listener order of
+    // TaskManager and GameEngine is untouched.
     this.emitter.addListener(this)
   }
 
@@ -60,14 +60,10 @@ export class TurnManager implements IGameEventListener {
       case GameEventType.ReactionWindowOpened:
         this.pauseClock()
         break
-      case GameEventType.ReactionWindowClosed:
       case GameEventType.FrameResolved:
-        // Runs again once nothing is open, asked at both moments because a
-        // roll or a challenge announces its close BEFORE it settles its frame
-        // (§3) — at its Closed the frame still stands, and an attack has
-        // nothing after it to close. What is left open after a close is the
-        // others in its frame and any frame beneath; after a settle, whatever
-        // the continuation opened.
+        // Not ReactionWindowClosed: a roll or a challenge announces its close
+        // before it settles its frame (§3), so this is the moment nothing is
+        // open. What TaskManager opened on the way is open already.
         if (!this.gs.hasOpenFrames()) this.resumeClock()
         break
     }
@@ -77,26 +73,14 @@ export class TurnManager implements IGameEventListener {
     return this.phase
   }
 
-  /**
-   * What the turn has left, ms — undefined on a table with no clock. Counts
-   * the part already spent off while the clock runs; `remainingMs` alone is
-   * only current at the moment it was last paused.
-   */
+  /** ms left; undefined without a clock. */
   getRemainingMs(): number | undefined {
     if (this.remainingMs === undefined) return undefined
     if (this.clock === undefined) return this.remainingMs
     return Math.max(0, this.remainingMs - (Date.now() - this.runningSince!))
   }
 
-  /**
-   * When the turn lapses, epoch ms — undefined while the clock is HELD under
-   * an open reaction window, and on a table with no clock at all.
-   *
-   * A fixed instant rather than a countdown: it is the same number for as long
-   * as the clock runs, so two snapshots of one turn agree. `getRemainingMs`
-   * is the moving half, and only the held clock needs it (a held clock has no
-   * deadline to name).
-   */
+  /** Epoch ms of the lapse; undefined while held or without a clock. Fixed while the clock runs, so snapshots of one turn agree. */
   getTurnDeadline(): number | undefined {
     if (this.clock === undefined || this.remainingMs === undefined) {
       return undefined
@@ -104,15 +88,9 @@ export class TurnManager implements IGameEventListener {
     return this.runningSince! + this.remainingMs
   }
 
-  /** A whole turn's budget, ms — what `getRemainingMs` is a fraction of. */
+  /** `TimeControl.turnTimeMs`. */
   getTurnTimeMs(): number | undefined {
     return this.turnTimeMs
-  }
-
-  /** Current AP for the active player — delegates to Player. */
-  getActionPoints(): number {
-    const playerId = this.gs.getCurrentPlayerId()
-    return playerId ? (this.gs.getPlayer(playerId)?.getActionPoints() ?? 0) : 0
   }
 
   /**
@@ -143,7 +121,7 @@ export class TurnManager implements IGameEventListener {
       return refused(RefusalReason.Busy)
     const check = action.canExecute(this.gs)
     if (!check.accepted) return check
-    this.gs.actionQueue.push(action)
+    this.actionQueue.push(action)
     this.drain()
     return accepted()
   }
@@ -245,18 +223,22 @@ export class TurnManager implements IGameEventListener {
     this.drain()
   }
 
+  getQueuedActions(): readonly IAction[] {
+    return this.actionQueue
+  }
+
   private drain(): void {
-    while (this.gs.actionQueue.length > 0) {
+    while (this.actionQueue.length > 0) {
       if (this.gs.isBusy()) return
 
-      const action = this.gs.actionQueue[0]
+      const action = this.actionQueue[0]
 
       if (!action.canExecute(this.gs).accepted) {
-        this.gs.actionQueue.shift()
+        this.actionQueue.shift()
         continue
       }
 
-      this.gs.actionQueue.shift()
+      this.actionQueue.shift()
       action.execute(this.gs)
 
       if (this.gs.isBusy()) return
@@ -264,8 +246,8 @@ export class TurnManager implements IGameEventListener {
 
     // Reached again on every FrameResolved via GameEngine.resumeDrain, which
     // is what ends a turn whose last act was an ability.
-    if (this.getActionPoints() <= 0 && !this.gs.isBusy()) {
-      this.endTurn()
-    }
+    const playerId = this.gs.getCurrentPlayerId()
+    const spent = playerId === undefined || this.gs.getActionPoints(playerId) <= 0
+    if (spent && !this.gs.isBusy()) this.endTurn()
   }
 }

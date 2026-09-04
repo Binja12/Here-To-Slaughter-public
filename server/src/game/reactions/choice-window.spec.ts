@@ -203,7 +203,7 @@ describe('ChoiceWindow', () => {
 
     jest.advanceTimersByTime(5000)
 
-    expect(gs.frames.has('f1')).toBe(false)
+    expect(gs.getFrames().has('f1')).toBe(false)
   })
 
   it('does not resolve before the timeout elapses', () => {
@@ -238,7 +238,7 @@ describe('ChoiceWindow', () => {
 
     win.submitReaction('p1', { choice: 'a' })
 
-    expect(gs.frames.has('frame-1')).toBe(false)
+    expect(gs.getFrames().has('frame-1')).toBe(false)
   })
 
   // -------------------------------------------------------------------------
@@ -416,12 +416,12 @@ describe('ChoiceWindow — a frame of several windows', () => {
     const { gs, events, w1, w2 } = twoUp()
     w2.submitReaction('p2', { choice: 'b' })
     expect(w2.isOpen()).toBe(false)
-    expect(gs.frames.has('f1')).toBe(true)
+    expect(gs.getFrames().has('f1')).toBe(true)
     expect(events.filter((e) => e.getType() === GameEventType.ReactionWindowClosed)).toHaveLength(1)
     expect(events.filter((e) => e.getType() === GameEventType.FrameResolved)).toHaveLength(0)
 
     w1.submitReaction('p1', { choice: 'a' })
-    expect(gs.frames.has('f1')).toBe(false)
+    expect(gs.getFrames().has('f1')).toBe(false)
     const resolved = events.filter((e) => e.getType() === GameEventType.FrameResolved)
     expect(resolved).toHaveLength(1)
     expect(payloadOf(resolved[0])).toMatchObject({
@@ -440,7 +440,7 @@ describe('ChoiceWindow — a frame of several windows', () => {
     // both lapsed on the same tick: a card choice picks for a silent player
     expect(w1.isOpen()).toBe(false)
     expect(w2.isOpen()).toBe(false)
-    expect(gs.frames.has('f1')).toBe(false)
+    expect(gs.getFrames().has('f1')).toBe(false)
   })
 
   it('a lone window still carries a single write, as before', () => {

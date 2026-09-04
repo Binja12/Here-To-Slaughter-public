@@ -70,19 +70,13 @@ export function playerView(game: Game, playerId: string): PlayerView {
 // Internals
 // ---------------------------------------------------------------------------
 
-/**
- * The turn's clock as the screens see it. Absent together with the table's
- * `turnTimeMs`: a game played without a clock has no numbers to draw.
- */
+/** Absent on a table without a clock. A deadline while running, the frozen remainder while held. */
 function turnClockView(game: Game): TurnClockView | undefined {
   const { turnManager } = game
   const turnTimeMs = turnManager.getTurnTimeMs()
   const remainingMs = turnManager.getRemainingMs()
   if (turnTimeMs === undefined || remainingMs === undefined) return undefined
 
-  // Running: the deadline stands still, so two snapshots of one turn agree
-  // and the screen counts the seconds between them itself. Held: there is no
-  // deadline to name and the frozen remainder is what a screen draws.
   const deadline = turnManager.getTurnDeadline()
   return deadline === undefined
     ? { turnTimeMs, heldMs: remainingMs }

@@ -235,7 +235,7 @@ describe('PlayItemAction', () => {
 
     it('equips inside the frame, so a lost challenge un-equips it', () => {
       makeAction().execute(gs)
-      const window = [...gs.frames.values()]
+      const window = [...gs.getFrames().values()]
         .flatMap((f) => f.windows)
         .find((w) => w.isOpen())!
 

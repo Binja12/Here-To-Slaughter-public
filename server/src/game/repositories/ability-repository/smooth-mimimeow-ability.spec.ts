@@ -57,6 +57,6 @@ describe('Smooth Mimimeow (hero-024)', () => {
     expect(gs.getPlayer('p2')!.getHand()).toEqual([])
     expect(gs.getPlayer('p3')!.getHand()).toEqual(['b']) // a Wizard only: left alone
     expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(1) // p4 had nothing to pull
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 })

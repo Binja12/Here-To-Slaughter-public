@@ -147,7 +147,7 @@ describe('MonsterChoiceWindow', () => {
       expect(() => win.submitReaction('p1', { choice: 'monster-1' })).toThrow()
 
       expect(win.isOpen()).toBe(true)
-      expect(gs.frames.has('frame-1')).toBe(true)
+      expect(gs.getFrames().has('frame-1')).toBe(true)
     })
 
     it('does NOT reset the clock — a refused pick cannot stall the turn', () => {
@@ -230,6 +230,6 @@ describe('MonsterChoiceWindow', () => {
     expect(
       emitted.some((e) => e.getType() === GameEventType.FrameResolved),
     ).toBe(true)
-    expect(gs.frames.has('frame-1')).toBe(false)
+    expect(gs.getFrames().has('frame-1')).toBe(false)
   })
 })

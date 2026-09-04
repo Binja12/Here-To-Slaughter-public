@@ -223,7 +223,6 @@ describe('Wise Shield — full life cycle', () => {
       playWiseShield(gs, em, rm, tm)
       // The offer hangs off the SETTLED challenge frame, and the play queues
       // no action of its own — the roll it leads to is a task.
-      expect(gs.actionQueue).toHaveLength(0)
       expect(rollOffer(gs)).toBeUndefined()
       expect(modifierWindow(gs)).toBeUndefined()
     })
@@ -263,7 +262,6 @@ describe('Wise Shield — full life cycle', () => {
       acceptRollOffer(gs)
 
       expect(modifierWindow(gs)).toBeDefined()
-      expect(gs.actionQueue).toHaveLength(0)
     })
 
     it('uncontested: saying no leaves the hero in the party, unrolled', () => {

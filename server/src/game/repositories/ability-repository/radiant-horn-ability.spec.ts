@@ -41,13 +41,13 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   for (const step of steps) {
     const frameId = step.execute(gs, ctx, em, rm) as string | void
     if (frameId) {
-      const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+      const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
       // the pick the player would make, written where the window would write it
       ctx.set(window.resultKey() as string, pick === undefined ? [] : [pick])
       window.resolve()
     }
   }
-  return { emitted, window: () => [...gs.frames.values()].flatMap((f) => f.windows)[0] }
+  return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
 // Radiant Horn (hero-027): "Search the discard pile for a Modifier card and add it to your hand."
@@ -70,7 +70,7 @@ describe('Radiant Horn (hero-027)', () => {
     const rm = new ReactionManager(gs, em)
     const [choose, retrieve] = RadiantHornAbility[0].steps
     choose.execute(gs, ctx, em, rm)
-    const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getType()).toBe(ReactionWindowType.CardChoice)
     expect(window.getRespondentId()).toBe('p1')
     expect(window.getOptions()).toEqual(['wanted'])

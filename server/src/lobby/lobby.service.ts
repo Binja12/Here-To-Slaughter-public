@@ -132,12 +132,7 @@ export class LobbyService {
     return snapshot
   }
 
-  /**
-   * The host sets the table. Shrinking the seat count closes seats from the
-   * BACK of the ready list and unseats only whoever sat in them; the seats
-   * that survive keep their players, so the host never loses the table under
-   * a change they made. Every other setting changes in place.
-   */
+  /** Host only. A smaller seat count closes seats from the back of the ready list and unseats whoever sat in them. */
   async updateSettings(
     account: AuthenticatedAccount,
     settings: GameSettings,
@@ -148,7 +143,6 @@ export class LobbyService {
     }
 
     await this.lobby.updateSettings(settings)
-    // Empty whenever the list already fits, which is every widening.
     await this.lobby.removeReadyPlayers(
       readyPlayers.slice(settings.playerCount).map((player) => player.accountId),
     )

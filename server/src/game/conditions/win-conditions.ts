@@ -35,9 +35,7 @@ export class AllClassesInParty {
   }
 
   isMetBy(gs: GameState, player: Player): boolean {
-    // The classes the BOARD reads: the leader's and each hero's, a mask
-    // included (GameState.getPartyClasses). The leader counts for the win —
-    // it does NOT count for a monster's class requirement (getHeroClasses).
+    // getPartyClasses, not getHeroClasses: the leader's class counts for the win.
     const uniqueClasses = new Set(
       gs.getPartyClasses(player.getId()).filter((cls) => this.reqHeroClasses.includes(cls)),
     )

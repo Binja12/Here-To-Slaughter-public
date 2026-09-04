@@ -87,7 +87,7 @@ function setup(entries: IAbilityRule[]) {
 }
 
 const openWindows = (gs: GameState): IReactionWindow[] =>
-  [...gs.frames.values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
 
 const inPile = (gs: GameState) =>
   gs.getParty('p1').getInstanceCardIds().includes('magic-1')
@@ -223,7 +223,7 @@ describe('instance rules — a played card puts itself away', () => {
     // its own ending would report the card done a second time — a duplicate in
     // the log for one play.
     expect(done).toHaveLength(1)
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 
   it('discards the card exactly once', () => {

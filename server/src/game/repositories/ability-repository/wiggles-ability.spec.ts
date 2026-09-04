@@ -86,7 +86,7 @@ type CtxResult = { result?: { key: string; value: unknown } }
 
 /** All currently open windows across every frame. */
 const openWindows = (gs: GameState): IReactionWindow[] =>
-  [...gs.frames.values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
 
 const fireTrigger = (em: GameEventEmitter) =>
   em.emit(GameEventFactory.rollSuccess('p1', 'wiggles'))
@@ -451,7 +451,7 @@ describe('WigglesAbility', () => {
 
     // The choice resolved with no pick, the steal skipped itself, and ConfirmTa...
     expect(openWindows(gs)).toHaveLength(0)
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 
   it('steals a random option when the card choice times out', () => {

@@ -9,6 +9,7 @@ import { CardStack } from './state-structures/card-stack'
 import { CardPile } from './state-structures/card-pile'
 import { IWinCondition } from './interfaces'
 import { GameEventFactory } from './events/game-event-factory'
+import { GameEvent } from './events/game-event'
 
 const makePlayer = (id: string, points = 3) =>
   new Player({
@@ -153,25 +154,24 @@ describe('GameEngine', () => {
       expect(gs.getWinnerId()).toBe('p1')
     })
 
-    /**
-     * Asked after TaskManager has continued the pipeline the frame held, so
-     * what stands open now is either a frame BENEATH it (an outcome still
-     * pending: the board is not settled) or a frame the continuation just
-     * OPENED (a question: it is). Only the first holds the win back.
-     */
     const stubWindow = (type: ReactionWindowType) =>
       ({ isOpen: () => true, getType: () => type, cancel: () => {} }) as never
 
+    /** p1 qualifies from the next change on, not at the start. */
     const qualified = () => {
       const gs = makeGs('p1', 'p2')
       const player = gs.getPlayer('p1')!
       const emitter = new GameEventEmitter()
       const tm = new TurnManager(gs, emitter)
-      const winCondition: IWinCondition = { isMetBy: (_, who) => who === player }
+      let qualifies = false
+      const winCondition: IWinCondition = {
+        isMetBy: (_, who) => qualifies && who === player,
+      }
       const engine = new GameEngine(gs, tm, emitter, [winCondition])
       const received: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => received.push(e) })
       engine.start(['p1', 'p2'])
+      qualifies = true
       return { gs, emitter, ended: () => received.some((e) => e.getType() === GameEventType.GameEnded) }
     }
 
@@ -185,6 +185,52 @@ describe('GameEngine', () => {
       emitter.emit(GameEventFactory.frameResolved('inner', []))
 
       expect(ended()).toBe(false)
+    })
+
+    it('holds the win back while a frame has no window yet — the hero is in the party, the challenge not yet asked', () => {
+      const { gs, emitter, ended } = qualified()
+      gs.addFrame('play', { snapshot: gs.clone(), windows: [] })
+
+      emitter.emit(new GameEvent(GameEventType.HeroAddedToParty, 'p1', {}))
+
+      expect(ended()).toBe(false)
+    })
+
+    it('lands on ANY event once the board changed — a hero stolen straight into the party ends it at once', () => {
+      const { emitter, ended } = qualified()
+
+      emitter.emit(new GameEvent(GameEventType.HeroAddedToParty, 'p1', {}))
+
+      expect(ended()).toBe(true)
+    })
+
+    it('asks once per change: a settled board is not asked again until something moves', () => {
+      const gs = makeGs('p1', 'p2')
+      const emitter = new GameEventEmitter()
+      const tm = new TurnManager(gs, emitter)
+      let asked = 0
+      const winCondition: IWinCondition = {
+        isMetBy: () => {
+          asked += 1
+          return false
+        },
+      }
+      const engine = new GameEngine(gs, tm, emitter, [winCondition])
+      // A turn under way, so the drain has points to spend and ends nothing.
+      engine.start(['p1', 'p2'])
+      asked = 0
+      emitter.emit(new GameEvent(GameEventType.HeroAddedToParty, 'p1', {}))
+      expect(asked).toBe(2) // once per seat
+
+      // Under a pending outcome the change waits, and is asked ONCE when it settles.
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(ReactionWindowType.Attack)] })
+      asked = 0
+      emitter.emit(new GameEvent(GameEventType.DiceRolled, 'p1', {}))
+      emitter.emit(new GameEvent(GameEventType.ModifierApplied, 'p1', {}))
+      expect(asked).toBe(0)
+      gs.releaseFrame('f1')
+      emitter.emit(GameEventFactory.frameResolved('f1', [8]))
+      expect(asked).toBe(2)
     })
 
     it('ends under an open QUESTION — the roll offered to the hero that landed the sixth class does not hold the win back', () => {

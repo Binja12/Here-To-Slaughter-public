@@ -267,10 +267,7 @@ export default function HeroRow({
     [heroes],
   );
 
-  // ONE card, whichever way the row lays it out. The two layouts below differ
-  // in geometry only; every flag reaches the card the same way in both, so a
-  // row that fans once it fills cannot lose an aura the spread row showed
-  // (the owner, 2026-09-04: the fifth hero's roll offer did not glow).
+  // One card, whichever layout: the two branches below differ in geometry only.
   const cardAt = (i: number, overlapped: boolean) => {
     const hero = heroes[i];
     return (
