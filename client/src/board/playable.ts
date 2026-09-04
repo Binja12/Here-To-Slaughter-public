@@ -8,6 +8,17 @@ export interface PlayableFlags {
   hand: boolean[]
   endTurn: boolean
   redraw: boolean
+  /**
+   * The oldest open table window — a roll or a challenge — this seat could
+   * still act on and has not yet passed: what the Skip button gives up
+   * (PassWindow), or null. Every seat has the button, the active player
+   * included, since a turn cannot end under an open window. A pass is per
+   * seat; the server settles the window once every seat that could act has
+   * passed, and a card landing in it clears the passes.
+   */
+  passable: string | null
+  /** A table window is open and this seat has passed every one it could act on. */
+  waitingOnPass: boolean
 }
 
 /**
@@ -82,12 +93,41 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
       window.type === 'Attack' ||
       (window.type === 'Challenge' && window.detail?.challenged === true),
   )
+  // ... and never by the defender: the window's respondent is whoever played
+  // the card (the server refuses CannotChallengeOwnCard).
   const challengeable = view.pendingWindows.some(
     (window) =>
       window.type === 'Challenge' &&
       !!window.cardId &&
+      window.respondentId !== view.playerId &&
       window.detail?.challenged !== true,
   )
+  // MIRROR of ReactionManager.eligiblePassers: everyone may act on a roll; on
+  // a challenge, everyone but the defender until it starts, then only the two
+  // contestants. Passing anything else would be accepted and mean nothing.
+  const me = view.playerId
+  const mayActOn = (window: PendingWindowView): boolean => {
+    if (window.type !== 'Challenge') return true
+    const detail = window.detail ?? {}
+    if (detail.challenged === true) return detail.challengerId === me || detail.defenderId === me
+    return window.respondentId !== me
+  }
+  const passedByMe = (window: PendingWindowView): boolean => {
+    const passed = window.detail?.passedBy
+    return Array.isArray(passed) && passed.includes(me)
+  }
+  const tableWindows =
+    view.phase === 'Turns'
+      ? view.pendingWindows.filter(
+          (window) =>
+            (window.type === 'Modifier' ||
+              window.type === 'Attack' ||
+              window.type === 'Challenge') &&
+            mayActOn(window),
+        )
+      : []
+  const passable = tableWindows.find((window) => !passedByMe(window))?.windowId ?? null
+  const waitingOnPass = passable === null && tableWindows.length > 0
 
   return {
     mainDeck: afford(AP_COST.draw) && view.hand.length < MAX_HAND_SIZE && view.mainDeck.count > 0,
@@ -104,5 +144,7 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     ),
     redraw: afford(AP_COST.redraw),
     endTurn: actionWindow,
+    passable,
+    waitingOnPass,
   }
 }

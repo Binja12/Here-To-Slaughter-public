@@ -14,13 +14,14 @@ import {
   refused,
   RollBonus,
   ValueBias,
+  IPassableWindow,
 } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
-export class ChallengeWindow implements IModifiableWindow {
+export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
   /**
    * The clock this window actually runs on. Zero when nothing may contest the
    * card — see GameState.canBeChallenged.
@@ -45,6 +46,8 @@ export class ChallengeWindow implements IModifiableWindow {
    */
   private challengerBonuses: RollBonus[] = []
   private challengedBonuses: RollBonus[] = []
+  /** Seats that gave the contest up; cleared whenever a card lands in it. */
+  private readonly passes = new Set<string>()
 
   constructor(
     private readonly id: string,
@@ -115,9 +118,20 @@ export class ChallengeWindow implements IModifiableWindow {
     return accepted()
   }
 
-  /** The contest waits for a card already committed to it. */
+  /** The contest waits for a card already committed to it, and everyone gets another look. */
   cardSpent(): void {
+    this.passes.clear()
     this.resetTimer()
+  }
+
+  // --- IPassableWindow ---
+
+  pass(playerId: string): void {
+    this.passes.add(playerId)
+  }
+
+  passedBy(): readonly string[] {
+    return [...this.passes]
   }
 
   /**
@@ -158,6 +172,7 @@ export class ChallengeWindow implements IModifiableWindow {
       // Same derivation the roll windows use. Two rolls here, so the only
       // difference is which list it lands in: whichever side was aimed at.
       side.push(...this.gs.counterBonusesFor(targetPlayerId, playerId))
+      this.passes.clear()
       this.emitter.emit(
         GameEventFactory.modifierAppliedToChallenge(
           playerId,
@@ -253,7 +268,7 @@ export class ChallengeWindow implements IModifiableWindow {
       // No CardDiscarded event; ChallengeResolved already reported the defeat.
       // Cards spent during the window need nothing here: restoreFrame put them
       // away already, from the list the frame kept.
-      this.gs.getDiscardPile().add(this.cardId)
+      this.gs.addToDiscardPile(this.cardId)
     }
 
     this.emitter.emit(
@@ -299,6 +314,8 @@ export class ChallengeWindow implements IModifiableWindow {
   private startChallenge(challengerId: string): void {
     this.challenged = true
     this.challengerId = challengerId
+    // A new contest, a new set of seats who may act on it.
+    this.passes.clear()
     this.challengerRoll = Math.floor(Math.random() * 11) + 1
     this.challengedRoll = Math.floor(Math.random() * 11) + 1
 
@@ -340,6 +357,7 @@ export class ChallengeWindow implements IModifiableWindow {
       challengedRoll: this.challengedRoll,
       challengerBonuses: [...this.challengerBonuses],
       challengedBonuses: [...this.challengedBonuses],
+      passedBy: [...this.passes],
     }
   }
 

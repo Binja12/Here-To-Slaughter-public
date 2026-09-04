@@ -24,6 +24,16 @@ export class HeroCard implements ICard {
   getDescription(): string {
     return this.data.description
   }
+  /**
+   * The class PRINTED on the card — the default. What the board reads may
+   * differ while the hero wears a class mask; ask `GameState.getHeroClass`
+   * for that. This is what the board falls back to when the mask comes off.
+   */
+  getDefaultClass(): HeroClass {
+    return this.data.heroClass
+  }
+
+  /** The printed class. Prefer getDefaultClass, or GameState.getHeroClass for the class in play. */
   getHeroClass(): HeroClass {
     return this.data.heroClass
   }

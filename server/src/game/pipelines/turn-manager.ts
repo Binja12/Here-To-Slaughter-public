@@ -95,7 +95,7 @@ export class TurnManager {
     const extra = this.gs
       .getEffects(PassiveType.ActionPointBonus, playerId)
       .reduce((sum, effect) => sum + (effect.value ?? 0), 0)
-    if (extra) player.increaseActionPoints(extra)
+    if (extra) this.gs.increaseActionPoints(playerId, extra)
 
     this.phase = TurnPhase.Action
     this.emitter.emit(

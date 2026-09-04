@@ -36,13 +36,13 @@ export abstract class PlayHero {
     const player = gs.getPlayer(playerId)
     if (!player) return
 
-    player.removeFromHand(cardId)
+    gs.removeFromHand(playerId, cardId)
     em.emit(GameEventFactory.cardRemovedFromHand(playerId, cardId))
 
     const frameId = rm.openFrame()
 
     // Inside the frame, so a lost challenge takes it back out again.
-    gs.getParty(playerId).addHero(cardId, em, 'Played')
+    gs.addHero(playerId, cardId, em, 'Played')
 
     // Last: this window suspends the drain.
     rm.openWindow(frameId, ReactionWindowType.Challenge, playerId, { cardId })

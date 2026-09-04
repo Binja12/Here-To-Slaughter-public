@@ -104,6 +104,14 @@ describe('RollOnLeaderAction', () => {
       })
     })
 
+    it('refuses a leader whose printed ability is a passive — nothing to fire', () => {
+      const { gs, em } = setup('leader-120') // the Cloaked Sage: draws on Magic plays
+      expect(action(em, 'p1', 'leader-120').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.LeaderNotActivatable,
+      })
+    })
+
     it('refuses without the action point', () => {
       const { gs, em } = setup(CLAW, 0)
       expect(action(em).canExecute(gs)).toEqual({
@@ -145,12 +153,13 @@ describe('RollOnLeaderAction', () => {
       expect(gs.getAbilitiesUsedThisTurn()).toContain(CLAW)
     })
 
-    it('announces RollSuccess naming the LEADER, which is what fires its entry', () => {
+    it('announces LeaderActivated naming the LEADER — its own event, never a RollSuccess', () => {
       const { gs, em, events } = setup()
       action(em).execute(gs)
 
+      expect(events.map((e) => e.getType())).not.toContain(GameEventType.RollSuccess)
       const success = events.filter(
-        (e) => e.getType() === GameEventType.RollSuccess,
+        (e) => e.getType() === GameEventType.LeaderActivated,
       )
       expect(success).toHaveLength(1)
       expect(success[0].getPlayerId()).toBe('p1')

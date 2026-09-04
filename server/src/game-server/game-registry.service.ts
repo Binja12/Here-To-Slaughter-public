@@ -13,6 +13,7 @@ import { createGame, startGame } from '../game/setup/create-game'
 import type { Game } from '../game/setup/create-game'
 import { playerView } from '../game/views/player-view'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
+import { gameServerConfig } from './game-server.config'
 
 /**
  * Every config id the wire may name, and the config it stands for. Keyed by
@@ -20,7 +21,18 @@ import { SnapshotPublisherService } from './snapshot-publisher.service'
  * a config here.
  */
 const GAME_CONFIGS: Record<GameConfigId, GameConfig> = {
-  default: defaultGameConfig,
+  default: withProcessTimeControl(defaultGameConfig),
+}
+
+/** The config as this process plays it: `REACTION_COUNTDOWN_MS` wins when set. */
+function withProcessTimeControl(config: GameConfig): GameConfig {
+  const countdown = gameServerConfig.reactionCountdownMs
+  return countdown === undefined
+    ? config
+    : {
+        ...config,
+        timeControl: { ...config.timeControl, reactionCountdownMs: countdown },
+      }
 }
 
 /**

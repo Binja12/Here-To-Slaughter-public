@@ -125,12 +125,30 @@ export enum GameEventType {
    * the item installed expire on this; see `whileEquipped`.
    */
   ItemUnequipped = "ItemUnequipped",
+  /**
+   * A card came back from the table into a hand — out of the discard pile or
+   * off a hero's gear (`from`). RetrieveCardTask. A card taken out of another
+   * HAND is announced as CardPulled instead.
+   */
+  CardRetrieved = "CardRetrieved",
+  /** Two whole hands swapped (Dodgy Dealer). One event, not a pull per card: nothing was taken. */
+  HandsTraded = "HandsTraded",
+  /** Cards shown to a seat (or the table) without moving — RevealTask. */
+  CardsRevealed = "CardsRevealed",
+  /** The reveal clock ran out; the cards are off the view again. */
+  RevealEnded = "RevealEnded",
 
   // Game events
   GameStarted = "GameStarted",
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
   RollSuccess = "RollSuccess",
+  /**
+   * A leader's printed ability was activated (RollOnLeaderAction). Its own
+   * event, so a rule on "each time you successfully roll" (Arctic Aries)
+   * does not fire on the Shadow Claw. `cardId` is the leader.
+   */
+  LeaderActivated = "LeaderActivated",
   /**
    * A roll to use a hero's effect came up short. `{ cardId }` names the hero.
    * Emitted AFTER the rollback, so what it fires runs on live state — the same
@@ -237,6 +255,8 @@ export enum Zone {
   EquippedItem = "EquippedItem",
   /** The face-up monster row. Shared, like Discard — it belongs to nobody. */
   MonsterPile = "MonsterPile",
+  /** The main deck's top cards, face down where they are — a look at the top N. Shared, like the piles. */
+  MainDeckTop = "MainDeckTop",
 }
 
 /** Whose cards, resolved against the ability owner and the ability context. */
@@ -279,6 +299,13 @@ export enum TriggerScope {
   Attacker = "Attacker",
   /** Anyone's event — a table-wide passive. */
   Anyone = "Anyone",
+  /**
+   * ANOTHER player's event aimed at one of my owner's cards
+   * (payload.targetedCardId is ours, event.playerId is not). "Each time
+   * another player CHALLENGES you." The matched run gets that player as its
+   * chosen seat, so "that player must DISCARD" reads them.
+   */
+  TargetsOwner = "TargetsOwner",
 }
 
 /**
@@ -301,6 +328,12 @@ export enum PassiveType {
    */
   ModifierCounterBonus = "ModifierCounterBonus",
   CantBeStolen = "CantBeStolen",
+  /** The owner's heroes stay put when a card would DESTROY them. Mighty Blade, Terratuga. */
+  CantBeDestroyed = "CantBeDestroyed",
+  /** A hero the owner would DESTROY is stolen into their party instead. Corrupted Sabretooth. */
+  StealsInsteadOfDestroy = "StealsInsteadOfDestroy",
+  /** The carrier's item goes to the discard pile in the hero's place, on destroy or sacrifice. Decoy Doll. */
+  TakesTheHit = "TakesTheHit",
   CantBeChallenged = "CantBeChallenged",
   /** The equipped hero's effect cannot be rolled for at all. Sealing Key. */
   CantUseHeroEffect = "CantUseHeroEffect",
@@ -355,6 +388,8 @@ export enum RefusalReason {
   // RollOnHero, RollOnLeader
   HeroNotInParty = "HeroNotInParty",
   NotYourLeader = "NotYourLeader",
+  /** The leader in the slot carries a passive; there is nothing to activate. */
+  LeaderNotActivatable = "LeaderNotActivatable",
   AbilityAlreadyUsed = "AbilityAlreadyUsed",
   HeroEffectSealed = "HeroEffectSealed",
   // PlayItem — the halves of `canEquip`
@@ -370,6 +405,8 @@ export enum RefusalReason {
   NoChallengeWindow = "NoChallengeWindow",
   ChallengeAlreadyStarted = "ChallengeAlreadyStarted",
   ChallengeNotStarted = "ChallengeNotStarted",
+  /** The defender reaching for a challenge card against their own play. */
+  CannotChallengeOwnCard = "CannotChallengeOwnCard",
   // ApplyModifier — no window, or the open window's own answer
   NoModifiableWindow = "NoModifiableWindow",
   /** Aimed at somebody who is not the one rolling. */
@@ -382,6 +419,8 @@ export enum RefusalReason {
   ValueNotOnCard = "ValueNotOnCard",
   // SubmitChoice — the windows
   NoSuchWindow = "NoSuchWindow",
+  /** PassWindow on a choice: one player's question is answered, never passed. */
+  WindowNotPassable = "WindowNotPassable",
   WrongRespondent = "WrongRespondent",
   NotAnOption = "NotAnOption",
   // LeaveGame — the game server's own guard, not an engine one: a seat may

@@ -5,16 +5,46 @@ import {
   AbilityContext,
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_PLAYER,
+  CTX_DESTROYED_HERO_ITEM,
   CTX_STOLEN_FROM_PLAYER,
   CTX_STOLEN_HERO_ID,
+  CTX_WOULD_DESTROY,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
+import { Executor, executorOf, forEachAskedSeat } from './tasks'
+import { ChooseActionTask } from './choose-tasks'
+
+/** Corrupted Sabretooth's two answers — its entries match them with `when`. */
+export const STEAL_INSTEAD = 'Steal it instead'
+export const DESTROY_ANYWAY = 'Destroy it'
 
 // ---------------------------------------------------------------------------
 // Hero tasks — steps that move a hero already on the table. The mechanics both
 // pipelines share are in `play-hero-task.ts` and `roll-on-hero-task.ts`.
 // ---------------------------------------------------------------------------
 
+/**
+ * Decoy Doll (item-066): "if the equipped Hero card would be sacrificed or
+ * destroyed, move Decoy Doll to the discard pile instead." The doll's
+ * TakesTheHit effect names its carrier; when the carrier is the hero about
+ * to go, the doll comes off (ItemUnequipped — which also ends the effect) and
+ * lands on the pile, and the hero stays. True when it took the hit.
+ */
+export function decoyTakesTheHit(
+  gs: GameState,
+  ownerId: string,
+  heroId: string,
+  em: IGameEventEmitter,
+): boolean {
+  const decoy = gs
+    .getEffects(PassiveType.TakesTheHit, ownerId, heroId)
+    .find((effect) => gs.getEquippedItem(heroId) === effect.sourceCardId)
+  if (!decoy) return false
+  gs.unequipItem(heroId)
+  em.emit(GameEventFactory.itemUnequipped(ownerId, decoy.sourceCardId, heroId))
+  gs.addToDiscardPile(decoy.sourceCardId)
+  return true
+}
 // ---------------------------------------------------------------------------
 // DestroyTask — remove a hero from ANY party to the discard pile
 //
@@ -29,15 +59,27 @@ import { GameEventFactory } from '../events/game-event-factory'
 // ---------------------------------------------------------------------------
 
 export class DestroyTask implements ITask {
-  /** Slot holding the hero to destroy. Defaults to the choice slot. */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+  private readonly fromKey: string
+  private readonly replaceable: boolean
+
+  /**
+   * `fromKey`: the slot holding the hero to destroy, the choice slot by
+   * default. `replaceable: false` skips the Sabretooth question — the
+   * "destroy anyway" continuation of that very question, which would
+   * otherwise ask again.
+   */
+  constructor(options: string | { fromKey?: string; replaceable?: boolean } = {}) {
+    const opts = typeof options === 'string' ? { fromKey: options } : options
+    this.fromKey = opts.fromKey ?? CTX_CHOSEN_CARD
+    this.replaceable = opts.replaceable ?? true
+  }
 
   execute(
     gs: GameState,
     ctx: AbilityContext,
     em: IGameEventEmitter,
-    _rm: IReactionManager,
-  ): void {
+    rm: IReactionManager,
+  ): string | void {
     const heroes = ctx.get<string[]>(this.fromKey)
 
     // Absent = no step ahead was declared to supply a hero.
@@ -48,6 +90,10 @@ export class DestroyTask implements ITask {
       )
     }
 
+    // Written on every run: Shurikitty retrieves whatever is named here, and
+    // a destroy that never happened (or a bare hero) names nothing.
+    ctx.set(CTX_DESTROYED_HERO_ITEM, [])
+
     // Empty = the player was asked and picked nothing.
     const [heroId] = heroes
     if (!heroId) return
@@ -55,14 +101,63 @@ export class DestroyTask implements ITask {
     const ownerId = gs.getCardOwner(heroId)
     if (!ownerId) return
 
-    const party = gs.getParty(ownerId)
-    if (!party.getHeroIds().includes(heroId)) return
+    if (!gs.getParty(ownerId).getHeroIds().includes(heroId)) return
+    // Mighty Blade / Terratuga: the hero stays, silently — the pick was legal
+    // and simply had no bite. Sacrifice is another reason and is not shielded.
+    if (!gs.canBeDestroyed(heroId)) return
+    // Decoy Doll: the doll takes the hit, the hero stays.
+    if (decoyTakesTheHit(gs, ownerId, heroId, em)) return
+    // Corrupted Sabretooth: "you MAY steal it instead" — the destroyer's
+    // call, so the destroy hands over to a choice of action asked as the
+    // Sabretooth's own question: its entries continue with the steal or with
+    // the destroy (replaceable: false, or it would ask again). Their own hero
+    // is destroyed as printed; there is nothing to steal from yourself.
+    const [sabretooth] = gs.getEffects(PassiveType.StealsInsteadOfDestroy, ctx.ownerId)
+    if (this.replaceable && sabretooth && ownerId !== ctx.ownerId) {
+      ctx.set(CTX_WOULD_DESTROY, [heroId])
+      return new ChooseActionTask({
+        actions: [STEAL_INSTEAD, DESTROY_ANYWAY],
+        question: 'Steal it instead of destroying it?',
+        subjectKey: CTX_WOULD_DESTROY,
+        asCard: sabretooth.sourceCardId,
+      }).execute(gs, ctx, em, rm)
+    }
 
-    const carriedItemId = party.removeHero(heroId, em, 'Destroyed')
-    gs.getDiscardPile().add(heroId)
-    // The gear goes down with its carrier rather than vanishing from every zone.
-    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
+    const carriedItemId = gs.removeHero(ownerId, heroId, em, 'Destroyed')
+    gs.addToDiscardPile(heroId)
+    // The gear goes down with its carrier rather than vanishing from every
+    // zone — silently: it was not discarded by anyone, it fell.
+    if (carriedItemId) {
+      gs.addToDiscardPile(carriedItemId)
+      ctx.set(CTX_DESTROYED_HERO_ITEM, [carriedItemId])
+    }
     em.emit(GameEventFactory.heroDestroyed(ownerId, heroId))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SacrificeEachTask — every asked seat sacrifices its own pick
+//
+// The step behind a ChooseCardEachTask over parties (Spooky): each seat's
+// pick, out of that seat's party, with everything a sacrifice honours
+// (Decoy Doll takes the hit). A seat that picked nothing gives up nothing.
+// ---------------------------------------------------------------------------
+
+export class SacrificeEachTask implements ITask {
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    em: IGameEventEmitter,
+    _rm: IReactionManager,
+  ): void {
+    forEachAskedSeat(ctx, (seatId, heroId) => {
+      if (!gs.getParty(seatId).getHeroIds().includes(heroId)) return
+      if (decoyTakesTheHit(gs, seatId, heroId, em)) return
+      const carriedItemId = gs.removeHero(seatId, heroId, em, 'Sacrificed')
+      gs.addToDiscardPile(heroId)
+      if (carriedItemId) gs.addToDiscardPile(carriedItemId)
+      em.emit(GameEventFactory.heroSacrificed(seatId, heroId))
+    })
   }
 }
 
@@ -106,11 +201,10 @@ export class GiveHeroTask implements ITask {
     if (toPlayerId === ctx.ownerId) return
     if (!gs.getPlayer(toPlayerId)) return
 
-    const fromParty = gs.getParty(ctx.ownerId)
-    if (!fromParty.getHeroIds().includes(heroId)) return
+    if (!gs.getParty(ctx.ownerId).getHeroIds().includes(heroId)) return
 
-    const carriedItemId = fromParty.removeHero(heroId, em, 'Given')
-    gs.getParty(toPlayerId).addHero(heroId, em, 'Given', carriedItemId)
+    const carriedItemId = gs.removeHero(ctx.ownerId, heroId, em, 'Given')
+    gs.addHero(toPlayerId, heroId, em, 'Given', carriedItemId)
   }
 
   /** Absent = no step ahead was declared to fill this slot. */
@@ -139,8 +233,20 @@ export class GiveHeroTask implements ITask {
 // ---------------------------------------------------------------------------
 
 export class SacrificeTask implements ITask {
-  /** Slot holding the hero to give up. Defaults to the choice slot. */
-  constructor(private readonly fromKey: string = CTX_CHOSEN_CARD) {}
+  private readonly fromKey: string
+  private readonly executor: Executor
+
+  /**
+   * `fromKey`: the slot holding the hero to give up, the choice slot by
+   * default. `executor`: who runs this step, and so whose party — the owner, or `'chosen'` for
+   * "that player must SACRIFICE", the seat a ChoosePlayerTask or a per-seat
+   * run put in CTX_CHOSEN_PLAYER (the mirror of a choice's `respondent`).
+   */
+  constructor(options: string | { fromKey?: string; executor?: Executor } = {}) {
+    const opts = typeof options === 'string' ? { fromKey: options } : options
+    this.fromKey = opts.fromKey ?? CTX_CHOSEN_CARD
+    this.executor = opts.executor ?? 'owner'
+  }
 
   execute(
     gs: GameState,
@@ -162,14 +268,17 @@ export class SacrificeTask implements ITask {
     const [heroId] = heroes
     if (!heroId) return
 
-    const party = gs.getParty(ctx.ownerId)
-    if (!party.getHeroIds().includes(heroId)) return
+    const executorId = executorOf(ctx, this.executor)
+    if (!executorId) return
+    if (!gs.getParty(executorId).getHeroIds().includes(heroId)) return
+    // Decoy Doll: the doll takes the hit, the hero stays — on a sacrifice too.
+    if (decoyTakesTheHit(gs, executorId, heroId, em)) return
 
-    const carriedItemId = party.removeHero(heroId, em, 'Sacrificed')
-    gs.getDiscardPile().add(heroId)
+    const carriedItemId = gs.removeHero(executorId, heroId, em, 'Sacrificed')
+    gs.addToDiscardPile(heroId)
     // The gear goes down with its carrier rather than vanishing from every zone.
-    if (carriedItemId) gs.getDiscardPile().add(carriedItemId)
-    em.emit(GameEventFactory.heroSacrificed(ctx.ownerId, heroId))
+    if (carriedItemId) gs.addToDiscardPile(carriedItemId)
+    em.emit(GameEventFactory.heroSacrificed(executorId, heroId))
   }
 }
 
@@ -214,13 +323,12 @@ export class StealFromPartyTask implements ITask {
     // the protection may have been installed in between.
     if (gs.hasEffect(PassiveType.CantBeStolen, fromPlayerId)) return
 
-    const fromParty = gs.getParty(fromPlayerId)
-    if (!fromParty.getHeroIds().includes(heroId)) return
+    if (!gs.getParty(fromPlayerId).getHeroIds().includes(heroId)) return
 
     // Both halves announce themselves, so expiries keyed to either see it.
     // The hero brings its gear along.
-    const carriedItemId = fromParty.removeHero(heroId, em, 'Stolen')
-    gs.getParty(ctx.ownerId).addHero(heroId, em, 'Stolen', carriedItemId)
+    const carriedItemId = gs.removeHero(fromPlayerId, heroId, em, 'Stolen')
+    gs.addHero(ctx.ownerId, heroId, em, 'Stolen', carriedItemId)
     // Recorded so later steps can still reach this hero after a second card
     // choice has overwritten CTX_CHOSEN_CARD.
     ctx.set(CTX_STOLEN_HERO_ID, [heroId])

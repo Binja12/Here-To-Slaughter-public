@@ -12,6 +12,7 @@ import { HeroCard } from '../cards/hero-card'
 import { MonsterCard } from '../cards/monster-card'
 import { PartyLeaderCard } from '../cards/party-leader-card'
 import { GameState } from '../pipelines/game-state'
+import { dealable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // createGame — the deal, and the wiring order that nothing else checks.
@@ -69,12 +70,20 @@ describe('createGame', () => {
   // --- The table ----------------------------------------------------------
 
   describe('the deal', () => {
-    it('registers every printed card as an object the engine can look up', () => {
+    it('registers every dealable printed card as an object the engine can look up', () => {
       const game = createGame(SEATS)
 
-      for (const data of baseGameCards) {
+      for (const data of baseGameCards.filter(dealable)) {
         expect(game.gameState.getCard(data.id)).toBeDefined()
       }
+    })
+
+    it('deals the whole printed set now that the registry implements every card', () => {
+      const game = createGame(SEATS)
+
+      expect(baseGameCards.filter(dealable)).toHaveLength(baseGameCards.length)
+      expect(game.gameState.getCard('hero-022')).toBeDefined() // Slippery Paws, the last one in
+      expect(game.gameState.getCard('hero-028')).toBeDefined() // Wise Shield
     })
 
     it('builds the right CLASS for each card type', () => {
@@ -115,7 +124,7 @@ describe('createGame', () => {
 
     it('leaves the rest of the monsters face down behind the row', () => {
       const game = createGame(SEATS)
-      const monsters = baseGameCards.filter(
+      const monsters = baseGameCards.filter(dealable).filter(
         (c) => c.type === CardType.Monster,
       ).length
 
@@ -178,7 +187,7 @@ describe('createGame', () => {
       const leaders = baseGameCards.filter(
         (c) => c.type === CardType.Leader,
       ).length
-      expect(total).toBe(baseGameCards.length - (leaders - SEATS.length))
+      expect(total).toBe(baseGameCards.filter(dealable).length - (leaders - SEATS.length))
     })
 
     it('leaves the undealt leaders in no zone at all', () => {

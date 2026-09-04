@@ -58,7 +58,9 @@ export function HeroCardWidget({
   playable = false,
   asked = false,
   enemy = false,
-  itemAsked = false,
+  passive = false,
+  itemPassive = false,
+  itemEnemy = false,
   targetKey,
   itemTargetKey,
   onActivate,
@@ -88,8 +90,13 @@ export function HeroCardWidget({
   asked?: boolean;
   /** true → an opponent is acting with this hero right now: red aura */
   enemy?: boolean;
-  /** true → the equipped item's standing effect feeds the open roll: gold */
-  itemAsked?: boolean;
+  /** true → this hero's standing effect is live right now: pink aura (the
+   *  quietest tone — red, gold and green all say something more urgent) */
+  passive?: boolean;
+  /** true → the equipped item's effect is working right now: pink */
+  itemPassive?: boolean;
+  /** true → an opponent is playing this item right now (its challenge is open): red */
+  itemEnemy?: boolean;
   /** this hero's identity for targeting mode — the container (hero + tucked
    *  item) dims/glows as one unit */
   targetKey?: TargetKey;
@@ -151,7 +158,7 @@ export function HeroCardWidget({
           ref={itemRef}
           className={`absolute inset-0 rounded-[0.5cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out ${
             itemIsTarget || heroZoomed ? "pointer-events-auto" : "pointer-events-none"
-          }${itemAsked ? " ask-aura" : itemPlayable ? " card-aura" : ""} ${itemTarget.className}`}
+          }${itemEnemy ? " enemy-aura" : itemPlayable ? " card-aura" : itemPassive ? " passive-aura" : ""} ${itemTarget.className}`}
           style={{
             zIndex: heroZoomed ? 40 : undefined,
             transformOrigin: origin,
@@ -189,7 +196,7 @@ export function HeroCardWidget({
           alt={card.name}
           draggable={false}
           className={`absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill${
-            enemy ? " enemy-aura" : asked ? " ask-aura" : playable ? " card-aura" : ""
+            enemy ? " enemy-aura" : asked ? " ask-aura" : playable ? " card-aura" : passive ? " passive-aura" : ""
           }`}
         />
       </div>
@@ -203,8 +210,10 @@ export default function HeroRow({
   playable,
   asked,
   enemy,
+  passive,
   itemPlayable,
-  itemAsked,
+  itemPassive,
+  itemEnemy,
   targetKeyFor,
   itemTargetKeyFor,
   onActivateFor,
@@ -214,7 +223,12 @@ export default function HeroRow({
   /** per-hero "an opponent acts with this one" (red) and "its item feeds
    *  the open roll" (gold) flags */
   enemy?: boolean[];
-  itemAsked?: boolean[];
+  /** per-hero "its standing effect is live" flags (pink), every seat */
+  passive?: boolean[];
+  /** per-hero "its item's effect is working" flags (pink) */
+  itemPassive?: boolean[];
+  /** per-hero "an opponent is playing its item right now" flags (red) */
+  itemEnemy?: boolean[];
   /** per-hero playable flags, index-aligned with `heroes` (local seat only —
    *  omit for opponents, nothing glows) */
   playable?: boolean[];
@@ -274,7 +288,9 @@ export default function HeroRow({
               playable={playable?.[i]}
               asked={asked?.[i]}
               enemy={enemy?.[i]}
-              itemAsked={itemAsked?.[i]}
+              passive={passive?.[i]}
+              itemPassive={itemPassive?.[i]}
+              itemEnemy={itemEnemy?.[i]}
               targetKey={targetKeyFor?.(i)}
               itemTargetKey={itemTargetKeyFor?.(i)}
               onActivate={

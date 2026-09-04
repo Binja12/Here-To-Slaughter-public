@@ -7,6 +7,8 @@ import {
   IReactionManager,
   IReactionWindow,
   refused,
+  isPassable,
+  IPassableWindow,
 } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from '../reactions/modifier-window'
@@ -158,6 +160,7 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        config['resultKey'] as string | undefined,
       )
     }
 
@@ -231,5 +234,44 @@ export class ReactionManager implements IReactionManager {
       ?.frame.windows.find((w) => w.getId() === windowId)
     if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
     return window.submitReaction(playerId, { choice })
+  }
+
+  /**
+   * A player giving a table window up — the Skip button. A pass is PER SEAT:
+   * the window settles once every seat that could still act on it has
+   * passed, through the same `resolve()` the clock calls, so nothing
+   * downstream can tell a pass from a lapse. Only the table's windows can be
+   * passed (a roll or a challenge); a choice is one player's question,
+   * answered or dismissed through `submitChoice`, so a pass on one is
+   * `WindowNotPassable`. A card landing in the window clears its passes.
+   */
+  pass(windowId: string, playerId: string): RequestResult {
+    const window = this.gs
+      .getFrameByWindowId(windowId)
+      ?.frame.windows.find((w) => w.getId() === windowId)
+    if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
+    if (!isPassable(window)) return refused(RefusalReason.WindowNotPassable)
+    window.pass(playerId)
+    const passed = new Set(window.passedBy())
+    if (this.eligiblePassers(window).every((id) => passed.has(id))) {
+      window.resolve()
+    }
+    return accepted()
+  }
+
+  /**
+   * Who could still act on the window: every seat on a roll (anyone may spend
+   * a modifier on it); on a challenge, everyone but the defender until it
+   * starts (only others may challenge), then the two contestants alone (only
+   * they may modify). Derived from the window's own detail, never stored.
+   */
+  private eligiblePassers(window: IPassableWindow): string[] {
+    const seats = this.gs.getPlayers().map((player) => player.getId())
+    if (window.getType() !== ReactionWindowType.Challenge) return seats
+    const detail = window.getDetail()
+    if (detail['challenged'] === true) {
+      return [detail['challengerId'] as string, detail['defenderId'] as string]
+    }
+    return seats.filter((id) => id !== window.getRespondentId())
   }
 }

@@ -131,6 +131,8 @@ const makeInitialView = (): PlayerView => {
     hand: threeSeatOpening.hand,
     discardPile: [...discardSeed, ...discardStubs],
     attackableMonsterIds: [threeSeatOpening.monsterRow[1].id],
+    revealedCards: [],
+
     pendingWindows: [],
     busy: false,
     phase: 'Turns',
@@ -268,6 +270,10 @@ export class FakeGamePort implements GamePort {
         // a started challenge stays open long enough to land modifiers on
         // either roll (the real server gives 5 s; the fake is for looking)
         this.after(12_000, () => this.advanceChallenge())
+        break
+      case 'PassWindow':
+        // the temporary forfeit: the window settles at once, as a lapse would
+        this.closeWindow(command.payload.windowId)
         break
       case 'SubmitChoice': {
         const answered = this.view.pendingWindows.find(
@@ -525,6 +531,8 @@ export class FakeGamePort implements GamePort {
       winnerId: this.view.playerId,
       currentPlayerId: undefined,
       busy: false,
+      revealedCards: [],
+
       pendingWindows: [],
       seats: this.view.seats.map((seat) => ({
         ...seat,
@@ -538,6 +546,8 @@ export class FakeGamePort implements GamePort {
   private upsertWindow(window: PendingWindowView) {
     this.view = {
       ...this.view,
+      revealedCards: [],
+
       pendingWindows: [
         ...this.view.pendingWindows.filter(
           (candidate) => candidate.windowId !== window.windowId,

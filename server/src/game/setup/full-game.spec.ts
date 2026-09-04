@@ -1,4 +1,4 @@
-import { GameEventType, PlayerView, ReactionWindowType } from 'shared'
+import { GameEventType, PlayerView, ReactionWindowType, RefusalReason } from 'shared'
 import { CONFIRM } from '../reactions/task-choice-window'
 import { PlayChallengeReaction } from '../reactions/play-challenge-reaction'
 import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
@@ -100,7 +100,7 @@ describe('a full game', () => {
       handSize: 5,
       winAt: 1,
       slack: 10,
-      monsters: ['monster-128'], // Arctic Aries: one hero of any class, 10 to slay, 6 and under fights back
+      monsters: ['monster-130'], // Terratuga: one hero of any class, 11 to slay, 7 and under fights back
       deck: [
         // Alice
         'hero-044', // Napping Nibbles — played, challenged, defeated
@@ -178,16 +178,16 @@ describe('a full game', () => {
     // ----- Turn 1: Bob -----------------------------------------------------
     playHero(t, BOB, 'hero-001')
     await settle(t) // nobody challenges; the roll offer lapses
-    expect(see(t, BOB).attackableMonsterIds).toContain('monster-128')
+    expect(see(t, BOB).attackableMonsterIds).toContain('monster-130')
 
-    // A 2 is inside Arctic Aries' fight-back band.
+    // A 2 is inside Terratuga's fight-back band.
     fixDice(LOWEST)
-    attack(t, BOB, 'monster-128')
+    attack(t, BOB, 'monster-130')
     await settle(t)
 
     expect(ofType(t, GameEventType.MonsterFoughtBack)).toHaveLength(1)
     expect(ofType(t, GameEventType.MonsterSlain)).toEqual([])
-    expect(board(t).monsterRow.map((m) => m.id)).toContain('monster-128')
+    expect(board(t).monsterRow.map((m) => m.id)).toContain('monster-130')
     // Play (1) plus attack (2) is the whole budget.
     expect(active(t)).toBe(CAROL)
     between(t)
@@ -212,6 +212,20 @@ describe('a full game', () => {
     rollOnHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Modifier)
     react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE, 3))
+    const whiskersSteal = await windowFor(
+      t,
+      ALICE,
+      ReactionWindowType.CardChoice,
+    )
+    expect(whiskersSteal.options).toContain('hero-001')
+    answer(t, whiskersSteal, 'hero-001')
+    const whiskersDestroy = await windowFor(
+      t,
+      ALICE,
+      ReactionWindowType.CardChoice,
+    )
+    expect(whiskersDestroy.options).toContain('hero-001')
+    answer(t, whiskersDestroy, 'hero-001')
     await settle(t)
 
     const applied = payloads(t, GameEventType.ModifierApplied)
@@ -219,6 +233,7 @@ describe('a full game', () => {
     expect(applied[0]['finalRoll']).toBe(11)
     expect(payloads(t, GameEventType.RollSuccess).map((p) => p['cardId'])).toContain('hero-037')
     expect(inDiscard(see(t, ALICE), 'modifier-086')).toBe(true)
+    expect(inDiscard(see(t, ALICE), 'hero-001')).toBe(true)
 
     // Critical Boost: draw three, pause on which to discard.
     playMagic(t, ALICE, 'magic-053')
@@ -242,13 +257,18 @@ describe('a full game', () => {
     between(t)
 
     // ----- Turn 2: Bob -----------------------------------------------------
+    // Bob's leader is the Cloaked Sage, a passive: nothing to activate. The
+    // view never offers it and the engine refuses it, and the point stays.
     const leaderId = partyOf(see(t, BOB), BOB).leader.id
-    rollOnLeader(t, BOB, leaderId)
+    expect(partyOf(see(t, BOB), BOB).canRollOnLeader).toBe(false)
+    expect(rollOnLeader(t, BOB, leaderId)).toEqual({
+      accepted: false,
+      reason: RefusalReason.LeaderNotActivatable,
+    })
     await settle(t)
 
-    expect(partyOf(see(t, BOB), BOB).canRollOnLeader).toBe(false)
-    expect(payloads(t, GameEventType.RollSuccess).map((p) => p['cardId'])).toContain(leaderId)
-    expect(seatOf(see(t, BOB), BOB).actionPoints).toBe(2)
+    expect(payloads(t, GameEventType.RollSuccess).map((p) => p['cardId'])).not.toContain(leaderId)
+    expect(seatOf(see(t, BOB), BOB).actionPoints).toBe(3)
 
     pass(t, BOB)
     await settle(t)
@@ -259,16 +279,16 @@ describe('a full game', () => {
     playHero(t, CAROL, 'hero-010')
     await settle(t)
 
-    // A 12 slays Arctic Aries, and one monster wins this table.
+    // A 12 slays Terratuga, and one monster wins this table.
     fixDice(HIGHEST)
-    attack(t, CAROL, 'monster-128')
+    attack(t, CAROL, 'monster-130')
     await settle(t)
 
     const end = see(t, CAROL)
     expect(ofType(t, GameEventType.MonsterSlain)).toHaveLength(1)
-    expect(partyOf(end, CAROL).monsters.map((m) => m.id)).toEqual(['monster-128'])
+    expect(partyOf(end, CAROL).monsters.map((m) => m.id)).toEqual(['monster-130'])
     expect(end.monsterRow).toHaveLength(3)
-    expect(end.monsterRow.map((m) => m.id)).not.toContain('monster-128')
+    expect(end.monsterRow.map((m) => m.id)).not.toContain('monster-130')
 
     const ended = payloads(t, GameEventType.GameEnded)
     expect(ended).toHaveLength(1)

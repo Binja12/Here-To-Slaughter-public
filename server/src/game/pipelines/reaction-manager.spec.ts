@@ -103,6 +103,73 @@ describe('ReactionManager', () => {
   // openWindow
   // ---------------------------------------------------------------------------
 
+  describe('pass — a seat giving a table window up', () => {
+    const openRoll = () => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, ReactionWindowType.Modifier, 'p1', {
+        baseRoll: 5,
+        rollReq: 7,
+        heroId: 'hero-1',
+      })
+      return gs.frames.get(frameId)!.windows[0]
+    }
+
+    beforeEach(() => {
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2'))
+    })
+
+    it('one seat passing leaves the roll open, and the table sees who passed', () => {
+      const window = openRoll()
+      expect(rm.pass(window.getId(), 'p1')).toEqual({ accepted: true })
+      expect(window.isOpen()).toBe(true)
+      expect(window.getDetail()['passedBy']).toEqual(['p1'])
+    })
+
+    it('settles once every seat has passed, as the clock would', () => {
+      const window = openRoll()
+      rm.pass(window.getId(), 'p1')
+      rm.pass(window.getId(), 'p2')
+      expect(window.isOpen()).toBe(false)
+    })
+
+    it('a card landing in the roll clears the passes — everyone looks again', () => {
+      const window = openRoll()
+      rm.pass(window.getId(), 'p1')
+      ;(window as any).cardSpent()
+      expect(window.getDetail()['passedBy']).toEqual([])
+      expect(window.isOpen()).toBe(true)
+    })
+
+    it('an unstarted challenge waits for everyone but the defender', () => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, ReactionWindowType.Challenge, 'p1', { cardId: 'hero-1' })
+      const window = gs.frames.get(frameId)!.windows[0]
+      rm.pass(window.getId(), 'p2')
+      expect(window.isOpen()).toBe(false)
+    })
+
+    it('NoSuchWindow once it has resolved', () => {
+      const window = openRoll()
+      rm.pass(window.getId(), 'p1')
+      rm.pass(window.getId(), 'p2')
+      expect(rm.pass(window.getId(), 'p1')).toEqual({
+        accepted: false,
+        reason: RefusalReason.NoSuchWindow,
+      })
+    })
+
+    it("WindowNotPassable for a choice — one player's question", () => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, ReactionWindowType.PlayerChoice, 'p1', { options: ['p1'] })
+      const window = gs.frames.get(frameId)!.windows[0]
+      expect(rm.pass(window.getId(), 'p1')).toEqual({
+        accepted: false,
+        reason: RefusalReason.WindowNotPassable,
+      })
+    })
+  })
+
   describe('openWindow', () => {
     it('inserts a ModifierWindow with the correct type', () => {
       const frameId = rm.openFrame()

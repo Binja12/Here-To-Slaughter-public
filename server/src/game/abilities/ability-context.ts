@@ -27,6 +27,51 @@ export const CTX_CHOSEN_CARD = "chosenCard";
 /** string[] — written by PlayerChoiceWindow. */
 export const CTX_CHOSEN_PLAYER = "chosenPlayer";
 
+/**
+ * The ability's own card, as a slot — set by the constructor, so a step that
+ * reads "the hero to move" from a slot can be pointed at the card itself:
+ * Tipsy Tootie moves ITSELF into the party it stole from.
+ */
+export const CTX_SOURCE_CARD = "sourceCard";
+
+/**
+ * A second card pick, kept apart from CTX_CHOSEN_CARD — a ChooseCardTask
+ * given `{ resultKey: CTX_CHOSEN_ITEM }`. Hook picks the item to play, then
+ * the hero to wear it: two picks, so two slots.
+ */
+export const CTX_CHOSEN_ITEM = "chosenItem";
+
+/**
+ * string[] — what the last DiscardTask actually discarded: one id, or none
+ * when the player was asked and picked nothing. Written on every run, so a
+ * later choice can hang on it (Qi Bear: a destroy per card discarded).
+ */
+export const CTX_DISCARDED_CARDS = "discardedCards";
+
+/**
+ * string[] — the seats a ChooseCardEachTask asked, in seat order. Each
+ * seat's own pick is under chosenCardOf(seat); DiscardEachTask walks this.
+ */
+export const CTX_ASKED_SEATS = "askedSeats";
+
+/** The slot a seat's pick lands in when every seat is asked at once. */
+export const chosenCardOf = (seatId: string): string =>
+  `${CTX_CHOSEN_CARD}@${seatId}`;
+
+/**
+ * string[] — the hero a DestroyTask was about to destroy when a replacement
+ * effect asked its question (Corrupted Sabretooth); the continuation reads
+ * it. Its own slot, so the asking card's choice slot is not overwritten.
+ */
+export const CTX_WOULD_DESTROY = "wouldDestroy";
+
+/**
+ * string[] — the item the hero DestroyTask just destroyed was wearing, now on
+ * the discard pile; empty when it wore none, or nothing was destroyed.
+ * Shurikitty takes it back out.
+ */
+export const CTX_DESTROYED_HERO_ITEM = "destroyedHeroItem";
+
 /** number — written by ModifierWindow. Scalar; only set on a successful roll. */
 export const CTX_FINAL_ROLL = "finalRoll";
 
@@ -50,7 +95,9 @@ export class AbilityContext {
   constructor(
     public readonly sourceCardId: string,
     public readonly ownerId: string,
-  ) {}
+  ) {
+    this.data.set(CTX_SOURCE_CARD, [sourceCardId]);
+  }
 
   set(key: string, value: unknown): void {
     this.data.set(key, value);

@@ -11,6 +11,7 @@ import { createGame, startGame, Game } from '../setup/create-game'
 import { playerView } from './player-view'
 import { DrawCardAction } from '../actions/draw-card-action'
 import { PlayHeroAction } from '../actions/play-hero-action'
+import { isActivatable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // The projection, pinned from both sides: what a player IS told, and what no
@@ -44,6 +45,22 @@ function dealtFrom(...types: CardType[]): Game {
   return createGame(SEATS, {
     config: TEST_CONFIG,
     cards: baseGameCards.filter((card) => keep.has(card.type)),
+  })
+}
+
+/**
+ * A deal whose leaders carry no standing roll bonus (the Divine Arrow, the
+ * Fist of Reason and the Charismatic Song each seed one), so a roll's bonus
+ * list means exactly what the case says. Was the suite's one nondeterministic
+ * test until 2026-09-04.
+ */
+function dealtQuiet(): Game {
+  const quiet = new Set(['leader-117', 'leader-120', 'leader-121'])
+  return createGame(SEATS, {
+    config: TEST_CONFIG,
+    cards: baseGameCards.filter(
+      (card) => card.type !== CardType.Leader || quiet.has(card.id),
+    ),
   })
 }
 
@@ -155,6 +172,16 @@ describe('playerView', () => {
     }
   })
 
+  it('shows a seat what is revealed to it, and nothing to the others', () => {
+    const game = dealt()
+    const [alice, bob] = game.playerOrder
+    const [aCard] = game.gameState.getPlayer(alice)!.getHand()
+    game.gameState.revealTo(bob, [aCard])
+
+    expect(playerView(game, bob).revealedCards.map((c) => c.id)).toEqual([aCard])
+    expect(playerView(game, alice).revealedCards).toEqual([])
+  })
+
   it('starts every party empty, with its leader ready', () => {
     const view = playerView(dealt(), 'alice')
 
@@ -162,7 +189,9 @@ describe('playerView', () => {
       expect(party.heroes).toEqual([])
       expect(party.monsters).toEqual([])
       expect(party.instanceCards).toEqual([])
-      expect(party.canRollOnLeader).toBe(true)
+      // ready = activatable at all (the Shadow Claw) and unspent; a passive
+      // leader is never ready, whoever drew it
+      expect(party.canRollOnLeader).toBe(isActivatable(party.leader.id))
     }
     expect(view.discardPile).toEqual([])
   })
@@ -292,7 +321,7 @@ describe('playerView', () => {
   })
 
   it('shows the whole table a roll as it stands, and when it lapses', async () => {
-    const game = dealt()
+    const game = dealtQuiet()
     startGame(game)
     const playerId = game.playerOrder[0]
     const before = Date.now()
@@ -302,7 +331,7 @@ describe('playerView', () => {
       rollerId: playerId,
       baseRoll: 8,
       rollReq: 10,
-      heroId: 'hero-044',
+      heroId: 'hero-028', // Wise Shield — a dealt card (the pool is the registry)
     })
 
     const mine = playerView(game, playerId)
@@ -317,7 +346,7 @@ describe('playerView', () => {
         baseRoll: 8,
         finalRoll: 8,
         rollReq: 10,
-        heroId: 'hero-044',
+        heroId: 'hero-028', // Wise Shield — a dealt card (the pool is the registry)
         bonuses: [],
       })
       expect(roll.deadline).toBeGreaterThanOrEqual(before)
