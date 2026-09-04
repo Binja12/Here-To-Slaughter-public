@@ -81,7 +81,7 @@ function setup(deck: string[], hand: string[] = [], heroIds: string[] = []) {
 }
 
 const openWindow = (gs: GameState): IReactionWindow | undefined =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())
 
 const drawnCount = (events: IGameEvent[]) =>
   events.filter((e) => e.getType() === GameEventType.CardDrawn).length
@@ -176,7 +176,7 @@ describe('CriticalBoostAbility', () => {
     expect(player.getHand()).toHaveLength(2)
     const [gone] = ['a', 'b', 'c'].filter((c) => !player.getHand().includes(c))
     expect(gs.getDiscardPile().getAll()).toContain(gone)
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 
   it('may take a card that was already in hand', () => {
@@ -279,8 +279,8 @@ describe('Snowball drawing Critical Boost', () => {
 
     openWindow(gs)!.submitReaction('p1', { choice: 'b' })
 
-    expect(gs.abilityPipelines).toHaveLength(0)
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getPipelines()).toHaveLength(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 
   it('still finishes Snowball when the Boost prompt times out', () => {
@@ -293,6 +293,6 @@ describe('Snowball drawing Critical Boost', () => {
     expect(drawnCount(events)).toBe(5)
     expect(player.getHand()).toHaveLength(3)
     expect(player.getHand()).toContain('d')
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 })

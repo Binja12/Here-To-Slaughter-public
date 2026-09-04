@@ -40,13 +40,13 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   for (const step of steps) {
     const frameId = step.execute(gs, ctx, em, rm) as string | void
     if (frameId) {
-      const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+      const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
       // the pick the player would make, written where the window would write it
       ctx.set(window.resultKey() as string, pick === undefined ? [] : [pick])
       window.resolve()
     }
   }
-  return { emitted, window: () => [...gs.frames.values()].flatMap((f) => f.windows)[0] }
+  return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
 // Winds of Change (magic-058, magic-059): "Return an Item card equipped to any
@@ -75,7 +75,7 @@ describe('Winds of Change (magic-058)', () => {
     const rm = new ReactionManager(gs, em)
     const [choose, retrieve, draw] = WindsOfChangeAbility[0].steps
     choose.execute(gs, ctx, em, rm)
-    const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect([...window.getOptions()].sort()).toEqual(['my-ring', 'their-ring'])
 
     ctx.set(CTX_CHOSEN_CARD, ['their-ring'])

@@ -42,7 +42,7 @@ const collect = () => {
 }
 
 const openWindow = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
 // Tipsy Tootie (hero-045): "Choose a player. STEAL a Hero card from that
 // player's Party and move Tipsy Tootie to that player's Party."

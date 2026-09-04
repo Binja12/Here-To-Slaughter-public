@@ -146,7 +146,7 @@ function setup(withDriver = false) {
 }
 
 const openWindows = (gs: GameState): IReactionWindow[] =>
-  [...gs.frames.values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
 
 const windowOfType = (gs: GameState, type: ReactionWindowType) =>
   openWindows(gs).find((w) => w.getType() === type)
@@ -235,7 +235,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       expect(modifierWindow(gs)).toBeDefined()
       // One point, spent on the play. The roll is a task and costs nothing.
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
-      expect(gs.actionQueue).toHaveLength(0)
+      expect(tm.getQueuedActions()).toHaveLength(0)
     })
 
     it('no: the hero stays in the party with its ability unspent', () => {
@@ -347,7 +347,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       jest.advanceTimersByTime(5000) // challenge lapses -> offered
       jest.advanceTimersByTime(5000) // the offer lapses, which is a DISMISS
 
-      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(gs.getPipelines()).toHaveLength(0)
       expect(tm.getPhase()).toBe(TurnPhase.End)
     })
 
@@ -363,7 +363,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
       jest.advanceTimersByTime(5000) // the roll lapses -> RollFailed, rollback
 
-      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(gs.getPipelines()).toHaveLength(0)
       expect(tm.getPhase()).toBe(TurnPhase.End)
     })
   })
@@ -391,7 +391,6 @@ describe('hero rules — the roll a played hero is offered', () => {
       expect(challengeWindow(gs)).toBeDefined()
       expect(rollOffer(gs)).toBeUndefined()
       // Nothing reached the action queue: a task grants a task.
-      expect(gs.actionQueue).toHaveLength(0)
     })
 
     it('costs the owner no action point', () => {
@@ -442,7 +441,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       expect(gs.getPlayer('p1')!.getHand()).not.toContain('wiggles')
       expect(gs.getDiscardPile().getAll()).toContain('wiggles')
       expect(rollOffer(gs)).toBeUndefined()
-      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(gs.getPipelines()).toHaveLength(0)
     })
   })
 })

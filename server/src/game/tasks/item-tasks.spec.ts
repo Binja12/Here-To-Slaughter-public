@@ -137,7 +137,7 @@ describe('PlayItemTask', () => {
 
   it('equips inside the frame, so a lost challenge takes it back', () => {
     run(play(), bothSlots('item-1', 'hero-1'))
-    const window = [...gs.frames.values()]
+    const window = [...gs.getFrames().values()]
       .flatMap((f) => f.windows)
       .find((w) => w.isOpen())!
 
@@ -198,7 +198,7 @@ describe('PlayItemTask', () => {
     const frameId = run(play(), bothSlots('item-1', 'hero-1'))
 
     expect(typeof frameId).toBe('string')
-    const window = [...gs.frames.values()]
+    const window = [...gs.getFrames().values()]
       .flatMap((f) => f.windows)
       .find((w) => w.isOpen())
     expect(window?.getType()).toBe(ReactionWindowType.Challenge)

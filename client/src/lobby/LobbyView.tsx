@@ -1,6 +1,20 @@
 import React from 'react'
-import type { LobbyPlayer } from '../contract'
+import type { GameSettings, LobbyPlayer } from '../contract'
 import type { LobbyApi } from '../state/useLobbyState'
+import Dropdown from './Dropdown'
+import {
+  CARD_SET_OPTIONS,
+  MONSTER_COUNT_OPTIONS,
+  PLAYER_COUNT_OPTIONS,
+  PRESET_OPTIONS,
+  REACTION_TIME_OPTIONS,
+  SEAMLESS_OPTIONS,
+  TURN_TIME_OPTIONS,
+  WIN_CONDITION_OPTIONS,
+  presetOf,
+  withPreset,
+  type Option,
+} from './gameSettings'
 import { LOBBY_ART, type LobbyArt, artStyle } from './lobbyAssets'
 import {
   FRAME,
@@ -75,12 +89,15 @@ function PlayerSlot({
   player,
   lobby,
   canTakeSeat,
+  closed,
 }: {
   seat: Seat
   player: Occupant | null
   lobby: LobbyApi
   /** the viewer has no seat yet, so an empty seat offers the plus */
   canTakeSeat: boolean
+  /** beyond the settings' seat count: drawn dim, offers nothing */
+  closed: boolean
 }) {
   const frame = LOBBY_ART.frameFlat
   const interactive = player?.isLocal === true
@@ -91,6 +108,8 @@ function PlayerSlot({
       style={{
         ...boxStyle(SEAT_WIDGETS[seat]),
         aspectRatio: `${frame.bw} / ${frame.bh}`,
+        filter: closed ? 'brightness(0.45) saturate(0.5)' : undefined,
+        transition: 'filter 150ms',
       }}
     >
       <Art art={frame} className="absolute inset-0" />
@@ -106,7 +125,7 @@ function PlayerSlot({
             fontStyle: player ? undefined : 'italic',
           }}
         >
-          {player?.username ?? 'Empty Seat'}
+          {player?.username ?? (closed ? 'Closed Seat' : 'Empty Seat')}
         </span>
       </div>
 
@@ -158,7 +177,7 @@ function PlayerSlot({
           </span>
         )}
       </div>
-      {!player && canTakeSeat && (
+      {!player && !closed && canTakeSeat && (
         <MedallionButton art={LOBBY_ART.addFlat} title="Take this seat" onClick={lobby.toggleReady} />
       )}
       {player?.isLocal && player.ready && (
@@ -168,10 +187,75 @@ function PlayerSlot({
   )
 }
 
-function SettingsPanel() {
-  const art = LOBBY_ART.settingsFlat
+/**
+ * One ledger row: the label in the left column, the value dropdown in the
+ * right. `row` is the row's index in the painted 10-row ledger.
+ */
+function SettingsRow<T extends string | number | boolean>({
+  row,
+  label,
+  value,
+  options,
+  onChange,
+  editable,
+}: {
+  row: number
+  label: string
+  value: T
+  options: Option<T>[]
+  onChange: (value: T) => void
+  editable: boolean
+}) {
   const g = SETTINGS_GRID
   const rowH = g.h / g.rows
+  const top = `${(g.y + rowH * row) * 100}%`
+  const height = `${rowH * 100}%`
+  return (
+    <>
+      <div
+        className="absolute flex items-center justify-center"
+        style={{ left: `${g.x * 100}%`, top, width: `${g.w * g.split * 100}%`, height }}
+      >
+        <span className="truncate" style={{ fontSize: px(11), color: GOLD_DIM }}>
+          {label}
+        </span>
+      </div>
+      <div
+        className="absolute flex items-center justify-center"
+        style={{
+          left: `${(g.x + g.w * g.split) * 100}%`,
+          top,
+          width: `${g.w * (1 - g.split) * 100}%`,
+          height,
+          // an open list must lie over the rows beneath it
+          zIndex: 40 - row,
+        }}
+      >
+        <Dropdown value={value} options={options} onChange={onChange} editable={editable} title={label} />
+      </div>
+    </>
+  )
+}
+
+/**
+ * The host's dropdowns; everyone else reads the same values. Every change
+ * sends the whole object. The preset row is derived from the values: it
+ * reads Default or Fast while they match one, Custom the moment one
+ * differs, and picking a preset resets every field to it.
+ */
+function SettingsPanel({
+  settings,
+  editable,
+  onChange,
+}: {
+  settings: GameSettings
+  editable: boolean
+  onChange: (settings: GameSettings) => void
+}) {
+  const art = LOBBY_ART.settingsFlat
+  const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
+    onChange({ ...settings, [key]: value })
+
   return (
     <div
       className="z-20"
@@ -181,30 +265,70 @@ function SettingsPanel() {
       }}
     >
       <Art art={art} className="absolute inset-0" />
-      <div
-        className="absolute flex items-center justify-center"
-        style={{
-          left: `${g.x * 100}%`,
-          top: `${g.y * 100}%`,
-          width: `${g.w * g.split * 100}%`,
-          height: `${rowH * 100}%`,
-        }}
-      >
-        <span style={{ fontSize: px(11), color: GOLD_DIM }}>Game Config</span>
-      </div>
-      <div
-        className="absolute flex items-center justify-center"
-        style={{
-          left: `${(g.x + g.w * g.split) * 100}%`,
-          top: `${g.y * 100}%`,
-          width: `${g.w * (1 - g.split) * 100}%`,
-          height: `${rowH * 100}%`,
-        }}
-      >
-        <span className="font-bold" style={{ fontSize: px(11.5), color: GOLD }}>
-          Default
-        </span>
-      </div>
+      <SettingsRow
+        row={0}
+        label="Preset"
+        value={presetOf(settings)}
+        options={PRESET_OPTIONS}
+        onChange={(preset) => onChange(withPreset(settings, preset))}
+        editable={editable}
+      />
+      <SettingsRow
+        row={1}
+        label="Players"
+        value={settings.playerCount}
+        options={PLAYER_COUNT_OPTIONS}
+        onChange={(count) => set('playerCount', count)}
+        editable={editable}
+      />
+      <SettingsRow
+        row={2}
+        label="Win by"
+        value={settings.winCondition}
+        options={WIN_CONDITION_OPTIONS}
+        onChange={(mode) => set('winCondition', mode)}
+        editable={editable}
+      />
+      <SettingsRow
+        row={3}
+        label="Monsters to slay"
+        value={settings.monsterCount}
+        options={MONSTER_COUNT_OPTIONS}
+        onChange={(count) => set('monsterCount', count)}
+        editable={editable}
+      />
+      <SettingsRow
+        row={4}
+        label="Card set"
+        value={settings.cardSet}
+        options={CARD_SET_OPTIONS}
+        onChange={(cardSet) => set('cardSet', cardSet)}
+        editable={editable}
+      />
+      <SettingsRow
+        row={5}
+        label="Turn timer"
+        value={settings.turnTimeMs}
+        options={TURN_TIME_OPTIONS}
+        onChange={(ms) => set('turnTimeMs', ms)}
+        editable={editable}
+      />
+      <SettingsRow
+        row={6}
+        label="Reaction timer"
+        value={settings.reactionTimeMs}
+        options={REACTION_TIME_OPTIONS}
+        onChange={(ms) => set('reactionTimeMs', ms)}
+        editable={editable}
+      />
+      <SettingsRow
+        row={7}
+        label="Seamless reactions"
+        value={settings.seamlessReactions}
+        options={SEAMLESS_OPTIONS}
+        onChange={(on) => set('seamlessReactions', on)}
+        editable={editable}
+      />
     </div>
   )
 }
@@ -213,7 +337,8 @@ export default function LobbyView({ lobby }: { lobby: LobbyApi }) {
   const snapshot = lobby.snapshot
   const startArt = LOBBY_ART.startFlat
   const readyCount = snapshot?.readyPlayers.length ?? 0
-  const canStart = readyCount >= 2 && readyCount <= 4
+  const seatCount = snapshot?.settings.playerCount ?? 4
+  const canStart = readyCount >= 2 && readyCount <= seatCount
   // Seats show the server's ready list and nothing else: an IDLE viewer has
   // no seat until they press a plus (run book §1 item 19). Drawing the idle
   // viewer on a bench made every window look occupied by its own account.
@@ -268,15 +393,22 @@ export default function LobbyView({ lobby }: { lobby: LobbyApi }) {
             player={occupants[seat] ?? null}
             lobby={lobby}
             canTakeSeat={!!snapshot && snapshot.self.state === 'IDLE'}
+            closed={seat >= seatCount}
           />
         ))}
-        <SettingsPanel />
+        {snapshot && (
+          <SettingsPanel
+            settings={snapshot.settings}
+            editable={snapshot.self.isHost}
+            onChange={(settings) => void lobby.updateSettings(settings)}
+          />
+        )}
 
         {snapshot?.self.isHost && (
           <button
             type="button"
             disabled={!canStart}
-            title={canStart ? 'Start the game' : 'Two to four ready players are required'}
+            title={canStart ? 'Start the game' : `Two to ${seatCount} ready players are required`}
             onClick={lobby.startGame}
             className={`z-30 transition-[transform,filter] duration-150 ${
               canStart

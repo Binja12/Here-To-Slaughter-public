@@ -167,7 +167,7 @@ describe('TaskManager — a step that opens a frame must return it', () => {
     ).toThrow(/is not an open frame/)
     // A dead frameId can never be woken, so the throw is the only outcome —
     // it must not leave a run paused on it.
-    expect(gs.abilityPipelines.some((r) => r.pausedOn)).toBe(false)
+    expect(gs.getPipelines().some((r) => r.pausedOn)).toBe(false)
   })
 
   it('carries on when a step opened a frame that settled and returned nothing', () => {
@@ -201,7 +201,7 @@ describe('TaskManager — a step that opens a frame must return it', () => {
 
     em.emit(new GameEvent(GameEventType.TurnStarted, 'p1', { playerId: 'p1' }))
 
-    expect(gs.abilityPipelines).toHaveLength(0) // nothing stranded
+    expect(gs.getPipelines()).toHaveLength(0) // nothing stranded
     expect(ran).toEqual(['after']) // and the pipeline was not cut short
   })
 
@@ -539,5 +539,26 @@ describe('TaskManager', () => {
       expect(capturedCtx!.sourceCardId).toBe('leader-1')
       expect(capturedCtx!.ownerId).toBe('p1')
     })
+  })
+})
+
+describe('TaskManager on a concluded board', () => {
+  it('runs nothing: a trigger that would fire is ignored once the game has ended', () => {
+    const gs = makeGs()
+    const fired: boolean[] = []
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-1'))
+    gs.registerCard(
+      makeFakeCard('leader-1', {
+        trigger: { on: GameEventType.DiceRolled, scope: TriggerScope.Anyone },
+        steps: [makeTask([], () => fired.push(true))],
+      }),
+    )
+    const ap = makeAp(gs, new GameEventEmitter())
+
+    gs.conclude('p1')
+    ap.onEvent(makeEvent(GameEventType.DiceRolled))
+
+    expect(fired).toEqual([])
   })
 })

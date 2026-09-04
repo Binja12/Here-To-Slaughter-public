@@ -187,13 +187,20 @@ export function createGame(
     emitter,
     config.timeControl.reactionCountdownMs,
   )
-  const turnManager = new TurnManager(gameState, emitter)
+  // The turn clock is config the same way: absent means an unclocked turn,
+  // which is what every engine spec plays on.
+  const turnManager = new TurnManager(
+    gameState,
+    emitter,
+    config.timeControl.turnTimeMs,
+  )
   const taskManager = new TaskManager(gameState, emitter, reactionManager)
   const engine = new GameEngine(
     gameState,
     turnManager,
     emitter,
     buildWinConditions(config, pool),
+    config.requireAllWinConditions,
   )
 
   return {

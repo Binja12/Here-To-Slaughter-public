@@ -7,6 +7,7 @@ import {
   PlayerView,
   ReactionWindowType,
   SeatView,
+  TurnClockView,
 } from 'shared'
 import type { Game } from '../setup/create-game'
 import { GameState } from '../pipelines/game-state'
@@ -60,6 +61,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
     pendingWindows: gs
       .openWindows()
       .map((window) => pendingWindowView(gs, window, playerId)),
+    turnClock: turnClockView(game),
     busy: gs.isBusy(),
   }
 }
@@ -67,6 +69,19 @@ export function playerView(game: Game, playerId: string): PlayerView {
 // ---------------------------------------------------------------------------
 // Internals
 // ---------------------------------------------------------------------------
+
+/** Absent on a table without a clock. A deadline while running, the frozen remainder while held. */
+function turnClockView(game: Game): TurnClockView | undefined {
+  const { turnManager } = game
+  const turnTimeMs = turnManager.getTurnTimeMs()
+  const remainingMs = turnManager.getRemainingMs()
+  if (turnTimeMs === undefined || remainingMs === undefined) return undefined
+
+  const deadline = turnManager.getTurnDeadline()
+  return deadline === undefined
+    ? { turnTimeMs, heldMs: remainingMs }
+    : { turnTimeMs, deadline }
+}
 
 /** THROWS: a zone holding an unregistered id is a broken board (§11.2). */
 function cardOf(gs: GameState, cardId: string): CardView {

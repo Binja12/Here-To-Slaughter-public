@@ -83,7 +83,7 @@ function setup(deck: string[] = [], heroIds: string[] = []) {
 }
 
 const openWindows = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
 
 const types = (events: IGameEvent[]) => events.map((e) => e.getType())
 
@@ -329,7 +329,7 @@ describe('ability pipelines — a played magic card', () => {
     // And only once the continuation is done does the card go.
     expect(gs.getDiscardPile().getAll()).toContain('magic-1')
     expect(gs.getParty('p1').getInstanceCardIds()).not.toContain('magic-1')
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 
   it('leaves nothing pending when the card declines its own prompt', () => {
@@ -338,7 +338,7 @@ describe('ability pipelines — a played magic card', () => {
     jest.advanceTimersByTime(5000) // the card's prompt times out
 
     expect(gs.getDiscardPile().getAll()).toContain('magic-1')
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 })
 
@@ -393,8 +393,8 @@ describe('ability pipelines — rollback', () => {
 
     em.emit(turnStarted())
 
-    const [frameId] = [...gs.frames.keys()]
-    expect(gs.abilityPipelines.filter((r) => r.pausedOn === frameId)).toHaveLength(1)
+    const [frameId] = [...gs.getFrames().keys()]
+    expect(gs.getPipelines().filter((r) => r.pausedOn === frameId)).toHaveLength(1)
 
     // The outcome FAILED: rollback, then announce.
     gs.restoreFrame(frameId)
@@ -404,7 +404,7 @@ describe('ability pipelines — rollback', () => {
     expect(log).not.toContain('nested-tail')
     // ...but the pipeline underneath was never waiting on it, so it lives on.
     expect(log).toEqual(['outer-1', 'outer-2'])
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 })
 
@@ -621,7 +621,7 @@ describe('AbilityDone and system rules', () => {
 
     em.emit(turnStarted())
 
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
     expect(doneFor(events, 'hero-a')).toHaveLength(0)
   })
 })

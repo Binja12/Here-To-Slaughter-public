@@ -1,7 +1,9 @@
 import {
   Account,
   Credentials,
+  DEFAULT_GAME_SETTINGS,
   GameAssigned,
+  GameSettings,
   LobbyPlayer,
   LobbySnapshot,
   StartGameResult,
@@ -17,6 +19,7 @@ const BOTS: LobbyPlayer[] = [
 export class FakeLobbyPort implements LobbyPort {
   private self: Account | null = null
   private readyPlayers: LobbyPlayer[] = []
+  private settings: GameSettings = { ...DEFAULT_GAME_SETTINGS }
   private subscribers = new Set<LobbyEvents>()
 
   async register(credentials: Credentials): Promise<Account> {
@@ -39,7 +42,7 @@ export class FakeLobbyPort implements LobbyPort {
   async ready(): Promise<LobbySnapshot> {
     const self = this.requireSelf()
     if (!this.readyPlayers.some((player) => player.accountId === self.accountId)) {
-      this.readyPlayers = [self, ...BOTS]
+      this.readyPlayers = this.seat(self)
     }
     return this.publish()
   }
@@ -49,6 +52,15 @@ export class FakeLobbyPort implements LobbyPort {
     this.readyPlayers = this.readyPlayers.filter(
       (player) => player.accountId !== self.accountId,
     )
+    return this.publish()
+  }
+
+  /** The server's rule: host only; a closed seat unseats whoever sat in it. */
+  async updateSettings(settings: GameSettings): Promise<LobbySnapshot> {
+    const snapshot = this.snapshot()
+    if (!snapshot.self.isHost) throw new LobbyPortError('Only the host can change the settings')
+    this.settings = { ...settings }
+    this.readyPlayers = this.readyPlayers.slice(0, settings.playerCount)
     return this.publish()
   }
 
@@ -81,8 +93,13 @@ export class FakeLobbyPort implements LobbyPort {
       throw new LobbyPortError('UsernameAndPasswordRequired')
     }
     this.self = { accountId: 'account-self', username }
-    this.readyPlayers = [this.self, ...BOTS]
+    this.readyPlayers = this.seat(this.self)
     return this.self
+  }
+
+  /** The viewer first (host), then as many bots as the table still seats. */
+  private seat(self: Account): LobbyPlayer[] {
+    return [self, ...BOTS].slice(0, this.settings.playerCount)
   }
 
   private requireSelf(): Account {
@@ -97,7 +114,7 @@ export class FakeLobbyPort implements LobbyPort {
     )
     return {
       readyPlayers: this.readyPlayers.map((player) => ({ ...player })),
-      settings: { gameConfig: 'default' },
+      settings: { ...this.settings },
       self: {
         ...self,
         state: ready ? 'READY' : 'IDLE',

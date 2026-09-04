@@ -172,7 +172,7 @@ describe('RollOnHeroTask', () => {
 
     expect(typeof frameId).toBe('string')
     expect(
-      gs.frames.get(frameId as string)!.windows[0].getType(),
+      gs.getFrames().get(frameId as string)!.windows[0].getType(),
     ).toBe(ReactionWindowType.Modifier)
   })
 
@@ -188,7 +188,7 @@ describe('RollOnHeroTask', () => {
 
     // In the snapshot too, so restoring it cannot hand the roll back.
     expect(gs.getAbilitiesUsedThisTurn()).toContain('hero-1')
-    const { snapshot } = gs.frames.get(frameId as string)!
+    const { snapshot } = gs.getFrames().get(frameId as string)!
     expect(snapshot.getAbilitiesUsedThisTurn()).toContain('hero-1')
   })
 })

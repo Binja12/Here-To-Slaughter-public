@@ -3,37 +3,16 @@ import { GamePhase, RefusalReason } from 'shared'
 import type {
   CardBase,
   GameConfig,
-  GameConfigId,
+  GameSettings,
   RequestResult,
   SeatedAccount,
 } from 'shared'
-import { defaultGameConfig } from '../game/config/game-config'
 import { accepted, refused } from '../game/interfaces'
 import { createGame, startGame } from '../game/setup/create-game'
 import type { Game } from '../game/setup/create-game'
 import { playerView } from '../game/views/player-view'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
-import { gameServerConfig } from './game-server.config'
-
-/**
- * Every config id the wire may name, and the config it stands for. Keyed by
- * the schema's enum, so a new id on the wire is a compile error until it has
- * a config here.
- */
-const GAME_CONFIGS: Record<GameConfigId, GameConfig> = {
-  default: withProcessTimeControl(defaultGameConfig),
-}
-
-/** The config as this process plays it: `REACTION_COUNTDOWN_MS` wins when set. */
-function withProcessTimeControl(config: GameConfig): GameConfig {
-  const countdown = gameServerConfig.reactionCountdownMs
-  return countdown === undefined
-    ? config
-    : {
-        ...config,
-        timeControl: { ...config.timeControl, reactionCountdownMs: countdown },
-      }
-}
+import { gameConfigFor } from './game-config-for'
 
 /**
  * One session this process hosts: the engine's game plus what the transport
@@ -65,9 +44,9 @@ export type RunningGame = {
 
 /**
  * A spec's hand on the deal: the printed pool and the config, the two
- * things `createGame` lets a caller fix. The wire never carries either — a
- * browser names a config id and the lobby names the seats — so this is how
- * a test seats a table it can predict (plan §6).
+ * things `createGame` lets a caller fix. The wire never carries either — the
+ * lobby sends the seats and the settings the config is built from — so this
+ * is how a test seats a table it can predict (plan §6).
  */
 export type Deal = {
   cards?: CardBase[]
@@ -98,14 +77,14 @@ export class GameRegistryService {
    */
   create(
     players: readonly SeatedAccount[],
-    configId: GameConfigId,
+    settings: GameSettings,
     deal: Deal = {},
   ): RunningGame {
     // Player ids ARE account ids; the username is only what a seat is called.
     const game = createGame(
       players.map((player) => player.accountId),
       {
-        config: deal.config ?? GAME_CONFIGS[configId],
+        config: deal.config ?? gameConfigFor(settings),
         cards: deal.cards,
         names: Object.fromEntries(
           players.map((player) => [player.accountId, player.username]),

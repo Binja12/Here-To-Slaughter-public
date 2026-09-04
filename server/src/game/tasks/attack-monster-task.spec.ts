@@ -176,7 +176,7 @@ describe('AttackMonsterTask', () => {
     )
 
     expect(typeof frameId).toBe('string')
-    expect(gs.frames.has(frameId as string)).toBe(true)
+    expect(gs.getFrames().has(frameId as string)).toBe(true)
   })
 
   it('rolls for the ability owner, and slays into that owner party', () => {

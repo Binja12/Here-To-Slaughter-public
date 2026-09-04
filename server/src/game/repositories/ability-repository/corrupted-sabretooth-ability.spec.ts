@@ -81,7 +81,7 @@ describe('Corrupted Sabretooth (monster-122)', () => {
     const types = emitted.map((e) => e.getType())
     expect(types).toContain(GameEventType.HeroStolen)
     expect(types).not.toContain(GameEventType.HeroDestroyed)
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 
   it('"destroy it" destroys as printed, and is not asked twice', () => {
@@ -92,7 +92,7 @@ describe('Corrupted Sabretooth (monster-122)', () => {
     expect(gs.getDiscardPile().getAll()).toEqual(['theirs'])
     expect(emitted.filter((e) => e.getType() === GameEventType.TaskConfirmed)).toHaveLength(1)
     expect(emitted.map((e) => e.getType())).toContain(GameEventType.HeroDestroyed)
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 
   it('silence destroys, as printed', () => {

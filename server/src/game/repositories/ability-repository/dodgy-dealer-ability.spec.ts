@@ -29,7 +29,7 @@ const item = (id: string, cursed = false) =>
   new ItemCard({ id, name: id, type: CardType.Item, image: '', description: '', set: 'base', cursed })
 
 const openWindow = (gs: GameState): IReactionWindow =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
 /** Answers the open window the way the player would, in the slot it names. */
 const answer = (gs: GameState, ctx: AbilityContext, pick?: string) => {

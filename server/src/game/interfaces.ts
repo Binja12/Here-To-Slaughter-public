@@ -91,6 +91,17 @@ export interface ITask {
  * WHEN an ability runs: an event, plus whose events count. Shared by card
  * abilities and by ongoing effects, so the processor checks both the same way.
  */
+/** One ability to check against an event, and who owns it. Gathered fresh per event by TaskManager. */
+export type AbilitySource = {
+  trigger: AbilityTrigger
+  steps: ITask[]
+  sourceCardId: string
+  /** Empty for a monster still in the pile — see TaskManager's NO_OWNER and ownerFor. */
+  ownerId: string
+  /** Printed on the card, or a rule of the game — see AbilityPipeline.system. */
+  system: boolean
+}
+
 export type AbilityTrigger = {
   on: GameEventType
   scope: TriggerScope
@@ -166,7 +177,8 @@ export interface IEffect {
 // ---------------------------------------------------------------------------
 
 export interface IWinCondition {
-  check(gs: GameState): Player | null
+  /** Per player: a table requiring every condition needs one party to meet them all. */
+  isMetBy(gs: GameState, player: Player): boolean
 }
 
 export interface IRollResolver {
@@ -243,6 +255,13 @@ export interface IReactionWindow {
   submitReaction(playerId: string, payload: unknown): RequestResult
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
+  /**
+   * Close WITHOUT an outcome: the clock is cleared, `ReactionWindowClosed`
+   * goes out with `cancelled: true`, no default is picked and no
+   * `FrameResolved` follows. A rollback of an earlier frame does this to
+   * every window opened after it (GameState.revertFrame).
+   */
+  cancel(): void
   /**
    * What the window is asking, read LIVE: the fields it announced at open
    * plus whatever moved since — a bonus that landed, a challenge that

@@ -1,4 +1,4 @@
-import { CardType, GamePhase, WinConditionType } from 'shared'
+import { CardType, DEFAULT_GAME_SETTINGS, GamePhase, WinConditionType } from 'shared'
 import type { CardBase, HeroCardData, SeatedAccount } from 'shared'
 import { baseGameCards } from '../data/base-game-cards'
 import type { Game } from '../game/setup/create-game'
@@ -89,7 +89,8 @@ export function quickWinDeal(): Deal {
     cards,
     config: config({
       startingHandSize: QUICK_WIN_HAND_SIZE,
-      winConditions: [{ type: WinConditionType.PartyClasses, value: 1 }],
+      // The leader's class plus the first Fighter played; one is met by the leader alone.
+      winConditions: [{ type: WinConditionType.PartyClasses, value: 2 }],
     }),
   }
 }
@@ -103,7 +104,9 @@ export function dealQuickWin(
   registry: GameRegistryService,
   accountIds: string[],
 ): RunningGame {
-  return pinned(() => registry.create(seated(accountIds), 'default', quickWinDeal()))
+  return pinned(() =>
+    registry.create(seated(accountIds), DEFAULT_GAME_SETTINGS, quickWinDeal()),
+  )
 }
 
 /**
@@ -132,7 +135,7 @@ export function dealStacked(
   ]
 
   return pinned(() =>
-    registry.create(seated(seats), 'default', {
+    registry.create(seated(seats), DEFAULT_GAME_SETTINGS, {
       cards,
       config: config({
         startingHandSize: handSize,

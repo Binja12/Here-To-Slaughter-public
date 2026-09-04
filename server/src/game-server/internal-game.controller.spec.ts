@@ -3,7 +3,7 @@ import type { ClientProxy, MicroserviceOptions } from '@nestjs/microservices'
 import { Test } from '@nestjs/testing'
 import { createServer } from 'node:net'
 import { firstValueFrom } from 'rxjs'
-import { CREATE_GAME_PATTERN } from 'shared'
+import { CREATE_GAME_PATTERN, DEFAULT_GAME_SETTINGS } from 'shared'
 import { NestTcpGameServerClient } from '../lobby/nest-tcp-game-server.client'
 import { GameRegistryService } from './game-registry.service'
 import { GameServerModule } from './game-server.module'
@@ -41,7 +41,7 @@ describe('InternalGameController TCP contract', () => {
   it('deals a table for the lobby and tells it where the seats connect', async () => {
     const result = await lobbyClient.createGame({
       players: seated(['account-1', 'account-2']),
-      gameConfig: 'default',
+      settings: DEFAULT_GAME_SETTINGS,
     })
 
     expect(typeof result.gameId).toBe('string')
@@ -59,11 +59,11 @@ describe('InternalGameController TCP contract', () => {
   it('hosts every game created on the one url', async () => {
     const first = await lobbyClient.createGame({
       players: seated(['account-3', 'account-4']),
-      gameConfig: 'default',
+      settings: DEFAULT_GAME_SETTINGS,
     })
     const second = await lobbyClient.createGame({
       players: seated(['account-5', 'account-6']),
-      gameConfig: 'default',
+      settings: DEFAULT_GAME_SETTINGS,
     })
 
     expect(first.gameId).not.toBe(second.gameId)
@@ -73,22 +73,23 @@ describe('InternalGameController TCP contract', () => {
   it('refuses a malformed request with its reason, without dropping the connection', async () => {
     const wrongShape = await refused({
       players: 'account-1',
-      gameConfig: 'default',
+      settings: DEFAULT_GAME_SETTINGS,
     })
     expect(wrongShape).toMatch(/^Invalid create-game request: players: /)
 
-    const unknownConfig = await refused({
+    const tooManySeats = await refused({
       players: seated(['account-1', 'account-2']),
-      gameConfig: 'blitz',
+      settings: { ...DEFAULT_GAME_SETTINGS, playerCount: 5 },
     })
-    expect(unknownConfig).toMatch(/^Invalid create-game request: gameConfig: /)
-    expect(unknownConfig).toContain('"default"')
+    expect(tooManySeats).toMatch(
+      /^Invalid create-game request: settings\.playerCount: /,
+    )
 
     // The same client still creates games afterwards.
     await expect(
       lobbyClient.createGame({
         players: seated(['account-7', 'account-8']),
-        gameConfig: 'default',
+        settings: DEFAULT_GAME_SETTINGS,
       }),
     ).resolves.toMatchObject({ webSocketUrl: PUBLIC_URL })
   })
@@ -97,7 +98,7 @@ describe('InternalGameController TCP contract', () => {
     await expect(
       lobbyClient.createGame({
         players: seated(['account-1']),
-        gameConfig: 'default',
+        settings: DEFAULT_GAME_SETTINGS,
       }),
     ).rejects.toBeDefined()
   })

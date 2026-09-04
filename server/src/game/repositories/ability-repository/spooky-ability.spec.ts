@@ -59,6 +59,6 @@ describe('Spooky (hero-035)', () => {
     expect(gs.getParty('p4').getHeroIds()).toEqual([])
     expect(gs.getParty('p1').getHeroIds()).toEqual(['hero-035'])
     expect(emitted.filter((e) => e.getType() === GameEventType.HeroSacrificed).map((e) => e.getPlayerId())).toEqual(['p2', 'p4'])
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 })

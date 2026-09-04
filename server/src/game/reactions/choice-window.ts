@@ -125,6 +125,21 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return accepted()
   }
 
+  cancel(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.respondentId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true
@@ -187,7 +202,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   /** The choice windows of this frame, in the order they were opened; just this one when it was opened outside a frame. */
   private frameChoices(): ChoiceWindow[] {
-    const windows = this.gs.frames.get(this.frameId)?.windows ?? []
+    const windows = this.gs.getFrames().get(this.frameId)?.windows ?? []
     const choices = windows.filter((w): w is ChoiceWindow => w instanceof ChoiceWindow)
     return choices.includes(this) ? choices : [this]
   }

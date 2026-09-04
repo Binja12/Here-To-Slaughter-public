@@ -49,17 +49,32 @@ export class ModifierWindow extends ModifiableRollWindow {
    * the hero's own entries trigger on `RollSuccess`.
    */
   protected settle(finalRoll: number): void {
-    if (finalRoll < this.rollReq) {
-      this.gs.restoreFrame(this.frameId)
-      // AFTER the restore, so what it fires runs on live state instead of
-      // going back with the frame — the Particularly Rusty Coin's draw has to
-      // survive the roll that earned it. Same shape as MonsterFoughtBack.
-      this.emitter.emit(
-        GameEventFactory.rollFailed(this.rollerId, this.heroId),
-      )
-      return
-    }
-    this.gs.releaseFrame(this.frameId)
-    this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
+    const hit = this.hits(finalRoll)
+    if (hit) this.gs.releaseFrame(this.frameId)
+    else this.gs.restoreFrame(this.frameId)
+    // AFTER the frame exit, so what the outcome fires runs on live state
+    // instead of going back with the frame — the Particularly Rusty Coin's
+    // draw has to survive the roll that earned it. Same shape as
+    // MonsterFoughtBack.
+    this.apply(hit)
+  }
+
+  /** What the number means: the requirement met or not. */
+  hits(finalRoll: number): boolean {
+    return finalRoll >= this.rollReq
+  }
+
+  /**
+   * What the outcome does to the table, the frame aside — the hero's own
+   * entries trigger on `RollSuccess`. Separate from the frame exit so an
+   * optimistic window can apply a standing outcome before it settles
+   * (docs/SEAMLESS_REACTIONS_PLAN.md, Phase C).
+   */
+  protected apply(hit: boolean): void {
+    this.emitter.emit(
+      hit
+        ? GameEventFactory.rollSuccess(this.rollerId, this.heroId)
+        : GameEventFactory.rollFailed(this.rollerId, this.heroId),
+    )
   }
 }

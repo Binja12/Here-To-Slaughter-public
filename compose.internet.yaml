@@ -33,7 +33,6 @@ services:
       GAME_SERVER_PUBLIC_URL: "/"
       # Restrict credentialed Socket.IO requests to the tunnel hostname.
       GAME_SERVER_CORS_ORIGIN: "${HTSR_PUBLIC_ORIGIN:-}"
-      REACTION_COUNTDOWN_MS: "30000"
       LOBBY_AUTH_TCP_HOST: "lobby"
       LOBBY_AUTH_TCP_PORT: "4000"
     depends_on:

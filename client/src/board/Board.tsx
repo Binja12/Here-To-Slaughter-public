@@ -27,6 +27,7 @@ import HeroRow, { Seat as HeroSeat } from './HeroRow'
 import PlayerHand from './PlayerHand'
 import HandCount from './HandCount'
 import DiceRoll from './DiceRoll'
+import TurnTimer from './TurnTimer'
 import ChallengeWindow from './ChallengeWindow'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
 import { liveRollOf, rollLabel, subjectIdOf, useLiveDice } from './liveRoll'
@@ -1274,6 +1275,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             />
           </HudWidget>
         )}
+        <HudWidget def={HUD_WIDGETS.turnTimer} aspect={1}>
+          <TurnTimer clock={view.turnClock} />
+        </HudWidget>
         <HudWidget
           def={HUD_WIDGETS.actionPoints}
           aspect={HUD_ASPECT.actionFrame}

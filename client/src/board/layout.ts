@@ -343,6 +343,8 @@ export interface HudDef {
 export const HUD_WIDGETS: {
   actionPoints: HudDef;
   endTurn: HudDef;
+  /** the turn clock, a square dial left of the gems/End Turn column */
+  turnTimer: HudDef;
   redraw: HudDef;
   /** the top-left dev row: re-open the challenge window, restart the test */
   challengeButton: HudDef;
@@ -356,6 +358,9 @@ export const HUD_WIDGETS: {
   // at centre-board dy 15, board dy -4).
   actionPoints: { anchor: "top", h: 5, dx: 62, dy: 4.5 },
   endTurn: { anchor: "top", h: 5, dx: 62, dy: 10 },
+  // Left of both, centred on the pair: the gems span dx 52..72 and the
+  // button 54.5..69.5, so a 9cqh square at dx 46 clears them with a gap.
+  turnTimer: { anchor: "top", h: 9, dx: 46, dy: 7.25 },
   redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
   challengeButton: { anchor: "top", h: 4, dx: -80, dy: 4 },
   restartButton: { anchor: "top", h: 4, dx: -66, dy: 4 },

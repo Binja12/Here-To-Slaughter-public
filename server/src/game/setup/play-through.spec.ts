@@ -16,6 +16,7 @@ import {
   stacked,
   see,
   board,
+  COUNTDOWN_MS,
   active,
   seatOf,
   partyOf,
@@ -811,20 +812,22 @@ describe('a game played through', () => {
 
   // --- Monsters -----------------------------------------------------------
 
-  it('offers no monster to a party that cannot field one', async () => {
-    // Nobody has played a hero, but the PARTY LEADER counts as one card of
-    // its class (alice leads with the Shadow Claw, a Thief): Arctic Aries
-    // asks for one of any class and is on offer; Orthus wants a Wizard too
-    // and Mega Slime four cards, so neither is.
+  it('offers no monster to a party with no heroes — the leader answers nothing', async () => {
+    // Nobody has played a hero. The party LEADER is a card of a class, but a
+    // monster asks for HEROES: Arctic Aries wants one of any class and gets
+    // none, Orthus wants a Wizard and one more, Mega Slime four. The bare
+    // leader answers none of them (the owner, 2026-09-04).
     const t = stacked({
       deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
       monsters: ['monster-128', 'monster-131', 'monster-123'],
     })
     const playerId = active(t)
-    const view = see(t, playerId)
 
-    expect(view.attackableMonsterIds).toEqual(['monster-128'])
+    expect(see(t, playerId).attackableMonsterIds).toEqual([])
 
+    // Not merely unoffered: the attack itself is refused, so the points stay
+    // in the player's hand and no die is thrown.
+    attack(t, playerId, 'monster-128')
     attack(t, playerId, 'monster-131')
     await settle(t)
 
@@ -832,18 +835,78 @@ describe('a game played through', () => {
     expect(ofType(t, GameEventType.DiceRolled)).toEqual([])
   })
 
-  it('offers a monster the moment the party can field it', async () => {
+  // --- The class win --------------------------------------------------
+
+  it('ends the game the moment the last class survives its challenge — the roll it is offered never holds it up', async () => {
+    // Alice leads with the Shadow Claw, a Thief; Bad Axe is a Fighter. Two
+    // classes on a table that asks for two: the win lands when the challenge
+    // settles, NOT when the roll offer that follows it is answered.
+    const t = stacked({
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+      classesWin: 2,
+    })
+    const playerId = active(t)
+
+    playHero(t, playerId, 'hero-001')
+    await windowFor(t, playerId, ReactionWindowType.Challenge)
+    // Within the challenge's own countdown and a half: waiting for the offer
+    // to lapse as well would take two of them.
+    await until(
+      () => board(t).winnerId === playerId,
+      'the game to end when the challenge settles',
+      COUNTDOWN_MS * 1.5,
+    )
+
+    expect(board(t).phase).toBe('Concluded')
+    expect(board(t).pendingWindows).toEqual([])
+    expect(board(t).busy).toBe(false)
+    expect(ofType(t, GameEventType.DiceRolled)).toEqual([])
+  })
+
+  it('ends the game on the slay itself, before the attack\u2019s frame settles or anything continues from it', async () => {
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+      monsters: ['monster-128'],
+      winAt: 1,
+    })
+    const playerId = active(t)
+    playHero(t, playerId, 'hero-044')
+    await settle(t)
+
+    fixDice(HIGHEST)
+    attack(t, playerId, 'monster-128')
+    await until(() => board(t).winnerId === playerId, 'the slay to end the game')
+
+    // MonsterSlain moved the board and the win was asked there, inside the
+    // attack's own settle: the attack's FrameResolved came AFTER the end.
+    // (The recorder hears GameEnded before MonsterSlain itself — it is
+    // emitted from inside that dispatch, and the recorder listens last.)
+    const types = t.events.map((e) => e.getType())
+    expect(types).toContain(GameEventType.MonsterSlain)
+    expect(types.indexOf(GameEventType.GameEnded)).toBeLessThan(
+      types.lastIndexOf(GameEventType.FrameResolved),
+    )
+    expect(board(t).busy).toBe(false)
+    expect(board(t).pendingWindows).toEqual([])
+  })
+
+  it('offers a monster the moment the party fields every hero it asks for', async () => {
     const t = stacked({
       deck: ['hero-037', 'hero-001', 'hero-002', 'hero-003'],
       monsters: ['monster-131'],
     })
     const playerId = active(t)
 
-    // Orthus asks for a Wizard and one more of any class: the Thief leader
-    // is the "any", Whiskers (a Wizard) is the rest.
+    // Orthus asks for a Wizard and one more hero of any class. The leader is
+    // not one of them, so the party needs two heroes of its own.
     expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-131')
 
-    playHero(t, playerId, 'hero-037')
+    playHero(t, playerId, 'hero-037') // Whiskers, a Wizard — the named half
+    await settle(t)
+    expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-131')
+
+    const second = see(t, playerId).hand.find((card) => card.type === CardType.Hero)!
+    playHero(t, playerId, second.id) // … and any second hero answers 'Any'
     await settle(t)
 
     expect(see(t, playerId).attackableMonsterIds).toContain('monster-131')

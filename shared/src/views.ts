@@ -129,6 +129,15 @@ export type PendingWindowView = {
   isYours: boolean;
 };
 
+/** The active seat's turn clock, one for the table. Exactly one of `deadline` / `heldMs` is present. */
+export type TurnClockView = {
+  turnTimeMs: number;
+  /** Epoch ms of the lapse while the clock runs. Fixed per running stretch, so snapshots agree and the screen ticks between them. */
+  deadline?: number;
+  /** ms left while a reaction window holds the clock. */
+  heldMs?: number;
+};
+
 /**
  * Everything one player's screen is drawn from, at one moment. Sent whole on
  * every update rather than as a diff — the board is small.
@@ -165,6 +174,8 @@ export type PlayerView = {
    */
   attackableMonsterIds: string[];
   pendingWindows: PendingWindowView[];
+  /** Absent on a table played without a clock. */
+  turnClock?: TurnClockView;
   /** `GameState.isBusy` — mid-resolution, so no action will be accepted. */
   busy: boolean;
 };

@@ -264,7 +264,7 @@ describe('createGame', () => {
       const events = collect(game)
 
       expect(events).toEqual([])
-      expect(game.turnManager.getActionPoints()).toBe(0)
+      expect(game.gameState.getCurrentPlayerId()).toBeUndefined()
     })
 
     it('announces GameStarted BEFORE the first turn', () => {
@@ -285,7 +285,7 @@ describe('createGame', () => {
       startGame(game)
 
       expect(game.gameState.getCurrentPlayerId()).toBe(game.playerOrder[0])
-      expect(game.turnManager.getActionPoints()).toBe(
+      expect(game.gameState.getActionPoints(game.playerOrder[0])).toBe(
         defaultGameConfig.actionPointsPerTurn,
       )
     })

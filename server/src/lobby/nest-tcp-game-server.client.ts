@@ -19,7 +19,7 @@ export class NestTcpGameServerClient implements IGameServerClient {
     // Copy collection fields before handing the request to the transport.
     const tcpRequest: CreateGameRequest = {
       players: request.players.map((player) => ({ ...player })),
-      gameConfig: request.gameConfig,
+      settings: { ...request.settings },
     }
 
     // Convert Nest's response Observable into the Promise used by LobbyService.

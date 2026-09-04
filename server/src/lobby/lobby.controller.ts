@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -6,10 +7,13 @@ import {
   HttpException,
   HttpStatus,
   Post,
+  Put,
   Sse,
   UseGuards,
 } from '@nestjs/common'
 import type { Observable } from 'rxjs'
+import { GameSettingsSchema } from 'shared'
+import type { ZodError } from 'zod'
 import { CurrentAccount, SessionAuthGuard } from '../auth/session-auth.guard'
 import type { AuthenticatedAccount } from '../auth/auth.types'
 import {
@@ -18,6 +22,7 @@ import {
   GameStartInProgressError,
   InvalidReadyPlayerCountError,
   LobbyFullError,
+  OnlyHostCanChangeSettingsError,
   OnlyHostCanStartError,
 } from './lobby.errors'
 import { LobbyService } from './lobby.service'
@@ -71,6 +76,29 @@ export class LobbyController {
     return this.lobbyService.unready(account)
   }
 
+  /** The whole settings object, every time: the schema checks the shape, the service the host. */
+  @Put('settings')
+  async updateSettings(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Body() body: unknown,
+  ): Promise<LobbySnapshot> {
+    const parsed = GameSettingsSchema.safeParse(body)
+    if (!parsed.success) {
+      throw reasonException(
+        HttpStatus.BAD_REQUEST,
+        `Invalid settings: ${describe(parsed.error)}`,
+      )
+    }
+    try {
+      return await this.lobbyService.updateSettings(account, parsed.data)
+    } catch (error) {
+      if (error instanceof OnlyHostCanChangeSettingsError) {
+        throw reasonException(HttpStatus.FORBIDDEN, error.message)
+      }
+      throw error
+    }
+  }
+
   @Post('start-game')
   @HttpCode(HttpStatus.ACCEPTED)
   async startGame(
@@ -99,4 +127,11 @@ export class LobbyController {
 
 function reasonException(status: HttpStatus, reason: string): HttpException {
   return new HttpException({ reason }, status)
+}
+
+/** `playerCount: Too big: expected number to be <=4` */
+function describe(error: ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join('.') || '$'}: ${issue.message}`)
+    .join('; ')
 }

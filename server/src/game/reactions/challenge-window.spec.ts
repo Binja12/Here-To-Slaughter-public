@@ -241,10 +241,10 @@ describe('ChallengeWindow', () => {
       expect(events.some((e) => e.getType() === GameEventType.FrameResolved)).toBe(true)
     })
 
-    it('releases frame (frame absent from gs.frames)', () => {
+    it('releases frame (frame absent from gs.getFrames())', () => {
       const win = makeWindow({ gs, em, frameId: 'f-uncontested' })
       win.resolve()
-      expect(gs.frames.has('f-uncontested')).toBe(false)
+      expect(gs.getFrames().has('f-uncontested')).toBe(false)
     })
 
     it('does NOT emit ChallengeResolved', () => {
@@ -357,7 +357,7 @@ describe('ChallengeWindow', () => {
       const win = makeWindow({ gs, em, frameId: 'f-def-wins' })
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       win.resolve()
-      expect(gs.frames.has('f-def-wins')).toBe(false)
+      expect(gs.getFrames().has('f-def-wins')).toBe(false)
     })
 
     it('emits FrameResolved', () => {
@@ -402,11 +402,11 @@ describe('ChallengeWindow', () => {
       expect(gs.getAbilitiesUsedThisTurn()).not.toContain('some-hero')
     })
 
-    it('frame is absent from gs.frames after restoreFrame', () => {
+    it('frame is absent from gs.getFrames() after restoreFrame', () => {
       const win = makeWindow({ gs, em, frameId: 'f-chal-wins' })
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       win.resolve()
-      expect(gs.frames.has('f-chal-wins')).toBe(false)
+      expect(gs.getFrames().has('f-chal-wins')).toBe(false)
     })
 
     it('emits FrameResolved', () => {
@@ -428,7 +428,7 @@ describe('ChallengeWindow', () => {
     win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
     win.resolve()
     expect(gs.getAbilitiesUsedThisTurn()).not.toContain('some-hero')
-    expect(gs.frames.has('f-tie')).toBe(false)
+    expect(gs.getFrames().has('f-tie')).toBe(false)
   })
 
   // ---------------------------------------------------------------------------
@@ -445,7 +445,7 @@ describe('ChallengeWindow', () => {
     win.resolve()
     const e = events.find((e) => e.getType() === GameEventType.ChallengeResolved)
     expect((e!.getPayload() as any).defenderWins).toBe(true)
-    expect(gs.frames.has('f-swing')).toBe(false) // released
+    expect(gs.getFrames().has('f-swing')).toBe(false) // released
   })
 
   // ---------------------------------------------------------------------------

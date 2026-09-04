@@ -45,9 +45,22 @@ function isModifiable(w: IReactionWindow): w is IModifiableWindow {
   return typeof (w as IModifiableWindow).acceptsModifierFor === 'function'
 }
 
+/** The windows whose settlement may still restore their frame (§3). */
+const RESTORING_WINDOWS: ReadonlySet<ReactionWindowType> = new Set([
+  ReactionWindowType.Challenge,
+  ReactionWindowType.Modifier,
+  ReactionWindowType.Attack,
+])
+
 export type GameFrame = {
   snapshot: GameState
   windows: IReactionWindow[]
+  /**
+   * How many pipelines were on the stack when the frame opened. Everything
+   * pushed above that is work done AFTER the snapshot, and a rollback
+   * drops it with the board it changed. Recorded by `addFrame`.
+   */
+  stackDepth: number
 }
 
 // ---------------------------------------------------------------------------
@@ -83,22 +96,16 @@ export class GameState {
    */
   private revealed: Map<string, string[]> = new Map()
   private cardsChallengedThisTurn: string[] = []
-  /** Actions queued for draining this turn — GS is source of truth. */
-  actionQueue: IAction[] = []
 
   /**
-   * Ability pipelines, newest on top. TaskManager works on the top one.
-   *
-   * A step's own events trigger more abilities while it is still running, and
-   * those go on top — so they finish before the step's own pipeline continues.
-   *
-   * Kept here rather than on the processor so frames snapshot it: a pipeline
-   * started inside a frame is undone when that frame rolls back.
+   * Ability pipelines, newest on top; TaskManager works on the top one. Here
+   * rather than on TaskManager so a frame's rollback can drop the ones pushed
+   * after its snapshot (revert).
    */
-  abilityPipelines: AbilityPipeline[] = []
+  private abilityPipelines: AbilityPipeline[] = []
 
-  /** All open reaction frames. Each holds its own pre-open snapshot. */
-  frames: Map<string, GameFrame> = new Map()
+  /** Open reaction frames, in the order they opened. */
+  private frames: Map<string, GameFrame> = new Map()
 
   constructor(
     private mainDeck: CardStack,
@@ -111,8 +118,32 @@ export class GameState {
   // Frame API
   // ---------------------------------------------------------------------------
 
-  addFrame(frameId: string, frame: GameFrame): void {
-    this.frames.set(frameId, frame)
+  getFrames(): ReadonlyMap<string, GameFrame> {
+    return this.frames
+  }
+
+  /** Nothing happens for a frame that is not open. */
+  addWindow(frameId: string, window: IReactionWindow): void {
+    this.frames.get(frameId)?.windows.push(window)
+  }
+
+  getPipelines(): readonly AbilityPipeline[] {
+    return this.abilityPipelines
+  }
+
+  pushPipeline(pipeline: AbilityPipeline): void {
+    this.abilityPipelines.push(pipeline)
+  }
+
+  popPipeline(): AbilityPipeline | undefined {
+    return this.abilityPipelines.pop()
+  }
+
+  addFrame(frameId: string, frame: Omit<GameFrame, 'stackDepth'>): void {
+    this.frames.set(frameId, {
+      ...frame,
+      stackDepth: this.abilityPipelines.length,
+    })
   }
 
   /**
@@ -149,28 +180,64 @@ export class GameState {
   }
 
   /**
-   * Restore from the frame's snapshot then delete the frame.
-   * Used when a reaction fails (e.g. modifier roll doesn't meet rollReq, Challenger wins a challenge).
+   * Rollback, frame gone: the failed outcome of a window (a roll under its
+   * requirement, a lost challenge). What was thrown into the window is
+   * spent whichever way it went.
    */
   restoreFrame(frameId: string): void {
     const frame = this.frames.get(frameId)
     if (!frame) return
-    // BEFORE the swap: the snapshot predates every burn, so restoring is what
-    // erases the record of what was spent.
+    this.revert(frameId, frame)
+  }
+
+  /**
+   * Rollback, frame KEPT: the window stays open and its snapshot stays
+   * valid, so the same frame can roll back again when the outcome flips
+   * back (optimistic frames, §3). The board is restored from a COPY of the
+   * snapshot for that reason — the live board must never alias it.
+   */
+  revertFrame(frameId: string): void {
+    const frame = this.frames.get(frameId)
+    if (!frame) return
+    this.revert(frameId, frame)
+    this.frames.set(frameId, frame)
+  }
+
+  /**
+   * The one rollback. Everything after the snapshot is undone: the frames
+   * opened since are cancelled (their windows close without an outcome),
+   * the pipelines pushed since are dropped along with the one that waited
+   * on this frame, and the board goes back to the snapshot. Spent cards
+   * are read BEFORE the swap: restoring is what erases the evidence.
+   */
+  private revert(frameId: string, frame: GameFrame): void {
     const spent = this.spentInto(frame)
+    this.cancelFramesAfter(frameId)
     this.frames.delete(frameId)
-    // Undoing a frame IS cancelling what waited on it. The stack is not in
-    // the snapshot, so this is the one place a rollback touches it.
-    this.abilityPipelines = this.abilityPipelines.filter(
-      (p) => p.pausedOn !== frameId,
-    )
-    this.copyFrom(frame.snapshot)
+    // The stack is not in the snapshot, so this is the one place a
+    // rollback touches it (§3).
+    this.abilityPipelines = this.abilityPipelines
+      .slice(0, frame.stackDepth)
+      .filter((p) => p.pausedOn !== frameId)
+    this.copyFrom(frame.snapshot.clone())
 
     // The snapshot handed them back to their owners' hands. Spent is spent,
     // whichever way the window went.
     for (const { cardId, playerId } of spent) {
       this.players.get(playerId)?.removeFromHand(cardId)
       this.discardPile.add(cardId)
+    }
+  }
+
+  /** Frames are held in the order they opened; the ones after `frameId` are later work. */
+  private cancelFramesAfter(frameId: string): void {
+    let after = false
+    for (const [id, frame] of this.frames) {
+      if (after) {
+        for (const window of frame.windows) if (window.isOpen()) window.cancel()
+        this.frames.delete(id)
+      }
+      if (id === frameId) after = true
     }
   }
 
@@ -345,6 +412,22 @@ export class GameState {
     return false
   }
 
+  /**
+   * Whether a frame may still restore the board: one holding an open
+   * challenge, hero roll or attack, or one with nothing open yet (between
+   * openFrame and its first window, or between a window's close and its
+   * settle). Choice windows never restore. GameEngine reads this before it
+   * asks the win conditions.
+   */
+  hasPendingOutcome(): boolean {
+    for (const frame of this.frames.values()) {
+      const open = frame.windows.filter((w) => w.isOpen())
+      if (open.length === 0) return true
+      if (open.some((w) => RESTORING_WINDOWS.has(w.getType()))) return true
+    }
+    return false
+  }
+
   /** Every open window on the table, in no particular order. */
   openWindows(): IReactionWindow[] {
     const open: IReactionWindow[] = []
@@ -386,7 +469,6 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     for (const [id, ids] of this.revealed) copy.revealed.set(id, [...ids])
-    copy.actionQueue = [...this.actionQueue]
     // Not the pipeline stack: it is work in progress ON the board, not the
     // board. A rollback undoes what that work did and drops what was waiting
     // on the frame (restoreFrame); it does not forget the work existed.
@@ -410,7 +492,6 @@ export class GameState {
     this.discardPile = src.discardPile
     this.monsterDeck = src.monsterDeck
     this.monsterPile = src.monsterPile
-    this.actionQueue = src.actionQueue
     this.frames = src.frames // outer frames survive; restored frame entry is gone
   }
 
@@ -776,7 +857,7 @@ export class GameState {
       return refused(RefusalReason.MonsterNotInRow)
     }
 
-    if (!monster.canBeAttackedBy(this.getPartyClasses(playerId))) {
+    if (!monster.canBeAttackedBy(this.getHeroClasses(playerId))) {
       return refused(RefusalReason.PartyRequirementUnmet)
     }
     return accepted()
@@ -853,19 +934,18 @@ export class GameState {
     return masked ?? hero.getDefaultClass()
   }
 
-  /**
-   * The classes standing in a party: the leader's, then one per hero. The
-   * rulebook counts the Party Leader for a monster's class requirement and
-   * for the six-class win ("a Hero or Party Leader card of a certain class";
-   * the owner, 2026-09-04: five hero classes plus the leader's is a full party).
-   */
-  getPartyClasses(playerId: string): HeroClass[] {
-    const party = this.getParty(playerId)
-    const leader = this.getCard(party.getLeaderId())
-    const heroClasses = party
+  /** One class per hero, a mask included. What a monster's `partyReq` is matched against; never the leader's. */
+  getHeroClasses(playerId: string): HeroClass[] {
+    return this.getParty(playerId)
       .getHeroIds()
       .map((heroId) => this.getHeroClass(heroId))
       .filter((cls): cls is HeroClass => cls !== undefined)
+  }
+
+  /** The leader's class, then the heroes'. What the class win and the `hasClass` filter read. */
+  getPartyClasses(playerId: string): HeroClass[] {
+    const leader = this.getCard(this.getParty(playerId).getLeaderId())
+    const heroClasses = this.getHeroClasses(playerId)
     return leader instanceof PartyLeaderCard
       ? [leader.getHeroClass(), ...heroClasses]
       : heroClasses
@@ -927,6 +1007,9 @@ export class GameState {
   conclude(winnerId: string): void {
     this.gamePhase = GamePhase.Concluded
     this.winnerId = winnerId
+    for (const window of this.openWindows()) window.cancel()
+    this.frames.clear()
+    this.abilityPipelines = []
   }
 
   /** Set only by `conclude`; absent while the game is still being played. */

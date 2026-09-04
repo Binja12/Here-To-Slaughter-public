@@ -70,6 +70,15 @@ export type PendingWindowView = {
   isYours: boolean
 }
 
+/** the active seat's turn clock, one for the table; exactly one of deadline / heldMs is present */
+export type TurnClockView = {
+  turnTimeMs: number
+  /** epoch ms of the lapse while the clock runs; fixed per running stretch, so the screen ticks between snapshots */
+  deadline?: number
+  /** ms left while a reaction window holds the clock */
+  heldMs?: number
+}
+
 export type PlayerView = {
   gameId: string
   playerId: string
@@ -88,6 +97,8 @@ export type PlayerView = {
   /** cards the engine is showing you right now, for its reveal clock (5 s) */
   revealedCards: CardView[]
   pendingWindows: PendingWindowView[]
+  /** absent on a table played without a clock */
+  turnClock?: TurnClockView
   busy: boolean
 }
 

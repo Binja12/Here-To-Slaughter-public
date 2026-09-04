@@ -134,6 +134,7 @@ const makeInitialView = (): PlayerView => {
     revealedCards: [],
 
     pendingWindows: [],
+    turnClock: { turnTimeMs: 60_000, deadline: Date.now() + 60_000 },
     busy: false,
     phase: 'Turns',
   }

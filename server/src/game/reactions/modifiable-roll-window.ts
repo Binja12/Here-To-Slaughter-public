@@ -222,6 +222,21 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
    * the shape every window settles in (§3): the outcome is decided and the
    * frame released or restored BEFORE `FrameResolved` wakes what waited on it.
    */
+  cancel(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.rollerId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true

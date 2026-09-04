@@ -9,6 +9,7 @@ import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, refused } f
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { PlayerChoiceWindow } from '../reactions/player-choice-window'
 import { GameEventEmitter } from '../events/game-event-emitter'
 
 const makePlayer = (id: string) =>
@@ -156,20 +157,85 @@ describe('GameState', () => {
       isOpen: () => isOpen,
       submitReaction: () => ({ accepted: true }) as const,
       resolve: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
     })
 
+    it('restoreFrame cancels every frame opened after it and drops the work pushed since', () => {
+      const cancelled: string[] = []
+      const window = (id: string): IReactionWindow => ({
+        ...stubWindow(),
+        getId: () => id,
+        cancel: () => {
+          cancelled.push(id)
+        },
+      })
+      const pipeline = (pausedOn?: string) => ({ steps: [], ctx: {} as never, pausedOn })
+
+      const outer = pipeline()
+      gs.pushPipeline(outer)
+      const opener = pipeline()
+      gs.pushPipeline(opener)
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [window('w1')] })
+      opener.pausedOn = 'f1'
+      // later work: a pipeline pushed after the snapshot, parked on its own frame
+      const later = pipeline()
+      gs.pushPipeline(later)
+      gs.addFrame('f2', { snapshot: gs.clone(), windows: [window('w2')] })
+      later.pausedOn = 'f2'
+
+      gs.restoreFrame('f1')
+
+      expect(cancelled).toEqual(['w2'])
+      expect(gs.getFrames().size).toBe(0)
+      expect(gs.getPipelines()).toEqual([outer])
+    })
+
+    it('a cancelled window closes without an outcome: no default pick, no FrameResolved', () => {
+      const emitter = new GameEventEmitter()
+      const received: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => received.push(e) })
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      const question = new PlayerChoiceWindow('w2', 'p1', ['p2'], 5000, gs, 'f2', emitter)
+      gs.addFrame('f2', { snapshot: gs.clone(), windows: [question] })
+
+      gs.restoreFrame('f1')
+
+      expect(question.isOpen()).toBe(false)
+      expect(question.picks()).toEqual([])
+      const closed = received.filter((e) => e.getType() === GameEventType.ReactionWindowClosed)
+      expect(closed).toHaveLength(1)
+      expect(closed[0].getPayload()).toMatchObject({ frameId: 'f2', cancelled: true })
+      expect(received.some((e) => e.getType() === GameEventType.FrameResolved)).toBe(false)
+    })
+
+    it('revertFrame restores the board, keeps the frame open, and can do it again', () => {
+      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      gs.markAbilityUsed('hero-x')
+
+      gs.revertFrame('f1')
+      expect(gs.getAbilitiesUsedThisTurn()).toEqual([])
+      expect(gs.getFrames().has('f1')).toBe(true)
+      expect(gs.hasOpenFrames()).toBe(true)
+
+      // the snapshot was not consumed by the first revert
+      gs.markAbilityUsed('hero-y')
+      gs.revertFrame('f1')
+      expect(gs.getAbilitiesUsedThisTurn()).toEqual([])
+      expect(gs.getFrames().has('f1')).toBe(true)
+    })
+
     it('frame is present after addFrame', () => {
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
-      expect(gs.frames.has('f1')).toBe(true)
+      expect(gs.getFrames().has('f1')).toBe(true)
     })
 
     it('frame is absent after releaseFrame', () => {
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
       gs.releaseFrame('f1')
-      expect(gs.frames.has('f1')).toBe(false)
+      expect(gs.getFrames().has('f1')).toBe(false)
     })
 
     it('restoreFrame reverts mutations made after the snapshot', () => {
@@ -183,7 +249,7 @@ describe('GameState', () => {
     it('frame is absent after restoreFrame', () => {
       gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
       gs.restoreFrame('f1')
-      expect(gs.frames.has('f1')).toBe(false)
+      expect(gs.getFrames().has('f1')).toBe(false)
     })
 
     it('hasOpenFrames returns false with no frames', () => {
@@ -255,7 +321,7 @@ describe('GameState', () => {
 
       it('leaves the SNAPSHOT alone — it predates the burn', () => {
         gs.spendCard('p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
+        const snap = gs.getFrames().get('f1')!.snapshot
         // The frame records what was spent instead of reaching back into a
         // past GameState to describe a decision the present just made.
         expect(snap.getPlayer('p1')!.getHand()).toContain('mod-1')
@@ -436,6 +502,7 @@ describe('GameState — the open modifiable window', () => {
     isOpen: () => isOpen,
     submitReaction: jest.fn(),
     resolve: () => {},
+    cancel: () => {},
     resultKey: () => NO_CONTEXT_RESULT,
     getDetail: () => ({}),
     getDeadline: () => 0,

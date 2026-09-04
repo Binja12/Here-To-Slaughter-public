@@ -190,6 +190,21 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     return refused(RefusalReason.ChallengeNotStarted)
   }
 
+  cancel(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.challengedId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true

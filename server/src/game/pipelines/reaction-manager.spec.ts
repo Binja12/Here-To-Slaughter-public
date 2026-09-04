@@ -73,29 +73,29 @@ describe('ReactionManager', () => {
       expect(id).toBeTruthy()
     })
 
-    it('creates the frame in gs.frames', () => {
+    it('creates the frame in gs.getFrames()', () => {
       const id = rm.openFrame()
-      expect(gs.frames.has(id)).toBe(true)
+      expect(gs.getFrames().has(id)).toBe(true)
     })
 
     it('snapshot is captured at open time — later mutations do not affect it', () => {
       const id = rm.openFrame()
       gs.markAbilityUsed('hero-x')
-      const snap = gs.frames.get(id)!.snapshot
+      const snap = gs.getFrames().get(id)!.snapshot
       expect(snap.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
     })
 
     it('frame starts with no windows', () => {
       const id = rm.openFrame()
-      expect(gs.frames.get(id)!.windows).toHaveLength(0)
+      expect(gs.getFrames().get(id)!.windows).toHaveLength(0)
     })
 
     it('returns a fresh id each time, and holds no state about it', () => {
       const a = rm.openFrame()
       const b = rm.openFrame()
       expect(a).not.toBe(b)
-      expect(gs.frames.has(a)).toBe(true)
-      expect(gs.frames.has(b)).toBe(true)
+      expect(gs.getFrames().has(a)).toBe(true)
+      expect(gs.getFrames().has(b)).toBe(true)
     })
   })
 
@@ -111,7 +111,7 @@ describe('ReactionManager', () => {
         rollReq: 7,
         heroId: 'hero-1',
       })
-      return gs.frames.get(frameId)!.windows[0]
+      return gs.getFrames().get(frameId)!.windows[0]
     }
 
     beforeEach(() => {
@@ -144,7 +144,7 @@ describe('ReactionManager', () => {
     it('an unstarted challenge waits for everyone but the defender', () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.Challenge, 'p1', { cardId: 'hero-1' })
-      const window = gs.frames.get(frameId)!.windows[0]
+      const window = gs.getFrames().get(frameId)!.windows[0]
       rm.pass(window.getId(), 'p2')
       expect(window.isOpen()).toBe(false)
     })
@@ -162,7 +162,7 @@ describe('ReactionManager', () => {
     it("WindowNotPassable for a choice — one player's question", () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.PlayerChoice, 'p1', { options: ['p1'] })
-      const window = gs.frames.get(frameId)!.windows[0]
+      const window = gs.getFrames().get(frameId)!.windows[0]
       expect(rm.pass(window.getId(), 'p1')).toEqual({
         accepted: false,
         reason: RefusalReason.WindowNotPassable,
@@ -178,7 +178,7 @@ describe('ReactionManager', () => {
         rollReq: 7,
         heroId: 'hero-1',
       })
-      const windows = gs.frames.get(frameId)!.windows
+      const windows = gs.getFrames().get(frameId)!.windows
       expect(windows).toHaveLength(1)
       expect(windows[0].getType()).toBe(ReactionWindowType.Modifier)
     })
@@ -188,7 +188,7 @@ describe('ReactionManager', () => {
       rm.openWindow(frameId, ReactionWindowType.Challenge, 'p1', {
         cardId: 'hero-1',
       })
-      const windows = gs.frames.get(frameId)!.windows
+      const windows = gs.getFrames().get(frameId)!.windows
       expect(windows).toHaveLength(1)
       expect(windows[0].getType()).toBe(ReactionWindowType.Challenge)
     })
@@ -205,7 +205,7 @@ describe('ReactionManager', () => {
         rollReq: 6,
         heroId: 'hero-2',
       })
-      expect(gs.frames.get(frameId)!.windows).toHaveLength(2)
+      expect(gs.getFrames().get(frameId)!.windows).toHaveLength(2)
     })
 
     it('does nothing when the frame id does not exist', () => {
@@ -267,6 +267,7 @@ describe('ReactionManager', () => {
       isOpen: () => open,
       submitReaction: jest.fn(() => verdict),
       resolve: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,

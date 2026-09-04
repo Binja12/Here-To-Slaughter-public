@@ -127,8 +127,12 @@ export type Deal = {
   handSize?: number
   /** How many slain monsters win. Out of reach unless a case asks for it. */
   winAt?: number
+  /** How many distinct classes win, the leader's included. */
+  classesWin?: number
   /** Cards left in the deck after the deal. Padded with filler heroes. */
   slack?: number
+  /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
+  turnTimeMs?: number
 }
 
 export type Table = { game: Game; events: IGameEvent[] }
@@ -139,6 +143,7 @@ export function config(overrides: Partial<GameConfig> = {}): GameConfig {
     ...overrides,
     timeControl: {
       ...defaultGameConfig.timeControl,
+      ...overrides.timeControl,
       reactionCountdownMs: COUNTDOWN_MS,
     },
   }
@@ -184,7 +189,14 @@ export function stacked(spec: Deal): Table {
           startingHandSize: handSize,
           winConditions: [
             { type: WinConditionType.SlayMonsters, value: spec.winAt ?? 99 },
+            ...(spec.classesWin === undefined
+              ? []
+              : [{ type: WinConditionType.PartyClasses, value: spec.classesWin }]),
           ],
+          timeControl: {
+            ...defaultGameConfig.timeControl,
+            turnTimeMs: spec.turnTimeMs,
+          },
         }),
         cards,
       }),

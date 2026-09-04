@@ -319,11 +319,11 @@ describe('ModifierWindow', () => {
   // resolve() — success path
   // ---------------------------------------------------------------------------
 
-  it('success: releases frame (frame absent from gs.frames after resolve)', () => {
+  it('success: releases frame (frame absent from gs.getFrames() after resolve)', () => {
     const win = makeWindow({ gs, em, baseRoll: 6, rollReq: 5, frameId: 'f-success' })
-    expect(gs.frames.has('f-success')).toBe(true)
+    expect(gs.getFrames().has('f-success')).toBe(true)
     win.resolve()
-    expect(gs.frames.has('f-success')).toBe(false)
+    expect(gs.getFrames().has('f-success')).toBe(false)
   })
 
   it('success: emits RollSuccess', () => {
@@ -353,10 +353,10 @@ describe('ModifierWindow', () => {
     expect(gs.getAbilitiesUsedThisTurn()).not.toContain('some-hero')
   })
 
-  it('fail: frame is absent from gs.frames after restoreFrame', () => {
+  it('fail: frame is absent from gs.getFrames() after restoreFrame', () => {
     const win = makeWindow({ gs, em, baseRoll: 3, rollReq: 5, frameId: 'f-fail' })
     win.resolve()
-    expect(gs.frames.has('f-fail')).toBe(false)
+    expect(gs.getFrames().has('f-fail')).toBe(false)
   })
 
   it('fail: does NOT emit RollSuccess', () => {
