@@ -33,8 +33,6 @@ services:
       GAME_SERVER_TCP_HOST: "0.0.0.0"
       GAME_SERVER_TCP_PORT: "4001"
       GAME_SERVER_PUBLIC_URL: "http://localhost:3001"
-      # Humans need time to find the card; the engine's default is 5 s.
-      REACTION_COUNTDOWN_MS: "30000"
       LOBBY_AUTH_TCP_HOST: "lobby"
       LOBBY_AUTH_TCP_PORT: "4000"
     ports:
