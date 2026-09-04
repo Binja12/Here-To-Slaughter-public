@@ -11,7 +11,7 @@ import { createGame, startGame, Game } from '../setup/create-game'
 import { playerView } from './player-view'
 import { DrawCardAction } from '../actions/draw-card-action'
 import { PlayHeroAction } from '../actions/play-hero-action'
-import { firesOnOwnRoll } from '../repositories/ability-repository'
+import { isActivatable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // The projection, pinned from both sides: what a player IS told, and what no
@@ -172,6 +172,16 @@ describe('playerView', () => {
     }
   })
 
+  it('shows a seat what is revealed to it, and nothing to the others', () => {
+    const game = dealt()
+    const [alice, bob] = game.playerOrder
+    const [aCard] = game.gameState.getPlayer(alice)!.getHand()
+    game.gameState.revealTo(bob, [aCard])
+
+    expect(playerView(game, bob).revealedCards.map((c) => c.id)).toEqual([aCard])
+    expect(playerView(game, alice).revealedCards).toEqual([])
+  })
+
   it('starts every party empty, with its leader ready', () => {
     const view = playerView(dealt(), 'alice')
 
@@ -181,7 +191,7 @@ describe('playerView', () => {
       expect(party.instanceCards).toEqual([])
       // ready = activatable at all (the Shadow Claw) and unspent; a passive
       // leader is never ready, whoever drew it
-      expect(party.canRollOnLeader).toBe(firesOnOwnRoll(party.leader.id))
+      expect(party.canRollOnLeader).toBe(isActivatable(party.leader.id))
     }
     expect(view.discardPile).toEqual([])
   })

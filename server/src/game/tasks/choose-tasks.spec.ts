@@ -8,7 +8,7 @@ import {
   ReactionWindowType,
   Zone,
 } from 'shared'
-import { ChooseCardTask, ChoosePlayerTask, ConfirmTask } from './choose-tasks'
+import { ChooseActionTask, ChooseCardEachTask, ChooseCardTask, ChoosePlayerTask, ConfirmTask } from './choose-tasks'
 import { MagicCard } from '../cards/magic-card'
 import { CONFIRM, DISMISS } from '../reactions/task-choice-window'
 import { GameState } from '../pipelines/game-state'
@@ -17,9 +17,17 @@ import { CardPile } from '../state-structures/card-pile'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { HeroCard } from '../cards/hero-card'
-import { AbilityContext, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
+import {
+  AbilityContext,
+  CTX_CHOSEN_PLAYER,
+  CTX_CHOSEN_CARD,
+  CTX_CHOSEN_ITEM,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
+} from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../pipelines/reaction-manager'
+import { ItemCard } from '../cards/item-card'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()
@@ -242,6 +250,44 @@ describe('ChooseCardTask', () => {
     expect(openedPayload(events)['options']).toEqual(['their-magic'])
   })
 
+  it("opens the window for the CHOSEN player over their own hand — executor: 'chosen'", () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    seat(gs, 'p2', ['their-1', 'their-2'])
+    const em = new GameEventEmitter()
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
+
+    new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }).execute(
+      gs,
+      ctx,
+      em,
+      new ReactionManager(gs, em),
+    )
+
+    const window = openWindow(gs)
+    expect(window.getRespondentId()).toBe('p2')
+    expect(window.getOptions()).toEqual(['their-1', 'their-2'])
+  })
+
+  it("asks nobody when executor: 'chosen' names an empty slot — the step behind skips", () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    const em = new GameEventEmitter()
+    const ctx = new AbilityContext('src', 'p1')
+    ctx.set(CTX_CHOSEN_PLAYER, [])
+
+    const frameId = new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }).execute(
+      gs,
+      ctx,
+      em,
+      new ReactionManager(gs, em),
+    )
+
+    expect(frameId).toBeUndefined()
+    expect(openWindow(gs)).toBeUndefined()
+  })
+
   it('rejects a pick that was never offered', () => {
     const gs = makeGs()
     seat(gs, 'p1')
@@ -434,3 +480,116 @@ describe('ConfirmTask', () => {
     expect(win.isOpen()).toBe(false)
   })
 })
+
+describe('ChooseCardTask — the output slot, and a skipped choice', () => {
+  const build = () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: ['a'], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    gs.registerCard(new HeroCard({ id: 'a', name: 'a', type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    const em = new GameEventEmitter()
+    return { gs, em, rm: new ReactionManager(gs, em), ctx: new AbilityContext('src', 'p1') }
+  }
+
+  it('files the pick where `resultKey` says, so a second pick does not overwrite it', () => {
+    const { gs, em, rm, ctx } = build()
+    new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, { resultKey: CTX_CHOSEN_ITEM }).execute(gs, ctx, em, rm)
+    const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    expect(window.resultKey()).toBe(CTX_CHOSEN_ITEM)
+  })
+
+  it('a choice skipped on its precondition writes an EMPTY pick, not the previous one', () => {
+    const { gs, em, rm, ctx } = build()
+    ctx.set(CTX_CHOSEN_CARD, ['stale'])
+    ctx.set('gate', [])
+    expect(new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, 'gate').execute(gs, ctx, em, rm)).toBeUndefined()
+    expect(ctx.get(CTX_CHOSEN_CARD)).toEqual([])
+  })
+})
+
+describe('ChooseCardEachTask', () => {
+  const table = () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    for (const [id, hand] of [['p1', ['mine']], ['p2', ['a', 'i']], ['p3', ['b']]] as [string, string[]][]) {
+      gs.registerPlayer(new Player({ id, name: id, hand, partyId: `${id}-party`, actionPoints: 3 }))
+      gs.registerParty(new Party({ playerId: id, leaderId: `${id}-leader`, heroIds: [], monsterIds: [] }))
+    }
+    for (const id of ['mine', 'a', 'b']) gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    gs.registerCard(new ItemCard({ id: 'i', name: 'i', type: CardType.Item, image: '', description: '', set: 'base', cursed: false }))
+    const em = new GameEventEmitter()
+    return { gs, em, rm: new ReactionManager(gs, em), ctx: new AbilityContext('src', 'p1') }
+  }
+
+  it('one frame, one window per asked seat over its own cards, each filed under its own slot', () => {
+    const { gs, em, rm, ctx } = table()
+    const frameId = new ChooseCardEachTask({ owner: Owner.Others }, { zone: Zone.Hand, cardType: CardType.Hero }).execute(gs, ctx, em, rm)
+    expect(frameId).toBeTruthy()
+    expect(gs.frames.size).toBe(1)
+    const windows = gs.frames.get(frameId as string)!.windows
+    expect(windows.map((w) => w.getRespondentId())).toEqual(['p2', 'p3'])
+    expect(windows.map((w) => w.getOptions())).toEqual([['a'], ['b']]) // the item did not qualify
+    expect(windows.map((w) => w.resultKey())).toEqual([chosenCardOf('p2'), chosenCardOf('p3')])
+    expect(ctx.get(CTX_ASKED_SEATS)).toEqual(['p2', 'p3'])
+  })
+
+  it('nobody to ask: no frame, nothing to wait for', () => {
+    const { gs, em, rm, ctx } = table()
+    expect(new ChooseCardEachTask({ owner: Owner.Others, hasHeroes: true }, { zone: Zone.Hand }).execute(gs, ctx, em, rm)).toBeUndefined()
+    expect(gs.frames.size).toBe(0)
+    expect(ctx.get(CTX_ASKED_SEATS)).toEqual([])
+  })
+})
+
+describe('ChooseActionTask', () => {
+  const build = () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'p1-party', actionPoints: 3 }))
+    gs.registerParty(new Party({ playerId: 'p1', leaderId: 'p1-leader', heroIds: [], monsterIds: [] }))
+    const em = new GameEventEmitter()
+    const emitted: IGameEvent[] = []
+    em.addListener({ onEvent: (e) => emitted.push(e) })
+    return { gs, em, emitted, rm: new ReactionManager(gs, em), ctx: new AbilityContext('src', 'p1') }
+  }
+  const openWin = (gs: GameState) => gs.openWindows()[0]
+
+  it('offers its labels as the options; the pick announces TaskConfirmed with that label, as the source card', () => {
+    const { gs, em, emitted, rm, ctx } = build()
+    ctx.set('subject', ['x'])
+    new ChooseActionTask({ actions: ['Do A', 'Do B', 'Do nothing'], question: 'Which?', subjectKey: 'subject' }).execute(gs, ctx, em, rm)
+    const window = openWin(gs)
+    expect(window.getType()).toBe(ReactionWindowType.TaskChoice)
+    expect(window.getOptions()).toEqual(['Do A', 'Do B', 'Do nothing'])
+    expect(window.getDetail()).toMatchObject({ question: 'Which?', cardId: 'x', silent: 'Do nothing' })
+    window.submitReaction('p1', { choice: 'Do B' })
+    const confirmed = emitted.filter((e) => e.getType() === GameEventType.TaskConfirmed)
+    expect(confirmed).toHaveLength(1)
+    expect(confirmed[0].getPayload()).toMatchObject({ cardId: 'src', label: 'Do B', ctxSeed: { subject: ['x'] } })
+  })
+
+  it('the LAST label is what silence does: a timeout picks it and announces it', () => {
+    jest.useFakeTimers()
+    try {
+      const { gs, em, emitted, rm, ctx } = build()
+      new ChooseActionTask({ actions: ['Do A', 'Do the printed thing'] }).execute(gs, ctx, em, rm)
+      jest.runOnlyPendingTimers()
+      expect(openWin(gs)).toBeUndefined()
+      const confirmed = emitted.filter((e) => e.getType() === GameEventType.TaskConfirmed)
+      expect(confirmed).toHaveLength(1)
+      expect((confirmed[0].getPayload() as { label: string }).label).toBe('Do the printed thing')
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('`asCard` announces the question as another card\'s', () => {
+    const { gs, em, emitted, rm, ctx } = build()
+    new ChooseActionTask({ actions: ['Do A', 'Do nothing'], asCard: 'monster-122' }).execute(gs, ctx, em, rm)
+    openWin(gs).submitReaction('p1', { choice: 'Do A' })
+    expect(emitted.find((e) => e.getType() === GameEventType.TaskConfirmed)!.getPayload()).toMatchObject({ cardId: 'monster-122', label: 'Do A' })
+  })
+
+  it('refuses a single label — that is not a choice', () => {
+    expect(() => new ChooseActionTask({ actions: ['only'] })).toThrow(/two labels/)
+  })
+})
+

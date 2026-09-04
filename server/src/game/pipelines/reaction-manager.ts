@@ -160,6 +160,7 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        config['resultKey'] as string | undefined,
       )
     }
 

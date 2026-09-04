@@ -1,3 +1,6 @@
+import { CardType, HeroClass } from 'shared'
+import { ItemCard } from '../cards/item-card'
+import { buildCard } from '../cards/card-factory'
 import { SlayMonsters } from './win-conditions'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { AllClassesInParty } from './win-conditions'
@@ -26,6 +29,17 @@ const makePlayer = (id: string) =>
 const makeParty = (playerId: string) =>
   new Party({ playerId, leaderId: `leader-${playerId}`, heroIds: [], monsterIds: [] })
 
+/** Puts a printed hero in a party AND on the board: the class the win reads is
+ * the board's, so a mask can change it. */
+const field = (
+  gs: GameState,
+  repo: InMemoryCardRepository,
+  party: Party,
+  id: string,
+) => {
+  if (!gs.getCard(id)) gs.registerCard(buildCard(repo.getById(id)!))
+  party.addHero(id, silentEm, 'Played')
+}
 const setupPlayer = (gs: GameState, playerId: string) => {
   gs.registerPlayer(makePlayer(playerId))
   gs.registerParty(makeParty(playerId))
@@ -75,12 +89,39 @@ describe('win-condition', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
-      party.addHero('hero-041', silentEm, 'Played') // bard
-      party.addHero('hero-040', silentEm, 'Played') // wizard
-      party.addHero('hero-025', silentEm, 'Played') // guardian
-      party.addHero('hero-024', silentEm, 'Played') // thief
-      party.addHero('hero-009', silentEm, 'Played') // ranger
-      party.addHero('hero-008', silentEm, 'Played') // fighter
+      field(gs, repo, party, 'hero-041') // bard
+      field(gs, repo, party, 'hero-040') // wizard
+      field(gs, repo, party, 'hero-025') // guardian
+      field(gs, repo, party, 'hero-024') // thief
+      field(gs, repo, party, 'hero-009') // ranger
+      field(gs, repo, party, 'hero-008') // fighter
+      const condition = new AllClassesInParty(repo)
+      expect(condition.check(gs)?.getId()).toBe('player-1')
+    })
+
+    it('counts a masked hero as the mask\'s class — a second Wizard in the Fighter Mask is the sixth', () => {
+      const repo = makeRepo()
+      const gs = makeGs()
+      const party = setupPlayer(gs, 'player-1')
+      field(gs, repo, party, 'hero-041') // bard
+      field(gs, repo, party, 'hero-040') // wizard
+      field(gs, repo, party, 'hero-025') // guardian
+      field(gs, repo, party, 'hero-024') // thief
+      field(gs, repo, party, 'hero-009') // ranger
+      field(gs, repo, party, 'hero-039') // another wizard …
+      gs.registerCard(
+        new ItemCard({
+          id: 'item-067',
+          name: 'Fighter Mask',
+          type: CardType.Item,
+          image: '',
+          description: '',
+          set: 'base',
+          cursed: false,
+          heroClass: HeroClass.Fighter,
+        }),
+      )
+      party.equipItem('hero-039', 'item-067') // … read as a Fighter
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)?.getId()).toBe('player-1')
     })
@@ -89,11 +130,11 @@ describe('win-condition', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
-      party.addHero('hero-041', silentEm, 'Played') // bard
-      party.addHero('hero-040', silentEm, 'Played') // wizard
-      party.addHero('hero-025', silentEm, 'Played') // guardian
-      party.addHero('hero-024', silentEm, 'Played') // thief
-      party.addHero('hero-009', silentEm, 'Played') // ranger
+      field(gs, repo, party, 'hero-041') // bard
+      field(gs, repo, party, 'hero-040') // wizard
+      field(gs, repo, party, 'hero-025') // guardian
+      field(gs, repo, party, 'hero-024') // thief
+      field(gs, repo, party, 'hero-009') // ranger
       // missing fighter
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)).toBeNull()
@@ -103,12 +144,12 @@ describe('win-condition', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
-      party.addHero('hero-041', silentEm, 'Played') // bard
-      party.addHero('hero-040', silentEm, 'Played') // wizard
-      party.addHero('hero-025', silentEm, 'Played') // guardian
-      party.addHero('hero-024', silentEm, 'Played') // thief
-      party.addHero('hero-009', silentEm, 'Played') // ranger
-      party.addHero('hero-009', silentEm, 'Played') // ranger again — duplicate
+      field(gs, repo, party, 'hero-041') // bard
+      field(gs, repo, party, 'hero-040') // wizard
+      field(gs, repo, party, 'hero-025') // guardian
+      field(gs, repo, party, 'hero-024') // thief
+      field(gs, repo, party, 'hero-009') // ranger
+      field(gs, repo, party, 'hero-009') // ranger again — duplicate
       const condition = new AllClassesInParty(repo)
       expect(condition.check(gs)).toBeNull()
     })

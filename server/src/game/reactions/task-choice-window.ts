@@ -9,11 +9,17 @@ export const CONFIRM = 'confirm'
 export const DISMISS = 'dismiss'
 
 // ---------------------------------------------------------------------------
-// TaskChoiceWindow — "do you want to do X?", opened by ConfirmTask.
+// TaskChoiceWindow — "which of these do you do?", opened by ConfirmTask and
+// ChooseActionTask.
 //
-// CONFIRM emits TaskConfirmed; DISMISS (and a timeout) emits nothing. The
-// frame is released either way. A confirm is therefore the LAST step of its
-// ability entry — the follow-up is a separate entry triggered by that event.
+// Its options are ACTION LABELS. Picking one announces TaskConfirmed with
+// that label, which a continuation entry matches with `when`. A timeout
+// picks the `silent` label — and announces it like any other: silence DOES
+// something, the printed thing (Corrupted Sabretooth: destroy). The one
+// label that announces nothing is DISMISS, which makes a confirm the
+// two-label case — `confirms` and DISMISS, silence being DISMISS. The frame
+// is released either way, so the asking step is the LAST of its entry: what
+// follows is a separate entry, triggered by the event.
 // ---------------------------------------------------------------------------
 
 export class TaskChoiceWindow extends ChoiceWindow {
@@ -25,16 +31,18 @@ export class TaskChoiceWindow extends ChoiceWindow {
     frameId: string,
     emitter: IGameEventEmitter,
     /**
-     * `{ confirms, sourceCardId, cardId?, ctxSeed? }` from ConfirmTask.
-     * `confirms` becomes the event's `label`, which a continuation matches
-     * with `when`; `ctxSeed` is what that continuation needs in its context.
+     * `{ actions, silent, sourceCardId, cardId?, ctxSeed?, question? }` from
+     * the asking task. `actions` are the labels offered, in order; `silent`
+     * the one a timeout picks; `ctxSeed` what the continuation needs in its
+     * context. ConfirmTask sends `confirms` instead of `actions`: CONFIRM
+     * announces that label, DISMISS announces nothing.
      */
     private readonly question: Record<string, unknown> = {},
   ) {
     super(
       id,
       respondentId,
-      [CONFIRM, DISMISS],
+      (question['actions'] as string[] | undefined) ?? [CONFIRM, DISMISS],
       timeoutMs,
       gs,
       frameId,
@@ -52,19 +60,22 @@ export class TaskChoiceWindow extends ChoiceWindow {
     return NO_CONTEXT_RESULT
   }
 
+  /** Silence picks the silent label — DISMISS for a confirm. */
   protected override defaultChoice(): unknown {
-    return DISMISS
+    return this.silent()
   }
 
-  /** CONFIRM announces itself; DISMISS says nothing. */
+  /** Every label announces itself, DISMISS excepted. */
   protected override announceOutcome(picked: unknown): void {
-    if (picked !== CONFIRM) return
-    const { confirms: label, ctxSeed, sourceCardId } = this.question as {
+    if (picked === undefined || picked === DISMISS) return
+    const { confirms, ctxSeed, sourceCardId } = this.question as {
       confirms?: string
       ctxSeed?: Record<string, unknown>
       sourceCardId?: string
     }
-    if (!label || !sourceCardId) return
+    // A confirm's CONFIRM stands for the label it was asked with.
+    const label = picked === CONFIRM && confirms ? confirms : (picked as string)
+    if (!sourceCardId) return
     this.emitter.emit(
       GameEventFactory.taskConfirmed(
         this.respondentId,
@@ -73,5 +84,9 @@ export class TaskChoiceWindow extends ChoiceWindow {
         ctxSeed,
       ),
     )
+  }
+
+  private silent(): string {
+    return (this.question['silent'] as string | undefined) ?? DISMISS
   }
 }

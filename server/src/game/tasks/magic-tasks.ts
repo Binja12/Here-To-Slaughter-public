@@ -47,13 +47,13 @@ export abstract class PlayMagic {
     const player = gs.getPlayer(playerId)
     if (!player) return
 
-    player.removeFromHand(cardId)
+    gs.removeFromHand(playerId, cardId)
     em.emit(GameEventFactory.cardRemovedFromHand(playerId, cardId))
 
     const frameId = rm.openFrame()
 
     // Inside the frame, so a lost challenge takes it back out again.
-    gs.getParty(playerId).addInstanceCard(cardId)
+    gs.addInstanceCard(playerId, cardId)
     em.emit(GameEventFactory.magicPlayed(playerId, cardId))
 
     // Last: this window suspends the drain.
@@ -122,7 +122,7 @@ export class DisposeInstanceCardTask implements ITask {
     // being over, which is the only thing AbilityDone can know about.
     if (gs.isSpentInOpenFrame(ctx.sourceCardId)) return
 
-    party.removeInstanceCard(ctx.sourceCardId)
-    gs.getDiscardPile().add(ctx.sourceCardId)
+    gs.removeInstanceCard(ctx.ownerId, ctx.sourceCardId)
+    gs.addToDiscardPile(ctx.sourceCardId)
   }
 }

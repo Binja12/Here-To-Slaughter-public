@@ -160,10 +160,9 @@ export function createGame(
   }
 
   for (const playerId of playerOrder) {
-    const player = gameState.getPlayer(playerId)!
     for (let i = 0; i < config.startingHandSize; i++) {
       const cardId = mainDeck.draw()
-      if (cardId) player.addToHand(cardId)
+      if (cardId) gameState.addToHand(playerId, cardId)
     }
   }
 

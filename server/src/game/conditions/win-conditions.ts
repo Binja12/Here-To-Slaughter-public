@@ -47,11 +47,11 @@ export class AllClassesInParty {
   check(gs: GameState): Player | null {
     for (const player of gs.getPlayers()) {
       const party = gs.getParty(player.getId())!
+      // The class the BOARD reads, a mask included (GameState.getHeroClass).
       const playerHeroClasses = party
-        .getHeroIds() // all heros id
-        .map((id) => this.repo.getById(id) as HeroCardData) // convert from string to card types
-        .filter((card) => card !== null) // removes null
-        .map((card) => card.heroClass) // convert each card type into the hero class
+        .getHeroIds()
+        .map((id) => gs.getHeroClass(id))
+        .filter((cls): cls is HeroClass => cls !== undefined)
 
       const uniqueClasses = new Set(
         playerHeroClasses.filter((cls) => this.reqHeroClasses.includes(cls)),

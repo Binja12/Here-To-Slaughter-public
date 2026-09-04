@@ -6,6 +6,9 @@ import {
   CTX_CHOSEN_VALUE,
 } from '../abilities/ability-context'
 
+/** A context write a settled window asks for: its slot, its picks. */
+export type ContextWrite = { key: string; value: unknown }
+
 export class GameEventFactory {
   // --- Dice ---
 
@@ -297,6 +300,53 @@ export class GameEventFactory {
    * events state the full truth and the projection layer in front of the API
    * decides who may see which id (§5).
    */
+  /** RetrieveCardTask: `playerId` is the hand the card landed in. */
+  /** TradeHandsTask: `playerId`'s whole hand and `withPlayerId`'s changed places. */
+  static handsTraded(playerId: string, withPlayerId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.HandsTraded,
+      playerId,
+      { withPlayerId },
+      Audience.All,
+    )
+  }
+
+  static cardRetrieved(
+    playerId: string,
+    cardId: string,
+    from: 'Discard' | 'Equipment',
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.CardRetrieved,
+      playerId,
+      { cardId, from },
+      Audience.All,
+    )
+  }
+
+  /** RevealTask: `playerId` is who sees them; `toAll` when the table does. */
+  static cardsRevealed(
+    playerId: string,
+    cardIds: string[],
+    toAll: boolean,
+  ): IGameEvent {
+    return new GameEvent(
+      GameEventType.CardsRevealed,
+      playerId,
+      { cardIds, toAll },
+      Audience.All,
+    )
+  }
+
+  static revealEnded(playerId: string, cardIds: string[]): IGameEvent {
+    return new GameEvent(
+      GameEventType.RevealEnded,
+      playerId,
+      { cardIds },
+      Audience.All,
+    )
+  }
+
   static cardPulled(
     toPlayerId: string,
     fromPlayerId: string,
@@ -322,6 +372,16 @@ export class GameEventFactory {
       playerId,
       { cardId, ctxSeed: { [CTX_DRAWN_CARD_IDS]: [cardId] } },
       Audience.PlayerOnly,
+    )
+  }
+
+  /** RollOnLeaderAction: the leader's ability fires. `cardId` is the leader, for SelfCard. */
+  static leaderActivated(playerId: string, leaderId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.LeaderActivated,
+      playerId,
+      { cardId: leaderId },
+      Audience.All,
     )
   }
 
@@ -476,7 +536,8 @@ export class GameEventFactory {
 
   /**
    * `results` is the log transport, always an array. `result` is the optional
-   * context write — the window names both slot and value (resultKey).
+   * context write — the window names both slot and value (resultKey); a frame
+   * of several windows (one question per seat) carries one write per window.
    */
   /**
    * `cardId` names what the frame was over, for windows that settle on one.
@@ -486,7 +547,7 @@ export class GameEventFactory {
   static frameResolved(
     frameId: string,
     results: unknown[],
-    result?: { key: string; value: unknown },
+    result?: ContextWrite | ContextWrite[],
     cardId?: string,
   ): IGameEvent {
     return new GameEvent(

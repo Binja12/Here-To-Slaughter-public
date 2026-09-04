@@ -78,19 +78,11 @@ describe('createGame', () => {
       }
     })
 
-    it('leaves an item or a magic card the registry does not implement out of the deal', () => {
-      const game = createGame(SEATS)
-      const mask = baseGameCards.find((c) => c.name === 'Fighter Mask')!
-      const trap = baseGameCards.find((c) => c.name === 'Entangling Trap')!
-
-      expect(game.gameState.getCard(mask.id)).toBeUndefined()
-      expect(game.gameState.getCard(trap.id)).toBeUndefined()
-    })
-
-    it('leaves a hero with no entry out too — the pool is exactly the registry', () => {
+    it('deals the whole printed set now that the registry implements every card', () => {
       const game = createGame(SEATS)
 
-      expect(game.gameState.getCard('hero-016')).toBeUndefined() // Sharp Fox
+      expect(baseGameCards.filter(dealable)).toHaveLength(baseGameCards.length)
+      expect(game.gameState.getCard('hero-022')).toBeDefined() // Slippery Paws, the last one in
       expect(game.gameState.getCard('hero-028')).toBeDefined() // Wise Shield
     })
 

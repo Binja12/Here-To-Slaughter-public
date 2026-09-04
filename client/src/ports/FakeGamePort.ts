@@ -131,6 +131,8 @@ const makeInitialView = (): PlayerView => {
     hand: threeSeatOpening.hand,
     discardPile: [...discardSeed, ...discardStubs],
     attackableMonsterIds: [threeSeatOpening.monsterRow[1].id],
+    revealedCards: [],
+
     pendingWindows: [],
     busy: false,
     phase: 'Turns',
@@ -529,6 +531,8 @@ export class FakeGamePort implements GamePort {
       winnerId: this.view.playerId,
       currentPlayerId: undefined,
       busy: false,
+      revealedCards: [],
+
       pendingWindows: [],
       seats: this.view.seats.map((seat) => ({
         ...seat,
@@ -542,6 +546,8 @@ export class FakeGamePort implements GamePort {
   private upsertWindow(window: PendingWindowView) {
     this.view = {
       ...this.view,
+      revealedCards: [],
+
       pendingWindows: [
         ...this.view.pendingWindows.filter(
           (candidate) => candidate.windowId !== window.windowId,

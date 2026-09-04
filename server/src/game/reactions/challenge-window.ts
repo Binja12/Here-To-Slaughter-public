@@ -268,7 +268,7 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
       // No CardDiscarded event; ChallengeResolved already reported the defeat.
       // Cards spent during the window need nothing here: restoreFrame put them
       // away already, from the list the frame kept.
-      this.gs.getDiscardPile().add(this.cardId)
+      this.gs.addToDiscardPile(this.cardId)
     }
 
     this.emitter.emit(

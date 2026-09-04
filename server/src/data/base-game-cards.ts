@@ -842,6 +842,7 @@ export const baseItems: ItemCardData[] = [
     set: 'base',
 
     cursed: false,
+    heroClass: HeroClass.Fighter,
   },
   {
     id: 'item-068',
@@ -853,6 +854,7 @@ export const baseItems: ItemCardData[] = [
     set: 'base',
 
     cursed: false,
+    heroClass: HeroClass.Ranger,
   },
   {
     id: 'item-069',
@@ -864,6 +866,7 @@ export const baseItems: ItemCardData[] = [
     set: 'base',
 
     cursed: false,
+    heroClass: HeroClass.Thief,
   },
   {
     id: 'item-070',
@@ -875,6 +878,7 @@ export const baseItems: ItemCardData[] = [
     set: 'base',
 
     cursed: false,
+    heroClass: HeroClass.Guardian,
   },
   {
     id: 'item-071',
@@ -886,6 +890,7 @@ export const baseItems: ItemCardData[] = [
     set: 'base',
 
     cursed: false,
+    heroClass: HeroClass.Wizard,
   },
   {
     id: 'item-072',
@@ -897,6 +902,7 @@ export const baseItems: ItemCardData[] = [
     set: 'base',
 
     cursed: false,
+    heroClass: HeroClass.Bard,
   },
 
   {
