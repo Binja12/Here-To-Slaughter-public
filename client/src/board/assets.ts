@@ -1,99 +1,9 @@
 import { CardView } from '../contract';
 
-/**
- * Manifest of the hero card scans under client/public/cards/heroes/.
- * The user maintains the folder as <class>/<NN>_<snake_name>.png where NN
- * is the file's position in the arrays below — keep the order in sync with
- * the folder. Leaders/monsters currently only have the root template scans
- * (/cards/leader.png, /cards/monster.png).
- */
-
-const CLASS_HEROES: Record<string, string[]> = {
-  Bard: [
-    'napping_nibbles',
-    'peanut',
-    'fuzzy_cheeks',
-    'greedy_cheeks',
-    'lucky_bucky',
-    'dodgy_dealer',
-    'mellow_dee',
-    'tipsy_tootie',
-  ],
-  Fighter: [
-    'heavy_bear',
-    'pan_chucks',
-    'beary_wise',
-    'qi_bear',
-    'fury_knuckle',
-    'tough_teddy',
-    'bad_axe',
-    'bear_claw',
-  ],
-  Guardian: [
-    'wise_shield',
-    'calming_voice',
-    'radiant_horn',
-    'mighty_blade',
-    'holy_curselifter',
-    'iron_resolve',
-    'guiding_light',
-    'vibrant_glow',
-  ],
-  Ranger: [
-    'wildshot',
-    'sharp_fox',
-    'lookie_rookie',
-    'wily_red',
-    'quick_draw',
-    'bullseye',
-    'serious_grey',
-    'hook',
-  ],
-  Thief: [
-    'plundering_puma',
-    'smooth_mimimeow',
-    'meowzio',
-    'shurikitty',
-    'sly_pickings',
-    'slippery_paws',
-    'kit_napper',
-    'silent_shadow',
-  ],
-  Wizard: [
-    'wiggles',
-    'snowball',
-    'spooky',
-    'bun_bun',
-    'buttons',
-    'fluffy',
-    'hopper',
-    'whiskers',
-  ],
-};
-
-export interface HeroAsset {
-  heroClass: string;
-  url: string;
-}
-
-/** kebab-case slug (e.g. "fuzzy-cheeks") → class + scan url */
-export const HEROES: Record<string, HeroAsset> = {};
-for (const [heroClass, names] of Object.entries(CLASS_HEROES)) {
-  names.forEach((snake, i) => {
-    const nn = String(i + 1).padStart(2, '0');
-    HEROES[snake.replace(/_/g, '-')] = {
-      heroClass,
-      url: `/cards/heroes/${heroClass.toLowerCase()}/${nn}_${snake}.png`,
-    };
-  });
-}
-
-/** HAND design (also used for the discard pile). */
-export const heroCardUrl = (slug: string): string =>
-  HEROES[slug]?.url ?? '/cards/hero.png'; // template fallback
-
-export const heroClassOf = (slug: string): string =>
-  HEROES[slug]?.heroClass ?? 'Bard';
+// Every card on the table is drawn from its BOARD scan under client/public/
+// board/. There is no template art any more (the owner, 2026-09-04: the old
+// /cards folder is gone); a card without a scan shows a broken image, which
+// is the reminder to add one.
 
 /* ------------------------------------------------------------------ */
 /* BOARD design (client/public/board/): premium scans, frame baked in  */
@@ -114,13 +24,11 @@ const titleCase = (slug: string) =>
 const BOARD_HERO_OVERRIDES: Record<string, string> = {
   'beary-wise': 'Breay Wise', // typo on disk
 };
-const BOARD_HERO_MISSING = new Set(['guiding-light']);
-
-/** Board-design hero scan, or null when the art doesn't exist yet. */
-export const boardHeroCardUrl = (slug: string): string | null => {
-  if (!HEROES[slug] || BOARD_HERO_MISSING.has(slug)) return null;
-  return `/board/heroes/Hero ${BOARD_HERO_OVERRIDES[slug] ?? titleCase(slug)}.png`;
-};
+/** Board-design hero scan for the slug of a printed `image` field. */
+export const boardHeroCardUrl = (slug: string): string =>
+  slug === 'guiding-light'
+    ? '/board/heroes/Hero Guardian Light.png' // typo on disk
+    : `/board/heroes/Hero ${BOARD_HERO_OVERRIDES[slug] ?? titleCase(slug)}.png`;
 
 /** name like "Mega Slime" → /board/Monsters/Monster Mega Slime.png */
 export const boardMonsterUrl = (name: string) =>
@@ -207,24 +115,13 @@ export function artFor(card: CardView): { url: string; aspect: number } {
   switch (card.type) {
     case 'Hero': {
       const slug = heroSlugFromImage(card.image);
-      return {
-        url:
-          slug === 'guiding-light'
-            ? '/board/heroes/Hero Guardian Light.png'
-            : boardHeroCardUrl(slug) ?? heroCardUrl(slug),
-        aspect: BOARD_CARD_ASPECT,
-      };
+      return { url: boardHeroCardUrl(slug), aspect: BOARD_CARD_ASPECT };
     }
     case 'Item':
       return { url: boardItemUrl(name), aspect: NONHERO_CARD_ASPECT };
     case 'Magic':
-      return {
-        url:
-          card.name === 'Call to the Fallen'
-            ? '/cards/magic.png'
-            : boardMagicUrl(name),
-        aspect: NONHERO_CARD_ASPECT,
-      };
+      // Call to the Fallen has no scan yet: its board url 404s until one lands
+      return { url: boardMagicUrl(name), aspect: NONHERO_CARD_ASPECT };
     case 'Modifier': {
       const modifierName: Record<string, string> = {
         '2,-2': '+2-2',

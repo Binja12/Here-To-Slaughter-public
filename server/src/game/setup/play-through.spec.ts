@@ -45,8 +45,6 @@ import {
   fixDice,
   scriptDice,
 } from './play-through-helpers'
-import { dealable } from '../repositories/ability-repository'
-
 
 describe('a game played through', () => {
   afterEach(() => jest.restoreAllMocks())
@@ -569,7 +567,13 @@ describe('a game played through', () => {
     // entry lands it (§7).
     react(
       t,
-      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId, 3),
+      new PlayModifierReaction(
+        actionId(),
+        playerId,
+        'modifier-086',
+        playerId,
+        3,
+      ),
     )
     await settle(t)
 
@@ -601,7 +605,13 @@ describe('a game played through', () => {
 
     react(
       t,
-      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId, -1),
+      new PlayModifierReaction(
+        actionId(),
+        playerId,
+        'modifier-086',
+        playerId,
+        -1,
+      ),
     )
     await settle(t)
 
@@ -802,15 +812,20 @@ describe('a game played through', () => {
   // --- Monsters -----------------------------------------------------------
 
   it('offers no monster to a party that cannot field one', async () => {
-    const t = table()
+    // Nobody has played a hero, but the PARTY LEADER counts as one card of
+    // its class (alice leads with the Shadow Claw, a Thief): Arctic Aries
+    // asks for one of any class and is on offer; Orthus wants a Wizard too
+    // and Mega Slime four cards, so neither is.
+    const t = stacked({
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+      monsters: ['monster-128', 'monster-131', 'monster-123'],
+    })
     const playerId = active(t)
     const view = see(t, playerId)
 
-    // Every printed monster asks for at least one hero, and no party has one.
-    expect(view.attackableMonsterIds).toEqual([])
+    expect(view.attackableMonsterIds).toEqual(['monster-128'])
 
-    const needy = view.monsterRow[0]
-    attack(t, playerId, needy.id)
+    attack(t, playerId, 'monster-131')
     await settle(t)
 
     expect(seatOf(see(t, playerId), playerId).actionPoints).toBe(3)
@@ -819,18 +834,19 @@ describe('a game played through', () => {
 
   it('offers a monster the moment the party can field it', async () => {
     const t = stacked({
-      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
-      monsters: ['monster-128'],
+      deck: ['hero-037', 'hero-001', 'hero-002', 'hero-003'],
+      monsters: ['monster-131'],
     })
     const playerId = active(t)
 
-    expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-128')
+    // Orthus asks for a Wizard and one more of any class: the Thief leader
+    // is the "any", Whiskers (a Wizard) is the rest.
+    expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-131')
 
-    playHero(t, playerId, 'hero-044')
+    playHero(t, playerId, 'hero-037')
     await settle(t)
 
-    // Arctic Aries asks for one hero of any class.
-    expect(see(t, playerId).attackableMonsterIds).toContain('monster-128')
+    expect(see(t, playerId).attackableMonsterIds).toContain('monster-131')
   })
 
   it('slays a monster, takes it into the party, and the row refills', async () => {
@@ -1030,7 +1046,7 @@ describe('a game played through', () => {
     expect(active(two)).toBe(two.game.playerOrder[0])
     expect(seatOf(board(two), active(two)).actionPoints).toBe(3)
     expect(board(two).mainDeck.count).toBe(
-      baseGameCards.filter(dealable).filter((c) =>
+      baseGameCards.filter((c) =>
         [
           CardType.Hero,
           CardType.Item,

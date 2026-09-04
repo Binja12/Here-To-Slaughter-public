@@ -11,6 +11,6 @@ import { IAbilityRule } from '../../interfaces'
 // class goes through that one method: party requirements, the "every class"
 // win, the class choice filter, the "while you have a <class>" expiry.
 //
-// The empty list is still registered, because the deal is exactly the
-// registry (`dealable`): an unregistered mask would never be dealt.
+// The empty list is still registered so the behaviour table explicitly shows
+// that the masks need no pipeline rather than appearing accidentally omitted.
 export const MaskAbility: IAbilityRule[] = []

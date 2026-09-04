@@ -1,8 +1,9 @@
-import { GameEventType, PassiveType, TriggerScope } from 'shared'
+import { GameEventType, PassiveType, TriggerScope, Owner, Zone } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
-import { DestroyTask, DESTROY_ANYWAY, STEAL_INSTEAD, StealFromPartyTask } from '../../tasks/hero-tasks'
+import { DestroyTask, DESTROY_ANYWAY, STEAL_INSTEAD, StealFromPartyTask, SacrificeTask } from '../../tasks/hero-tasks'
 import { CTX_WOULD_DESTROY } from '../../abilities/ability-context'
+import { ChooseCardTask } from '../../tasks/choose-tasks'
 
 // Corrupted Sabretooth (monster-122): "Each time you would DESTROY a Hero
 // card, you may STEAL that Hero card instead."
@@ -32,5 +33,15 @@ export const CorruptedSabretoothAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.TaskConfirmed, scope: TriggerScope.SelfCard, when: DESTROY_ANYWAY },
     steps: [new DestroyTask({ fromKey: CTX_WOULD_DESTROY, replaceable: false })],
+  },
+  {
+    // Fight back: SACRIFICE a Hero card — the attacker gives one up (Mega
+    // Slime's shape; declared here because nothing reads the printed
+    // fight-back text on its own).
+    trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
+    steps: [
+      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new SacrificeTask(),
+    ],
   },
 ]

@@ -10,6 +10,7 @@ import { ApplyEffectTask } from '../../tasks/tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { SacrificeTask } from '../../tasks/hero-tasks'
+import { GainActionPointsTask } from '../../tasks/action-point-tasks'
 
 // Mega Slime (monster-123)
 //   Passive:      "You may spend an extra action point on each of your turns."
@@ -48,6 +49,9 @@ export const MegaSlimeAbility: IAbilityRule[] = [
         type: PassiveType.ActionPointBonus,
         value: EXTRA_ACTION_POINTS,
       }),
+      // ... and the slaying turn gets its point at once: the effect above is
+      // only read when a turn STARTS (the owner, 2026-09-04).
+      new GainActionPointsTask(EXTRA_ACTION_POINTS),
     ],
   },
   {

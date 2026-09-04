@@ -1,4 +1,4 @@
-import { CardType, WinConditionType } from 'shared'
+import { CardType, GamePhase, WinConditionType } from 'shared'
 import type { CardBase, HeroCardData, SeatedAccount } from 'shared'
 import { baseGameCards } from '../data/base-game-cards'
 import type { Game } from '../game/setup/create-game'
@@ -177,9 +177,9 @@ export async function untilIdle(game: Game, deadlineMs = 3_000): Promise<void> {
 
 /**
  * Wins a quick-win table through the dispatcher, the way a browser would:
- * the active seat plays a hero, the table settles (the challenge window
- * and the roll offer lapse on the clock), and the seat ends its turn — at
- * which point the engine finds a party with every class and concludes.
+ * the active seat plays a hero and the table settles (the challenge window
+ * and the roll offer lapse on the clock) — the settled frame is where the
+ * engine finds a party with every class and concludes, mid-turn.
  */
 export async function winFirstTurn(game: Game): Promise<void> {
   const dispatcher = new CommandDispatcherService()
@@ -193,7 +193,10 @@ export async function winFirstTurn(game: Game): Promise<void> {
 
   const played = send('PlayHero', { cardId: heroInHand(game, active) })
   if (!played.accepted) throw new Error(`PlayHero: ${JSON.stringify(played)}`)
+  // The hero's frame settling is the win: the engine concludes the moment
+  // an idle board qualifies, no EndTurn needed (one would be refused GameOver).
   await untilIdle(game)
-  const ended = send('EndTurn')
-  if (!ended.accepted) throw new Error(`EndTurn: ${JSON.stringify(ended)}`)
+  if (game.gameState.getGamePhase() !== GamePhase.Concluded) {
+    throw new Error('winFirstTurn: the first hero did not end the game')
+  }
 }

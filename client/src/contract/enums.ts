@@ -34,6 +34,9 @@ export type PassiveType =
   | 'ActionPointBonus'
   | 'ModifierCounterBonus'
   | 'CantBeStolen'
+  | 'CantBeDestroyed'
+  | 'StealsInsteadOfDestroy'
+  | 'TakesTheHit'
   | 'CantBeChallenged'
   | 'CantUseHeroEffect'
 
@@ -54,7 +57,6 @@ export enum RefusalReason {
   NotAnItem = 'NotAnItem',
   NotAHero = 'NotAHero',
   HeroAlreadyEquipped = 'HeroAlreadyEquipped',
-  NotYourHero = 'NotYourHero',
   MonsterNotInRow = 'MonsterNotInRow',
   PartyRequirementUnmet = 'PartyRequirementUnmet',
   AlreadyChallengedThisTurn = 'AlreadyChallengedThisTurn',

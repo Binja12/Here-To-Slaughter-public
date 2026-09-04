@@ -8,7 +8,7 @@ export const BadAxeAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All }),
+      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }),
       new DestroyTask(),
     ],
   },

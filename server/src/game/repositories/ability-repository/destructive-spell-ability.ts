@@ -35,7 +35,7 @@ export const DestructiveSpellAbility: IAbilityRule[] = [
     steps: [
       new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
       new DiscardTask(),
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All }),
+      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }),
       new DestroyTask(),
     ],
   },

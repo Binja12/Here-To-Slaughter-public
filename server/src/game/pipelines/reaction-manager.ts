@@ -148,6 +148,7 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        config['sourceCardId'] as string | undefined,
       )
     }
 
@@ -161,6 +162,7 @@ export class ReactionManager implements IReactionManager {
         frameId,
         this.em,
         config['resultKey'] as string | undefined,
+        config['sourceCardId'] as string | undefined,
       )
     }
 
@@ -173,6 +175,8 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        undefined,
+        config['sourceCardId'] as string | undefined,
       )
     }
 
@@ -187,6 +191,7 @@ export class ReactionManager implements IReactionManager {
         frameId,
         this.em,
         (config['bias'] as ValueBias) ?? 'highest',
+        config['sourceCardId'] as string | undefined,
       )
     }
 

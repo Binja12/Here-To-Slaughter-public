@@ -296,10 +296,13 @@ describe('a full game over sockets', () => {
     // The party requirement, not the turn: Whiskers qualifies Alice too, and
     // it is the turn banner that greys her button out.
     expect(see(ALICE).attackableMonsterIds).toContain('monster-130')
-    expect(see(CAROL).attackableMonsterIds).toEqual([])
+    // Carol has no hero, but her LEADER is a card of a class, and Terratuga
+    // asks for one of any (GameState.getPartyClasses).
+    expect(see(CAROL).attackableMonsterIds).toContain('monster-130')
 
-    // A 2 is inside Terratuga's fight-back band.
-    fixDice(LOWEST)
+    // An 8 MISSES Terratuga — above its fight-back band (which now costs the
+    // attacker a hero) and below the slay: Bob keeps Bad Axe for Alice.
+    fixDice(MIDDLING)
     await accepted(BOB, 'AttackMonster', { monsterId: 'monster-130' })
     await shows(CAROL, 'her turn', (v) => v.currentPlayerId === CAROL)
     await settled(CAROL)

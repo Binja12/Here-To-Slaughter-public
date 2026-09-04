@@ -10,7 +10,7 @@ export const WhiskersAbility: IAbilityRule[] = [
     steps: [
       new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }),
       new StealFromPartyTask(),
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All }),
+      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }),
       new DestroyTask(),
     ],
   },

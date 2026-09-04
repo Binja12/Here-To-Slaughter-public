@@ -17,7 +17,7 @@ import { CTX_DISCARDED_CARDS } from '../../abilities/ability-context'
 // round before. Pay first, then destroy: a discard that buys nothing (no
 // hero on the table) is still a discard, as printed.
 const round = () => [
-  new ChooseCardTask({ zone: Zone.Party, owner: Owner.All }, CTX_DISCARDED_CARDS),
+  new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }, CTX_DISCARDED_CARDS),
   new DestroyTask(),
 ]
 

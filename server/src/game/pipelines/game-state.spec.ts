@@ -372,7 +372,7 @@ describe('GameState.getHeroClass — the class the board reads, mask included', 
 
     gs.getParty('p1').equipItem('hero-1', 'item-067')
     expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Fighter)
-    expect(gs.getPartyHeroClasses('p1')).toEqual([HeroClass.Fighter])
+    expect(gs.getPartyClasses('p1')).toEqual([HeroClass.Fighter])
 
     gs.getParty('p1').unequipItem('hero-1')
     expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Wizard)

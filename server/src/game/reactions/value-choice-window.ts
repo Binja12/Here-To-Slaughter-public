@@ -29,10 +29,15 @@ export class ValueChoiceWindow extends ChoiceWindow {
      * window it describes may have settled by then.
      */
     private readonly bias: ValueBias = 'highest',
+    /** The card whose numbers these are (the Protecting Horn), for the screen. */
+    sourceCardId?: string,
   ) {
     // The bias rides in the opened payload too, so a client can show which way
     // a lapse will go before it goes that way.
-    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, { bias })
+    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, {
+      bias,
+      sourceCardId,
+    })
   }
 
   getType(): ReactionWindowType {

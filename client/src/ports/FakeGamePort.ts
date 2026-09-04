@@ -496,12 +496,15 @@ export class FakeGamePort implements GamePort {
 
   private openCardChoice() {
     const options = this.view.hand.slice(0, 3).map((card) => card.id)
+    // the server's shape: the options as cards too, and the card that asks
+    const leader = this.view.parties.find((party) => party.playerId === this.view.playerId)?.leader
     this.upsertWindow({
       windowId: 'fake-card-choice',
       type: 'CardChoice',
       respondentId: this.view.playerId,
       options,
-      detail: { question: 'Choose a card to discard.' },
+      optionCards: this.view.hand.slice(0, 3),
+      detail: { question: 'Choose a card to discard.', sourceCardId: leader?.id },
       deadline: freshDeadline(),
       isYours: true,
     })

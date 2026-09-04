@@ -65,6 +65,13 @@ export type CardFilter = {
   unequipped?: boolean
   /** Items only: keep the cursed ones (true) or the plain ones (false). Non-items never match. */
   cursed?: boolean
+  /**
+   * Heroes only: keep the ones a DESTROY would actually take — not the ones
+   * under Mighty Blade or Terratuga (`GameState.canBeDestroyed`). Non-heroes
+   * never match. Every choice that feeds a DestroyTask sets it, so a shielded
+   * hero is never offered.
+   */
+  destroyable?: boolean
   excludeIds?: string[]
 }
 
@@ -123,7 +130,7 @@ export function filterPlayers(
     if (filter.hasHeroes && gs.getParty(id).getHeroIds().length === 0) {
       return false
     }
-    if (filter.hasClass && !gs.getPartyHeroClasses(id).includes(filter.hasClass)) {
+    if (filter.hasClass && !gs.getPartyClasses(id).includes(filter.hasClass)) {
       return false
     }
     return true
@@ -222,6 +229,11 @@ function keep(
     if (filter.cursed !== undefined) {
       if (!(card instanceof ItemCard)) return false
       if (card.isCursed() !== filter.cursed) return false
+    }
+
+    if (filter.destroyable) {
+      if (!(card instanceof HeroCard)) return false
+      if (!gs.canBeDestroyed(id)) return false
     }
 
     // Asked of the board rather than answered here: the same question the

@@ -110,6 +110,12 @@ export type PendingWindowView = {
   /** Present only when `respondentId` is the viewer. */
   options?: unknown[];
   /**
+   * The options that are CARDS, as printed data, for the respondent only —
+   * a choice over cards nowhere on the viewer's screen (Bullseye's look at
+   * the deck's top three) has nothing else to draw.
+   */
+  optionCards?: CardView[];
+  /**
    * What the window is asking, as the engine sees it now: a roll's base,
    * bonuses and running total with its requirement, a challenge's two rolls,
    * a choice's question. A roll or a challenge is the table's business and

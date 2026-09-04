@@ -112,10 +112,6 @@ export abstract class PlayItem {
       return refused(RefusalReason.HeroAlreadyEquipped)
     }
 
-    // A cursed item is played AT somebody; a plain one only dresses your own.
-    if (!item.isCursed() && heroOwnerId !== playerId) {
-      return refused(RefusalReason.NotYourHero)
-    }
     return accepted()
   }
 }

@@ -1,4 +1,4 @@
-import { CardBase, GameEventType, TriggerScope } from 'shared'
+import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ChallengeAbility } from './challenge-ability'
 import { CharismaticSongAbility } from './charismatic-song-ability'
@@ -329,12 +329,3 @@ export const isActivatable = (cardId: string): boolean =>
       rule.trigger.on === GameEventType.LeaderActivated &&
       rule.trigger.scope === TriggerScope.SelfCard,
   )
-
-/**
- * Whether a printed card may be DEALT — TEMPORARY pool for the playtest
- * (the owner, 2026-09-04: "a temp registry with only cards that are
- * implemented"): exactly the cards with an entry here, every type alike.
- * Today that is all modifiers, challenges and leaders, 8 items, 7 magics,
- * 5 monsters and 3 heroes; the deck grows as entries are written.
- */
-export const dealable = (card: CardBase): boolean => abilityRegistry.has(card.id)

@@ -1,6 +1,6 @@
 # Engine architecture — core ideas
 
-Read before touching `server/src/game/**`. This records the *why* behind the
+Read before touching `server/src/game/**`. This records the _why_ behind the
 shapes in the code. Branch: `HTSR-3-Game-engine`. Suite:
 `npm test --workspace=server`.
 
@@ -36,7 +36,7 @@ depends on (§9). Everything else lives in a folder:
   id (§6). A mechanic shared by both pipelines gets a file of its own in
   `tasks/` — `play-hero-task.ts`, `roll-on-hero-task.ts`,
   `attack-monster-task.ts`, `draw-task.ts`, `redraw-hand-task.ts` — while `hero-tasks.ts`
-  keeps the steps that only ever move a hero already on the table. Card *data* lives in `shared/`; this is the lookup from one to the
+  keeps the steps that only ever move a hero already on the table. Card _data_ lives in `shared/`; this is the lookup from one to the
   other, which is why it sits beside `in-memory-card-repository.ts`.
 - `state-structures/` — what `GameState` is made of. A **stack is face down and
   a pile is face up**, and that is the whole of why there are two: `CardStack`
@@ -106,7 +106,7 @@ and `item-tasks.ts` are the same shelf for their card types. The base is the mor
 price and no identity; each pipeline's wrapper is pure addition (the action
 adds cost, `canExecute` guards and queue identity; the task adds a context slot
 read at runtime). Inheriting the other way round
-would force the subclass to *remove* those, and a task cannot call the action's
+would force the subclass to _remove_ those, and a task cannot call the action's
 constructor honestly — it has no target at construction (§1).
 
 **Playing a magic card MOVES it and announces the attempt.** `playMagic` takes
@@ -133,7 +133,7 @@ back out of the instance pile, so it is not among the sources
 matching does the whole job, and the card's position is the only record of the
 outcome (principle 3).
 
-`TaskManager` wakes the pipelines suspended on that frame and *then* matches,
+`TaskManager` wakes the pipelines suspended on that frame and _then_ matches,
 so a played card's own pipeline lands on the stack above them and resolves
 before the rest of whatever played it.
 
@@ -154,7 +154,7 @@ Disposal is a property of the ZONE, so it is declared once for the zone rather
 than by each card that enters it. A card wording says what the card does; where
 the card goes when it has finished doing it is not a wording. Making it a step
 would put two pieces of engine knowledge in the author's hands — that a card
-which pauses must dispose *before* the branch it might not take, and the order
+which pauses must dispose _before_ the branch it might not take, and the order
 `TaskConfirmed` and `FrameResolved` are emitted in — and get either wrong and
 the card either vanishes mid-run or never leaves the pile. Nothing sweeps
 the pile, so a card that omits the step stays in it (§8).
@@ -230,11 +230,11 @@ skips. `playItem` THROWS if it is reached anyway: both wrappers are contracted
 to ask first, so arriving with gear already on the hero is an engine mistake
 rather than an illegal request, and it fails where the mistake was made (§11.2).
 
-**Who may wear an item is the CURSED flag's question.** A cursed item is played
-at somebody, so any hero on the table is a legal target; a plain one only ever
-goes on its owner's. `PlayItem.canEquip` holds that rule and the one-item rule
-together — the action calls it from `canExecute`, the task when it discovers
-its target.
+**Any bare hero on the table may wear an item, cursed or plain** (the owner,
+2026-09-04: the rules do not say whose hero; a plain item on an opponent is a
+legal, if generous, play). `PlayItem.canEquip` holds the type checks and the
+one-item rule — the action calls it from `canExecute`, the task when it
+discovers its target. The cursed flag still decides what the item DOES.
 
 **Playing a HERO is the same shape a third time.** `playHero`
 (`tasks/hero-tasks.ts`) takes the card out of hand, opens a frame, adds it to
@@ -396,6 +396,7 @@ Identity (`sourceCardId`, `ownerId`) is immutable; the rest is a blackboard of
 per ability run — nested runs and continuations do not inherit (§6).
 
 Rules paid for in bugs:
+
 - **No key without a reader.** A write-only or read-only key rots silently.
 - **Choice slots (`CTX_CHOSEN_CARD`, `CTX_CHOSEN_PLAYER`, `CTX_FINAL_ROLL`) are
   written only by windows**, never by tasks — that's what makes them mean "what
@@ -420,7 +421,7 @@ bad outcome  → restoreFrame → snapshot rollback
 always       → frameResolved(frameId, results, result?)
 ```
 
-**Rollback *is* cancellation.** `restoreFrame` puts the board back and drops
+**Rollback _is_ cancellation.** `restoreFrame` puts the board back and drops
 every pipeline paused on that frame, in the same call: a failed roll or lost
 challenge discards the continuation together with the state it would have
 mutated. No cancel flag exists anywhere — `pausedOn` is the pause itself,
@@ -434,7 +435,7 @@ steps 1–3, so rolling it back keeps them (Wiggles keeps the stolen hero when
 the follow-up roll fails). Want an earlier step undone? Open the frame earlier.
 
 `PlayHeroAction` is the clearest use of that lever. It spends the point, takes
-the card **out of hand**, and only *then* opens the frame and the challenge
+the card **out of hand**, and only _then_ opens the frame and the challenge
 window; the hero joins the party inside the frame. So a lost challenge un-plays
 the hero while the card stays out of the hand — a challenged card is spent
 either way, and that fact is expressed purely by where the snapshot was taken,
@@ -500,7 +501,7 @@ stop, carry on when it resolves.
   mechanism, and `drain`'s flag is the only thing that tells a fresh start from
   a re-entry: every caller arrives through `onEvent`, so nothing else can.
 - **A paused pipeline stays on the stack, marked `pausedOn`.** The pipelines
-  *underneath* are the ones that must wait; lifting the paused one off would
+  _underneath_ are the ones that must wait; lifting the paused one off would
   let the next drain walk straight past them. Only that frame's `FrameResolved`
   clears the mark. Asking whether the frame is still open would NOT do: a
   window releases its frame BEFORE it announces the outcome (§4), so the stack
@@ -548,7 +549,7 @@ stop, carry on when it resolves.
   own options, so a card that asks for a card cannot be dodged by waiting (§8).
   With no options there is no pick on any of them — that is "ran and produced
   nothing", and the steps behind it skip.
-- **Results are self-describing.** Each window declares its context slot *and*
+- **Results are self-describing.** Each window declares its context slot _and_
   value shape via `resultKey()`: choices write arrays, the modifier writes a
   scalar `number`. The processor blindly does `ctx.set(result.key, result.value)`.
 - `resultKey()` is **abstract** on the choice base; "deliberately no result" is
@@ -613,7 +614,16 @@ named refusal per guard in the order the guards run — `NoActionPoints`,
 know — `GameOver`, `NotYourTurn`, `Busy` — and otherwise returns the
 action's own answer. Two phases at two altitudes decide the rest.
 `GamePhase` (`Setup`, `Turns`, `Concluded`) is the GAME's state: held on the
-board, moved by `GameEngine` at `start` and at `GameEnded` — the last move is
+board, moved by `GameEngine` at `start` and at `GameEnded` — which comes the
+MOMENT a settled board qualifies: `GameEngine` asks the win conditions on
+every `FrameResolved` that leaves the board idle (a hero, an item and an
+attack each land inside a frame; TaskManager hears the event first, so a
+pipeline the frame was holding has already continued or opened its next
+frame) as well as at `TurnEnded`, and a won game does not resume the drain.
+Before 2026-09-04 only the turn's end asked, so the sixth class stood on the
+table for the rest of that turn (seen live). The printed rulebook words the
+class win as "end your turn with a full party"; the owner's call is on the
+spot, like the third monster. The last move is
 `GameState.conclude(winnerId)`, phase and winner in one call, so a concluded
 board always names who won and `PlayerView.winnerId` can show it to a screen
 that has no `GameEnded` to read (2026-09-03) — and shown to a
@@ -649,8 +659,7 @@ they return a `RequestResult` too: `GameState.canAttackMonster`
 (`NoModifiableWindow`, else the open window's own `acceptsModifierFor`:
 `TargetNotRolling`, `TargetNotInChallenge`, `ChallengeNotStarted`) and
 `PlayItem.canEquip`
-(`NotAnItem` | `NotAHero` | `HeroNotInParty` | `HeroAlreadyEquipped` |
-`NotYourHero`). The projection, the choice filters, the tasks and
+(`NotAnItem` | `NotAHero` | `HeroNotInParty` | `HeroAlreadyEquipped`). The projection, the choice filters, the tasks and
 `MonsterChoiceWindow.canSubmit` read `.accepted` off the same call, so the
 rule still lives once and the sites that ask it still cannot disagree; the
 question that has ONE answer, `canUseHeroEffect`, stays a boolean and the
@@ -660,6 +669,18 @@ Finding the window is what `IReactionWindow.getRespondentId()` and
 `getOptions()` are for, together with the projection that shows a player what
 they are being asked (§5). Both are plain readers of fields every window
 already had.
+
+**A pick the window never offered is refused AND settles the window
+(2026-09-04).** `NotAnOption` goes back, and the window resolves on what its
+silence picks — a random offered card for a `CardChoiceWindow`, the biased
+number for a value, nothing for the base. The client only ever sends what it
+was shown, so such a request is a client out of step, and the table is not
+held for it (the owner: "return an error message and choose a random valid
+target"). `WrongRespondent` stays a plain refusal: another seat's noise may
+not spend somebody's window. Seen live: Destructive Spell aimed at a hero
+under Terratuga — the destroy silently did nothing and the card was wasted;
+the choice now never offers such a hero (`destroyable`, §5), and a pick of
+one anyway lands the destroy on a random hero that CAN fall.
 
 **An offered option must stay legal, so a stale pick THROWS.** The engine
 built the window's options from the board; a pick that was offered and is not
@@ -721,7 +742,7 @@ announced would emit a payload built out of `undefined`.
 
 **A monster answers with three outcomes, not two.** `MonsterCard.trySlay` holds
 the comparison and which way round it runs. SLAY releases and moves the monster
-into the roller's party, announcing `MonsterSlain` *before* `FrameResolved`, so
+into the roller's party, announcing `MonsterSlain` _before_ `FrameResolved`, so
 the monster's own printed entries are live for the event that won it. FIGHT
 BACK and MISS both restore and leave it in the pile; they differ only in what
 the table is told. A fight-back names the attacker so the monster's entries can
@@ -749,8 +770,12 @@ zone a later `ChooseCardTask` reads.
 ```ts
 steps: [
   new ChoosePlayerTask({ owner: Owner.Others }),
-  new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, cardType: CardType.Magic }),
-]
+  new ChooseCardTask({
+    zone: Zone.Hand,
+    owner: Owner.Chosen,
+    cardType: CardType.Magic,
+  }),
+];
 ```
 
 Filters are **data, never closures** — readable, loggable, serializable to a
@@ -764,7 +789,12 @@ the monsters the ability owner's party may legally attack, by asking the board
 the same question the action and the window ask. Non-monsters never match it,
 the way `heroClass` rejects non-heroes. `unequipped` is the same shape for
 heroes: it keeps the ones carrying nothing, so Malamammoth offers only heroes
-that can actually take the item it just drew. A party with no legal hero offers
+that can actually take the item it just drew. `destroyable` keeps the heroes a
+DESTROY would take — `GameState.canBeDestroyed`, the same reader `DestroyTask`
+consults — and every choice that feeds a DestroyTask sets it (Bad Axe,
+Destructive Spell, Fluffy, Pan Chucks, Qi Bear, Serious Grey, Shurikitty,
+Whiskers), so a hero under Mighty Blade or Terratuga is never offered rather
+than picked and silently spared (2026-09-04). A party with no legal hero offers
 NOTHING, the window settles on its 0ms empty-choice timer, and `PlayItemTask`
 reads the empty slot and skips — no branch anywhere says so.
 
@@ -806,6 +836,20 @@ a different one.
 OPTIONS.** A window stops the game, so the table has to see what it is waiting
 for — but a choice over somebody's hand lists card ids, and handing those round
 would leak the same information the hand counts exist to withhold.
+
+**A choice names the card that asks, and carries its card options as
+cards.** Every card / player / monster choice puts `sourceCardId` (the ability's
+card) in its detail, so the respondent's screen can show that card big while
+the board is dimmed for its question (the owner, 2026-09-04: "the source card
+must show big so the players have context"). `PendingWindowView.optionCards`
+is the options that are cards, as printed data, for the respondent only:
+Bullseye's look at the deck's top three offers cards that are in no zone the
+screen draws, and ids alone drew as ids. Fight-backs printed "SACRIFICE a Hero
+card" are declared per monster (Mega Slime's shape, `MonsterFoughtBack` scoped
+`Attacker`); Terratuga, Corrupted Sabretooth, Crowned Serpent and Bloodwing
+had the text and no entry until 2026-09-04, pinned by a registry test. Mega
+Slime's extra point also lands on the slaying turn (`GainActionPointsTask`):
+a standing `ActionPointBonus` is only read when a turn starts.
 
 **A window's QUESTION is in the view, not only in the event that opened it.**
 `IReactionWindow.getDetail()` is what the window is asking, read live — a
@@ -849,8 +893,7 @@ against the event:
 - **Hero rules — UNIVERSAL.** `hero-rules.ts` holds the entries EVERY hero
   carries, sourced to each hero in a party as if printed on it. "A hero you just
   played may roll to use its effect" is a rule of the game, not one card's
-  behaviour, so it cannot live in a table keyed by card id — it belongs to all
-  136. Sourcing it to the hero is what makes it need no new machinery: scope,
+  behaviour, so it cannot live in a table keyed by card id — it belongs to all 136. Sourcing it to the hero is what makes it need no new machinery: scope,
   context identity and rollback all resolve exactly as a printed ability's do.
 
 `abilitySources()` gathers all three into one list per event, retained
@@ -918,7 +961,7 @@ question of what an event means. Ownership is not `TaskManager`'s to decide; it
 owns the stack.
 
 `when` is one string, matched against the payload's `label`. Scope answers
-*whose* event; `when` answers *which*. Deliberately narrow — it discriminates
+_whose_ event; `when` answers _which_. Deliberately narrow — it discriminates
 `TaskConfirmed` / `ConditionMet` variants and nothing else (§8).
 
 ### An ability that pauses is SPLIT, not parked
@@ -929,16 +972,16 @@ follows is a separate entry triggered by the answer's event.
 
 Two hand-offs, one shape:
 
-| step | emits on success | emits on failure |
-|---|---|---|
-| `ConfirmTask` | `TaskConfirmed { label }` on CONFIRM | nothing on DISMISS/timeout |
-| `CardTypeCondition` | `ConditionMet { label }` when it holds | nothing |
+| step                | emits on success                       | emits on failure           |
+| ------------------- | -------------------------------------- | -------------------------- |
+| `ConfirmTask`       | `TaskConfirmed { label }` on CONFIRM   | nothing on DISMISS/timeout |
+| `CardTypeCondition` | `ConditionMet { label }` when it holds | nothing                    |
 
 "No" is the **absence** of an event, so nothing has to be cancelled and nothing
 rolls back.
 
-**Snowball (hero-040)** — the reference. *"DRAW a card. If it is a Magic card,
-you may play it immediately and DRAW a second card."*
+**Snowball (hero-040)** — the reference. _"DRAW a card. If it is a Magic card,
+you may play it immediately and DRAW a second card."_
 
 ```ts
 [0] { on: RollSuccess,   scope: SelfCard }
@@ -961,8 +1004,8 @@ it happens before the second draw, in printed order.
 [1] { on: TaskConfirmed, scope: SelfCard, when: CONFIRMS_ROLL } [RollOnHero(CTX_STOLEN_HERO_ID)]
 ```
 
-**Critical Boost (magic-053 / magic-054)** — the reference *magic* card.
-*"DRAW 3 cards and DISCARD a card."*
+**Critical Boost (magic-053 / magic-054)** — the reference _magic_ card.
+_"DRAW 3 cards and DISCARD a card."_
 
 ```ts
 [0] { on: MagicPlayed, scope: SelfCard }
@@ -1032,8 +1075,8 @@ player back a full turn's budget on every rollback. Specs pin both.
 
 ## 7. Ability lifetime is the EFFECT's, not the trigger's
 
-`trigger` says when a pipeline *starts*. It cannot say how long what the
-pipeline installed should *last* — "your heroes cannot be stolen until your next
+`trigger` says when a pipeline _starts_. It cannot say how long what the
+pipeline installed should _last_ — "your heroes cannot be stolen until your next
 turn" is one ability run that finishes immediately and leaves something behind.
 So the lifetime belongs to an `IEffect`, not to the entry.
 
@@ -1064,7 +1107,7 @@ an effect** even though it reads as a passive:
 - It has to ASK. "+1 or -1" is the player's choice, so it opens a
   `ValueChoiceWindow` and pauses. An effect has no behaviour and cannot pause.
 - `RollBonus` is the wrong fact. It is seeded at window open and applies to its
-  owner's roll; the Horn's number lands on *that* roll — whichever the modifier
+  owner's roll; the Horn's number lands on _that_ roll — whichever the modifier
   was played on, which may be an opponent's.
 - Making it one would mean a new `PassiveType`, a new reader inside
   `applyModifier`, and a FIXED value — which the printed card does not have.
@@ -1149,15 +1192,15 @@ produces, and a hero cannot already be wearing a key when it is played.
 declaration shape. That is what keeps "+2 to the carrier" and "-2 to the
 carrier" one mechanism instead of a bonus system and a penalty system.
 
-**Wise Shield (hero-028)** — the reference effect. *"+3 to all of your rolls
-until the end of your turn."*
+**Wise Shield (hero-028)** — the reference effect. _"+3 to all of your rolls
+until the end of your turn."_
 
 ```ts
 [0] { on: RollSuccess, scope: SelfCard }
     [ApplyEffectTask({ passive: { type: RollBonus, value: 3 }, expiry: untilEndOfTurn })]
 ```
 
-One entry, because nothing pauses. The effect installs *after* the roll that
+One entry, because nothing pauses. The effect installs _after_ the roll that
 earned it, so it never boosts its own activation; `ModifierWindow` and
 `ChallengeWindow` read it on every later roll; `TurnEnded` sweeps it.
 
@@ -1258,7 +1301,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 ### Party membership and challenged plays
 
 - **Party membership cannot change silently.** `Party.addHero` / `removeHero`
-  *require* an emitter and a reason, so they always announce the canonical
+  _require_ an emitter and a reason, so they always announce the canonical
   `HeroAddedToParty` / `HeroRemovedFromParty { cardId, playerId, reason }`
   alongside whatever specific event the caller emits. Expiries subscribe to the
   canonical pair, so a new mechanic is one new `reason`. Making the emitter a
@@ -1279,11 +1322,11 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   is printed "a Hero card in YOUR Party is destroyed" and needs the loser to
   scope against.
 - **A defeated play is DISCARDED at settlement, not restored.** The card was
-  taken out of hand *before* the snapshot, so rollback alone leaves it in no zone
+  taken out of hand _before_ the snapshot, so rollback alone leaves it in no zone
   at all. `ChallengeWindow` adds it to the discard on the challenger-wins branch,
   **after** the restore (which swaps in the snapshot's pile), with no
   `CardDiscarded` event — `ChallengeResolved` already reported the defeat. Cards
-  *spent* during the window need nothing here: `restoreFrame` has already put
+  _spent_ during the window need nothing here: `restoreFrame` has already put
   them away, from the list the frame kept (§1).
 - **A card that SURVIVES a challenge is marked**, so it cannot be challenged
   twice in a turn; `TurnManager.startTurn` clears the list alongside the ability
@@ -1338,7 +1381,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **A card choice cannot tell a COST from an OFFER.** `CardChoiceWindow`
   defaults to a random option, which is right for a price — Critical Boost's
   "DISCARD a card" lands whether or not the player answers — and blunt for an
-  offer: an idle Wiggles steals a hero it was only ever *invited* to steal.
+  offer: an idle Wiggles steals a hero it was only ever _invited_ to steal.
   Nothing distinguishes the two, so both get the same default. Marking which
   choices are costs is the outstanding design work; the defaults themselves are
   one override each.
@@ -1348,7 +1391,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   behind the play too — Snowball's second draw goes with it. That follows the
   frame rule (a lost challenge takes a hero's roll offer with it the same way,
   by removing the hero that would have been offered one), but it is
-  a rule about *where the snapshot was taken*, not a judgement about the
+  a rule about _where the snapshot was taken_, not a judgement about the
   wording. A card that should keep its tail would need the play to be the last
   step of its entry.
 - **Nothing stops two challenges nesting.** A magic card played by an ability
@@ -1363,7 +1406,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
 - **A magic card with no registry entry is stranded in the instance pile.**
   Disposal hangs off `AbilityDone`, which is emitted when a PIPELINE leaves the
   stack. A card with no entry never gets a pipeline, so nothing ever announces
-  it finished. The obligation shrank — every magic card needs an *entry*, not a
+  it finished. The obligation shrank — every magic card needs an _entry_, not a
   disposal step — but it did not go away. Pinned by a test in
   `tasks/magic-tasks.spec.ts`.
 - **`system` on `AbilityPipeline` is the one thing the two rule names buy at
@@ -1385,7 +1428,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   the item's ability. What the protection removes is the time anyone had to
   answer, not the frame.
 - **`CantBeStolen` guards the steal but does not filter choices** — a protected
-  hero can still be *offered* by a `ChooseCardTask`; the steal then no-ops.
+  hero can still be _offered_ by a `ChooseCardTask`; the steal then no-ops.
 - **`MonsterChoiceWindow.canSubmit` re-asks `canAttackMonster` because a hero
   can leave the party while the window is open.** Under the rule that an
   offered option stays legal (§4), the board moving under an open choice
@@ -1477,7 +1520,7 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   game. Pinned by tests with a stand-in registry.
 - **A monster's printed `skill` has no reader.** Every record in
   `base-game-cards.ts` carries `{ condition: 'When face up', description: 'All
-  rolls -1' }`, and `GameEventType.MonsterFlipped` is declared with no emitter.
+rolls -1' }`, and `GameEventType.MonsterFlipped` is declared with no emitter.
   Nothing turns a monster face up, there is no face-up state to turn, and a
   table-wide roll penalty has no home: `IEffect` names an `ownerId` and lives on
   a `Player`.
@@ -1581,18 +1624,15 @@ have to find a legal way to spend the budget.
 function OVER it rather than a method on it. A closure in the bag would be the
 one thing in it that could not be inspected or handed across a boundary.
 
-**The deal is exactly the registry — TEMPORARY (2026-09-04).** `createGame`
-draws the default pool from `baseGameCards.filter(dealable)`, and `dealable`
-is `abilityRegistry.has(id)` for every type alike: the owner's call ("a temp
-registry with only cards that are implemented"), knowing it leaves 3 heroes
-in a 57-card deck for now. The pool grows by itself as entries are written.
-Tried the same day and dropped: keeping every hero and monster as a body
-while filtering items and magic (he wanted the strict set), and a view flag
-hiding the roll on unimplemented heroes (it took the dice out of nearly every
-hero play). A caller's own `cards` list is dealt as given. The strict pool
-exposed a latent bug the same hour: `AllClassesInParty` derived "every
-class" from the pool, so two classes were all of them and the second hero
-played won; it now requires `HeroClass`'s six members, whatever was dealt.
+**The default deal is the complete printed set (second playtest,
+2026-09-04).** `createGame` draws from all 136 records in `baseGameCards`, then
+applies `config.cardSets`. That gives the table all 48 heroes, 15 items, 13
+magic cards, 25 modifiers, 14 challenges, 15 monsters and 6 leaders. A
+caller's own `cards` list is still dealt as given, which is how specs stack a
+particular table. The first playtest temporarily filtered the pool through the
+ability registry; that gate was removed once every printed id had a registry
+entry. `AllClassesInParty` continues to require `HeroClass`'s six members,
+whatever custom pool was supplied.
 
 ## 11b. HTSR-8 — the mechanics the remaining cards needed (2026-09-04)
 
@@ -1649,7 +1689,11 @@ Terratuga (no clock, Owlbear's shape).
 class from what it wears: nothing is set on equip, nothing reverted on
 unequip — the moment the mask comes off, by any route, the default class from the data is what every reader sees. Every reader goes through that one method: party
 requirements, the "every class" win, the class choice filter,
-`whileClassInParty`, `hasClass`. The six masks are registered with an
+`whileClassInParty`, `hasClass`. The PARTY's classes are
+`GameState.getPartyClasses`: the leader's class first, then each hero's — the
+rulebook counts the Party Leader for a monster's requirement and for the
+six-class win, and the owner's table confirmed it (2026-09-04: five hero
+classes plus the leader's is a full party). The six masks are registered with an
 EMPTY rule list, because the deal is the registry. Rejected: setting the
 hero's class on equip and restoring it on unequip — two mutations to keep
 in step, and a steal carries the gear across parties without either running.
@@ -1790,6 +1834,6 @@ retrieve task hold a `Party` it had no business holding.
 3. Derive rather than pass — don't thread values the receiver can compute.
 4. "Deliberately none" is a value (`NO_CONTEXT_RESULT`), not an absence.
 5. Data over closures.
-6. One mechanism, not two — cancellation *is* rollback; all windows settle the
+6. One mechanism, not two — cancellation _is_ rollback; all windows settle the
    same way; confirms and conditions hand off the same way.
 7. A step decides about itself, never about its siblings.

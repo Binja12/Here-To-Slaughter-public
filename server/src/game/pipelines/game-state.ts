@@ -30,6 +30,7 @@ import type { AbilityContext } from '../abilities/ability-context'
 // Value import, not type-only: slayMonster announces. No cycle — the factory
 // reaches only shared, game-event.ts and ability-context.ts.
 import { GameEventFactory } from '../events/game-event-factory'
+import { PartyLeaderCard } from '../cards/party-leader-card'
 
 // ---------------------------------------------------------------------------
 // GameFrame — snapshot taken just before the frame was opened, plus any
@@ -775,7 +776,7 @@ export class GameState {
       return refused(RefusalReason.MonsterNotInRow)
     }
 
-    if (!monster.canBeAttackedBy(this.getPartyHeroClasses(playerId))) {
+    if (!monster.canBeAttackedBy(this.getPartyClasses(playerId))) {
       return refused(RefusalReason.PartyRequirementUnmet)
     }
     return accepted()
@@ -852,12 +853,22 @@ export class GameState {
     return masked ?? hero.getDefaultClass()
   }
 
-  /** The classes standing in a party, one entry per hero. Leaders excluded. */
-  getPartyHeroClasses(playerId: string): HeroClass[] {
-    return this.getParty(playerId)
+  /**
+   * The classes standing in a party: the leader's, then one per hero. The
+   * rulebook counts the Party Leader for a monster's class requirement and
+   * for the six-class win ("a Hero or Party Leader card of a certain class";
+   * the owner, 2026-09-04: five hero classes plus the leader's is a full party).
+   */
+  getPartyClasses(playerId: string): HeroClass[] {
+    const party = this.getParty(playerId)
+    const leader = this.getCard(party.getLeaderId())
+    const heroClasses = party
       .getHeroIds()
       .map((heroId) => this.getHeroClass(heroId))
       .filter((cls): cls is HeroClass => cls !== undefined)
+    return leader instanceof PartyLeaderCard
+      ? [leader.getHeroClass(), ...heroClasses]
+      : heroClasses
   }
 
   /**
