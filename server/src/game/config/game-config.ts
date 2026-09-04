@@ -10,6 +10,8 @@ export const defaultGameConfig: GameConfig = {
     { type: WinConditionType.SlayMonsters, value: 3 },
     { type: WinConditionType.PartyClasses, value: 6 },
   ],
+  requireAllWinConditions: false,
   timeControl: StandardTimeControl,
   flawPlay: true,
+  seamlessReactions: false,
 }

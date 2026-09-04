@@ -200,6 +200,7 @@ export function createGame(
     turnManager,
     emitter,
     buildWinConditions(config, pool),
+    config.requireAllWinConditions,
   )
 
   return {

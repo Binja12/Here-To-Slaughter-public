@@ -427,6 +427,19 @@ challenge discards the continuation together with the state it would have
 mutated. No cancel flag exists anywhere — `pausedOn` is the pause itself,
 read from the other side.
 
+**A rollback undoes everything after the snapshot, not just the board.**
+Every frame opened after the restored one is cancelled — its windows close
+with `ReactionWindowClosed { cancelled: true }`, no default pick, no
+`FrameResolved` — and every pipeline pushed since is dropped:
+`GameFrame.stackDepth` is the stack's height when the frame opened
+(`addFrame` records it), and `revert` truncates to it before the
+`pausedOn` filter. Today nothing can be there (the stack cannot move under
+an open frame); seamless reactions (`docs/SEAMLESS_REACTIONS_PLAN.md`) are
+what will. Two exits from the one rollback: `restoreFrame` deletes the
+frame (a failed outcome), `revertFrame` keeps it open so it can roll back
+AGAIN when a roll's total flips back — which is why the board is restored
+from a COPY of the snapshot, never by aliasing it.
+
 **Rollback means an outcome FAILED**, never a player declining an offer. A
 declined confirm releases its frame like any other outcome (§4).
 
@@ -509,8 +522,9 @@ stop, carry on when it resolves.
 - **The stack is NOT in the snapshot.** A snapshot is the board — players,
   parties, piles, hands, effects. Pipelines are work in progress ON the board,
   and a rollback undoes what that work did without forgetting the work
-  existed: the live stack survives `restoreFrame` untouched except for the
-  pipelines paused on the restored frame, which it drops. That is the whole
+  existed: the live stack survives a rollback untouched except for the
+  pipelines paused on the restored frame and any pushed after it opened
+  (`stackDepth`), which it drops. That is the whole
   cancellation rule, stated once, beside the rollback it belongs to. The
   pipelines underneath could not have moved while the frame was open (only
   the top of the stack runs, and the top was paused), so there is nothing a
@@ -616,14 +630,31 @@ action's own answer. Two phases at two altitudes decide the rest.
 `GamePhase` (`Setup`, `Turns`, `Concluded`) is the GAME's state: held on the
 board, moved by `GameEngine` at `start` and at `GameEnded` — which comes the
 MOMENT a settled board qualifies: `GameEngine` asks the win conditions on
-every `FrameResolved` that leaves the board idle (a hero, an item and an
-attack each land inside a frame; TaskManager hears the event first, so a
-pipeline the frame was holding has already continued or opened its next
-frame) as well as at `TurnEnded`, and a won game does not resume the drain.
+every `FrameResolved` that leaves no OUTCOME pending
+(`GameState.hasPendingOutcome`: a challenge, a hero roll or an attack still
+open — a window that may yet restore its frame, so what stands under it is
+not on the board yet) as well as at `TurnEnded`, and a won game does not
+resume the drain. TaskManager hears the event first, so the pipeline the
+frame held has already continued; what that continuation OPENED is a
+question and holds nothing back — the roll a played hero is offered must not
+delay the win its sixth class just landed (seen live 2026-09-04: the game
+waited for the roll). Concluding puts the open question down with the
+board: `GameState.conclude` cancels every open window and drops the frames
+and pipelines, because nothing runs on a concluded board.
 Before 2026-09-04 only the turn's end asked, so the sixth class stood on the
 table for the rest of that turn (seen live). The printed rulebook words the
 class win as "end your turn with a full party"; the owner's call is on the
 spot, like the third monster. The last move is
+A win condition is asked of ONE PARTY at a time
+(`IWinCondition.isMetBy(gs, player)`), never "who has won": a table set to
+`GameConfig.requireAllWinConditions` needs the same party to meet every one
+of them, and an answer per condition cannot say that (two parties each
+holding half is nobody's win). `GameEngine` walks the seats and takes the
+first that satisfies `every` or `some` of the list; an empty list is never
+met either way. The lobby's "Win by" is exactly this switch — both printed
+conditions always travel to the engine, and `monstersAndClasses` vs
+`monstersOrClasses` only sets the flag (`game-server/game-config-for.ts`).
+The last move is
 `GameState.conclude(winnerId)`, phase and winner in one call, so a concluded
 board always names who won and `PlayerView.winnerId` can show it to a screen
 that has no `GameEnded` to read (2026-09-03) — and shown to a
@@ -1580,16 +1611,32 @@ each turn that much at `startTurn`, forgets it at `endTurn` and when
 config names no clock — which is what every engine spec plays on. The
 clock runs only while no reaction window is open, whoever's it is:
 `TurnManager` listens for `ReactionWindowOpened` (pause, the elapsed part
-taken off what is left) and `ReactionWindowClosed` (run again once
-`hasOpenFrames` is false), which is why it is on the emitter at all — it
-reads nothing else there, so the §8 ordering of TaskManager and GameEngine
-is untouched. When it lapses the board is idle by construction (a pipeline
+taken off what is left) and for `ReactionWindowClosed` AND `FrameResolved`
+(run again once `hasOpenFrames` is false — both moments, because a roll or a
+challenge announces its close before it settles its frame, so at its Closed
+the frame still stands; an attack has nothing after it to close, and the
+clock once stayed held for the rest of the turn), which is why it is on the
+emitter at all — it reads nothing else there, so the §8 ordering of
+TaskManager and GameEngine is untouched. When it lapses the board is idle by construction (a pipeline
 can only be parked on a window; a busy board at a lapse throws), the budget
 is forfeited and the drain ends the turn through the one rule that ends
 every turn. A lapse carries the number of the turn it belongs to, so one
 that outlives its turn does nothing. The lobby's turn timer becomes this
 one number (`game-server/game-config-for.ts`); `setup/turn-clock.spec.ts`
 proves it on a dealt table.
+
+The screens read it as `PlayerView.turnClock` — ONE clock for the table,
+because the turn belongs to whoever is playing and every seat watches the
+same numbers run down. It carries the budget plus exactly one of two
+readings, and which one is the whole of "is it running": `deadline` (epoch
+ms) while it runs, `heldMs` while a window holds it. A deadline rather than
+a countdown, so every snapshot of one running turn carries the SAME number
+and two views taken a moment apart still compare equal — a remaining-ms
+field made the gateway's whole-view assertions fail by construction. The
+screen counts the seconds between snapshots itself (`client/src/board/
+TurnTimer.tsx`), and draws a held clock still and dimmed rather than
+dropping it, so a seat answering a window can see the turn it is holding
+up (the owner, 2026-09-04).
 
 **A window's countdown is CONFIG, and each window takes a share of it.**
 `TimeControl.reactionCountdownMs` is the base; `WINDOW_SHARE` in
@@ -1707,11 +1754,17 @@ Terratuga (no clock, Owlbear's shape).
 class from what it wears: nothing is set on equip, nothing reverted on
 unequip — the moment the mask comes off, by any route, the default class from the data is what every reader sees. Every reader goes through that one method: party
 requirements, the "every class" win, the class choice filter,
-`whileClassInParty`, `hasClass`. The PARTY's classes are
-`GameState.getPartyClasses`: the leader's class first, then each hero's — the
-rulebook counts the Party Leader for a monster's requirement and for the
-six-class win, and the owner's table confirmed it (2026-09-04: five hero
-classes plus the leader's is a full party). The six masks are registered with an
+`whileClassInParty`, `hasClass`. A party answers with TWO lists, and which one a
+reader wants is the whole distinction. `GameState.getHeroClasses` is one
+class per hero and nothing else: it is what a monster's `partyReq` is
+matched against, because a leader is not one of the heroes a monster asks
+for, so a party with no heroes fields nothing and cannot attack even an
+'Any' monster (the owner, 2026-09-04; Arctic Aries was attackable off a bare
+leader until then). `GameState.getPartyClasses` is the leader's class first,
+then the heroes': it is what the six-class WIN and the `hasClass` choice
+filter read, because the rulebook counts the Party Leader there ("a Hero or
+Party Leader card of a certain class"; 2026-09-04: five hero classes plus
+the leader's is a full party). The six masks are registered with an
 EMPTY rule list, because the deal is the registry. Rejected: setting the
 hero's class on equip and restoring it on unequip — two mutations to keep
 in step, and a steal carries the gear across parties without either running.

@@ -164,21 +164,44 @@ describe('LobbyService', () => {
       expect(other.self.state).toBe('READY')
     })
 
-    it('unseats everyone but the host when the seat count changes', async () => {
+    it('unseats only the players whose seats the new count closes', async () => {
       await service.ready(account(1))
       await service.ready(account(2))
       await service.ready(account(3))
+      await service.ready(account(4))
 
       const snapshot = await service.updateSettings(account(1), {
         ...DEFAULT_GAME_SETTINGS,
-        playerCount: 3,
+        playerCount: 2,
       })
 
-      expect(snapshot.readyPlayers).toEqual([account(1)])
+      expect(snapshot.readyPlayers).toEqual([account(1), account(2)])
       expect(snapshot.self).toMatchObject({ state: 'READY', isHost: true })
       await expect(service.getSnapshot(account(2))).resolves.toMatchObject({
+        self: { state: 'READY' },
+      })
+      await expect(service.getSnapshot(account(3))).resolves.toMatchObject({
         self: { state: 'IDLE' },
       })
+      await expect(service.getSnapshot(account(4))).resolves.toMatchObject({
+        self: { state: 'IDLE' },
+      })
+    })
+
+    it('unseats nobody when the seat count grows', async () => {
+      await service.ready(account(1))
+      await service.ready(account(2))
+      await service.updateSettings(account(1), {
+        ...DEFAULT_GAME_SETTINGS,
+        playerCount: 2,
+      })
+
+      const snapshot = await service.updateSettings(account(1), {
+        ...DEFAULT_GAME_SETTINGS,
+        playerCount: 4,
+      })
+
+      expect(snapshot.readyPlayers).toEqual([account(1), account(2)])
     })
 
     it('seats and starts as many players as the settings say', async () => {

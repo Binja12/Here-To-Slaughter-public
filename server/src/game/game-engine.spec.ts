@@ -1,4 +1,4 @@
-import { GameEventType, IGameEvent } from 'shared'
+import { GameEventType, IGameEvent, ReactionWindowType } from 'shared'
 import { GameEngine } from './game-engine'
 import { GameState } from './pipelines/game-state'
 import { TurnManager } from './pipelines/turn-manager'
@@ -115,7 +115,7 @@ describe('GameEngine', () => {
       const emitter = new GameEventEmitter()
       const tm = new TurnManager(gs, emitter)
 
-      const winCondition: IWinCondition = { check: () => player }
+      const winCondition: IWinCondition = { isMetBy: (_, who) => who === player }
       const engine = new GameEngine(gs, tm, emitter, [winCondition])
 
       const received: IGameEvent[] = []
@@ -135,7 +135,9 @@ describe('GameEngine', () => {
       const emitter = new GameEventEmitter()
       const tm = new TurnManager(gs, emitter)
       let qualifies = false
-      const winCondition: IWinCondition = { check: () => (qualifies ? player : null) }
+      const winCondition: IWinCondition = {
+        isMetBy: (_, who) => qualifies && who === player,
+      }
       const engine = new GameEngine(gs, tm, emitter, [winCondition])
 
       const received: IGameEvent[] = []
@@ -151,25 +153,98 @@ describe('GameEngine', () => {
       expect(gs.getWinnerId()).toBe('p1')
     })
 
-    it('waits for a busy board — a frame settling under another still-open frame ends nothing', () => {
+    /**
+     * Asked after TaskManager has continued the pipeline the frame held, so
+     * what stands open now is either a frame BENEATH it (an outcome still
+     * pending: the board is not settled) or a frame the continuation just
+     * OPENED (a question: it is). Only the first holds the win back.
+     */
+    const stubWindow = (type: ReactionWindowType) =>
+      ({ isOpen: () => true, getType: () => type, cancel: () => {} }) as never
+
+    const qualified = () => {
       const gs = makeGs('p1', 'p2')
       const player = gs.getPlayer('p1')!
       const emitter = new GameEventEmitter()
       const tm = new TurnManager(gs, emitter)
-      const winCondition: IWinCondition = { check: () => player }
+      const winCondition: IWinCondition = { isMetBy: (_, who) => who === player }
       const engine = new GameEngine(gs, tm, emitter, [winCondition])
-
       const received: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => received.push(e) })
       engine.start(['p1', 'p2'])
+      return { gs, emitter, ended: () => received.some((e) => e.getType() === GameEventType.GameEnded) }
+    }
+
+    it('waits for an outcome still pending — a frame settling under an open challenge ends nothing', () => {
+      const { gs, emitter, ended } = qualified()
       gs.addFrame('outer', {
         snapshot: gs.clone(),
-        windows: [{ isOpen: () => true } as never],
+        windows: [stubWindow(ReactionWindowType.Challenge)],
       })
 
       emitter.emit(GameEventFactory.frameResolved('inner', []))
 
-      expect(received.some((e) => e.getType() === GameEventType.GameEnded)).toBe(false)
+      expect(ended()).toBe(false)
+    })
+
+    it('ends under an open QUESTION — the roll offered to the hero that landed the sixth class does not hold the win back', () => {
+      const { gs, emitter, ended } = qualified()
+      // What TaskManager opens on the settled challenge, before the engine hears it.
+      gs.addFrame('offer', {
+        snapshot: gs.clone(),
+        windows: [stubWindow(ReactionWindowType.TaskChoice)],
+      })
+
+      emitter.emit(GameEventFactory.frameResolved('challenge', [true], undefined, 'hero-1'))
+
+      expect(ended()).toBe(true)
+      // Concluding put the question down with the board.
+      expect(gs.isBusy()).toBe(false)
+    })
+
+    /**
+     * `requireAllWinConditions` — the lobby's "Monsters AND classes" table.
+     * The point of asking per player: two parties each holding half is
+     * nobody's win.
+     */
+    describe('every condition at once', () => {
+      const metBy = (...ids: string[]): IWinCondition => ({
+        isMetBy: (_, who) => ids.includes(who.getId()),
+      })
+
+      const ended = (conditions: IWinCondition[], requireAll: boolean) => {
+        const gs = makeGs('p1', 'p2')
+        const emitter = new GameEventEmitter()
+        const tm = new TurnManager(gs, emitter)
+        const engine = new GameEngine(gs, tm, emitter, conditions, requireAll)
+        const received: IGameEvent[] = []
+        emitter.addListener({ onEvent: (e) => received.push(e) })
+        engine.start(['p1', 'p2'])
+        tm.endTurn()
+        return received.find((e) => e.getType() === GameEventType.GameEnded)
+      }
+
+      it('ends for the party that meets them all', () => {
+        expect(ended([metBy('p1'), metBy('p1')], true)?.getPlayerId()).toBe('p1')
+      })
+
+      it('ends for nobody while the two halves sit in different parties', () => {
+        expect(ended([metBy('p1'), metBy('p2')], true)).toBeUndefined()
+      })
+
+      it('ends for nobody on one condition alone', () => {
+        expect(ended([metBy('p1'), metBy()], true)).toBeUndefined()
+      })
+
+      it('ends on either one when the table does not require all', () => {
+        expect(ended([metBy('p1'), metBy()], false)?.getPlayerId()).toBe('p1')
+        expect(ended([metBy(), metBy('p2')], false)?.getPlayerId()).toBe('p2')
+      })
+
+      it('ends for nobody at an empty condition list, either way', () => {
+        expect(ended([], true)).toBeUndefined()
+        expect(ended([], false)).toBeUndefined()
+      })
     })
 
     it('should not start next turn after game ends', () => {
@@ -177,7 +252,7 @@ describe('GameEngine', () => {
       const player = gs.getPlayer('p1')!
       const emitter = new GameEventEmitter()
       const tm = new TurnManager(gs, emitter)
-      const winCondition: IWinCondition = { check: () => player }
+      const winCondition: IWinCondition = { isMetBy: (_, who) => who === player }
       const engine = new GameEngine(gs, tm, emitter, [winCondition])
 
       const received: IGameEvent[] = []
@@ -222,7 +297,9 @@ describe('the turn clock across turns', () => {
     const emitter = new GameEventEmitter()
     const tm = new TurnManager(gs, emitter, 20)
     let qualifies = false
-    const winCondition: IWinCondition = { check: () => (qualifies ? player : null) }
+    const winCondition: IWinCondition = {
+      isMetBy: (_, who) => qualifies && who === player,
+    }
     const engine = new GameEngine(gs, tm, emitter, [winCondition])
     const received: IGameEvent[] = []
     emitter.addListener({ onEvent: (e) => received.push(e) })

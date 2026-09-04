@@ -55,13 +55,12 @@ export class FakeLobbyPort implements LobbyPort {
     return this.publish()
   }
 
-  /** The server's rule: host only; a changed seat count unseats everyone but the host. */
+  /** The server's rule: host only; a closed seat unseats whoever sat in it. */
   async updateSettings(settings: GameSettings): Promise<LobbySnapshot> {
     const snapshot = this.snapshot()
     if (!snapshot.self.isHost) throw new LobbyPortError('Only the host can change the settings')
-    const seatsChanged = settings.playerCount !== this.settings.playerCount
     this.settings = { ...settings }
-    if (seatsChanged) this.readyPlayers = this.readyPlayers.slice(0, 1)
+    this.readyPlayers = this.readyPlayers.slice(0, settings.playerCount)
     return this.publish()
   }
 

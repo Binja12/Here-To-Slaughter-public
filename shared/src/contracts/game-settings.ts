@@ -14,8 +14,11 @@ import { z } from "zod";
 export const MIN_PLAYER_COUNT = 2;
 export const MAX_PLAYER_COUNT = 4;
 
-/** Which of the two printed win conditions end the game. */
-export const WinConditionModeSchema = z.enum(["both", "monsters", "heroes"]);
+/** How the two printed win conditions combine: either one ends the game, or both must stand. */
+export const WinConditionModeSchema = z.enum([
+  "monstersOrClasses",
+  "monstersAndClasses",
+]);
 export type WinConditionMode = z.infer<typeof WinConditionModeSchema>;
 
 export const CardSetSchema = z.enum(["base"]);
@@ -25,21 +28,21 @@ export const GameSettingsSchema = z.object({
   /** Seats at the table; the ready list holds at most this many. */
   playerCount: z.number().int().min(MIN_PLAYER_COUNT).max(MAX_PLAYER_COUNT),
   winCondition: WinConditionModeSchema,
-  /** Monsters a party must slay; read only while `winCondition` counts monsters. */
+  /** Monsters a party must slay. */
   monsterCount: z.number().int().min(2).max(5),
   cardSet: CardSetSchema,
   /** A turn's clock, paused while any reaction window is open. When it lapses the turn ends. */
   turnTimeMs: z.number().int().min(10_000).max(120_000),
   /** `TimeControl.reactionCountdownMs`: a full-share reaction window's wait. */
   reactionTimeMs: z.number().int().min(5_000).max(30_000),
-  /** Not built yet: the wire admits only "off", so a client cannot switch on what no engine plays. */
-  seamlessReactions: z.literal(false),
+  /** The active player keeps playing under open reaction windows (docs/SEAMLESS_REACTIONS_PLAN.md). */
+  seamlessReactions: z.boolean(),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
   playerCount: 4,
-  winCondition: "both",
+  winCondition: "monstersOrClasses",
   monsterCount: 3,
   cardSet: "base",
   turnTimeMs: 60_000,

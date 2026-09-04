@@ -166,7 +166,12 @@ export interface IEffect {
 // ---------------------------------------------------------------------------
 
 export interface IWinCondition {
-  check(gs: GameState): Player | null
+  /**
+   * Whether THIS party has met it right now. Per player rather than "who has
+   * won", because a table that requires every condition needs the same party
+   * to meet them all — an answer per condition cannot say that.
+   */
+  isMetBy(gs: GameState, player: Player): boolean
 }
 
 export interface IRollResolver {
@@ -243,6 +248,13 @@ export interface IReactionWindow {
   submitReaction(playerId: string, payload: unknown): RequestResult
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
+  /**
+   * Close WITHOUT an outcome: the clock is cleared, `ReactionWindowClosed`
+   * goes out with `cancelled: true`, no default is picked and no
+   * `FrameResolved` follows. A rollback of an earlier frame does this to
+   * every window opened after it (GameState.revertFrame).
+   */
+  cancel(): void
   /**
    * What the window is asking, read LIVE: the fields it announced at open
    * plus whatever moved since — a bonus that landed, a challenge that

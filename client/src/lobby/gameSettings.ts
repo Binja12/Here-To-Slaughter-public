@@ -21,9 +21,8 @@ export const PLAYER_COUNT_OPTIONS: Option<number>[] = [2, 3, 4].map((n) => ({
 }))
 
 export const WIN_CONDITION_OPTIONS: Option<WinConditionMode>[] = [
-  { value: 'both', label: 'Either' },
-  { value: 'monsters', label: 'Monsters only' },
-  { value: 'heroes', label: 'Heroes only' },
+  { value: 'monstersOrClasses', label: 'Monsters OR classes' },
+  { value: 'monstersAndClasses', label: 'Monsters AND classes' },
 ]
 
 export const MONSTER_COUNT_OPTIONS: Option<number>[] = [2, 3, 4, 5].map((n) => ({
@@ -43,10 +42,9 @@ export const REACTION_TIME_OPTIONS: Option<number>[] = [
   30_000, 20_000, 15_000, 10_000, 7_500, 5_000,
 ].map((ms) => ({ value: ms, label: formatSeconds(ms) }))
 
-/** "On" is listed so the row reads as a switch, but nothing plays it yet. */
 export const SEAMLESS_OPTIONS: Option<boolean>[] = [
   { value: false, label: 'Off' },
-  { value: true, label: 'On (not yet)', disabled: true },
+  { value: true, label: 'On' },
 ]
 
 export const PRESET_OPTIONS: Option<GameSettingsPreset>[] = [

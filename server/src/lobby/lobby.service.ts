@@ -133,9 +133,10 @@ export class LobbyService {
   }
 
   /**
-   * The host sets the table. A changed seat count unseats everyone but the
-   * host: the others sat down at a different table and sit down again if
-   * they still mean to. Every other setting changes under them in place.
+   * The host sets the table. Shrinking the seat count closes seats from the
+   * BACK of the ready list and unseats only whoever sat in them; the seats
+   * that survive keep their players, so the host never loses the table under
+   * a change they made. Every other setting changes in place.
    */
   async updateSettings(
     account: AuthenticatedAccount,
@@ -146,13 +147,11 @@ export class LobbyService {
       throw new OnlyHostCanChangeSettingsError()
     }
 
-    const current = await this.lobby.getSettings()
     await this.lobby.updateSettings(settings)
-    if (settings.playerCount !== current.playerCount) {
-      await this.lobby.removeReadyPlayers(
-        readyPlayers.slice(1).map((player) => player.accountId),
-      )
-    }
+    // Empty whenever the list already fits, which is every widening.
+    await this.lobby.removeReadyPlayers(
+      readyPlayers.slice(settings.playerCount).map((player) => player.accountId),
+    )
 
     const snapshot = await this.getSnapshot(account)
     await this.publishLobbyUpdated()

@@ -1,7 +1,38 @@
 # Seamless reactions — implementation plan
 
-Status: PLAN, not built. Written 2026-09-04 for the model that implements
-it. Read `docs/ENGINE_ARCHITECTURE.md` §3 (frames), §4 (windows), §8
+Status: IN PROGRESS.
+
+## Progress (keep current; the next builder starts here)
+
+- Phase A — BUILT 2026-09-04. The flag is a boolean on the wire, in
+  `GameConfig` (`defaultGameConfig` false, `gameConfigFor` copies it) and
+  selectable in the lobby. No engine reader yet: `GameState`,
+  `ReactionManager` and `TurnManager` get the flag as a constructor
+  argument in the phase that first reads it (B.4, C, D) — an unread
+  argument would be a reader-less value (`CLAUDE.md`).
+- Phase B — BUILT 2026-09-04 (B.1–B.3): `GameFrame.stackDepth` recorded
+  by `addFrame`; `IReactionWindow.cancel()` on the three window bases;
+  `GameState.revert` (private, the one rollback: cancel later frames,
+  truncate the stack, restore from a CLONE of the snapshot, put spent
+  cards away) with `restoreFrame` (delete) and `revertFrame` (keep) as
+  its exits. Pinned in `game-state.spec.ts` 'frames'. B.4/B.5
+  (`refusesActions`, `isContested`, `isOptional`) are NOT built: their
+  only reader is Phase D, so they are built there.
+- Phase C — STARTED 2026-09-04, first slice only: `ModifierWindow` and
+  `AttackWindow` `settle` are split into the frame exit plus
+  `hits(finalRoll)` / `outcome(finalRoll)` (what the number means) and
+  `apply(...)` (what the outcome does to the table, frame aside). Pure
+  refactor, behaviour unchanged, so the optimistic path can call `apply`
+  on a standing outcome without settling. NOT built yet: the seamless
+  flag reaching `ReactionManager`/the windows, the 0 ms provisional
+  resolution, re-evaluation on `ModifierApplied`/`ChallengeResolved`
+  with `revertFrame` + `apply`, the seamless settlement (release only),
+  and `setup/seamless.spec.ts`. `ChallengeWindow.resolve` is untouched:
+  its contest already applies inside `resolve`; split it the same way
+  (frame exit vs. what a won/lost contest does) when building the rest.
+- Next: the rest of Phase C, then D–G.
+
+Written 2026-09-04 for the model that implements it. Read `docs/ENGINE_ARCHITECTURE.md` §3 (frames), §4 (windows), §8
 (known limitations) and §11 (the turn clock) first; every mechanism below
 is built on those, none replaces them. Rules of the repo (`CLAUDE.md`)
 apply: build only what is here, derive rather than store, one mechanism,
@@ -159,6 +190,19 @@ all mode-independent (they are no-ops when nothing later exists):
      `player-view.ts`) never count, or a player's own hero roll would
      block them.
    Read off the windows. Derived, never stored.
+5. **An OPTIONAL question is forfeited by the next action, not a block.**
+   A `TaskChoiceWindow` whose options include `dismiss` (the "roll on the
+   played hero?" offer, a leader's "draw a card?" after a magic play) is
+   the active player's to skip: when they enqueue an action while one
+   stands, `TurnManager.enqueue` answers it `dismiss` through
+   `submitChoice` FIRST, then runs the action (and the action's own offer
+   opens after it, as it does today). The owner, 2026-09-04: "if it's an
+   optional reaction → forfeit it." So `hasQuestionFor` counts only
+   windows that are NOT optional; `IReactionWindow.isOptional()` (true
+   for a TaskChoice offering `dismiss`) is the one place that says which.
+   The client does the same today (`isOptionalWindow` in `playable.ts`
+   sends dismiss before another action); once the engine does it the
+   client's copy goes (one mechanism).
 
 Spent cards on rollback: keep "spent is spent" (§3, `spentInto` compares
 the zone with the snapshot, so a modifier thrown into a LATER, now

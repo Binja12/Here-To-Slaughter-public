@@ -14,6 +14,8 @@ export function gameConfigFor(settings: GameSettings): GameConfig {
     playerCount: { min: MIN_PLAYER_COUNT, max: settings.playerCount },
     cardSets: [settings.cardSet],
     winConditions: winConditionsFor(settings),
+    requireAllWinConditions: settings.winCondition === 'monstersAndClasses',
+    seamlessReactions: settings.seamlessReactions,
     timeControl: {
       ...defaultGameConfig.timeControl,
       name: presetOf(settings),
@@ -23,24 +25,17 @@ export function gameConfigFor(settings: GameSettings): GameConfig {
   }
 }
 
-/** "Heroes" is a hero of every class the game has; the engine caps it there. */
+/**
+ * Both printed conditions, always: the mode says whether a party needs one of
+ * them or both (`requireAllWinConditions`), never which of them the table has.
+ * "Classes" is a hero of every class the game has; the engine caps it there.
+ */
 function winConditionsFor(settings: GameSettings): WinConditionConfig[] {
-  const monsters: WinConditionConfig = {
-    type: WinConditionType.SlayMonsters,
-    value: settings.monsterCount,
-  }
-  const heroes: WinConditionConfig = {
-    type: WinConditionType.PartyClasses,
-    value: Object.values(HeroClass).length,
-  }
-  switch (settings.winCondition) {
-    case 'both':
-      return [monsters, heroes]
-    case 'monsters':
-      return [monsters]
-    case 'heroes':
-      return [heroes]
-  }
-  const unhandled: never = settings.winCondition
-  throw new Error(`gameConfigFor: no win conditions for ${String(unhandled)}`)
+  return [
+    { type: WinConditionType.SlayMonsters, value: settings.monsterCount },
+    {
+      type: WinConditionType.PartyClasses,
+      value: Object.values(HeroClass).length,
+    },
+  ]
 }

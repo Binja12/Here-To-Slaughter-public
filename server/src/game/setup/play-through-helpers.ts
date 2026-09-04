@@ -127,6 +127,8 @@ export type Deal = {
   handSize?: number
   /** How many slain monsters win. Out of reach unless a case asks for it. */
   winAt?: number
+  /** How many distinct classes win (the leader's counts). Absent unless a case asks for it. */
+  classesWin?: number
   /** Cards left in the deck after the deal. Padded with filler heroes. */
   slack?: number
   /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
@@ -187,6 +189,9 @@ export function stacked(spec: Deal): Table {
           startingHandSize: handSize,
           winConditions: [
             { type: WinConditionType.SlayMonsters, value: spec.winAt ?? 99 },
+            ...(spec.classesWin === undefined
+              ? []
+              : [{ type: WinConditionType.PartyClasses, value: spec.classesWin }]),
           ],
           timeControl: {
             ...defaultGameConfig.timeControl,

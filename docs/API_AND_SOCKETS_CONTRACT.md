@@ -120,12 +120,12 @@ type LobbyPlayer = {
 
 type GameSettings = {
   playerCount: number; // 2..4 — seats at the table; the ready list holds at most this many
-  winCondition: "both" | "monsters" | "heroes"; // which printed win conditions end the game
-  monsterCount: number; // 2..5 — monsters to slay; read while winCondition counts monsters
+  winCondition: "monstersOrClasses" | "monstersAndClasses"; // how the two printed win conditions combine
+  monsterCount: number; // 2..5 — monsters to slay
   cardSet: "base";
   turnTimeMs: number; // 10 000..120 000 — a turn's clock; paused while any reaction window is open, and the turn ends when it lapses
   reactionTimeMs: number; // 5 000..30 000 — a full-share reaction window's wait
-  seamlessReactions: false; // not built; the wire admits only "off"
+  seamlessReactions: boolean; // the active player keeps playing under open reaction windows (docs/SEAMLESS_REACTIONS_PLAN.md)
 };
 
 type LobbySnapshot = {
@@ -172,7 +172,7 @@ Success: `200 OK` with the updated `LobbySnapshot`.
 
 #### `PUT /lobby/settings`
 
-Request: a whole `GameSettings`. The authenticated account must be the host (`403` otherwise); a value outside its range, or `seamlessReactions: true`, is `400` with the field named in `reason`.
+Request: a whole `GameSettings`. The authenticated account must be the host (`403` otherwise); a value outside its range is `400` with the field named in `reason`.
 
 Success: `200 OK` with the updated `LobbySnapshot`; every connected account receives it over SSE.
 

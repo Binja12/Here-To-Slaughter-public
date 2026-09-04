@@ -6,7 +6,7 @@ export type LobbyPlayer = { accountId: string; username: string }
 
 // --- Game settings — mirrors shared/src/contracts/game-settings.ts --------
 
-export type WinConditionMode = 'both' | 'monsters' | 'heroes'
+export type WinConditionMode = 'monstersOrClasses' | 'monstersAndClasses'
 
 export type CardSet = 'base'
 
@@ -15,18 +15,18 @@ export type GameSettings = {
   /** Seats at the table; the ready list holds at most this many. */
   playerCount: number
   winCondition: WinConditionMode
-  /** Monsters a party must slay; read only while `winCondition` counts monsters. */
+  /** Monsters a party must slay. */
   monsterCount: number
   cardSet: CardSet
   turnTimeMs: number
   reactionTimeMs: number
-  /** Not built yet: the server admits only `false`. */
-  seamlessReactions: false
+  /** The active player keeps playing under open reaction windows. */
+  seamlessReactions: boolean
 }
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
   playerCount: 4,
-  winCondition: 'both',
+  winCondition: 'monstersOrClasses',
   monsterCount: 3,
   cardSet: 'base',
   turnTimeMs: 60_000,

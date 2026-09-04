@@ -134,6 +134,9 @@ const makeInitialView = (): PlayerView => {
     revealedCards: [],
 
     pendingWindows: [],
+    // A running clock, so the turn timer draws in FAKE_SERVER mode. The fake
+    // board has no engine to hold it: it only ever counts down.
+    turnClock: { turnTimeMs: 60_000, deadline: Date.now() + 60_000 },
     busy: false,
     phase: 'Turns',
   }

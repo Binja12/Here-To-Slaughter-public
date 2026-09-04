@@ -48,10 +48,10 @@ export class TurnManager implements IGameEventListener {
     /** A turn's clock, ms. `TimeControl.turnTimeMs`; undefined = no clock. */
     private readonly turnTimeMs?: number,
   ) {
-    // Only for the window events: the clock pauses on the first one opened
-    // and runs again once the last is closed. Nothing else is read here, so
-    // the listener order §8 requires of TaskManager and GameEngine is
-    // untouched.
+    // Only for the window and frame events: the clock pauses on the first
+    // window opened and runs again once nothing is open. Nothing else is
+    // read here, so the listener order §8 requires of TaskManager and
+    // GameEngine is untouched.
     this.emitter.addListener(this)
   }
 
@@ -61,8 +61,13 @@ export class TurnManager implements IGameEventListener {
         this.pauseClock()
         break
       case GameEventType.ReactionWindowClosed:
-        // A window is closed before it announces it; what is left open is
-        // the others in its frame and any frame beneath.
+      case GameEventType.FrameResolved:
+        // Runs again once nothing is open, asked at both moments because a
+        // roll or a challenge announces its close BEFORE it settles its frame
+        // (§3) — at its Closed the frame still stands, and an attack has
+        // nothing after it to close. What is left open after a close is the
+        // others in its frame and any frame beneath; after a settle, whatever
+        // the continuation opened.
         if (!this.gs.hasOpenFrames()) this.resumeClock()
         break
     }
@@ -70,6 +75,38 @@ export class TurnManager implements IGameEventListener {
 
   getPhase(): TurnPhase {
     return this.phase
+  }
+
+  /**
+   * What the turn has left, ms — undefined on a table with no clock. Counts
+   * the part already spent off while the clock runs; `remainingMs` alone is
+   * only current at the moment it was last paused.
+   */
+  getRemainingMs(): number | undefined {
+    if (this.remainingMs === undefined) return undefined
+    if (this.clock === undefined) return this.remainingMs
+    return Math.max(0, this.remainingMs - (Date.now() - this.runningSince!))
+  }
+
+  /**
+   * When the turn lapses, epoch ms — undefined while the clock is HELD under
+   * an open reaction window, and on a table with no clock at all.
+   *
+   * A fixed instant rather than a countdown: it is the same number for as long
+   * as the clock runs, so two snapshots of one turn agree. `getRemainingMs`
+   * is the moving half, and only the held clock needs it (a held clock has no
+   * deadline to name).
+   */
+  getTurnDeadline(): number | undefined {
+    if (this.clock === undefined || this.remainingMs === undefined) {
+      return undefined
+    }
+    return this.runningSince! + this.remainingMs
+  }
+
+  /** A whole turn's budget, ms — what `getRemainingMs` is a fraction of. */
+  getTurnTimeMs(): number | undefined {
+    return this.turnTimeMs
   }
 
   /** Current AP for the active player — delegates to Player. */

@@ -9,6 +9,7 @@ import { CardPile } from '../state-structures/card-pile'
 import { ReactionManager } from '../pipelines/reaction-manager'
 import { MonsterCard } from '../cards/monster-card'
 import { HeroCard } from '../cards/hero-card'
+import { PartyLeaderCard } from '../cards/party-leader-card'
 import { TaskManager } from '../pipelines/task-manager'
 import { ITask } from '../interfaces'
 
@@ -225,6 +226,52 @@ describe('AttackMonsterAction', () => {
         g.getParty('p1').removeHero('hero-0', emitter, 'Stolen')
 
         expect(canAttack(g)).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
+      })
+
+      /**
+       * The leader is NOT one of the heroes a monster asks for (the owner,
+       * 2026-09-04). Arctic Aries (monster-121) asks for one hero of any
+       * class and was attackable off a bare leader while the requirement
+       * read the leader's class too.
+       */
+      it('does not answer a partyReq with the LEADER — a bare party attacks nothing', () => {
+        const g = kingGs([])
+        g.registerCard(
+          new PartyLeaderCard({
+            id: 'leader-p1',
+            name: 'The Charmed Bard',
+            type: CardType.Leader,
+            image: '',
+            description: '',
+            set: '',
+            heroClass: HeroClass.Bard,
+          }),
+        )
+
+        expect(canAttack(g)).toEqual({
+          accepted: false,
+          reason: RefusalReason.PartyRequirementUnmet,
+        })
+      })
+
+      it("still refuses when the leader's class is the one hero missing", () => {
+        const g = kingGs([HeroClass.Thief])
+        g.registerCard(
+          new PartyLeaderCard({
+            id: 'leader-p1',
+            name: 'The Charmed Bard',
+            type: CardType.Leader,
+            image: '',
+            description: '',
+            set: '',
+            heroClass: HeroClass.Bard,
+          }),
+        )
+
+        expect(canAttack(g)).toEqual({
+          accepted: false,
+          reason: RefusalReason.PartyRequirementUnmet,
+        })
       })
     })
   })

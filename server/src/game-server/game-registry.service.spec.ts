@@ -184,7 +184,7 @@ describe('GameRegistryService', () => {
     const settings: GameSettings = {
       ...DEFAULT_GAME_SETTINGS,
       playerCount: 3,
-      winCondition: 'monsters',
+      winCondition: 'monstersAndClasses',
       monsterCount: 2,
     }
     const { game } = registry.create(seated(ACCOUNTS), settings)

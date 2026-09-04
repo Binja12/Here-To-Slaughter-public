@@ -267,6 +267,7 @@ describe('ReactionManager', () => {
       isOpen: () => open,
       submitReaction: jest.fn(() => verdict),
       resolve: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,

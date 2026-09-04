@@ -130,6 +130,25 @@ export type PendingWindowView = {
 };
 
 /**
+ * The ACTIVE seat's turn clock. One clock for the table, not one per seat:
+ * the turn belongs to whoever is playing, and every screen watches the same
+ * numbers run down. Frozen rather than stopped while a reaction window is
+ * open — anyone's — so a screen shows a still clock, not a missing one.
+ */
+export type TurnClockView = {
+  /** The whole turn's budget, ms — what the two below are a fraction of. */
+  turnTimeMs: number;
+  /**
+   * When the turn lapses, epoch ms. An INSTANT, not a countdown, so every
+   * snapshot of one running turn carries the same number and a screen can
+   * tick between them on its own. Absent exactly while the clock is held.
+   */
+  deadline?: number;
+  /** What a HELD clock has left, ms. Present exactly while it is held. */
+  heldMs?: number;
+};
+
+/**
  * Everything one player's screen is drawn from, at one moment. Sent whole on
  * every update rather than as a diff — the board is small.
  */
@@ -165,6 +184,8 @@ export type PlayerView = {
    */
   attackableMonsterIds: string[];
   pendingWindows: PendingWindowView[];
+  /** The active seat's clock. Absent on a table played without one. */
+  turnClock?: TurnClockView;
   /** `GameState.isBusy` — mid-resolution, so no action will be accepted. */
   busy: boolean;
 };

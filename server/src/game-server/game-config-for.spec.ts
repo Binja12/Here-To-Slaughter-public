@@ -36,6 +36,13 @@ describe('gameConfigFor', () => {
     })
   })
 
+  it('carries the seamless flag through', () => {
+    expect(gameConfigFor(DEFAULT_GAME_SETTINGS).seamlessReactions).toBe(false)
+    expect(
+      gameConfigFor(custom({ seamlessReactions: true })).seamlessReactions,
+    ).toBe(true)
+  })
+
   it('seats as many as the settings say', () => {
     expect(gameConfigFor(custom({ playerCount: 3 })).playerCount).toEqual({
       min: 2,
@@ -43,15 +50,32 @@ describe('gameConfigFor', () => {
     })
   })
 
-  it('keeps only the win conditions the settings switch on', () => {
-    expect(
-      gameConfigFor(custom({ winCondition: 'monsters', monsterCount: 5 })).winConditions,
-    ).toEqual([{ type: WinConditionType.SlayMonsters, value: 5 }])
-    expect(gameConfigFor(custom({ winCondition: 'heroes' })).winConditions).toEqual([
+  it('carries both win conditions whichever way they combine', () => {
+    const both = [
+      { type: WinConditionType.SlayMonsters, value: 5 },
       { type: WinConditionType.PartyClasses, value: 6 },
-    ])
-    expect(gameConfigFor(custom({ winCondition: 'heroes' })).timeControl.name).toBe(
-      'custom',
-    )
+    ]
+    expect(
+      gameConfigFor(custom({ winCondition: 'monstersOrClasses', monsterCount: 5 }))
+        .winConditions,
+    ).toEqual(both)
+    expect(
+      gameConfigFor(custom({ winCondition: 'monstersAndClasses', monsterCount: 5 }))
+        .winConditions,
+    ).toEqual(both)
+  })
+
+  it('requires all of them only for the AND table', () => {
+    expect(
+      gameConfigFor(custom({ winCondition: 'monstersOrClasses' }))
+        .requireAllWinConditions,
+    ).toBe(false)
+    expect(
+      gameConfigFor(custom({ winCondition: 'monstersAndClasses' }))
+        .requireAllWinConditions,
+    ).toBe(true)
+    expect(
+      gameConfigFor(custom({ winCondition: 'monstersAndClasses' })).timeControl.name,
+    ).toBe('custom')
   })
 })

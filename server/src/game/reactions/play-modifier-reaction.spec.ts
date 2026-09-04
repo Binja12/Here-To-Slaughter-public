@@ -79,6 +79,7 @@ const makeStubWindow = (
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
+  cancel: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => 0,

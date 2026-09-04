@@ -1,19 +1,25 @@
-import { GameEventType } from 'shared'
+import { GameEventType, ReactionWindowType } from 'shared'
 import { defaultGameConfig } from '../config/game-config'
+import { CONFIRM } from '../reactions/task-choice-window'
 import { createGame } from './create-game'
 import {
   COUNTDOWN_MS,
+  HIGHEST,
   SEATS,
   active,
+  answer,
   board,
   config,
+  fixDice,
   ofType,
   partyOf,
   playHero,
   see,
+  settle,
   stacked,
   started,
   until,
+  windowFor,
 } from './play-through-helpers'
 
 // ---------------------------------------------------------------------------
@@ -74,6 +80,30 @@ describe('the turn clock', () => {
     expect(partyOf(board(t), player).heroes.map((h) => h.card.id)).toContain('hero-001')
     expect(board(t).busy).toBe(false)
     expect(endedAt).toBeGreaterThanOrEqual(window.deadline)
+  })
+
+  it('runs again after a roll settles with nothing offered after it, and the turn lapses', async () => {
+    // A hero's own roll opens a Modifier window and nothing follows it —
+    // unlike a play, which is followed by the roll it is offered. The clock
+    // has to come back on the frame SETTLING, not on some later window.
+    const turnTimeMs = COUNTDOWN_MS * 2
+    const t = stacked({
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+      turnTimeMs,
+    })
+    const player = active(t)
+
+    playHero(t, player, 'hero-001')
+    const offer = await windowFor(t, player, ReactionWindowType.TaskChoice)
+    fixDice(HIGHEST)
+    answer(t, offer, CONFIRM)
+    await settle(t)
+    // Two points left, so only the clock can end this turn.
+    expect(active(t)).toBe(player)
+    expect(see(t, player).seats.find((s) => s.playerId === player)!.actionPoints).toBe(2)
+
+    await until(() => active(t) !== player, 'the turn to lapse once the roll has settled', turnTimeMs * 3)
+    expect(ofType(t, GameEventType.TurnEnded)).toHaveLength(1)
   })
 
   it('has no clock when the config names none', async () => {

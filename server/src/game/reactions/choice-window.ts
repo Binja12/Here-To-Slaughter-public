@@ -125,6 +125,21 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return accepted()
   }
 
+  cancel(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.respondentId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true

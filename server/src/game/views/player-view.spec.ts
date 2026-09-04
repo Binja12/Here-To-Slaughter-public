@@ -230,24 +230,20 @@ describe('playerView', () => {
 
   // --- What the engine answers, so the client cannot ----------------------
 
-  it('offers no monster to a party that cannot field one', () => {
+  it('offers no monster to a party with no heroes', () => {
     const game = dealt()
     startGame(game)
     const view = playerView(game, game.playerOrder[0])
 
-    // Nobody has played a hero, but the PARTY LEADER is a card of a class
-    // (GameState.getPartyClasses): a monster asking for that class, or for
-    // any, is on offer; one asking only for other classes is not.
-    const leaderClass = view.parties[0].leader.heroClass
+    // Nobody has played a hero. The party LEADER is a card of a class, but it
+    // is not one of the heroes a monster asks for (GameState.getHeroClasses),
+    // so only a monster that asks for nothing at all could be on offer.
     for (const monster of view.monsterRow) {
       if (!('partyReq' in monster)) continue
-      // one card in the party: only a single requirement it answers is met
-      const [only, ...rest] = monster.partyReq.classes
-      const met = rest.length === 0 && (only === 'Any' || only === leaderClass)
-      expect({ id: monster.id, offered: view.attackableMonsterIds.includes(monster.id) }).toEqual({
+      expect({
         id: monster.id,
-        offered: met,
-      })
+        offered: view.attackableMonsterIds.includes(monster.id),
+      }).toEqual({ id: monster.id, offered: monster.partyReq.classes.length === 0 })
     }
   })
 
@@ -418,6 +414,63 @@ describe('playerView', () => {
         },
       ])
     }
+  })
+
+  // --- The turn clock -----------------------------------------------------
+
+  describe('the turn clock', () => {
+    const CLOCKED: GameConfig = {
+      ...TEST_CONFIG,
+      timeControl: { ...TEST_CONFIG.timeControl, turnTimeMs: 30_000 },
+    }
+    const clocked = () => createGame(SEATS, { config: CLOCKED })
+
+    it('is absent on a table played without one', () => {
+      const game = dealt()
+      startGame(game)
+
+      expect(playerView(game, 'alice').turnClock).toBeUndefined()
+    })
+
+    it('names the turn’s deadline, and every seat reads the same clock', () => {
+      const game = clocked()
+      startGame(game)
+
+      const clocks = SEATS.map((viewer) => playerView(game, viewer).turnClock!)
+      for (const clock of clocks) {
+        expect(clock.turnTimeMs).toBe(30_000)
+        expect(clock.heldMs).toBeUndefined()
+        expect(clock.deadline).toBeGreaterThan(Date.now())
+        expect(clock.deadline).toBeLessThanOrEqual(Date.now() + 30_000)
+      }
+      // One clock for the table: every seat is told the same instant, and it
+      // does not move between snapshots of one turn.
+      expect(new Set(clocks.map((clock) => clock.deadline)).size).toBe(1)
+      expect(playerView(game, 'alice').turnClock).toEqual(clocks[0])
+      game.turnManager.stopClock()
+    })
+
+    // The clock itself pauses and resumes in turn-manager.spec.ts; what the
+    // view owes the screen is the frozen state, so a board can draw a still
+    // clock rather than lose it under someone else's window.
+    it('reads as held while a reaction window is open — anyone’s', () => {
+      const game = clocked()
+      startGame(game)
+      const running = playerView(game, 'alice').turnClock!
+      game.reactionManager.openWindow(
+        game.reactionManager.openFrame(),
+        ReactionWindowType.CardChoice,
+        game.playerOrder[1],
+        { options: ['card-1', 'card-2'] },
+      )
+
+      const held = playerView(game, 'alice').turnClock!
+      expect(running.deadline).toBeDefined()
+      expect(held.deadline).toBeUndefined()
+      expect(held.heldMs).toBeGreaterThan(0)
+      expect(held.heldMs).toBeLessThanOrEqual(30_000)
+      game.turnManager.stopClock()
+    })
   })
 
   // --- Serialisable -------------------------------------------------------

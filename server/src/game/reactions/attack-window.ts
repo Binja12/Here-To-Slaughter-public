@@ -63,23 +63,31 @@ export class AttackWindow extends ModifiableRollWindow {
    * beyond the window closing, exactly as a short hero roll is.
    */
   protected settle(finalRoll: number): void {
-    const monster = this.gs.getCard(this.monsterId)
-    const result =
-      monster instanceof MonsterCard
-        ? monster.trySlay(finalRoll)
-        : RollResult.Miss
+    const result = this.outcome(finalRoll)
+    if (result === RollResult.Slay) this.gs.releaseFrame(this.frameId)
+    else this.gs.restoreFrame(this.frameId)
+    this.apply(result)
+  }
 
+  /** What the number means to THIS monster: slay, fight back or miss. */
+  outcome(finalRoll: number): RollResult {
+    const monster = this.gs.getCard(this.monsterId)
+    return monster instanceof MonsterCard
+      ? monster.trySlay(finalRoll)
+      : RollResult.Miss
+  }
+
+  /**
+   * What the outcome does to the table, the frame aside. Separate from the
+   * frame exit so an optimistic window can apply a standing outcome before
+   * it settles (docs/SEAMLESS_REACTIONS_PLAN.md, Phase C).
+   */
+  protected apply(result: RollResult): void {
     if (result === RollResult.Slay) {
-      this.gs.releaseFrame(this.frameId)
       // Out of the row, into the party, and the next monster turned up behind
       // it — one act, and slayMonster announces it.
       this.gs.slayMonster(this.monsterId, this.rollerId, this.emitter)
-      return
-    }
-
-    this.gs.restoreFrame(this.frameId)
-
-    if (result === RollResult.FightBack) {
+    } else if (result === RollResult.FightBack) {
       this.emitter.emit(
         GameEventFactory.monsterFoughtBack(this.rollerId, this.monsterId),
       )

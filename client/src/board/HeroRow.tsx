@@ -267,6 +267,40 @@ export default function HeroRow({
     [heroes],
   );
 
+  // ONE card, whichever way the row lays it out. The two layouts below differ
+  // in geometry only; every flag reaches the card the same way in both, so a
+  // row that fans once it fills cannot lose an aura the spread row showed
+  // (the owner, 2026-09-04: the fifth hero's roll offer did not glow).
+  const cardAt = (i: number, overlapped: boolean) => {
+    const hero = heroes[i];
+    return (
+      <HeroCardWidget
+        onZoomChange={zoomHandlers[i]}
+        card={hero.card}
+        overlapped={overlapped}
+        origin={origin}
+        zoom={zoom}
+        chainGroup={`hero-row-${seat}`}
+        item={hero.equippedItem}
+        itemSide={i <= (n - 1) / 2 ? "right" : "left"}
+        itemPlayable={itemPlayable?.[i]}
+        playable={playable?.[i]}
+        asked={asked?.[i]}
+        enemy={enemy?.[i]}
+        passive={passive?.[i]}
+        itemPassive={itemPassive?.[i]}
+        itemEnemy={itemEnemy?.[i]}
+        targetKey={targetKeyFor?.(i)}
+        itemTargetKey={itemTargetKeyFor?.(i)}
+        onActivate={
+          (playable?.[i] || asked?.[i]) && onActivateFor
+            ? () => onActivateFor(i)
+            : undefined
+        }
+      />
+    );
+  };
+
   if (!fanned) {
     return (
       <div className="flex h-full w-full items-center justify-center px-[0.5cqw]">
@@ -278,29 +312,7 @@ export default function HeroRow({
             }`}
             style={{ zIndex: zoomedIndex === i ? 999 : undefined }}
           >
-            <HeroCardWidget
-              onZoomChange={zoomHandlers[i]}
-              card={hero.card}
-              origin={origin}
-              zoom={zoom}
-              chainGroup={`hero-row-${seat}`}
-              item={hero.equippedItem}
-              itemSide={i <= (n - 1) / 2 ? "right" : "left"}
-              itemPlayable={itemPlayable?.[i]}
-              playable={playable?.[i]}
-              asked={asked?.[i]}
-              enemy={enemy?.[i]}
-              passive={passive?.[i]}
-              itemPassive={itemPassive?.[i]}
-              itemEnemy={itemEnemy?.[i]}
-              targetKey={targetKeyFor?.(i)}
-              itemTargetKey={itemTargetKeyFor?.(i)}
-              onActivate={
-                (playable?.[i] || asked?.[i]) && onActivateFor
-                  ? () => onActivateFor(i)
-                  : undefined
-              }
-            />
+            {cardAt(i, false)}
           </div>
         ))}
       </div>
@@ -324,25 +336,7 @@ export default function HeroRow({
           // inline base z) for as long as it is zoomed.
           style={{ zIndex: zoomedIndex === i ? 999 : i }}
         >
-          <HeroCardWidget
-            onZoomChange={zoomHandlers[i]}
-            card={hero.card}
-            overlapped={i > 0}
-            origin={origin}
-            zoom={zoom}
-            chainGroup={`hero-row-${seat}`}
-            item={hero.equippedItem}
-            itemSide={i <= (n - 1) / 2 ? "right" : "left"}
-            itemPlayable={itemPlayable?.[i]}
-            playable={playable?.[i]}
-            targetKey={targetKeyFor?.(i)}
-            itemTargetKey={itemTargetKeyFor?.(i)}
-            onActivate={
-              playable?.[i] && onActivateFor
-                ? () => onActivateFor(i)
-                : undefined
-            }
-          />
+          {cardAt(i, i > 0)}
         </div>
       ))}
     </div>

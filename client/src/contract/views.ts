@@ -70,6 +70,24 @@ export type PendingWindowView = {
   isYours: boolean
 }
 
+/**
+ * The ACTIVE seat's turn clock — one clock for the table, watched by every
+ * screen. Held rather than dropped while a reaction window is open, anyone's,
+ * so the board draws a still clock instead of losing it.
+ */
+export type TurnClockView = {
+  /** the whole turn's budget, ms — what the two below are a fraction of */
+  turnTimeMs: number
+  /**
+   * when the turn lapses, epoch ms. An INSTANT, not a countdown: every
+   * snapshot of one running turn carries the same number, so a screen ticks
+   * between them on its own. Absent exactly while the clock is held.
+   */
+  deadline?: number
+  /** what a HELD clock has left, ms. Present exactly while it is held. */
+  heldMs?: number
+}
+
 export type PlayerView = {
   gameId: string
   playerId: string
@@ -88,6 +106,8 @@ export type PlayerView = {
   /** cards the engine is showing you right now, for its reveal clock (5 s) */
   revealedCards: CardView[]
   pendingWindows: PendingWindowView[]
+  /** the active seat's clock; absent on a table played without one */
+  turnClock?: TurnClockView
   busy: boolean
 }
 

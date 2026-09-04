@@ -258,7 +258,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
@@ -290,7 +290,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           executed.push('window-action')
           return []
@@ -489,7 +489,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', { snapshot: g.clone(), windows: [stub] })
           return []
         },
@@ -558,6 +558,27 @@ describe('the turn clock', () => {
     expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(1)
   })
 
+  it('runs again when a frame settles with nothing open — a roll announces its close before it settles', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const tm = new TurnManager(gs, emitter, 200)
+    tm.startTurn('p1')
+
+    emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Attack, 'p1', 'f1'))
+    expect(tm.getTurnDeadline()).toBeUndefined()
+
+    // The attack's Closed goes out while its frame still stands (the table
+    // has one here); the settle is what leaves nothing open.
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [{ isOpen: () => true } as never] })
+    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Attack, 'p1', 'f1'))
+    expect(tm.getTurnDeadline()).toBeUndefined()
+
+    gs.releaseFrame('f1')
+    emitter.emit(GameEventFactory.frameResolved('f1', [8]))
+    expect(tm.getTurnDeadline()).toBeDefined()
+    tm.stopClock()
+  })
+
   it('takes the time already spent off what is left when it pauses', async () => {
     const gs = makeGs()
     const emitter = new GameEventEmitter()
@@ -572,6 +593,49 @@ describe('the turn clock', () => {
     await sleep(60)
 
     expect(tm.getPhase()).toBe(TurnPhase.End)
+  })
+
+  it('reports what is left, counting the running part off as it goes', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const tm = new TurnManager(gs, emitter, 200)
+    expect(tm.getRemainingMs()).toBeUndefined()
+    expect(tm.getTurnDeadline()).toBeUndefined()
+    expect(tm.getTurnTimeMs()).toBe(200)
+
+    tm.startTurn('p1')
+    const deadline = tm.getTurnDeadline()!
+    const atStart = tm.getRemainingMs()!
+    expect(atStart).toBeLessThanOrEqual(200)
+    await sleep(40)
+    // The deadline is an instant and does not move; what is LEFT does.
+    expect(tm.getTurnDeadline()).toBe(deadline)
+    expect(tm.getRemainingMs()!).toBeLessThan(atStart)
+
+    emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Challenge, 'p2', 'f1'))
+    const held = tm.getRemainingMs()!
+    expect(tm.getTurnDeadline()).toBeUndefined()
+    await sleep(40)
+    // Frozen: a held clock reads the same number however long the window stands.
+    expect(tm.getRemainingMs()).toBe(held)
+
+    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Challenge, 'p2', 'f1'))
+    // A new deadline, further out by however long the window stood.
+    expect(tm.getTurnDeadline()!).toBeGreaterThan(deadline)
+
+    tm.stopClock()
+    expect(tm.getRemainingMs()).toBeUndefined()
+    expect(tm.getTurnDeadline()).toBeUndefined()
+  })
+
+  it('has no clock to report on a table with no turn time', () => {
+    const gs = makeGs()
+    const tm = new TurnManager(gs, new GameEventEmitter())
+    tm.startTurn('p1')
+
+    expect(tm.getTurnTimeMs()).toBeUndefined()
+    expect(tm.getRemainingMs()).toBeUndefined()
+    expect(tm.getTurnDeadline()).toBeUndefined()
   })
 
   it('is stopped by the end of the turn, so a finished turn never lapses', async () => {

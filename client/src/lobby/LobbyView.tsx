@@ -255,7 +255,6 @@ function SettingsPanel({
   const art = LOBBY_ART.settingsFlat
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
     onChange({ ...settings, [key]: value })
-  const countsMonsters = settings.winCondition !== 'heroes'
 
   return (
     <div
@@ -292,11 +291,11 @@ function SettingsPanel({
       />
       <SettingsRow
         row={3}
-        label={countsMonsters ? 'Monsters to slay' : 'Monsters (unused)'}
+        label="Monsters to slay"
         value={settings.monsterCount}
         options={MONSTER_COUNT_OPTIONS}
         onChange={(count) => set('monsterCount', count)}
-        editable={editable && countsMonsters}
+        editable={editable}
       />
       <SettingsRow
         row={4}
@@ -325,10 +324,9 @@ function SettingsPanel({
       <SettingsRow
         row={7}
         label="Seamless reactions"
-        value={settings.seamlessReactions as boolean}
+        value={settings.seamlessReactions}
         options={SEAMLESS_OPTIONS}
-        // the only enabled option is Off, which it already is
-        onChange={() => undefined}
+        onChange={(on) => set('seamlessReactions', on)}
         editable={editable}
       />
     </div>
