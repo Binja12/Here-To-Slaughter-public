@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { GameAssigned, LobbySnapshot } from '../contract'
+import type { GameAssigned, GameSettings, LobbySnapshot } from '../contract'
 import { LobbyPortError, type LobbyPort } from '../ports/LobbyPort'
 
 export interface LobbyApi {
@@ -7,6 +7,8 @@ export interface LobbyApi {
   loading: boolean
   error: string | null
   toggleReady: () => Promise<void>
+  /** Host only: the whole settings object, every change. */
+  updateSettings: (settings: GameSettings) => Promise<void>
   startGame: () => Promise<void>
   logout: () => Promise<void>
 }
@@ -79,6 +81,18 @@ export function useLobbyState(
     }
   }, [applyUnlessPushed, capture, port, snapshot])
 
+  const updateSettings = useCallback(
+    async (settings: GameSettings) => {
+      setError(null)
+      try {
+        await applyUnlessPushed(() => port.updateSettings(settings))
+      } catch (cause) {
+        capture(cause)
+      }
+    },
+    [applyUnlessPushed, capture, port],
+  )
+
   const startGame = useCallback(async () => {
     setError(null)
     try {
@@ -97,7 +111,7 @@ export function useLobbyState(
   }, [onLogout, port])
 
   return useMemo(
-    () => ({ snapshot, loading, error, toggleReady, startGame, logout }),
-    [error, loading, logout, snapshot, startGame, toggleReady],
+    () => ({ snapshot, loading, error, toggleReady, updateSettings, startGame, logout }),
+    [error, loading, logout, snapshot, startGame, toggleReady, updateSettings],
   )
 }

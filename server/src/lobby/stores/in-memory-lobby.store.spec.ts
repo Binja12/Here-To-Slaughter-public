@@ -1,13 +1,21 @@
-import { LOBBY_CAPACITY } from '../lobby.types'
+import { DEFAULT_GAME_SETTINGS } from 'shared'
 import { InMemoryLobbyStore } from './in-memory-lobby.store'
 
 describe('InMemoryLobbyStore', () => {
-  it('starts with the default game configuration', async () => {
+  it('starts with the default game settings', async () => {
     const store = new InMemoryLobbyStore()
 
-    await expect(store.getSettings()).resolves.toEqual({
-      gameConfig: 'default',
-    })
+    await expect(store.getSettings()).resolves.toEqual(DEFAULT_GAME_SETTINGS)
+  })
+
+  it('holds the settings it is given, as a copy', async () => {
+    const store = new InMemoryLobbyStore()
+    const settings = { ...DEFAULT_GAME_SETTINGS, playerCount: 3 }
+
+    await store.updateSettings(settings)
+    settings.playerCount = 2
+
+    await expect(store.getSettings()).resolves.toMatchObject({ playerCount: 3 })
   })
 
   it('preserves ready order and treats the first player as the host', async () => {
@@ -33,9 +41,10 @@ describe('InMemoryLobbyStore', () => {
     await expect(store.getReadyPlayers()).resolves.toHaveLength(1)
   })
 
-  it('enforces the four-player capacity', async () => {
+  it('seats as many players as the settings say', async () => {
     const store = new InMemoryLobbyStore()
-    for (let index = 1; index <= LOBBY_CAPACITY; index += 1) {
+    await store.updateSettings({ ...DEFAULT_GAME_SETTINGS, playerCount: 3 })
+    for (let index = 1; index <= 3; index += 1) {
       await store.addReadyPlayer({
         accountId: `account-${index}`,
         username: `player-${index}`,
@@ -43,8 +52,8 @@ describe('InMemoryLobbyStore', () => {
     }
 
     await expect(
-      store.addReadyPlayer({ accountId: 'account-5', username: 'player-5' }),
-    ).rejects.toThrow('Lobby is full')
+      store.addReadyPlayer({ accountId: 'account-4', username: 'player-4' }),
+    ).rejects.toThrow('Lobby is full (maximum 3 players)')
   })
 
   it('removes one player or a selected game group without reordering others', async () => {

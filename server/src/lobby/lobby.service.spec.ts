@@ -1,10 +1,12 @@
 import type { AuthenticatedAccount } from '../auth/auth.types'
 import { filter, firstValueFrom, take } from 'rxjs'
+import { DEFAULT_GAME_SETTINGS, FAST_GAME_SETTINGS } from 'shared'
 import {
   AccountAlreadyInGameError,
   GameServerUnavailableError,
   InvalidReadyPlayerCountError,
   LobbyFullError,
+  OnlyHostCanChangeSettingsError,
   OnlyHostCanStartError,
 } from './lobby.errors'
 import type { IGameServerClient } from './lobby.interfaces'
@@ -56,7 +58,7 @@ describe('LobbyService', () => {
 
     const hostSnapshot = await service.getSnapshot(account(1))
     expect(hostSnapshot.self.isHost).toBe(true)
-    expect(hostSnapshot.settings).toEqual({ gameConfig: 'default' })
+    expect(hostSnapshot.settings).toEqual(DEFAULT_GAME_SETTINGS)
   })
 
   it('moves host authority to the next player when the host unreadies', async () => {
@@ -134,12 +136,79 @@ describe('LobbyService', () => {
     })
     expect(gameServer.createGame).toHaveBeenCalledWith({
       players: [account(1), account(2)],
-      gameConfig: 'default',
+      settings: DEFAULT_GAME_SETTINGS,
     })
     await expect(lobbyStore.getReadyPlayers()).resolves.toEqual([])
     await expect(assignmentStore.findByGameId('game-1')).resolves.toHaveLength(
       2,
     )
+  })
+
+  describe('settings', () => {
+    it('lets only the host change them, and shows every seat the change', async () => {
+      await service.ready(account(1))
+      await service.ready(account(2))
+
+      await expect(
+        service.updateSettings(account(2), FAST_GAME_SETTINGS),
+      ).rejects.toBeInstanceOf(OnlyHostCanChangeSettingsError)
+      await expect(
+        service.updateSettings(account(3), FAST_GAME_SETTINGS),
+      ).rejects.toBeInstanceOf(OnlyHostCanChangeSettingsError)
+
+      const snapshot = await service.updateSettings(account(1), FAST_GAME_SETTINGS)
+      expect(snapshot.settings).toEqual(FAST_GAME_SETTINGS)
+      expect(snapshot.readyPlayers).toEqual([account(1), account(2)])
+      const other = await service.getSnapshot(account(2))
+      expect(other.settings).toEqual(FAST_GAME_SETTINGS)
+      expect(other.self.state).toBe('READY')
+    })
+
+    it('unseats everyone but the host when the seat count changes', async () => {
+      await service.ready(account(1))
+      await service.ready(account(2))
+      await service.ready(account(3))
+
+      const snapshot = await service.updateSettings(account(1), {
+        ...DEFAULT_GAME_SETTINGS,
+        playerCount: 3,
+      })
+
+      expect(snapshot.readyPlayers).toEqual([account(1)])
+      expect(snapshot.self).toMatchObject({ state: 'READY', isHost: true })
+      await expect(service.getSnapshot(account(2))).resolves.toMatchObject({
+        self: { state: 'IDLE' },
+      })
+    })
+
+    it('seats and starts as many players as the settings say', async () => {
+      await service.ready(account(1))
+      await service.updateSettings(account(1), {
+        ...DEFAULT_GAME_SETTINGS,
+        playerCount: 2,
+      })
+      await service.ready(account(2))
+
+      await expect(service.ready(account(3))).rejects.toBeInstanceOf(
+        LobbyFullError,
+      )
+      await expect(
+        service.getStartPlayers(account(1).accountId),
+      ).resolves.toEqual([account(1), account(2)])
+    })
+
+    it('hands the game server the settings the group formed under', async () => {
+      await service.ready(account(1))
+      await service.updateSettings(account(1), FAST_GAME_SETTINGS)
+      await service.ready(account(2))
+
+      await service.startGame(account(1).accountId)
+
+      expect(gameServer.createGame).toHaveBeenCalledWith({
+        players: [account(1), account(2)],
+        settings: FAST_GAME_SETTINGS,
+      })
+    })
   })
 
   it('keeps players ready when the Game server cannot create the game', async () => {

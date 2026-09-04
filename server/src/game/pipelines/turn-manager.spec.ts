@@ -2,6 +2,7 @@ import { ActionType, GameEventType, GamePhase, IGameEvent, ReactionWindowType, R
 import { TurnManager } from './turn-manager'
 import { GameState } from './game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
+import { GameEventFactory } from '../events/game-event-factory'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
@@ -497,5 +498,108 @@ describe('TurnManager', () => {
       // AP is 0 but window is open — turn should NOT have ended
       expect(tm.getPhase()).toBe(TurnPhase.Action)
     })
+  })
+})
+
+describe('the turn clock', () => {
+  const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms))
+
+  it('runs only when a turn time is configured', async () => {
+    const gs = makeGs()
+    const tm = new TurnManager(gs, new GameEventEmitter())
+    tm.startTurn('p1')
+    await sleep(30)
+    expect(tm.getPhase()).toBe(TurnPhase.Action)
+    expect(tm.getActionPoints()).toBe(3)
+  })
+
+  it('ends an idle turn when it lapses: the budget is forfeited, TurnEnded goes out', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const received: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => received.push(e) })
+    const tm = new TurnManager(gs, emitter, 20)
+
+    tm.startTurn('p1')
+    expect(tm.getPhase()).toBe(TurnPhase.Action)
+    await sleep(60)
+
+    expect(tm.getPhase()).toBe(TurnPhase.End)
+    expect(tm.getActionPoints()).toBe(0)
+    expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(1)
+  })
+
+  it('pauses while a window is open — anyone’s — and runs again once the last one closes', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const received: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => received.push(e) })
+    const tm = new TurnManager(gs, emitter, 40)
+    tm.startTurn('p1')
+
+    // Another seat's window: it is on the board, and announced the way a
+    // real one is (opened before it is filed, closed before it announces).
+    let open = true
+    const stub = {
+      isOpen: () => open,
+    } as IReactionWindow
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [stub] })
+    emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Challenge, 'p2', 'f1'))
+    await sleep(100)
+    expect(tm.getPhase()).toBe(TurnPhase.Action)
+    expect(tm.getActionPoints()).toBe(3)
+
+    open = false
+    gs.releaseFrame('f1')
+    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Challenge, 'p2', 'f1'))
+    await sleep(80)
+
+    expect(tm.getPhase()).toBe(TurnPhase.End)
+    expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(1)
+  })
+
+  it('takes the time already spent off what is left when it pauses', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const tm = new TurnManager(gs, emitter, 100)
+    tm.startTurn('p1')
+    await sleep(70)
+
+    emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Challenge, 'p2', 'f1'))
+    await sleep(100)
+    emitter.emit(GameEventFactory.reactionWindowClosed(ReactionWindowType.Challenge, 'p2', 'f1'))
+    // ~30 ms were left, not another 100.
+    await sleep(60)
+
+    expect(tm.getPhase()).toBe(TurnPhase.End)
+  })
+
+  it('is stopped by the end of the turn, so a finished turn never lapses', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const received: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => received.push(e) })
+    const tm = new TurnManager(gs, emitter, 20)
+
+    tm.startTurn('p1')
+    tm.endTurn()
+    await sleep(60)
+
+    expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(1)
+  })
+
+  it('is stopped by stopClock, which a concluded game calls', async () => {
+    const gs = makeGs()
+    const emitter = new GameEventEmitter()
+    const received: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => received.push(e) })
+    const tm = new TurnManager(gs, emitter, 20)
+
+    tm.startTurn('p1')
+    tm.stopClock()
+    await sleep(60)
+
+    expect(tm.getPhase()).toBe(TurnPhase.Action)
+    expect(received.filter((e) => e.getType() === GameEventType.TurnEnded)).toHaveLength(0)
   })
 })

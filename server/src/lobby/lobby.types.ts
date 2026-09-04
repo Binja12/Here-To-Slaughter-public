@@ -1,7 +1,4 @@
-import type { GameConfigId } from 'shared'
-
-export const MIN_GAME_PLAYERS = 2
-export const LOBBY_CAPACITY = 4
+import type { GameSettings } from 'shared'
 
 export type LobbyPlayer = {
   accountId: string
@@ -12,15 +9,12 @@ export type LobbyPlayerState = 'IDLE' | 'READY' | 'IN_GAME'
 
 export type LobbySnapshot = {
   readyPlayers: LobbyPlayer[]
-  settings: LobbySettings
+  /** The table as the host has set it; `playerCount` is how many may be ready. */
+  settings: GameSettings
   self: LobbyPlayer & {
     state: LobbyPlayerState
     isHost: boolean
   }
-}
-
-export type LobbySettings = {
-  gameConfig: GameConfigId
 }
 
 export type GameAssignment = {

@@ -194,3 +194,46 @@ describe('GameEngine', () => {
     })
   })
 })
+
+describe('the turn clock across turns', () => {
+  const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms))
+
+  it('passes from seat to seat: every turn runs on its own clock', async () => {
+    const gs = makeGs('p1', 'p2')
+    const emitter = new GameEventEmitter()
+    const tm = new TurnManager(gs, emitter, 20)
+    const engine = new GameEngine(gs, tm, emitter)
+    const received: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => received.push(e) })
+
+    engine.start(['p1', 'p2'])
+    await sleep(70)
+
+    const starts = received
+      .filter((e) => e.getType() === GameEventType.TurnStarted)
+      .map((e) => e.getPlayerId())
+    expect(starts.slice(0, 3)).toEqual(['p1', 'p2', 'p1'])
+    tm.stopClock()
+  })
+
+  it('stops with the game: a concluded table never lapses a turn', async () => {
+    const gs = makeGs('p1', 'p2')
+    const player = gs.getPlayer('p1')!
+    const emitter = new GameEventEmitter()
+    const tm = new TurnManager(gs, emitter, 20)
+    let qualifies = false
+    const winCondition: IWinCondition = { check: () => (qualifies ? player : null) }
+    const engine = new GameEngine(gs, tm, emitter, [winCondition])
+    const received: IGameEvent[] = []
+    emitter.addListener({ onEvent: (e) => received.push(e) })
+
+    engine.start(['p1', 'p2'])
+    qualifies = true
+    emitter.emit(GameEventFactory.frameResolved('frame-1', []))
+    expect(received.some((e) => e.getType() === GameEventType.GameEnded)).toBe(true)
+    await sleep(60)
+
+    expect(received.some((e) => e.getType() === GameEventType.TurnEnded)).toBe(false)
+    expect(received.filter((e) => e.getType() === GameEventType.TurnStarted)).toHaveLength(1)
+  })
+})

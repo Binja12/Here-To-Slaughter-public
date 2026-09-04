@@ -1573,6 +1573,24 @@ table while the last player connects.
   passive install nothing.
 - `GameStarted` goes out before the first `TurnStarted`.
 
+**A turn's clock is CONFIG too, it PAUSES under any window, and a lapse is
+a pass.** `TimeControl.turnTimeMs` is the whole of it: `TurnManager` gives
+each turn that much at `startTurn`, forgets it at `endTurn` and when
+`GameEngine` concludes the game mid-turn, and does nothing at all when the
+config names no clock — which is what every engine spec plays on. The
+clock runs only while no reaction window is open, whoever's it is:
+`TurnManager` listens for `ReactionWindowOpened` (pause, the elapsed part
+taken off what is left) and `ReactionWindowClosed` (run again once
+`hasOpenFrames` is false), which is why it is on the emitter at all — it
+reads nothing else there, so the §8 ordering of TaskManager and GameEngine
+is untouched. When it lapses the board is idle by construction (a pipeline
+can only be parked on a window; a busy board at a lapse throws), the budget
+is forfeited and the drain ends the turn through the one rule that ends
+every turn. A lapse carries the number of the turn it belongs to, so one
+that outlives its turn does nothing. The lobby's turn timer becomes this
+one number (`game-server/game-config-for.ts`); `setup/turn-clock.spec.ts`
+proves it on a dealt table.
+
 **A window's countdown is CONFIG, and each window takes a share of it.**
 `TimeControl.reactionCountdownMs` is the base; `WINDOW_SHARE` in
 `reaction-manager.ts` gives each kind its slice. A share rather than a number,

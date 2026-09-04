@@ -1,7 +1,8 @@
 import { Logger } from '@nestjs/common'
 import type { ClientProxy } from '@nestjs/microservices'
 import { of } from 'rxjs'
-import { GamePhase, RefusalReason } from 'shared'
+import { DEFAULT_GAME_SETTINGS, GamePhase, RefusalReason } from 'shared'
+import type { GameSettings } from 'shared'
 import type { Server } from 'socket.io'
 import { playerView } from '../game/views/player-view'
 import { GameRegistryService } from './game-registry.service'
@@ -39,7 +40,7 @@ describe('GameRegistryService', () => {
     playerView(running.game, running.game.playerOrder[0]).phase
 
   it('deals a table seating exactly the requested accounts', () => {
-    const { game } = registry.create(seated(ACCOUNTS), 'default')
+    const { game } = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
 
     expect([...game.playerOrder].sort()).toEqual([...ACCOUNTS].sort())
     const view = playerView(game, 'account-1')
@@ -51,14 +52,14 @@ describe('GameRegistryService', () => {
   })
 
   it('holds the table under its game id', () => {
-    const running = registry.create(seated(ACCOUNTS), 'default')
+    const running = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
 
     expect(registry.get(running.game.gameId)).toBe(running)
     expect(registry.get('no-such-game')).toBeUndefined()
   })
 
   it('finds a table by any account seated at it, and nothing for a stranger', () => {
-    const running = registry.create(seated(ACCOUNTS), 'default')
+    const running = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
 
     for (const accountId of ACCOUNTS) {
       expect(registry.findByAccount(accountId)).toBe(running)
@@ -67,7 +68,7 @@ describe('GameRegistryService', () => {
   })
 
   it('does not start the game: the first turn waits for the seats', () => {
-    const { game } = registry.create(seated(ACCOUNTS), 'default')
+    const { game } = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
     const view = playerView(game, 'account-1')
 
     expect(view.currentPlayerId).toBeUndefined()
@@ -80,7 +81,7 @@ describe('GameRegistryService', () => {
         { accountId: 'account-1', username: 'Alice' },
         { accountId: 'account-2', username: 'Bob' },
       ],
-      'default',
+      DEFAULT_GAME_SETTINGS,
     )
 
     const names = playerView(game, 'account-1').seats.map((seat) => [
@@ -94,7 +95,7 @@ describe('GameRegistryService', () => {
   })
 
   it('starts every table at version 0', () => {
-    expect(registry.create(seated(ACCOUNTS), 'default').version).toBe(0)
+    expect(registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS).version).toBe(0)
   })
 
   it('lets a spec fix the deal, which the wire never can', () => {
@@ -106,7 +107,7 @@ describe('GameRegistryService', () => {
 
   describe('arriving', () => {
     it('holds the table in Setup until every seat has arrived, then starts it once', () => {
-      const running = registry.create(seated(ACCOUNTS), 'default')
+      const running = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
 
       expect(registry.arrive(running, 'account-1')).toBe(false)
       expect(registry.arrive(running, 'account-2')).toBe(false)
@@ -120,7 +121,7 @@ describe('GameRegistryService', () => {
     })
 
     it('counts a seat that arrived and left: the table does not wait for it twice', () => {
-      const running = registry.create(seated(ACCOUNTS), 'default')
+      const running = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
 
       registry.arrive(running, 'account-1')
       registry.arrive(running, 'account-1')
@@ -131,7 +132,7 @@ describe('GameRegistryService', () => {
     })
 
     it('treats an arrival at a live table as a reconnect, not a second start', () => {
-      const running = registry.create(seated(ACCOUNTS), 'default')
+      const running = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
       for (const accountId of ACCOUNTS) registry.arrive(running, accountId)
       const active = playerView(running.game, 'account-1').currentPlayerId
 
@@ -142,7 +143,7 @@ describe('GameRegistryService', () => {
 
   describe('leaving', () => {
     it('refuses to let a seat leave a live table', () => {
-      const running = registry.create(seated(ACCOUNTS), 'default')
+      const running = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
       for (const accountId of ACCOUNTS) registry.arrive(running, accountId)
 
       expect(registry.leave(running, 'account-1')).toEqual({
@@ -170,8 +171,8 @@ describe('GameRegistryService', () => {
   })
 
   it('gives every table its own id, and each account finds only its own', () => {
-    const first = registry.create(seated(ACCOUNTS), 'default')
-    const second = registry.create(seated(['account-4', 'account-5']), 'default')
+    const first = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
+    const second = registry.create(seated(['account-4', 'account-5']), DEFAULT_GAME_SETTINGS)
 
     expect(first.game.gameId).not.toBe(second.game.gameId)
     expect(registry.get(second.game.gameId)).toBe(second)
@@ -179,12 +180,27 @@ describe('GameRegistryService', () => {
     expect(registry.findByAccount('account-1')).toBe(first)
   })
 
+  it('deals the table the settings describe', () => {
+    const settings: GameSettings = {
+      ...DEFAULT_GAME_SETTINGS,
+      playerCount: 3,
+      winCondition: 'monsters',
+      monsterCount: 2,
+    }
+    const { game } = registry.create(seated(ACCOUNTS), settings)
+
+    expect(playerView(game, 'account-1').seats).toHaveLength(3)
+    expect(() => registry.create(seated([...ACCOUNTS, 'account-4']), settings)).toThrow(
+      /seats 2 to 3/,
+    )
+  })
+
   it('refuses a table the config cannot seat, as the engine refuses it', () => {
-    expect(() => registry.create(seated(['account-1']), 'default')).toThrow(
+    expect(() => registry.create(seated(['account-1']), DEFAULT_GAME_SETTINGS)).toThrow(
       /seats 2 to 4/,
     )
     expect(() =>
-      registry.create(seated(['account-1', 'account-1']), 'default'),
+      registry.create(seated(['account-1', 'account-1']), DEFAULT_GAME_SETTINGS),
     ).toThrow(/seated twice/)
   })
 })

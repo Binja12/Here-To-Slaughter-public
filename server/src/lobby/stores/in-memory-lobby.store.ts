@@ -1,21 +1,27 @@
 import { Injectable } from '@nestjs/common'
+import { DEFAULT_GAME_SETTINGS } from 'shared'
+import type { GameSettings } from 'shared'
 import { LobbyFullError } from '../lobby.errors'
 import { ILobbyStore } from '../lobby.interfaces'
-import { LOBBY_CAPACITY, LobbyPlayer, LobbySettings } from '../lobby.types'
+import { LobbyPlayer } from '../lobby.types'
 
 @Injectable()
 export class InMemoryLobbyStore implements ILobbyStore {
   private readonly readyPlayers: LobbyPlayer[] = []
-  private readonly settings: LobbySettings = { gameConfig: 'default' }
+  private settings: GameSettings = { ...DEFAULT_GAME_SETTINGS }
 
   async getReadyPlayers(): Promise<LobbyPlayer[]> {
     // Preserve ready order while preventing callers from changing stored players.
     return this.readyPlayers.map(clonePlayer)
   }
 
-  async getSettings(): Promise<LobbySettings> {
+  async getSettings(): Promise<GameSettings> {
     // Return a copy so future settings cannot be changed outside the store.
     return { ...this.settings }
+  }
+
+  async updateSettings(settings: GameSettings): Promise<void> {
+    this.settings = { ...settings }
   }
 
   async addReadyPlayer(player: LobbyPlayer): Promise<void> {
@@ -28,9 +34,9 @@ export class InMemoryLobbyStore implements ILobbyStore {
       return
     }
 
-    // Do not accept more players than one game can hold.
-    if (this.readyPlayers.length >= LOBBY_CAPACITY) {
-      throw new LobbyFullError(LOBBY_CAPACITY)
+    // Do not accept more players than the table is set to seat.
+    if (this.readyPlayers.length >= this.settings.playerCount) {
+      throw new LobbyFullError(this.settings.playerCount)
     }
 
     // Append the player; the first entry in the ordered list is the host.

@@ -429,8 +429,8 @@ another browser), all at `http://localhost:3002` — `localhost`, never
 `127.0.0.1`, or the cookie does not reach the game server. Register three
 usernames, Ready in each; the first to ready is the host and presses
 Start at 2–4 ready. The table starts when the LAST seat's socket arrives.
-Reaction windows lapse after 5 s with the engine's default; the Docker
-table sets `REACTION_COUNTDOWN_MS=30000` on the game process (§2b). After `game-completed` every seat
+Reaction windows and turns lapse on the clocks the host set in the lobby
+settings (defaults 15 s and 1:00; the `fast` preset 7.5 s and 0:30). After `game-completed` every seat
 presses Leave to return to the lobby.
 
 Restarting the lobby process forgets every account and session (in-memory

@@ -129,6 +129,8 @@ export type Deal = {
   winAt?: number
   /** Cards left in the deck after the deal. Padded with filler heroes. */
   slack?: number
+  /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
+  turnTimeMs?: number
 }
 
 export type Table = { game: Game; events: IGameEvent[] }
@@ -139,6 +141,7 @@ export function config(overrides: Partial<GameConfig> = {}): GameConfig {
     ...overrides,
     timeControl: {
       ...defaultGameConfig.timeControl,
+      ...overrides.timeControl,
       reactionCountdownMs: COUNTDOWN_MS,
     },
   }
@@ -185,6 +188,10 @@ export function stacked(spec: Deal): Table {
           winConditions: [
             { type: WinConditionType.SlayMonsters, value: spec.winAt ?? 99 },
           ],
+          timeControl: {
+            ...defaultGameConfig.timeControl,
+            turnTimeMs: spec.turnTimeMs,
+          },
         }),
         cards,
       }),

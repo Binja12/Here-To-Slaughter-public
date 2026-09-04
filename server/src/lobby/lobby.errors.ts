@@ -19,6 +19,13 @@ export class OnlyHostCanStartError extends Error {
   }
 }
 
+export class OnlyHostCanChangeSettingsError extends Error {
+  constructor() {
+    super('Only the host can change the settings')
+    this.name = OnlyHostCanChangeSettingsError.name
+  }
+}
+
 export class InvalidReadyPlayerCountError extends Error {
   constructor(minimum: number, maximum: number) {
     super(`A game requires ${minimum} to ${maximum} ready players`)

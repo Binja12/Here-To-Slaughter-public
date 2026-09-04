@@ -1,4 +1,4 @@
-import { CardType, GamePhase, WinConditionType } from 'shared'
+import { CardType, DEFAULT_GAME_SETTINGS, GamePhase, WinConditionType } from 'shared'
 import type { CardBase, HeroCardData, SeatedAccount } from 'shared'
 import { baseGameCards } from '../data/base-game-cards'
 import type { Game } from '../game/setup/create-game'
@@ -103,7 +103,9 @@ export function dealQuickWin(
   registry: GameRegistryService,
   accountIds: string[],
 ): RunningGame {
-  return pinned(() => registry.create(seated(accountIds), 'default', quickWinDeal()))
+  return pinned(() =>
+    registry.create(seated(accountIds), DEFAULT_GAME_SETTINGS, quickWinDeal()),
+  )
 }
 
 /**
@@ -132,7 +134,7 @@ export function dealStacked(
   ]
 
   return pinned(() =>
-    registry.create(seated(seats), 'default', {
+    registry.create(seated(seats), DEFAULT_GAME_SETTINGS, {
       cards,
       config: config({
         startingHandSize: handSize,

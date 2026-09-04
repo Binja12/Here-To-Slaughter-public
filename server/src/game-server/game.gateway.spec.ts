@@ -6,6 +6,7 @@ import {
   GAME_COMPLETED,
   GAME_SNAPSHOT,
   GAME_STARTED,
+  DEFAULT_GAME_SETTINGS,
   GamePhase,
   INTERNAL_ERROR,
   RefusalReason,
@@ -119,7 +120,7 @@ describe('GameGateway', () => {
     running: RunningGame
     active: string
   } {
-    const running = registry.create(seated(accountIds), 'default')
+    const running = registry.create(seated(accountIds), DEFAULT_GAME_SETTINGS)
     for (const accountId of accountIds) registry.arrive(running, accountId)
     const active = playerView(running.game, accountIds[0]).currentPlayerId!
     return { running, active }
@@ -281,7 +282,7 @@ describe('GameGateway', () => {
   describe('the start: Setup is the seats arriving', () => {
     it('starts the table on the arrival that completes it, telling every seat its own view', async () => {
       const [alice, bob, carol] = seats('alice', 'bob', 'carol')
-      const { game } = registry.create(seated([alice, bob, carol]), 'default')
+      const { game } = registry.create(seated([alice, bob, carol]), DEFAULT_GAME_SETTINGS)
       const views: Record<string, Promise<GameSnapshot>> = {}
       const listen = (id: string) => (socket: Socket) => {
         views[id] = gameStarted(socket)
@@ -305,7 +306,7 @@ describe('GameGateway', () => {
 
     it('does not wait twice for a seat that arrived and left; it reconnects to a live table', async () => {
       const [alice, bob] = seats('alice', 'bob')
-      const { game } = registry.create(seated([alice, bob]), 'default')
+      const { game } = registry.create(seated([alice, bob]), DEFAULT_GAME_SETTINGS)
 
       const first = await connect(tokenOf(alice))
       first.disconnect()
@@ -428,7 +429,7 @@ describe('GameGateway', () => {
 
     it('tells a seat still waiting for the others nothing', async () => {
       const [alice, bob] = seats('alice', 'bob')
-      registry.create(seated([alice, bob]), 'default')
+      registry.create(seated([alice, bob]), DEFAULT_GAME_SETTINGS)
       let heard = false
 
       await connect(tokenOf(bob), (socket) => {

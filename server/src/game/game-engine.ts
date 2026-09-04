@@ -76,8 +76,10 @@ export class GameEngine implements IGameEventListener {
     const winner = this.checkWinConditions()
     if (!winner) return false
     // Before the announcement, so whoever hears GameEnded sees a concluded
-    // board that already names its winner.
+    // board that already names its winner. A win lands mid-turn, so the
+    // turn's clock is stopped here: nothing may run on a concluded board.
     this.gs.conclude(winner.getId())
+    this.turnManager.stopClock()
     this.emitter.emit(
       new GameEvent(GameEventType.GameEnded, winner.getId(), {
         winnerId: winner.getId(),
