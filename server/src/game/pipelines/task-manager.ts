@@ -26,7 +26,7 @@ import {
   sweepExpired,
   triggerMatches,
 } from '../abilities/ability-lifecycle'
-import { GameEventFactory } from '../events/game-event-factory'
+import { ContextWrite, GameEventFactory } from '../events/game-event-factory'
 
 /** A monster in the pile is nobody's; TriggerScope.Attacker names the player. */
 const NO_OWNER = ''
@@ -87,16 +87,18 @@ export class TaskManager implements IGameEventListener {
     if (event.getType() === GameEventType.FrameResolved) {
       const { frameId, result } = event.getPayload() as {
         frameId: string
-        result?: { key: string; value: unknown }
+        result?: ContextWrite | ContextWrite[]
       }
+      const writes = result === undefined ? [] : Array.isArray(result) ? result : [result]
       // After a rollback nothing is paused on it any more — restoreFrame
       // dropped it — but the ones underneath still need to finish, so the
       // drain below runs either way.
       for (const pipeline of this.gs.abilityPipelines) {
         if (pipeline.pausedOn !== frameId) continue
         pipeline.pausedOn = undefined
-        // The window named both the slot and the value (resultKey).
-        if (result) pipeline.ctx.set(result.key, result.value)
+        // The window named both the slot and the value (resultKey); a
+        // per-seat frame names one per window.
+        for (const write of writes) pipeline.ctx.set(write.key, write.value)
       }
     }
 

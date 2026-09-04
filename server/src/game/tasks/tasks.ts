@@ -12,8 +12,8 @@ import {
   CTX_CHOSEN_PLAYER,
   CTX_PULLED_CARD_IDS,
   CTX_DISCARDED_CARDS,
-  CTX_DISCARD_PILE_MARK,
-  CTX_DISCARDED_COUNT,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
   chosenPlayers,
 } from '../abilities/ability-context'
 import { GameEventFactory } from '../events/game-event-factory'
@@ -73,43 +73,36 @@ export class DiscardTask implements ITask {
 }
 
 // ---------------------------------------------------------------------------
-// MarkDiscardPileTask / DiscardedCountTask — "the cards discarded during
-// this ability"
+// DiscardEachTask — every asked seat discards its own pick
 //
-// Beary Wise: each other player discards, then the owner takes one of THOSE.
-// The per-seat runs have contexts of their own (§6), so nothing they discard
-// can be written back to the parent's — but the pile knows. The parent notes
-// the pile's size before the loop and, once the runs have drained, how much
-// taller it is; that count is a `top` for a choice over Zone.Discard, the
-// Bullseye shape on the other pile. Derived from the board, never tracked.
+// The step behind a ChooseCardEachTask over hands: walks CTX_ASKED_SEATS,
+// discards each seat's pick from that seat's hand (a seat that picked nothing
+// discards nothing) and writes the lot to CTX_DISCARDED_CARDS — "the
+// discarded cards" a card like Beary Wise then chooses among.
 // ---------------------------------------------------------------------------
 
-export class MarkDiscardPileTask implements ITask {
+export class DiscardEachTask implements ITask {
   execute(
     gs: GameState,
     ctx: AbilityContext,
-    _em: IGameEventEmitter,
+    em: IGameEventEmitter,
     _rm: IReactionManager,
   ): void {
-    ctx.set(CTX_DISCARD_PILE_MARK, gs.getDiscardPile().getSize())
-  }
-}
-
-export class DiscardedCountTask implements ITask {
-  execute(
-    gs: GameState,
-    ctx: AbilityContext,
-    _em: IGameEventEmitter,
-    _rm: IReactionManager,
-  ): void {
-    const mark = ctx.get<number>(CTX_DISCARD_PILE_MARK)
-    if (mark === undefined) {
+    const seats = ctx.get<string[]>(CTX_ASKED_SEATS)
+    if (seats === undefined) {
       throw new Error(
-        'DiscardedCountTask: nothing has written the discard pile mark — ' +
-          'a MarkDiscardPileTask belongs before the discards.',
+        'DiscardEachTask: nothing has written the asked seats — a ' +
+          'ChooseCardEachTask belongs before this step.',
       )
     }
-    ctx.set(CTX_DISCARDED_COUNT, Math.max(0, gs.getDiscardPile().getSize() - mark))
+    const discarded: string[] = []
+    for (const seatId of seats) {
+      const [cardId] = ctx.get<string[]>(chosenCardOf(seatId)) ?? []
+      if (!cardId || !gs.getPlayer(seatId)?.getHand().includes(cardId)) continue
+      gs.discardFromHand(seatId, cardId, em)
+      discarded.push(cardId)
+    }
+    ctx.set(CTX_DISCARDED_CARDS, discarded)
   }
 }
 

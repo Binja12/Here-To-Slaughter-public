@@ -365,3 +365,67 @@ describe('CardChoiceWindow', () => {
     expect(payloadOf(resolved!)['results']).toEqual(['c'])
   })
 })
+
+describe('ChoiceWindow — a frame of several windows', () => {
+  const makeCard = (id: string) =>
+    new MagicCard({ id, name: id, type: CardType.Magic, image: '', description: '', set: 'base' })
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  const twoUp = () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    for (const id of ['a', 'b']) gs.registerCard(makeCard(id))
+    const w1 = new CardChoiceWindow('w1', 'p1', ['a'], 5000, gs, 'f1', em, 'pick@p1')
+    const w2 = new CardChoiceWindow('w2', 'p2', ['b'], 5000, gs, 'f1', em, 'pick@p2')
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [w1, w2] })
+    return { gs, em, events, w1, w2 }
+  }
+
+  it('the first to settle closes but leaves the frame; the last releases it and files every pick', () => {
+    const { gs, events, w1, w2 } = twoUp()
+    w2.submitReaction('p2', { choice: 'b' })
+    expect(w2.isOpen()).toBe(false)
+    expect(gs.frames.has('f1')).toBe(true)
+    expect(events.filter((e) => e.getType() === GameEventType.ReactionWindowClosed)).toHaveLength(1)
+    expect(events.filter((e) => e.getType() === GameEventType.FrameResolved)).toHaveLength(0)
+
+    w1.submitReaction('p1', { choice: 'a' })
+    expect(gs.frames.has('f1')).toBe(false)
+    const resolved = events.filter((e) => e.getType() === GameEventType.FrameResolved)
+    expect(resolved).toHaveLength(1)
+    expect(payloadOf(resolved[0])).toMatchObject({
+      frameId: 'f1',
+      results: ['a', 'b'], // frame order, not answer order
+      result: [
+        { key: 'pick@p1', value: ['a'] },
+        { key: 'pick@p2', value: ['b'] },
+      ],
+    })
+  })
+
+  it('a window nobody answers lapses like any other and the frame still waits for the rest', () => {
+    const { gs, w1, w2 } = twoUp()
+    jest.advanceTimersByTime(5000)
+    // both lapsed on the same tick: a card choice picks for a silent player
+    expect(w1.isOpen()).toBe(false)
+    expect(w2.isOpen()).toBe(false)
+    expect(gs.frames.has('f1')).toBe(false)
+  })
+
+  it('a lone window still carries a single write, as before', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    gs.registerCard(makeCard('a'))
+    const w = new CardChoiceWindow('w', 'p1', ['a'], 5000, gs, 'f1', em)
+    gs.addFrame('f1', { snapshot: gs.clone(), windows: [w] })
+    w.submitReaction('p1', { choice: 'a' })
+    expect(payloadOf(events.find((e) => e.getType() === GameEventType.FrameResolved)!)).toMatchObject({
+      results: ['a'],
+      result: { key: CTX_CHOSEN_CARD, value: ['a'] },
+    })
+  })
+})
+

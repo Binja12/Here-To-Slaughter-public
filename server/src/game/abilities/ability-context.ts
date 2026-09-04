@@ -48,15 +48,15 @@ export const CTX_CHOSEN_ITEM = "chosenItem";
  */
 export const CTX_DISCARDED_CARDS = "discardedCards";
 
-/** number — the discard pile's size when MarkDiscardPileTask ran. */
-export const CTX_DISCARD_PILE_MARK = "discardPileMark";
-
 /**
- * number — how many cards landed on the discard pile since the mark
- * (DiscardedCountTask): "the cards discarded during this ability", read as a
- * `top` over Zone.Discard.
+ * string[] — the seats a ChooseCardEachTask asked, in seat order. Each
+ * seat's own pick is under chosenCardOf(seat); DiscardEachTask walks this.
  */
-export const CTX_DISCARDED_COUNT = "discardedCount";
+export const CTX_ASKED_SEATS = "askedSeats";
+
+/** The slot a seat's pick lands in when every seat is asked at once. */
+export const chosenCardOf = (seatId: string): string =>
+  `${CTX_CHOSEN_CARD}@${seatId}`;
 
 /**
  * string[] — the item the hero DestroyTask just destroyed was wearing, now on

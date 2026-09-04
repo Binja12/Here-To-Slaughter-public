@@ -8,7 +8,7 @@ import {
   ReactionWindowType,
   Zone,
 } from 'shared'
-import { ChooseCardTask, ChoosePlayerTask, ConfirmTask } from './choose-tasks'
+import { ChooseCardEachTask, ChooseCardTask, ChoosePlayerTask, ConfirmTask } from './choose-tasks'
 import { MagicCard } from '../cards/magic-card'
 import { CONFIRM, DISMISS } from '../reactions/task-choice-window'
 import { GameState } from '../pipelines/game-state'
@@ -22,9 +22,12 @@ import {
   CTX_CHOSEN_PLAYER,
   CTX_CHOSEN_CARD,
   CTX_CHOSEN_ITEM,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ReactionManager } from '../pipelines/reaction-manager'
+import { ItemCard } from '../cards/item-card'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()
@@ -501,6 +504,39 @@ describe('ChooseCardTask — the output slot, and a skipped choice', () => {
     ctx.set('gate', [])
     expect(new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, 'gate').execute(gs, ctx, em, rm)).toBeUndefined()
     expect(ctx.get(CTX_CHOSEN_CARD)).toEqual([])
+  })
+})
+
+describe('ChooseCardEachTask', () => {
+  const table = () => {
+    const gs = new GameState(new CardStack('deck', 'main'), new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    for (const [id, hand] of [['p1', ['mine']], ['p2', ['a', 'i']], ['p3', ['b']]] as [string, string[]][]) {
+      gs.registerPlayer(new Player({ id, name: id, hand, partyId: `${id}-party`, actionPoints: 3 }))
+      gs.registerParty(new Party({ playerId: id, leaderId: `${id}-leader`, heroIds: [], monsterIds: [] }))
+    }
+    for (const id of ['mine', 'a', 'b']) gs.registerCard(new HeroCard({ id, name: id, type: CardType.Hero, image: '', description: '', set: 'base', heroClass: HeroClass.Thief, rollReq: 5 }))
+    gs.registerCard(new ItemCard({ id: 'i', name: 'i', type: CardType.Item, image: '', description: '', set: 'base', cursed: false }))
+    const em = new GameEventEmitter()
+    return { gs, em, rm: new ReactionManager(gs, em), ctx: new AbilityContext('src', 'p1') }
+  }
+
+  it('one frame, one window per asked seat over its own cards, each filed under its own slot', () => {
+    const { gs, em, rm, ctx } = table()
+    const frameId = new ChooseCardEachTask({ owner: Owner.Others }, { zone: Zone.Hand, cardType: CardType.Hero }).execute(gs, ctx, em, rm)
+    expect(frameId).toBeTruthy()
+    expect(gs.frames.size).toBe(1)
+    const windows = gs.frames.get(frameId as string)!.windows
+    expect(windows.map((w) => w.getRespondentId())).toEqual(['p2', 'p3'])
+    expect(windows.map((w) => w.getOptions())).toEqual([['a'], ['b']]) // the item did not qualify
+    expect(windows.map((w) => w.resultKey())).toEqual([chosenCardOf('p2'), chosenCardOf('p3')])
+    expect(ctx.get(CTX_ASKED_SEATS)).toEqual(['p2', 'p3'])
+  })
+
+  it('nobody to ask: no frame, nothing to wait for', () => {
+    const { gs, em, rm, ctx } = table()
+    expect(new ChooseCardEachTask({ owner: Owner.Others, hasHeroes: true }, { zone: Zone.Hand }).execute(gs, ctx, em, rm)).toBeUndefined()
+    expect(gs.frames.size).toBe(0)
+    expect(ctx.get(CTX_ASKED_SEATS)).toEqual([])
   })
 })
 

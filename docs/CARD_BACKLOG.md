@@ -102,12 +102,16 @@ Round four (same day, 2 more ids): Sharp Fox (`RevealTask` → the
 view's `revealedCards`, 5 s), Bullseye (a choice over `Zone.MainDeckTop`, then
 `DrawTask(CTX_CHOSEN_CARD)`). Pan Chucks and Rex Major now reveal the drawn card
 to the table on their yes — no longer approximations.
-Round five (same day, 6 more ids): Beary Wise (a mark and a count on
-the discard pile, then a choice over its top that many), Qi Bear
+Round five (same day, 6 more ids): Beary Wise (the parallel choice frame:
+`ChooseCardEachTask` + `DiscardEachTask`, then a choice `among` the
+discards), Qi Bear
 (`CTX_DISCARDED_CARDS` gating each round), Hook (`resultKey`: two picks,
 two slots), Shurikitty (`CTX_DESTROYED_HERO_ITEM` + retrieve), Dodgy
 Dealer (`TradeHandsTask`, `HandsTraded`), Crowned Serpent (declaration
-only). Left: Slippery Paws (a card filter limited to a slot).
+only). Left: Slippery Paws — `CardFilter.among` now exists, so it is a
+declaration (`{ zone: Zone.Hand, owner: Owner.Self, among:
+CTX_PULLED_CARD_IDS }` then a discard); Quick Draw's "one of them" can
+use the same limit.
 
 ## B. Needs a mechanic the engine does not have — 41 cards (the owner + Claude)
 

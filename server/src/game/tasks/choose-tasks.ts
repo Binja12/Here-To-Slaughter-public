@@ -1,10 +1,17 @@
 import { IGameEventEmitter, ReactionWindowType, Zone } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { chosenPlayers, AbilityContext, CTX_CHOSEN_CARD } from '../abilities/ability-context'
+import {
+  chosenPlayers,
+  chosenCardOf,
+  AbilityContext,
+  CTX_ASKED_SEATS,
+  CTX_CHOSEN_CARD,
+} from '../abilities/ability-context'
 import {
   CardFilter,
   PlayerFilter,
+  cardsOf,
   filterCards,
   filterPlayers,
 } from '../reactions/choice-filters'
@@ -111,6 +118,52 @@ export class ChooseCardTask implements ITask {
 
     // Suspends even on an empty option set: ChoiceWindow settles that on a
     // 0ms timer, so the frame is still live here.
+    return frameId
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ChooseCardEachTask — the same question to several seats, all at once
+//
+// "Each other player must DISCARD a card" is one question per seat, over that
+// seat's own cards, and nobody waits for anybody: ONE frame, one CardChoice
+// window per seat, each filed under chosenCardOf(seat). The frame settles
+// when the last window does (ChoiceWindow.resolve) and the pipeline wakes
+// once, every pick written. CTX_ASKED_SEATS says who was asked, in seat
+// order, for the step that acts on the picks (DiscardEachTask).
+//
+// Not a ForEachPlayerTask: that starts a run per seat, one after another, each
+// with a context of its own that never reaches the parent. This keeps the
+// whole thing in one context, and the table answers together.
+// ---------------------------------------------------------------------------
+
+export class ChooseCardEachTask implements ITask {
+  constructor(
+    /** Which seats are asked. Defaults to the other players. */
+    private readonly seats: PlayerFilter,
+    /** What each seat picks from — its OWN cards in the zone; owner is the seat. */
+    private readonly filter: Omit<CardFilter, 'owner' | 'executor'>,
+  ) {}
+
+  execute(
+    gs: GameState,
+    ctx: AbilityContext,
+    _em: IGameEventEmitter,
+    rm: IReactionManager,
+  ): string | void {
+    const seatIds = filterPlayers(gs, ctx, this.seats)
+    ctx.set(CTX_ASKED_SEATS, seatIds)
+
+    // Nobody to ask: no frame, or nothing would ever wake the pipeline.
+    if (seatIds.length === 0) return
+
+    const frameId = rm.openFrame()
+    for (const seatId of seatIds) {
+      rm.openWindow(frameId, ReactionWindowType.CardChoice, seatId, {
+        options: cardsOf(gs, ctx, this.filter, seatId),
+        resultKey: chosenCardOf(seatId),
+      })
+    }
     return frameId
   }
 }

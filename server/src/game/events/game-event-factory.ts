@@ -6,6 +6,9 @@ import {
   CTX_CHOSEN_VALUE,
 } from '../abilities/ability-context'
 
+/** A context write a settled window asks for: its slot, its picks. */
+export type ContextWrite = { key: string; value: unknown }
+
 export class GameEventFactory {
   // --- Dice ---
 
@@ -551,7 +554,8 @@ export class GameEventFactory {
 
   /**
    * `results` is the log transport, always an array. `result` is the optional
-   * context write — the window names both slot and value (resultKey).
+   * context write — the window names both slot and value (resultKey); a frame
+   * of several windows (one question per seat) carries one write per window.
    */
   /**
    * `cardId` names what the frame was over, for windows that settle on one.
@@ -561,7 +565,7 @@ export class GameEventFactory {
   static frameResolved(
     frameId: string,
     results: unknown[],
-    result?: { key: string; value: unknown },
+    result?: ContextWrite | ContextWrite[],
     cardId?: string,
   ): IGameEvent {
     return new GameEvent(

@@ -1715,12 +1715,25 @@ on its precondition now WRITES an empty pick rather than leaving the
 previous one in the slot. `DiscardTask` says what it discarded
 (`CTX_DISCARDED_CARDS`, written on every run), which is all Qi Bear's "for
 each card discarded" needs: each round's choices hang on the round
-before, and "up to" is picking nothing. "The cards discarded during this
-ability" (Beary Wise) is read off the pile, not collected — the per-seat
-runs have contexts of their own, but the pile is a stack: a mark before
-the loop (`MarkDiscardPileTask`), a count after it (`DiscardedCountTask`),
-and the count is a `top` over `Zone.Discard` (`CardFilter.top` may name a
-slot). `DestroyTask` names the gear that fell (`CTX_DESTROYED_HERO_ITEM`);
+before, and "up to" is picking nothing. "Each other player must DISCARD a card"
+(Beary Wise) became the PARALLEL CHOICE FRAME, the owner's shape: a frame
+may hold one question per seat. `ChooseCardEachTask` opens one frame with
+one CardChoice window per asked seat, each over that seat's own cards and
+each filed under its own slot (`chosenCardOf(seat)`, via `resultKey`);
+`ChoiceWindow.resolve` releases the frame only when the last window in it
+has settled, and the one `FrameResolved` carries every window's write
+(`result` may be a list; TaskManager files them all). The table answers
+together, the pipeline wakes once, and everything stays in one context —
+no `PlayerTargeted` run per seat, nothing to carry back. `DiscardEachTask`
+then discards each seat's pick from its own hand and writes the lot to
+`CTX_DISCARDED_CARDS`; the owner's choice is the pile LIMITED to that
+(`CardFilter.among` — a limit, not a source, so the zone still has to hold
+the cards). Rejected the same hour: a mark-and-count on the discard pile
+around a per-seat loop (it worked, but it read the board to recover what
+the per-seat contexts could not hand back — and the seats had to answer
+one at a time). The four other per-seat cards (Tough Teddy, Spooky, Greedy
+Cheeks, Smooth Mimimeow) still go seat by seat on `ForEachPlayerTask`;
+the same two tasks would let them answer together. `DestroyTask` names the gear that fell (`CTX_DESTROYED_HERO_ITEM`);
 it still drops on the pile silently, and Shurikitty's "to your hand
 instead" is a retrieve straight after — two moves, no discard announced
 between them, which is the owner's reading of how fallen gear should

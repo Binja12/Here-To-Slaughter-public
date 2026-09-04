@@ -1,5 +1,5 @@
 import { Audience, GameEventType, IGameEvent, HeroClass, Owner, CardType, Zone } from 'shared'
-import { DiscardTask, PullCardTask, ForEachPlayerTask, RevealTask, REVEAL_MS, MarkDiscardPileTask, DiscardedCountTask, TradeHandsTask } from './tasks'
+import { DiscardTask, PullCardTask, ForEachPlayerTask, RevealTask, REVEAL_MS, DiscardEachTask, TradeHandsTask } from './tasks'
 import { DrawTask } from './draw-task'
 import { GameState } from '../pipelines/game-state'
 import { CardStack } from '../state-structures/card-stack'
@@ -13,8 +13,8 @@ import {
   CTX_DRAWN_CARD_IDS,
   CTX_PULLED_CARD_IDS,
   CTX_DISCARDED_CARDS,
-  CTX_DISCARD_PILE_MARK,
-  CTX_DISCARDED_COUNT,
+  CTX_ASKED_SEATS,
+  chosenCardOf,
 } from '../abilities/ability-context'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import type { ReactionManager } from '../pipelines/reaction-manager'
@@ -565,26 +565,6 @@ describe('DiscardTask — says what it discarded', () => {
   })
 })
 
-describe('MarkDiscardPileTask / DiscardedCountTask', () => {
-  it('counts what landed on the pile since the mark', () => {
-    const gs = makeGs()
-    gs.getDiscardPile().add('old')
-    const ctx = makeCtx()
-    const { emitter } = makeEmitter()
-    new MarkDiscardPileTask().execute(gs, ctx, emitter, stubRm)
-    expect(ctx.get(CTX_DISCARD_PILE_MARK)).toBe(1)
-    gs.addToDiscardPile('x')
-    gs.addToDiscardPile('y')
-    new DiscardedCountTask().execute(gs, ctx, emitter, stubRm)
-    expect(ctx.get(CTX_DISCARDED_COUNT)).toBe(2)
-  })
-
-  it('a count without a mark is a mis-declared ability', () => {
-    const { emitter } = makeEmitter()
-    expect(() => new DiscardedCountTask().execute(makeGs(), makeCtx(), emitter, stubRm)).toThrow(/mark/)
-  })
-})
-
 describe('TradeHandsTask', () => {
   it('swaps the owner\'s hand with the chosen seat\'s, announced once as HandsTraded', () => {
     const gs = makeGs()
@@ -615,6 +595,31 @@ describe('TradeHandsTask', () => {
   it('throws when no step ahead named a seat', () => {
     const { emitter } = makeEmitter()
     expect(() => new TradeHandsTask().execute(makeGs(), makeCtx(), emitter, stubRm)).toThrow(/ChoosePlayerTask/)
+  })
+})
+
+describe('DiscardEachTask', () => {
+  it('each asked seat discards its own pick; a seat that picked nothing discards nothing', () => {
+    const gs = makeGs()
+    gs.registerPlayer(makePlayer('p1', ['mine']))
+    gs.registerPlayer(makePlayer('p2', ['a', 'a2']))
+    gs.registerPlayer(makePlayer('p3', ['b']))
+    const ctx = makeCtx()
+    ctx.set(CTX_ASKED_SEATS, ['p2', 'p3'])
+    ctx.set(chosenCardOf('p2'), ['a2'])
+    ctx.set(chosenCardOf('p3'), [])
+    const { emitter, emitted } = makeEmitter()
+    new DiscardEachTask().execute(gs, ctx, emitter, stubRm)
+    expect(gs.getPlayer('p2')!.getHand()).toEqual(['a'])
+    expect(gs.getPlayer('p3')!.getHand()).toEqual(['b'])
+    expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine'])
+    expect(ctx.get(CTX_DISCARDED_CARDS)).toEqual(['a2'])
+    expect(emitted.map((e) => [e.getType(), e.getPlayerId()])).toEqual([[GameEventType.CardDiscarded, 'p2']])
+  })
+
+  it('throws when no step ahead asked anybody', () => {
+    const { emitter } = makeEmitter()
+    expect(() => new DiscardEachTask().execute(makeGs(), makeCtx(), emitter, stubRm)).toThrow(/ChooseCardEachTask/)
   })
 })
 

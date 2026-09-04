@@ -189,7 +189,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['monster-131', OrthusAbility], // Orthus — DRAW a Magic card, may play it at once
   ['monster-132', RexMajorAbility], // Rex Major — drawn Modifier may DRAW again
   // Round five (2026-09-04): the last of what the mechanics were missing.
-  ['hero-003', BearyWiseAbility], // Beary Wise — everyone else DISCARDS, one of those to your hand
+  ['hero-003', BearyWiseAbility], // Beary Wise — everyone else DISCARDS at once, one of those to your hand
   ['hero-007', QiBearAbility], // Qi Bear — DISCARD up to 3, a hero DESTROYED per card
   ['hero-013', HookAbility], // Hook — play an Item from your hand, DRAW
   ['hero-023', ShurikittyAbility], // Shurikitty — DESTROY; its gear to your hand

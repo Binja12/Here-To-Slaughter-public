@@ -33,12 +33,14 @@ export type PlayerFilter = {
 
 export type CardFilter = {
   zone: Zone
+  /** MainDeckTop only: how many cards from the top are looked at. */
+  top?: number
   /**
-   * How many cards from the top are looked at: MainDeckTop ("the top
-   * three", Bullseye) or Discard ("the cards discarded during this ability",
-   * Beary Wise — a slot name, read as a number). Without it, all of a pile.
+   * Only cards a slot names, of those in the zone — a LIMIT, not a source:
+   * the zone still has to hold them. Beary Wise chooses among "the
+   * discarded cards" (CTX_DISCARDED_CARDS) off the pile.
    */
-  top?: number | string
+  among?: string
   /**
    * Who this step runs AS — who answers the choice. The ability owner unless
    * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
@@ -150,11 +152,8 @@ function idsInZone(
         .getHeroIds()
         .map((heroId) => gs.getEquippedItem(heroId))
         .filter((id): id is string => !!id)
-    case Zone.Discard: {
-      // Top first — the pile is a stack, so "the last N discarded" is its top N.
-      const all = gs.getDiscardPile().getAll()
-      return top === undefined ? all : all.slice(0, top)
-    }
+    case Zone.Discard:
+      return gs.getDiscardPile().getAll()
     case Zone.MonsterPile:
       return gs.getMonsterPile().getAll()
     case Zone.MainDeckTop:
@@ -169,20 +168,43 @@ export function filterCards(
   ctx: AbilityContext,
   filter: CardFilter,
 ): string[] {
-  const exclude = new Set(filter.excludeIds ?? [])
-
-  const top =
-    typeof filter.top === 'string' ? (ctx.get<number>(filter.top) ?? 0) : filter.top
-
   // A shared zone is read once, with no owner — see SHARED_ZONES.
   const ids = SHARED_ZONES.has(filter.zone)
-    ? idsInZone(gs, filter.zone, '', top)
+    ? idsInZone(gs, filter.zone, '', filter.top)
     : playersFor(gs, ctx, filter.owner).flatMap((ownerId) =>
-        idsInZone(gs, filter.zone, ownerId, top),
+        idsInZone(gs, filter.zone, ownerId, filter.top),
       )
+  return keep(gs, ctx, filter, ids)
+}
+
+/**
+ * ONE seat's own cards in the zone, under the same filter — the question a
+ * ChooseCardEachTask puts to each seat in turn. `owner` is the seat itself.
+ */
+export function cardsOf(
+  gs: GameState,
+  ctx: AbilityContext,
+  filter: CardFilter,
+  ownerId: string,
+): string[] {
+  return keep(gs, ctx, filter, idsInZone(gs, filter.zone, ownerId, filter.top))
+}
+
+/** The filter's predicates over a candidate list. */
+function keep(
+  gs: GameState,
+  ctx: AbilityContext,
+  filter: CardFilter,
+  ids: string[],
+): string[] {
+  const exclude = new Set(filter.excludeIds ?? [])
+  const among = filter.among
+    ? new Set(ctx.get<string[]>(filter.among) ?? [])
+    : undefined
 
   return ids.filter((id) => {
     if (exclude.has(id)) return false
+    if (among && !among.has(id)) return false
 
     const card = gs.getCard(id)
     if (filter.cardType && card?.getType() !== filter.cardType) return false
