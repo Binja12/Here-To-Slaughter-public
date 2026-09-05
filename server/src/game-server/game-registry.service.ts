@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { GamePhase, RefusalReason } from 'shared'
 import type {
   CardBase,
@@ -11,6 +11,9 @@ import { accepted, refused } from '../game/interfaces'
 import { createGame, startGame } from '../game/setup/create-game'
 import type { Game } from '../game/setup/create-game'
 import { playerView } from '../game/views/player-view'
+import { GameLog } from '../game/views/game-log'
+import { GAME_STORE } from './game.store'
+import type { IGameStore } from './game.store'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
 import { gameConfigFor } from './game-config-for'
 
@@ -40,6 +43,8 @@ export type RunningGame = {
    * snapshot so a client can keep the newest of two that crossed.
    */
   version: number
+  /** The table's story, recorded from birth; each seat reads its own wording. */
+  log: GameLog
 }
 
 /**
@@ -65,15 +70,21 @@ export type Deal = {
 
 @Injectable()
 export class GameRegistryService {
+  private readonly logger = new Logger(GameRegistryService.name)
   private readonly games = new Map<string, RunningGame>()
 
-  constructor(private readonly publisher: SnapshotPublisherService) {}
+  constructor(
+    private readonly publisher: SnapshotPublisherService,
+    @Inject(GAME_STORE) private readonly store: IGameStore,
+  ) {}
 
   /**
    * Deals a table seating exactly these accounts and holds it. NOT started:
    * the first turn is a point of no return, and it waits for every seat to
-   * arrive (`arrive`). Watched from birth: the publisher's listener joins
-   * the emitter here, so no event of the table's life goes unobserved.
+   * arrive (`arrive`). Watched from birth: the log and the publisher's
+   * listener join the emitter here, so no event of the table's life goes
+   * unobserved. The store hears of the table now and of every flush after;
+   * a store that cannot be reached is logged, and the table plays on.
    */
   create(
     players: readonly SeatedAccount[],
@@ -91,14 +102,35 @@ export class GameRegistryService {
         ),
       },
     )
+    const log = new GameLog(game.gameState)
+    game.emitter.addListener(log)
     const running: RunningGame = {
       game,
       arrived: new Set(),
       left: new Set(),
       version: 0,
+      log,
     }
     this.games.set(game.gameId, running)
     this.publisher.watch(running)
+    this.store
+      .create({
+        gameId: game.gameId,
+        createdAt: new Date(),
+        seats: game.playerOrder.map((accountId, seat) => ({
+          accountId,
+          username: players.find((p) => p.accountId === accountId)!.username,
+          seat,
+        })),
+        settings,
+        config: game.config,
+      })
+      .catch((error: unknown) =>
+        this.logger.error(
+          `could not store game ${game.gameId}`,
+          error instanceof Error ? error.stack : String(error),
+        ),
+      )
     return running
   }
 

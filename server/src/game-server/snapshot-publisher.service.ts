@@ -11,12 +11,15 @@ import type {
   GameSnapshot,
   IGameEvent,
   IGameEventListener,
+  PlayerView,
 } from 'shared'
 import type { Server } from 'socket.io'
 import { playerView } from '../game/views/player-view'
 import type { RunningGame } from './game-registry.service'
 import { seatRoom } from './seat'
 import { LOBBY_TCP_CLIENT } from './session/tcp-session.resolver'
+import { GAME_STORE } from './game.store'
+import type { IGameStore } from './game.store'
 
 /** One seat's view of the table in the envelope it travels in. */
 export function snapshotOf(running: RunningGame, accountId: string): GameSnapshot {
@@ -24,6 +27,7 @@ export function snapshotOf(running: RunningGame, accountId: string): GameSnapsho
     gameId: running.game.gameId,
     version: running.version,
     state: playerView(running.game, accountId),
+    log: running.log.entriesFor(accountId),
   }
 }
 
@@ -40,7 +44,8 @@ export function snapshotOf(running: RunningGame, accountId: string): GameSnapsho
 //           event fired" and "the board may differ" are one condition.
 //   flush — on the next turn of the event loop (`setImmediate`), once per
 //           burst: version + 1, one `playerView` per seat, one push per
-//           seat's room. Emission is synchronous and re-entrant, so a
+//           seat's room, and the burst handed to the store — its events and
+//           log lines, and the board every seat was just shown. Emission is synchronous and re-entrant, so a
 //           snapshot taken INSIDE an event can catch the board between two
 //           halves of one step; the flush waits until the stack that
 //           entered the engine has unwound, which is the first moment the
@@ -72,6 +77,8 @@ export class SnapshotPublisherService {
   constructor(
     @Inject(LOBBY_TCP_CLIENT)
     private readonly lobby: ClientProxy,
+    @Inject(GAME_STORE)
+    private readonly store: IGameStore,
   ) {}
 
   /** The gateway owns the Socket.IO server and hands it over once, at init. */
@@ -98,11 +105,31 @@ export class SnapshotPublisherService {
 
     const event = completed ? GAME_COMPLETED : GAME_SNAPSHOT
     const gameId = running.game.gameId
+    const views: Record<string, PlayerView> = {}
     for (const accountId of running.game.playerOrder) {
-      this.server
-        .to(seatRoom({ gameId, accountId }))
-        .emit(event, snapshotOf(running, accountId))
+      const snapshot = snapshotOf(running, accountId)
+      views[accountId] = snapshot.state
+      this.server.to(seatRoom({ gameId, accountId })).emit(event, snapshot)
     }
+
+    const { events, lines } = running.log.drain()
+    this.store
+      .flush(gameId, {
+        version: running.version,
+        at: new Date(),
+        events,
+        lines,
+        views,
+        winnerId: completed
+          ? views[running.game.playerOrder[0]].winnerId
+          : undefined,
+      })
+      .catch((error: unknown) =>
+        this.logger.error(
+          `could not store flush ${running.version} of ${gameId}`,
+          error instanceof Error ? error.stack : String(error),
+        ),
+      )
 
     if (completed) this.tellLobby(gameId)
   }

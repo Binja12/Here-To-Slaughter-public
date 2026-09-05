@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { AuthModule } from '../auth/auth.module'
-import { InMemoryStoresModule } from '../stores/in-memory-stores.module'
+import { StoresModule } from '../stores/stores.module'
 import { InternalLobbyController } from './internal-lobby.controller'
 import { LobbyController } from './lobby.controller'
 import { LobbyEventStreamService } from './lobby-event-stream.service'
@@ -17,7 +17,7 @@ const gameServerPort = Number(process.env.GAME_SERVER_TCP_PORT ?? 4001)
 @Module({
   imports: [
     AuthModule,
-    InMemoryStoresModule,
+    StoresModule,
     ClientsModule.register([
       {
         name: GAME_TCP_CLIENT,

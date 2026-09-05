@@ -9,6 +9,7 @@ import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
 import { dealQuickWin, seated, winFirstTurn } from './spec-helpers'
+import { InMemoryGameStore } from './stores/in-memory-game.store'
 
 // Reads the table through `playerView` only — the same door a client has.
 // The publisher is real but pushes into the void and tells no lobby: what it
@@ -25,15 +26,28 @@ const NO_LOBBY = { emit: () => of(undefined) } as unknown as ClientProxy
 
 describe('GameRegistryService', () => {
   let registry: GameRegistryService
+  let store: InMemoryGameStore
 
   beforeAll(() => {
     Logger.overrideLogger(false)
   })
 
   beforeEach(() => {
-    const publisher = new SnapshotPublisherService(NO_LOBBY)
+    store = new InMemoryGameStore()
+    const publisher = new SnapshotPublisherService(NO_LOBBY, store)
     publisher.bind(NOWHERE)
-    registry = new GameRegistryService(publisher)
+    registry = new GameRegistryService(publisher, store)
+  })
+
+  it('stores the deal: who sits where, and the settings the table was built from', () => {
+    const { game } = registry.create(seated(ACCOUNTS), DEFAULT_GAME_SETTINGS)
+
+    const stored = store.get(game.gameId)!
+    expect(stored.game.seats.map((s) => s.accountId)).toEqual(game.playerOrder)
+    expect(stored.game.seats.map((s) => s.seat)).toEqual(game.playerOrder.map((_, i) => i))
+    expect(stored.game.seats.every((s) => s.username.length > 0)).toBe(true)
+    expect(stored.game.settings).toEqual(DEFAULT_GAME_SETTINGS)
+    expect(stored.game.config).toEqual(game.config)
   })
 
   const phaseOf = (running: RunningGame) =>

@@ -31,6 +31,7 @@ import DiceRoll from './DiceRoll'
 import TurnTimer from './TurnTimer'
 import CardReactionTimer from './CardReactionTimer'
 import GameConfigMenu from './GameConfigMenu'
+import GameLogMenu from './GameLogMenu'
 import ChallengeWindow from './ChallengeWindow'
 import ModifierWindow from './ModifierWindow'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
@@ -53,7 +54,7 @@ import {
   useTargetable,
   useTargeting,
 } from './targeting'
-import { useGameView, useGameInfo } from '../state/game'
+import { useGameView, useGameInfo, useGameLog } from '../state/game'
 import { useSend } from '../state/commands'
 import {
   CardView,
@@ -727,6 +728,7 @@ export default function Board({ onLeave }: { onLeave?: () => void }) {
 function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const view = useGameView()
   const info = useGameInfo()
+  const log = useGameLog()
   const send = useSend()
   const flags = derivePlayable(view)
   const discardCards = discardCardsForView(view)
@@ -1213,7 +1215,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       }${active?.tone === 'choice' ? ' choice-targeting' : ''}${stageOpen ? ' challenge-open' : ''}`}
       onClick={active ? cancel : undefined}
     >
-      <GameConfigMenu config={info?.config} />
+      <div
+        className="dim-exempt absolute left-3 top-3 z-[260] flex flex-col items-start gap-2"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <GameConfigMenu config={info?.config} />
+        <GameLogMenu entries={log} />
+      </div>
       <div
         className="dimmable pointer-events-none absolute inset-0"
         style={{ backgroundImage: `url("${TABLE_BG}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}

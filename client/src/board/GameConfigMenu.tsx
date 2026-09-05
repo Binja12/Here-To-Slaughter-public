@@ -6,8 +6,7 @@ export default function GameConfigMenu({ config }: { config?: GameConfigView }) 
   const wins = config.winConditions.map((condition) => condition.type === 'SlayMonsters'
     ? `Slay ${condition.value} monsters` : `${condition.value} different hero classes`)
   return (
-    <details className="dim-exempt absolute left-3 top-3 z-[260] max-w-xs rounded-lg border border-amber-700/70 bg-zinc-950/95 text-sm text-amber-100 shadow-xl"
-      onClick={(event) => event.stopPropagation()}>
+    <details className="max-w-xs rounded-lg border border-amber-700/70 bg-zinc-950/95 text-sm text-amber-100 shadow-xl">
       <summary className="cursor-pointer px-3 py-2 font-heading">Game settings</summary>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t border-amber-900 px-3 py-3">
         <dt>Win by</dt><dd>{wins.join(config.requireAllWinConditions ? ' AND ' : ' OR ')}</dd>

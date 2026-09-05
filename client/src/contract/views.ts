@@ -117,10 +117,20 @@ export type PlayerView = {
   acceptsActions: boolean
 }
 
+/** One line of the table's story, worded for this seat by the server. */
+export type GameLogEntry = {
+  seq: number
+  at: number
+  playerId: string
+  text: string
+}
+
 export type GameSnapshot = {
   gameId: string
   version: number
   state: PlayerView
+  /** Whole, like `state`; newest last. */
+  log: GameLogEntry[]
 }
 
 export type GameConnectionInfo = {

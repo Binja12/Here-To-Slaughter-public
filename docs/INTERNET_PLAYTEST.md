@@ -49,8 +49,9 @@ Remove-Item Env:CLOUDFLARE_TUNNEL_TOKEN -ErrorAction SilentlyContinue
 Remove-Item Env:HTSR_PUBLIC_ORIGIN -ErrorAction SilentlyContinue
 ```
 
-Stopping or recreating the lobby/game containers clears accounts, sessions and
-active games because those stores are currently in memory.
+Accounts and finished games persist in the `db` service (volume `htsr-db`).
+Stopping or recreating the lobby/game containers still clears sessions, the
+ready list and active games, which stay in memory.
 
 ## Local verification without exposing the computer
 
