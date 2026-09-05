@@ -166,8 +166,8 @@ describe('PlayHeroTask', () => {
     const { snapshot } = gs.getFrames().get(frameId as string)!
     // A challenged card is spent either way, so the rollback must not give it
     // back; the party arrival is inside the frame, so the rollback undoes it.
-    expect(snapshot.getPlayer('p1')!.getHand()).not.toContain('hero-1')
-    expect(snapshot.getParty('p1').getHeroIds()).not.toContain('hero-1')
+    expect(snapshot.board.getPlayer('p1')!.getHand()).not.toContain('hero-1')
+    expect(snapshot.board.getParty('p1').getHeroIds()).not.toContain('hero-1')
   })
 
   it('reads whatever slot it was named, not only the choice slot', () => {

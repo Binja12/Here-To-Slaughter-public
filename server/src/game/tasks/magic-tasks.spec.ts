@@ -142,8 +142,8 @@ describe('PlayMagicTask', () => {
   const challengedBy = (rolls: [number, number]) => {
     jest
       .spyOn(Math, 'random')
-      .mockReturnValueOnce(rolls[0])
-      .mockReturnValueOnce(rolls[1])
+      .mockReturnValueOnce(rolls[0]).mockReturnValueOnce(rolls[0])
+      .mockReturnValueOnce(rolls[1]).mockReturnValueOnce(rolls[1])
     openChallenge(gs)!.submitReaction('p2', {
       type: 'challenge',
       challengerId: 'p2',

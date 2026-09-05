@@ -1,3 +1,4 @@
+import CardReactionTimer from './CardReactionTimer';
 import React from 'react';
 import { useTargetable, useTargeting, tkey } from './targeting';
 
@@ -28,6 +29,8 @@ const CARD_W_CQW = CARD_H_CQW * 0.716; // ≈ 11.3cqw (scan aspect)
 const VISIBLE = 0.75;
 const PIVOT = 2.0; // transform-origin y, in card heights (the "wrist")
 const RIGHT_EDGE_CQW = 98; // clamp: fan may not pass this board x
+/** how long the fan stays open on its own after a card arrives */
+const PEEK_MS = 3000;
 
 export default function PlayerHand({
   cards,
@@ -61,6 +64,22 @@ export default function PlayerHand({
   //    request ends (pick or cancel).
   const { active } = useTargeting();
   const forcedClosed = !!active && active.source.startsWith('handCard:');
+  // A card arriving opens the fan by itself for PEEK_MS (the owner,
+  // 2026-09-05). The cursor coming onto the hand hands control back to the
+  // hover: the fan then stays as long as the hand is hovered and closes
+  // when it is left, peek or no peek.
+  const [peeking, setPeeking] = React.useState(false);
+  const count = cards.length;
+  const lastCount = React.useRef(count);
+  React.useEffect(() => {
+    const grew = count > lastCount.current;
+    lastCount.current = count;
+    if (!grew) return;
+    setPeeking(true);
+    const timer = window.setTimeout(() => setPeeking(false), PEEK_MS);
+    return () => window.clearTimeout(timer);
+  }, [count]);
+  const peekOpen = peeking && !forcedClosed;
   // Which card the cursor is over, judged by the cells' RESTING boxes: the
   // enlarged image is a child of its cell, so DOM hover alone would keep a
   // card zoomed while the cursor sits on the enlarged part outside where
@@ -103,6 +122,7 @@ export default function PlayerHand({
   return (
     <div
       className="group hand-group relative h-full w-full"
+      onMouseEnter={() => setPeeking(false)}
     >
       {children}
 
@@ -111,7 +131,9 @@ export default function PlayerHand({
         className={`absolute bottom-[12%] left-1/2 transition-all duration-200 ease-out ${
           forcedClosed
             ? 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0'
-            : 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100'
+            : peekOpen
+              ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
+              : 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100'
         }`}
         style={{ marginLeft: `-${shiftLeft}cqw` }}
       >
@@ -185,15 +207,15 @@ function FanCard({
   // dimmed cards are background while an action is aiming — no hover grow
   const dimmed = t.targeting && t.mode === 'dimmed';
   return (
-    <img
-      src={src}
-      alt={`hand card ${index + 1}`}
-      draggable={false}
+    <div
       onClick={t.onClick}
-      className={`h-full max-w-none origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
+      className={`relative h-full w-full origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
         asked ? ' ask-aura' : playable ? ' card-aura' : ''
       } ${t.className}`}
-      style={{ transform: hovered && !dimmed ? 'scale(1.6)' : undefined }}
-    />
+      style={{ width: `${CARD_W_CQW}cqw`, transform: hovered && !dimmed ? 'scale(1.6)' : undefined }}
+    >
+      <img src={src} alt={`hand card ${index + 1}`} draggable={false} className="h-full w-full rounded-[0.4cqw] object-fill" />
+      <CardReactionTimer handIndex={index} zoomed={hovered && !dimmed} />
+    </div>
   );
 }

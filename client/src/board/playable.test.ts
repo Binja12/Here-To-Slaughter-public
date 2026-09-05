@@ -36,7 +36,7 @@ test('a glow never offers what the seat cannot pay for', () => {
 })
 
 test('busy disables all presentation actions', () => {
-  const flags = derivePlayable({ ...threeSeatOpening, busy: true })
+  const flags = derivePlayable({ ...threeSeatOpening, busy: true, acceptsActions: false })
   expect(flags.mainDeck).toBe(false)
   expect(flags.endTurn).toBe(false)
   expect(flags.hand.every((enabled) => !enabled)).toBe(true)

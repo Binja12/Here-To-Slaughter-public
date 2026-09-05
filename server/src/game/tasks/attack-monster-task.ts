@@ -1,3 +1,4 @@
+import { roll2Dice } from '../../utils/roll-utils'
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
@@ -33,7 +34,7 @@ export abstract class AttackMonster {
   ): string | void {
     if (!(gs.getCard(monsterId) instanceof MonsterCard)) return
 
-    const baseRoll = Math.ceil(Math.random() * 11) + 1
+    const baseRoll = roll2Dice()
 
     em.emit(GameEventFactory.diceRolled(playerId, monsterId, baseRoll))
 

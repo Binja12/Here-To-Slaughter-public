@@ -177,10 +177,7 @@ describe('GameEngine', () => {
 
     it('waits for an outcome still pending — a frame settling under an open challenge ends nothing', () => {
       const { gs, emitter, ended } = qualified()
-      gs.addFrame('outer', {
-        snapshot: gs.clone(),
-        windows: [stubWindow(ReactionWindowType.Challenge)],
-      })
+      gs.addFrame('outer', gs.clone(), [stubWindow(ReactionWindowType.Challenge)])
 
       emitter.emit(GameEventFactory.frameResolved('inner', []))
 
@@ -189,7 +186,7 @@ describe('GameEngine', () => {
 
     it('holds the win back while a frame has no window yet — the hero is in the party, the challenge not yet asked', () => {
       const { gs, emitter, ended } = qualified()
-      gs.addFrame('play', { snapshot: gs.clone(), windows: [] })
+      gs.addFrame('play', gs.clone(), [])
 
       emitter.emit(new GameEvent(GameEventType.HeroAddedToParty, 'p1', {}))
 
@@ -223,7 +220,7 @@ describe('GameEngine', () => {
       expect(asked).toBe(2) // once per seat
 
       // Under a pending outcome the change waits, and is asked ONCE when it settles.
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(ReactionWindowType.Attack)] })
+      gs.addFrame('f1', gs.clone(), [stubWindow(ReactionWindowType.Attack)])
       asked = 0
       emitter.emit(new GameEvent(GameEventType.DiceRolled, 'p1', {}))
       emitter.emit(new GameEvent(GameEventType.ModifierApplied, 'p1', {}))
@@ -236,10 +233,7 @@ describe('GameEngine', () => {
     it('ends under an open QUESTION — the roll offered to the hero that landed the sixth class does not hold the win back', () => {
       const { gs, emitter, ended } = qualified()
       // What TaskManager opens on the settled challenge, before the engine hears it.
-      gs.addFrame('offer', {
-        snapshot: gs.clone(),
-        windows: [stubWindow(ReactionWindowType.TaskChoice)],
-      })
+      gs.addFrame('offer', gs.clone(), [stubWindow(ReactionWindowType.TaskChoice)])
 
       emitter.emit(GameEventFactory.frameResolved('challenge', [true], undefined, 'hero-1'))
 

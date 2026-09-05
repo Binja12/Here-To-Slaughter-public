@@ -44,6 +44,10 @@ export class ValueChoiceWindow extends ChoiceWindow {
     return ReactionWindowType.ValueChoice
   }
 
+  override blocksActions(_playerId: string): boolean {
+    return true
+  }
+
   override resultKey(): string | typeof NO_CONTEXT_RESULT {
     return CTX_CHOSEN_VALUE
   }

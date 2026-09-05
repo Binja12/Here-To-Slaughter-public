@@ -286,7 +286,7 @@ describe('leader roll passives', () => {
       const ctx = setup(ARROW)
       rollOnAHero(ctx, LOW) // baseRoll 1
       expect(openedRoll(ctx.events)['bonuses']).toEqual([])
-      expect(openedRoll(ctx.events)['finalRoll']).toBe(1)
+      expect(openedRoll(ctx.events)['finalRoll']).toBe(2)
     })
 
     it('does NOT reach a challenge roll', () => {
@@ -294,8 +294,8 @@ describe('leader roll passives', () => {
       ctx.tm.enqueue(new PlayHeroAction('a1', 'p1', 'hero-777', ctx.rm, ctx.em))
       jest
         .spyOn(Math, 'random')
-        .mockReturnValueOnce(LOW) // challenger p2 rolls 1
-        .mockReturnValueOnce(LOW) // defender p1 rolls 1
+        .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW) // challenger p2 rolls 1
+        .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW) // defender p1 rolls 1
         .mockReturnValue(LOW)
       ctx.rm.submitReaction(
         new PlayChallengeReaction('r1', 'p2', CHAL, 'hero-777'),
@@ -303,7 +303,7 @@ describe('leader roll passives', () => {
       jest.advanceTimersByTime(5000)
 
       expect(payloadsOf(ctx.events, GameEventType.ChallengeResolved)[0]).toMatchObject(
-        { challengerFinal: 1, defenderFinal: 1 },
+        { challengerFinal: 2, defenderFinal: 2 },
       )
     })
   })
@@ -319,8 +319,8 @@ describe('leader roll passives', () => {
       ctx.tm.enqueue(new PlayHeroAction('a1', 'p1', 'hero-777', ctx.rm, ctx.em))
       jest
         .spyOn(Math, 'random')
-        .mockReturnValueOnce(LOW) // challenger p2 rolls 1
-        .mockReturnValueOnce(LOW) // defender p1 rolls 1
+        .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW) // challenger p2 rolls 1
+        .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW) // defender p1 rolls 1
         .mockReturnValue(LOW)
       ctx.rm.submitReaction(
         new PlayChallengeReaction('r1', 'p2', CHAL, 'hero-777'),
@@ -332,8 +332,8 @@ describe('leader roll passives', () => {
     it("boosts the challenger's roll", () => {
       // p2 holds the Fist and is the one challenging.
       expect(challenge(PLAIN, FIST)).toMatchObject({
-        challengerFinal: 3, // 1 + 2
-        defenderFinal: 1,
+        challengerFinal: 4, // 1 + 2
+        defenderFinal: 2,
         defenderWins: false,
       })
     })
@@ -342,8 +342,8 @@ describe('leader roll passives', () => {
       // p1 holds the Fist and is the one being challenged. "Roll to CHALLENGE"
       // is the active act; defending is not it.
       expect(challenge(FIST, PLAIN)).toMatchObject({
-        challengerFinal: 1,
-        defenderFinal: 1,
+        challengerFinal: 2,
+        defenderFinal: 2,
       })
     })
 
@@ -372,8 +372,8 @@ describe('leader roll passives', () => {
       const ctx = setup(SONG)
       rollOnAHero(ctx, LOW) // baseRoll 1
 
-      expect(openedRoll(ctx.events)['baseRoll']).toBe(1)
-      expect(openedRoll(ctx.events)['finalRoll']).toBe(2)
+      expect(openedRoll(ctx.events)['baseRoll']).toBe(2)
+      expect(openedRoll(ctx.events)['finalRoll']).toBe(3)
       expect(openedRoll(ctx.events)['bonuses']).toEqual([
         { cardSource: SONG, amount: 1 },
       ])
@@ -381,7 +381,8 @@ describe('leader roll passives', () => {
 
     it('turns a roll the die alone would fail into a success', () => {
       const ctx = setup(SONG)
-      rollOnAHero(ctx, 4 / 11 - 0.0001) // ceil 4, +1 = 5 — one short of 6
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.2).mockReturnValueOnce(0.4)
+      rollOnAHero(ctx, 0.2) // ceil 4, +1 = 5 — one short of 6
       const before = ctx.events.length
       jest.advanceTimersByTime(5000)
 
@@ -392,7 +393,8 @@ describe('leader roll passives', () => {
 
     it('without the leader the same roll fails', () => {
       const ctx = setup(PLAIN)
-      rollOnAHero(ctx, 4 / 11 - 0.0001) // 5 < 6
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.2).mockReturnValueOnce(0.4)
+      rollOnAHero(ctx, 0.2) // 5 < 6
       const before = ctx.events.length
       jest.advanceTimersByTime(5000)
 
@@ -407,8 +409,8 @@ describe('leader roll passives', () => {
       ctx.tm.enqueue(new PlayHeroAction('a1', 'p1', 'hero-777', ctx.rm, ctx.em))
       jest
         .spyOn(Math, 'random')
-        .mockReturnValueOnce(LOW)
-        .mockReturnValueOnce(LOW)
+        .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
+        .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       ctx.rm.submitReaction(
         new PlayChallengeReaction('r1', 'p2', CHAL, 'hero-777'),
@@ -417,7 +419,7 @@ describe('leader roll passives', () => {
 
       expect(
         payloadsOf(ctx.events, GameEventType.ChallengeResolved)[0],
-      ).toMatchObject({ challengerFinal: 1, defenderFinal: 1 })
+      ).toMatchObject({ challengerFinal: 2, defenderFinal: 2 })
     })
 
     it('does NOT reach an attack roll', () => {

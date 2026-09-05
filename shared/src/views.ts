@@ -101,6 +101,9 @@ export type SeatView = {
  * window stops the game — but `options` reaches its respondent only.
  */
 export type PendingWindowView = {
+  /** Window-owned policies projected for this viewer. */
+  optional?: boolean;
+  canPass?: boolean;
   windowId: string;
   type: ReactionWindowType;
   /** The roller, the defender, or the only legal answerer of a choice. */
@@ -142,6 +145,16 @@ export type TurnClockView = {
  * Everything one player's screen is drawn from, at one moment. Sent whole on
  * every update rather than as a diff — the board is small.
  */
+export type GameConfigView = {
+  actionPointsPerTurn: number;
+  cardSets: string[];
+  turnTimeMs?: number;
+  reactionTimeMs: number;
+  seamlessReactions: boolean;
+  requireAllWinConditions: boolean;
+  winConditions: { type: string; value: number }[];
+};
+
 export type PlayerView = {
   gameId: string;
   /** Whose view this is. The one player whose hand is named below. */
@@ -176,6 +189,19 @@ export type PlayerView = {
   pendingWindows: PendingWindowView[];
   /** Absent on a table played without a clock. */
   turnClock?: TurnClockView;
-  /** `GameState.isBusy` — mid-resolution, so no action will be accepted. */
+  /** `GameState.isBusy` — mid-resolution: a window is open or an ability still has steps. */
   busy: boolean;
+  /**
+   * Whether an action from the viewer would be taken now, turn permitting —
+   * `!GameState.refusesActions(viewer)`. Without seamless reactions this is
+   * `!busy`; with them the viewer plays on under open windows and is refused
+   * only while a modifier or challenge is being resolved or a question of
+   * their own stands (an optional one is forfeited by the next action).
+   */
+  acceptsActions: boolean;
+};
+
+export type GameConnectionInfo = {
+  gameId: string;
+  config: GameConfigView;
 };

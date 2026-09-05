@@ -1,3 +1,4 @@
+import CardReactionTimer from './CardReactionTimer';
 import React from "react";
 import { artFor, BOARD_CARD_ASPECT } from "./assets";
 import { useHoverZoom } from "./useHoverZoom";
@@ -178,6 +179,7 @@ export function HeroCardWidget({
             draggable={false}
             className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill"
           />
+          <CardReactionTimer cardId={item?.id} zoomed={heroZoomed} />
         </div>
       )}
 
@@ -201,6 +203,7 @@ export function HeroCardWidget({
             enemy ? " enemy-aura" : asked ? " ask-aura" : playable ? " card-aura" : passive ? " passive-aura" : ""
           }`}
         />
+        <CardReactionTimer cardId={card.id} zoomed={heroZoomed} />
       </div>
     </div>
   );

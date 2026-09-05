@@ -125,7 +125,7 @@ type GameSettings = {
   cardSet: "base";
   turnTimeMs: number; // 10 000..120 000 — a turn's clock; paused while any reaction window is open, and the turn ends when it lapses
   reactionTimeMs: number; // 5 000..30 000 — a full-share reaction window's wait
-  seamlessReactions: boolean; // the active player keeps playing under open reaction windows (docs/SEAMLESS_REACTIONS_PLAN.md)
+  seamlessReactions: boolean; // plays stand at once and are rolled back on a losing reaction; the active player plays on under open windows (docs/SEAMLESS_REACTIONS_PLAN.md)
 };
 
 type LobbySnapshot = {

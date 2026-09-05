@@ -1,6 +1,11 @@
 # Seamless reactions — implementation plan
 
-Status: IN PROGRESS.
+Status: BUILT 2026-09-05 (Phases A–G), flag off byte-identical to before
+(165 suites / 1536 tests green), flag on covered by `setup/seamless.spec.ts`
+and the seamless block of `turn-manager.spec.ts`. The engine doc §3, §4
+and §11 describe what IS; this file is the record of why. Not built: a
+fake-server UI scenario with two windows on screen (the client renders
+every pending window already and gates on `acceptsActions`).
 
 ## Progress (keep current; the next builder starts here)
 
@@ -30,7 +35,35 @@ Status: IN PROGRESS.
   and `setup/seamless.spec.ts`. `ChallengeWindow.resolve` is untouched:
   its contest already applies inside `resolve`; split it the same way
   (frame exit vs. what a won/lost contest does) when building the rest.
-- Next: the rest of Phase C, then D–G.
+- Phase C — BUILT 2026-09-05. `GameFrame.snapshot.pipelines` (a copy of
+  the stack beside the board, marked through `GameState.parkOn`) REPLACED
+  `stackDepth`: a
+  continuation has to be re-runnable after a flip, and a depth cannot
+  give it back. Provisional resolution on a 0 ms tick in
+  `ModifiableRollWindow.open` / `ChallengeWindow`'s constructor;
+  `reconcile()` on every modifier; seamless settlement = release, then
+  close, no second `FrameResolved`; `GameEngine` drains on a non-cancelled
+  close. Routing by subject: `getFrameContesting` (+ `CTX_CHALLENGED_CARD`
+  seeded on `ChallengePlayed`), `findOpenModifiableWindow(target)` newest
+  first.
+- Phase D — BUILT 2026-09-05. `GameState.refusesActions` /
+  `optionalQuestionsFor` / `cappedClock`; `TurnManager` gates enqueue and
+  drain on it, forfeits optional questions, caps windows on a spent turn,
+  re-reads the clock on Opened (held, then a 0 ms re-read: a window
+  announces before it is filed), FrameResolved, and — seamless only —
+  Closed / ChallengeStarted / ModifierApplied.
+- Phase E — verified by `seamless.spec.ts` (a question of the player's own
+  blocks; an optional one is forfeited).
+- Phase F — BUILT: `PlayerView.acceptsActions`; the client gates on it
+  (`playable.ts`), fixtures updated. No fake-server seamless scenario.
+- Phase G — engine doc §3 (rollback, optimistic frames), §11 (blocked =
+  held, the cap), API contract; this file.
+- Ruling after the first play (2026-09-05): the ATTACK is not optimistic.
+  Its window opens and takes modifiers as before, the outcome lands at
+  settlement, and the attacker is held for it (`refusesActions` counts an
+  open Attack window). A slain monster appearing before the roll settled
+  felt wrong; and its fight-back question blocked the attacker's own
+  modifier.
 
 Written 2026-09-04 for the model that implements it. Read `docs/ENGINE_ARCHITECTURE.md` §3 (frames), §4 (windows), §8
 (known limitations) and §11 (the turn clock) first; every mechanism below

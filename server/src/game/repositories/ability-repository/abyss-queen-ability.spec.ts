@@ -120,7 +120,7 @@ function rollWindow(ctx: ReturnType<typeof setup>, rollerId: string) {
     'frame-1',
     ctx.em,
   )
-  ctx.gs.addFrame('frame-1', { snapshot: ctx.gs.clone(), windows: [win] })
+  ctx.gs.addFrame('frame-1', ctx.gs.clone(), [win])
   return win
 }
 
@@ -247,10 +247,7 @@ describe('Abyss Queen (monster-129)', () => {
         'frame-c',
         ctx.em,
       )
-      ctx.gs.addFrame('frame-c', {
-        snapshot: ctx.gs.clone(),
-        windows: [win],
-      })
+      ctx.gs.addFrame('frame-c', ctx.gs.clone(), [win])
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       return win
     }
@@ -282,7 +279,7 @@ describe('Abyss Queen (monster-129)', () => {
 
       const { defenderTotal } = finals(ctx.events)
       // -4 then +1 back.
-      expect(defenderTotal).toBe(6 - 4 + 1)
+      expect(defenderTotal).toBe(8 - 4 + 1)
     })
 
     it('does not answer a modifier the owner aimed at themselves', () => {
@@ -300,7 +297,7 @@ describe('Abyss Queen (monster-129)', () => {
       })
 
       const { defenderTotal } = finals(ctx.events)
-      expect(defenderTotal).toBe(6 + 2)
+      expect(defenderTotal).toBe(8 + 2)
     })
   })
 

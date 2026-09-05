@@ -240,6 +240,7 @@ export const threeSeatOpening: PlayerView = {
 
   pendingWindows: [],
   busy: false,
+  acceptsActions: true,
 }
 
 export const midGame: PlayerView = {
@@ -299,13 +300,19 @@ export const midGame: PlayerView = {
 const withWindow = (
   base: PlayerView,
   window: PendingWindowView,
-): PlayerView => ({ ...base, pendingWindows: [window] })
+): PlayerView => ({
+  ...base,
+  pendingWindows: [window],
+  // what the server says with any window open and seamless reactions off
+  acceptsActions: false,
+})
 
 export const myTaskChoice = withWindow(threeSeatOpening, {
   windowId: 'window-task',
   type: 'TaskChoice',
   respondentId: 'player-a',
-  options: ['CONFIRM', 'DISMISS'],
+  options: ['confirm', 'dismiss'],
+  optional: true,
   deadline: Date.now() + 30_000,
   isYours: true,
 })
@@ -339,6 +346,7 @@ export const opponentsChoice = withWindow(threeSeatOpening, {
 export const modifierWindowOpen = withWindow(threeSeatOpening, {
   windowId: 'window-modifier',
   type: 'Modifier',
+  canPass: true,
   respondentId: 'player-b',
   // Server shape (ModifiableRollWindow.getDetail): the roll and its bonuses,
   // plus the subject — `heroId` for a hero/leader roll, `monsterId` for an
@@ -372,6 +380,7 @@ const challengeDetail = {
 export const challengeWindowOpen = withWindow(midGame, {
   windowId: 'window-challenge',
   type: 'Challenge',
+  canPass: true,
   respondentId: 'player-b',
   cardId: luckyBucky.id,
   detail: challengeDetail,

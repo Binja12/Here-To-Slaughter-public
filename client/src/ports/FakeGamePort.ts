@@ -136,6 +136,7 @@ const makeInitialView = (): PlayerView => {
     pendingWindows: [],
     turnClock: { turnTimeMs: 60_000, deadline: Date.now() + 60_000 },
     busy: false,
+    acceptsActions: true,
     phase: 'Turns',
   }
 }
@@ -153,6 +154,11 @@ export class FakeGamePort implements GamePort {
       this.version = 0
     }
     this.events = events
+    events.onConnected?.({ gameId: this.view.gameId, config: {
+      actionPointsPerTurn: 3, cardSets: ['base'], turnTimeMs: 60_000, reactionTimeMs: 45_000,
+      seamlessReactions: true, requireAllWinConditions: false,
+      winConditions: [{ type: 'SlayMonsters', value: 3 }, { type: 'PartyClasses', value: 6 }],
+    } })
     events.onConnectionChange?.(true)
     this.after(0, () => events.onStarted(this.snapshot()))
     this.after(4000, () => this.openChallenge())
@@ -229,21 +235,47 @@ export class FakeGamePort implements GamePort {
       case 'EndTurn':
         this.endTurn()
         break
-      case 'ApplyModifier':
-        this.removeFromHand(command.payload.cardId)
+      case 'ApplyModifier': {
+        const { cardId, targetPlayerId, value } = command.payload
+        const card = this.view.hand.find((candidate) => candidate.id === cardId)
+        this.removeFromHand(cardId)
+        // The server's shape: the spent card sits in its owner's instance
+        // pile, the bonus lands in the roll's detail and the total moves,
+        // the window's clock resets. A challenge window just closes here.
+        const landed = (window: PendingWindowView): PendingWindowView => {
+          const detail = window.detail ?? {}
+          const previous = Array.isArray(detail.bonuses)
+            ? (detail.bonuses as { cardSource: string; amount: number }[])
+            : []
+          const bonuses = [...previous, { cardSource: cardId, amount: value }]
+          const baseRoll = typeof detail.baseRoll === 'number' ? detail.baseRoll : 0
+          const finalRoll = baseRoll + bonuses.reduce((sum, bonus) => sum + bonus.amount, 0)
+          return { ...window, deadline: freshDeadline(15_000), detail: { ...detail, bonuses, finalRoll } }
+        }
+        const aimedAt = (window: PendingWindowView) =>
+          ['Modifier', 'Attack'].includes(window.type) && window.respondentId === targetPlayerId
         this.view = {
           ...this.view,
-          pendingWindows: this.view.pendingWindows.filter(
-            (window) =>
-              !(
-                ['Modifier', 'Attack', 'Challenge'].includes(window.type) &&
-                window.respondentId === command.payload.targetPlayerId
-              ),
+          parties: this.view.parties.map((party) =>
+            card && party.playerId === this.view.playerId
+              ? { ...party, instanceCards: [...party.instanceCards, card] }
+              : party,
           ),
+          pendingWindows: this.view.pendingWindows
+            .filter((window) => !(window.type === 'Challenge' && window.respondentId === targetPlayerId))
+            .map((window) => (aimedAt(window) ? landed(window) : window)),
         }
         this.publish()
-        this.after(1200, () => this.openCardChoice())
+        this.after(15_000, () => {
+          this.view = {
+            ...this.view,
+            pendingWindows: this.view.pendingWindows.filter((window) => !aimedAt(window)),
+          }
+          this.publish()
+          this.openCardChoice()
+        })
         break
+      }
       case 'Challenge':
         this.removeFromHand(command.payload.cardId)
         this.view = {
@@ -535,6 +567,7 @@ export class FakeGamePort implements GamePort {
       winnerId: this.view.playerId,
       currentPlayerId: undefined,
       busy: false,
+      acceptsActions: true,
       revealedCards: [],
 
       pendingWindows: [],
@@ -556,7 +589,11 @@ export class FakeGamePort implements GamePort {
         ...this.view.pendingWindows.filter(
           (candidate) => candidate.windowId !== window.windowId,
         ),
-        window,
+        { ...window,
+          optional: window.options?.includes('dismiss') ?? false,
+          canPass: window.type === 'Modifier' || window.type === 'Attack' ||
+            (window.type === 'Challenge' && (window.detail?.challenged === true || !window.isYours)),
+        },
       ],
     }
     this.publish()

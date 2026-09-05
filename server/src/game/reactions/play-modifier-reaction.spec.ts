@@ -75,14 +75,16 @@ const makeStubWindow = (
   getId: () => 'w1',
   getType: () => ReactionWindowType.Modifier,
   getRespondentId: () => rollerId,
+  isOptional: () => false,
+  blocksActions: () => false,
   getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
-  cancel: () => {},
+  cancel: () => {}, capClock: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
-  getDeadline: () => 0,
+  getDeadline: () => Date.now() + 60_000,
   acceptsModifierFor: (playerId: string) =>
     playerId === rollerId ? accepted() : refused(RefusalReason.TargetNotRolling),
   cardSpent: jest.fn(),
@@ -91,7 +93,7 @@ const makeStubWindow = (
 
 const openFrame = (gs: GameState, stub: IReactionWindow) => {
   const frameId = 'frame-1'
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [stub] })
+  gs.addFrame(frameId, gs.clone(), [stub])
   return frameId
 }
 
@@ -105,7 +107,7 @@ describe('PlayModifierReaction — target must be the roller', () => {
   /** A REAL ModifierWindow: the guard is the window's own, a stub would skip it. */
   const openRealWindow = (rollerId: string) => {
     const win = new ModifierWindow('w1', rollerId, 3, 5, 'hero-1', 5000, gs, 'f1', em)
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [win] })
+    gs.addFrame('f1', gs.clone(), [win])
     return win
   }
 
@@ -225,7 +227,7 @@ describe('PlayModifierReaction', () => {
       // is the whole of what says it was spent into this one.
       expect(gs.getParty('p1').getInstanceCardIds()).toContain(MOD)
       expect(
-        gs.getFrames().get(frameId)?.snapshot.getParty('p1').getInstanceCardIds(),
+        gs.getFrames().get(frameId)?.snapshot.board.getParty('p1').getInstanceCardIds(),
       ).not.toContain(MOD)
       expect(gs.isSpentInOpenFrame(MOD)).toBe(true)
     })

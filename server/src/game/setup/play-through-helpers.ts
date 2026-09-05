@@ -1,3 +1,4 @@
+import * as dice from '../../utils/roll-utils'
 import {
   CardBase,
   CardType,
@@ -133,6 +134,8 @@ export type Deal = {
   slack?: number
   /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
   turnTimeMs?: number
+  /** `GameConfig.seamlessReactions`. Off by default, like the printed game. */
+  seamless?: boolean
 }
 
 export type Table = { game: Game; events: IGameEvent[] }
@@ -197,6 +200,7 @@ export function stacked(spec: Deal): Table {
             ...defaultGameConfig.timeControl,
             turnTimeMs: spec.turnTimeMs,
           },
+          seamlessReactions: spec.seamless ?? false,
         }),
         cards,
       }),
@@ -422,11 +426,13 @@ export const LOWEST = 0.0001
 /** A hero / attack roll of 8. */
 export const MIDDLING = 0.6
 
-export const fixDice = (value: number) =>
-  jest.spyOn(Math, 'random').mockReturnValue(value)
+export const fixDice = (value: number) => {
+  jest.spyOn(dice, 'roll2Dice').mockReturnValue(2 * (Math.floor(value * 6) + 1))
+  return jest.spyOn(Math, 'random').mockReturnValue(value)
+}
 
 /** A fixed sequence, then `rest` for everything after it. */
 export function scriptDice(sequence: number[], rest: number): void {
   const queue = [...sequence]
-  jest.spyOn(Math, 'random').mockImplementation(() => queue.shift() ?? rest)
+  jest.spyOn(dice, 'roll2Dice').mockImplementation(() => 2 * (Math.floor((queue.shift() ?? rest) * 6) + 1))
 }

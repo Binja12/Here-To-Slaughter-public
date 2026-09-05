@@ -81,7 +81,7 @@ describe('ReactionManager', () => {
     it('snapshot is captured at open time — later mutations do not affect it', () => {
       const id = rm.openFrame()
       gs.markAbilityUsed('hero-x')
-      const snap = gs.getFrames().get(id)!.snapshot
+      const snap = gs.getFrames().get(id)!.snapshot.board
       expect(snap.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
     })
 
@@ -104,6 +104,30 @@ describe('ReactionManager', () => {
   // ---------------------------------------------------------------------------
 
   describe('pass — a seat giving a table window up', () => {
+    it.each([ReactionWindowType.Modifier, ReactionWindowType.Challenge])(
+      'reopens all four votes when the last player modifies a %s window', (type) => {
+        for (const id of ['p3', 'p4']) {
+          gs.registerPlayer(makePlayer(id))
+          gs.registerParty(makeParty(id))
+        }
+        const frameId = rm.openFrame()
+        rm.openWindow(frameId, type, 'p1', {
+          baseRoll: 5, rollReq: 7, heroId: 'hero-1', cardId: 'hero-1',
+        })
+        const window = gs.getFrames().get(frameId)!.windows[0]
+        if (type === ReactionWindowType.Challenge) {
+          window.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+        }
+        for (const id of ['p1', 'p2', 'p3']) rm.pass(window.getId(), id)
+        expect(window.isOpen()).toBe(true)
+        window.submitReaction('p4', { type: 'modifier', targetPlayerId: 'p1', value: 2, cardId: 'mod' })
+        expect(window.getDetail()['passedBy']).toEqual([])
+        for (const id of ['p1', 'p2', 'p3']) rm.pass(window.getId(), id)
+        expect(window.isOpen()).toBe(true)
+        rm.pass(window.getId(), 'p4')
+        expect(window.isOpen()).toBe(false)
+      },
+    )
     const openRoll = () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.Modifier, 'p1', {
@@ -263,11 +287,13 @@ describe('ReactionManager', () => {
       getId: () => id,
       getType: () => ReactionWindowType.CardChoice,
       getRespondentId: () => 'p1',
+      isOptional: () => false,
+      blocksActions: () => false,
       getOptions: () => ['a'],
       isOpen: () => open,
       submitReaction: jest.fn(() => verdict),
       resolve: () => {},
-      cancel: () => {},
+      cancel: () => {}, capClock: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
@@ -282,7 +308,7 @@ describe('ReactionManager', () => {
 
     it('refuses a window that has already lapsed, without asking it', () => {
       const lapsed = stubWindow('w1', false, { accepted: true })
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [lapsed] })
+      gs.addFrame('f1', gs.clone(), [lapsed])
 
       expect(rm.submitChoice('w1', 'p1', 'a')).toEqual({
         accepted: false,
@@ -297,7 +323,7 @@ describe('ReactionManager', () => {
         reason: RefusalReason.NotAnOption,
       }
       const open = stubWindow('w1', true, verdict)
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [open] })
+      gs.addFrame('f1', gs.clone(), [open])
 
       expect(rm.submitChoice('w1', 'p1', 'a')).toBe(verdict)
       expect(open.submitReaction).toHaveBeenCalledWith('p1', { choice: 'a' })

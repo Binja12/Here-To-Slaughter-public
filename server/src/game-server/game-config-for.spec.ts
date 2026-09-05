@@ -37,7 +37,7 @@ describe('gameConfigFor', () => {
   })
 
   it('carries the seamless flag through', () => {
-    expect(gameConfigFor(DEFAULT_GAME_SETTINGS).seamlessReactions).toBe(false)
+    expect(gameConfigFor(DEFAULT_GAME_SETTINGS).seamlessReactions).toBe(true)
     expect(
       gameConfigFor(custom({ seamlessReactions: true })).seamlessReactions,
     ).toBe(true)

@@ -11,7 +11,7 @@ import {
 } from 'shared'
 import type { Game } from '../setup/create-game'
 import { GameState } from '../pipelines/game-state'
-import { IEffect, IReactionWindow } from '../interfaces'
+import { IEffect, IReactionWindow, isPassable } from '../interfaces'
 import { isActivatable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
@@ -63,6 +63,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .map((window) => pendingWindowView(gs, window, playerId)),
     turnClock: turnClockView(game),
     busy: gs.isBusy(),
+    acceptsActions: !gs.refusesActions(playerId),
   }
 }
 
@@ -179,6 +180,8 @@ function pendingWindowView(
   const shown = isYours || TABLE_WINDOWS.has(window.getType())
   return {
     windowId: window.getId(),
+    optional: window.isOptional(),
+    canPass: isPassable(window) && window.canPass(playerId),
     type: window.getType(),
     respondentId: window.getRespondentId(),
     cardId: window.subjectCardId?.(),

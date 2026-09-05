@@ -21,6 +21,7 @@ export class RealGamePort implements GamePort {
 
     socket.on('connect', () => events.onConnectionChange?.(true))
     socket.on('disconnect', () => events.onConnectionChange?.(false))
+    socket.on('game:connected', (info) => events.onConnected?.(info))
     socket.on('game-started', (snapshot: GameSnapshot) => events.onStarted(snapshot))
     socket.on('game:snapshot', (snapshot: GameSnapshot) => events.onSnapshot(snapshot))
     socket.on('game-completed', (snapshot: GameSnapshot) => events.onCompleted(snapshot))

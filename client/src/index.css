@@ -179,9 +179,19 @@ code {
     drop-shadow(0 var(--aura-dy, 0cqw) calc((0.5 + 0.25 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(220, 20, 20, 0.8));
 }
 
-/* The square red glow under each settled die of an opponent's roll: the
-   cards' glow in red, as a box-shadow on a die-sized square (a filter on
-   the cube's ancestor would flatten its 3D faces). */
+/* The square glow under each settled die: RED when the roll as it stands
+   is short of what it needs, GREEN when it makes it, none in a monster's
+   "nothing happens" band (the owner, 2026-09-05). A box-shadow on a
+   die-sized square (a filter on the cube's ancestor would flatten its 3D
+   faces). */
+.dice-glow-green {
+  border-radius: 14%;
+  box-shadow:
+    0 0 calc((0.2 + 0.1 * var(--aura)) * 1cqw) 0.32cqw rgba(170, 255, 140, 1),
+    0 0 calc((0.6 + 0.25 * var(--aura)) * 1cqw) 0.5cqw rgba(90, 235, 60, 1),
+    0 0 calc((1.3 + 0.5 * var(--aura)) * 1cqw) 0.7cqw rgba(50, 210, 35, 0.9);
+}
+
 .dice-glow {
   /* the die covers the square itself, so everything that shows is the
      SPREAD: a fat rim plus wide, near-opaque halos (first cut was ~2px
@@ -264,3 +274,9 @@ code {
 .challenge-pop {
   animation: challenge-pop 0.25s ease-out both;
 }
+
+.skip-glow {
+  filter: drop-shadow(0 0 0.5cqw #4ade80) drop-shadow(0 0 0.2cqw #86efac);
+  animation: skip-pulse 1.4s ease-in-out infinite alternate;
+}
+@keyframes skip-pulse { to { filter: drop-shadow(0 0 0.8cqw #4ade80) drop-shadow(0 0 0.35cqw #86efac); } }

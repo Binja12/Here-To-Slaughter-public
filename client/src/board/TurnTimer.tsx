@@ -6,7 +6,7 @@ import type { TurnClockView } from '../contract'
  * clock between snapshots while `deadline` stands; a held clock (`heldMs`,
  * a reaction window open) is drawn still and dimmed.
  */
-export default function TurnTimer({ clock }: { clock?: TurnClockView }) {
+export default function TurnTimer({ clock, reaction = false }: { clock?: TurnClockView; reaction?: boolean }) {
   const now = useTicking(clock?.deadline)
   if (!clock) return null
 
@@ -15,7 +15,7 @@ export default function TurnTimer({ clock }: { clock?: TurnClockView }) {
     ? (clock.heldMs ?? 0)
     : Math.max(0, clock.deadline! - now)
   const fraction = Math.max(0, Math.min(1, remaining / clock.turnTimeMs))
-  const urgent = !held && fraction <= 0.1
+  const urgent = reaction || (!held && fraction <= 0.1)
 
   const R = 42
   const circumference = 2 * Math.PI * R
@@ -24,7 +24,7 @@ export default function TurnTimer({ clock }: { clock?: TurnClockView }) {
     <div
       className="relative h-full w-full"
       title={
-        held
+        reaction ? 'reaction clock' : held
           ? 'turn clock — held while a reaction window is open'
           : 'turn clock'
       }

@@ -139,6 +139,7 @@ export function dealStacked(
       cards,
       config: config({
         startingHandSize: handSize,
+        seamlessReactions: spec.seamless ?? false,
         winConditions: [
           { type: WinConditionType.SlayMonsters, value: spec.winAt ?? 99 },
         ],

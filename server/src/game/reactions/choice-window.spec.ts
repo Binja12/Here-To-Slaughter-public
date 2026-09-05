@@ -53,7 +53,7 @@ function makeWindow({
   frameId?: string
 }): TestChoiceWindow {
   const win = new TestChoiceWindow('win-1', respondentId, options, timeoutMs, gs, frameId, em)
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame(frameId, gs.clone(), [win])
   return win
 }
 
@@ -322,7 +322,7 @@ describe('CardChoiceWindow', () => {
   const openOn = (gs: GameState, em: GameEventEmitter, options: string[]) => {
     for (const id of options) gs.registerCard(makeCard(id))
     const win = new CardChoiceWindow('win-1', 'p1', options, 5000, gs, 'f1', em)
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [win] })
+    gs.addFrame('f1', gs.clone(), [win])
     return win
   }
 
@@ -373,7 +373,7 @@ describe('CardChoiceWindow', () => {
     const gs = makeGs()
     for (const id of ['x', 'y']) gs.registerCard(makeCard(id))
     const win = new CardChoiceWindow('win-1', 'p1', ['x', 'y'], 5000, gs, 'frame-1', new GameEventEmitter())
-    gs.addFrame('frame-1', { snapshot: gs.clone(), windows: [win] })
+    gs.addFrame('frame-1', gs.clone(), [win])
 
     const result = win.submitReaction('p1', { choice: 'shielded-hero' })
 
@@ -408,7 +408,7 @@ describe('ChoiceWindow — a frame of several windows', () => {
     for (const id of ['a', 'b']) gs.registerCard(makeCard(id))
     const w1 = new CardChoiceWindow('w1', 'p1', ['a'], 5000, gs, 'f1', em, 'pick@p1')
     const w2 = new CardChoiceWindow('w2', 'p2', ['b'], 5000, gs, 'f1', em, 'pick@p2')
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [w1, w2] })
+    gs.addFrame('f1', gs.clone(), [w1, w2])
     return { gs, em, events, w1, w2 }
   }
 
@@ -449,7 +449,7 @@ describe('ChoiceWindow — a frame of several windows', () => {
     const events = collect(em)
     gs.registerCard(makeCard('a'))
     const w = new CardChoiceWindow('w', 'p1', ['a'], 5000, gs, 'f1', em)
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [w] })
+    gs.addFrame('f1', gs.clone(), [w])
     w.submitReaction('p1', { choice: 'a' })
     expect(payloadOf(events.find((e) => e.getType() === GameEventType.FrameResolved)!)).toMatchObject({
       results: ['a'],

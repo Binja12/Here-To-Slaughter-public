@@ -134,6 +134,28 @@ describe('GameGateway', () => {
     playerView(running.game, accountId).hand.length
 
   describe('the handshake', () => {
+    it('sends config once per connection and again on reconnect, outside snapshots', async () => {
+      const { active } = liveTable(seats('alice', 'bob'))
+      const infos: unknown[] = []
+      const snapshots: GameSnapshot[] = []
+      const listen = (socket: Socket) => {
+        socket.on('game:connected', (info) => infos.push(info))
+        socket.on(GAME_STARTED, (snapshot) => snapshots.push(snapshot))
+        socket.on(GAME_SNAPSHOT, (snapshot) => snapshots.push(snapshot))
+      }
+      const socket = await connect(tokenOf(active), listen)
+      await send(socket, 'DrawCard')
+      await sleep(20)
+      expect(infos).toHaveLength(1)
+      expect(infos[0]).toMatchObject({ config: { seamlessReactions: true, reactionTimeMs: 15_000 } })
+      expect(snapshots.length).toBeGreaterThan(0)
+      for (const snapshot of snapshots) expect(snapshot.state).not.toHaveProperty('config')
+      socket.disconnect()
+      await connect(tokenOf(active), listen)
+      await sleep(20)
+      expect(infos).toHaveLength(2)
+      expect(infos[1]).toEqual(infos[0])
+    })
     it('refuses a socket with no session cookie', async () => {
       await expect(connect()).rejects.toThrow('Authentication required')
     })

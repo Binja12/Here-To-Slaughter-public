@@ -366,7 +366,7 @@ describe('SnowballAbility', () => {
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
 
     // Challenger rolls 11, Snowball's owner rolls 1.
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
     openPrompt(gs)!.submitReaction('p2', {
       type: 'challenge',
       challengerId: 'p2',

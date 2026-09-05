@@ -31,7 +31,7 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   cardSet: 'base',
   turnTimeMs: 60_000,
   reactionTimeMs: 15_000,
-  seamlessReactions: false,
+  seamlessReactions: true,
 }
 
 /** The default table on shorter clocks. */

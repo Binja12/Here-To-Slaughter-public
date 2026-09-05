@@ -213,6 +213,7 @@ export type ValueBias = 'highest' | 'lowest'
  * passes — the roll changed under them, everyone gets another look.
  */
 export interface IPassableWindow extends IReactionWindow {
+  canPass(playerId: string): boolean
   pass(playerId: string): void
   passedBy(): readonly string[]
 }
@@ -262,6 +263,19 @@ export interface IReactionWindow {
    * every window opened after it (GameState.revertFrame).
    */
   cancel(): void
+  /**
+   * A question the respondent may simply walk away from — a TaskChoice
+   * offering DISMISS. Under seamless reactions the active player's next
+   * action forfeits one (TurnManager.enqueue) instead of being refused.
+   */
+  isOptional(): boolean
+  /** Whether this window holds actions under seamless reactions. */
+  blocksActions(playerId: string): boolean
+  /**
+   * Shortens the clock to `ms` when more than that is left; a shorter clock
+   * is untouched. The turn's end caps every window this way (§11).
+   */
+  capClock(ms: number): void
   /**
    * What the window is asking, read LIVE: the fields it announced at open
    * plus whatever moved since — a bonus that landed, a challenge that

@@ -60,14 +60,17 @@ const makeStubWindow = (): IModifiableWindow & {
   getId: () => 'w1',
   getType: () => ReactionWindowType.Challenge,
   getRespondentId: () => 'defender',
+  subjectCardId: () => 'hero-1',
+  isOptional: () => false,
+  blocksActions: () => false,
   getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
-  cancel: () => {},
+  cancel: () => {}, capClock: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
-  getDeadline: () => 0,
+  getDeadline: () => Date.now() + 60_000,
   acceptsModifierFor: () => accepted(),
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,
@@ -76,7 +79,7 @@ const makeStubWindow = (): IModifiableWindow & {
 /** Add a challenge frame to gs with a stub window. */
 const openFrame = (gs: GameState, stub: IReactionWindow) => {
   const frameId = 'frame-1'
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [stub] })
+  gs.addFrame(frameId, gs.clone(), [stub])
   return frameId
 }
 
@@ -125,6 +128,22 @@ describe('PlayChallengeReaction', () => {
 
   it('canExecute returns false when no challenge frame is open', () => {
     expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
+  })
+
+  it('refuses an expired target without spending the card even before the timeout callback runs', () => {
+    const stale = makeStubWindow()
+    stale.getDeadline = () => Date.now() - 1
+    openFrame(gs, stale)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
+    expect(gs.hasInHand('p1', CHAL)).toBe(true)
+  })
+
+  it('refuses an already started contest before spending a second challenge', () => {
+    const started = makeStubWindow()
+    started.getDetail = () => ({ challenged: true })
+    openFrame(gs, started)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.ChallengeAlreadyStarted })
+    expect(gs.hasInHand('p1', CHAL)).toBe(true)
   })
 
   it('canExecute returns false when card not in player hand', () => {
@@ -210,6 +229,8 @@ describe('PlayChallengeReaction', () => {
       expect(played[0].getPayload()).toEqual({
         cardId: CHAL,
         targetedCardId: 'hero-1',
+        // the card's own entry contests THAT play, by this seed
+        ctxSeed: { challengedCard: ['hero-1'] },
       })
     })
 

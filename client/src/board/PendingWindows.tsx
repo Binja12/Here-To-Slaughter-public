@@ -14,12 +14,14 @@ export default function PendingWindows({
   hiddenWindowIds?: string[]
   onSubmit: (windowId: string, choice: unknown) => void
 }) {
-  // Only the windows that need a BUTTON (choices). A roll or a challenge is
-  // told by the board itself — the reaction card glowing in the hand, the
-  // dice at the roller's seat, the banner's numbers, the challenge overlay —
-  // and the owner does not want a detail card for those (2026-09-03).
+  // Only the windows that need a BUTTON from THIS seat (its own choices).
+  // A roll or a challenge is told by the board itself — the reaction card
+  // glowing in the hand, the dice at the roller's seat, the overlays — and
+  // another seat's question is theirs to answer: no "waiting for…" card
+  // (the owner, 2026-09-03 and 2026-09-05).
   const visibleWindows = view.pendingWindows.filter(
     (window) =>
+      window.isYours &&
       window.type !== 'Modifier' &&
       window.type !== 'Attack' &&
       window.type !== 'Challenge' &&

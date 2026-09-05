@@ -48,6 +48,7 @@ const MAIN_DECK_TYPES: readonly CardType[] = [
  * emitter is where a projection layer would listen.
  */
 export type Game = {
+  config: GameConfig
   gameId: string
   /** Seat order, randomised at deal. Turn rotation follows it. */
   playerOrder: string[]
@@ -116,6 +117,7 @@ export function createGame(
     discardPile,
     monsterDeck,
     monsterPile,
+    config.seamlessReactions,
   )
 
   // Every card in the pool is registered, wherever it starts: a card the
@@ -204,6 +206,7 @@ export function createGame(
   )
 
   return {
+    config,
     gameId,
     playerOrder,
     gameState,
