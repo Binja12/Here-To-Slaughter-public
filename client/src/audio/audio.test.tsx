@@ -4,11 +4,12 @@ import { AudioProvider, useAudio } from './AudioProvider'
 import VolumeControl from './VolumeControl'
 import { useGameAudio } from './useGameAudio'
 import { GameLogEntry, PlayerView } from '../contract'
-import { challengeStarted, midGame } from '../fixtures/views'
+import { challengeStarted, midGame, modifierWindowOpen } from '../fixtures/views'
 
 class FakeAudio {
   static instances: FakeAudio[] = []
   volume = 1
+  currentTime = 0
   playbackRate = 1
   preservesPitch = true
   paused = true
@@ -42,7 +43,7 @@ const oneShots = () => FakeAudio.instances.filter((audio) => audio.src.includes(
 const modifier = (seq: number, soundWindowId = 'roll-a'): GameLogEntry =>
   ({ ...entry(seq, 'modifierPlayed'), soundWindowId })
 
-test('modifiers climb one semitone each, cap at ten, and reset for another window', () => {
+test('modifiers climb two semitones each, cap at ten, and reset for another window', () => {
   const ui = (log: GameLogEntry[]) => <AudioProvider><GameAudio log={log} /></AudioProvider>
   const { rerender } = render(ui([]))
   const log = Array.from({ length: 12 }, (_, index) => modifier(index + 1))
@@ -51,7 +52,7 @@ test('modifiers climb one semitone each, cap at ten, and reset for another windo
   expect(sounds).toHaveLength(12)
   sounds.forEach((sound, index) => {
     expect(sound.preservesPitch).toBe(false)
-    expect(sound.playbackRate).toBeCloseTo(2 ** (Math.min(index, 9) / 12))
+    expect(sound.playbackRate).toBeCloseTo(2 ** (Math.min(index, 9) / 6))
   })
   rerender(ui([...log]))
   expect(oneShots()).toHaveLength(12)
@@ -71,12 +72,12 @@ test('history and muted plays count; interleaved windows and other effects stay 
   fireEvent.click(screen.getByRole('button', { name: 'Unmute sound' }))
   log = [...log, modifier(4, 'challenge-b'), entry(5), modifier(6)]
   rerender(ui())
-  expect(oneShots().map((sound) => sound.playbackRate)).toEqual([1, 1, 2 ** (3 / 12)])
+  expect(oneShots().map((sound) => sound.playbackRate)).toEqual([1, 1, 2 ** (3 / 6)])
   expect(oneShots()[1].preservesPitch).toBe(true)
   // Both players' modifiers into the same challenge share its counter.
   log = [...log, { ...modifier(7, 'challenge-b'), playerId: 'another-player' }]
   rerender(ui())
-  expect(oneShots()[3].playbackRate).toBeCloseTo(2 ** (1 / 12))
+  expect(oneShots()[3].playbackRate).toBeCloseTo(2 ** (1 / 6))
 })
 
 test('volume updates ongoing music and effects, mutes, restores, and persists', () => {
@@ -138,6 +139,63 @@ test('music crossfades in both directions and pauses the outgoing track only aft
   unmount()
   expect(FakeAudio.instances.every((audio) => audio.paused)).toBe(true)
   expect(jest.getTimerCount()).toBe(0)
+})
+
+test('each confirmed modifier restarts challenge music while gameplay keeps its paused position', async () => {
+  jest.useFakeTimers()
+  const idle = { ...midGame, pendingWindows: [] }
+  const rolling = { ...midGame, pendingWindows: modifierWindowOpen.pendingWindows }
+  const windowId = rolling.pendingWindows[0].windowId
+  const ui = (view: PlayerView, log: GameLogEntry[] = []) => <AudioProvider><GameAudio view={view} log={log} /></AudioProvider>
+  const { rerender } = render(ui(idle))
+  const [gameplay, challenge] = FakeAudio.instances
+  gameplay.currentTime = 42
+  challenge.currentTime = 17
+  await act(async () => { rerender(ui(rolling)) })
+  expect(challenge.paused).toBe(true)
+  const firstPlay = [modifier(1, windowId)]
+  await act(async () => { rerender(ui(rolling, firstPlay)) })
+  expect(challenge.currentTime).toBe(0)
+  act(() => { jest.advanceTimersByTime(1024) })
+  expect(gameplay.paused).toBe(true)
+  expect(gameplay.currentTime).toBe(42)
+  expect(challenge.paused).toBe(false)
+
+  challenge.currentTime = 8
+  await act(async () => { rerender(ui({ ...rolling }, [...firstPlay])) })
+  expect(challenge.currentTime).toBe(8)
+  const secondPlay = [...firstPlay, modifier(2, windowId)]
+  await act(async () => { rerender(ui(rolling, secondPlay)) })
+  expect(challenge.currentTime).toBe(0)
+  expect(gameplay.currentTime).toBe(42)
+  expect(gameplay.paused).toBe(true)
+
+  challenge.currentTime = 6
+  await act(async () => { rerender(ui(idle, secondPlay)) })
+  act(() => { jest.advanceTimersByTime(1024) })
+  expect(gameplay.paused).toBe(false)
+  expect(gameplay.currentTime).toBe(42)
+  expect(challenge.paused).toBe(true)
+  await act(async () => { rerender(ui(challengeStarted, secondPlay)) })
+  expect(challenge.currentTime).toBe(0)
+})
+
+test('a modifier restarts an existing challenge even when muted, but gestures and volume do not', async () => {
+  jest.useFakeTimers()
+  const ui = (log: GameLogEntry[]) => <AudioProvider><GameAudio view={challengeStarted} log={log} /></AudioProvider>
+  const { rerender } = render(ui([]))
+  await act(async () => {})
+  act(() => { jest.advanceTimersByTime(1024) })
+  const challenge = FakeAudio.instances[1]
+  challenge.currentTime = 11
+  fireEvent.click(screen.getByRole('button', { name: 'Mute sound' }))
+  await act(async () => { rerender(ui([modifier(1, challengeStarted.pendingWindows[0].windowId)])) })
+  expect(challenge.currentTime).toBe(0)
+  expect(challenge.volume).toBe(0)
+  challenge.currentTime = 3
+  fireEvent.click(screen.getByRole('button', { name: 'Unmute sound' }))
+  await act(async () => { fireEvent.pointerDown(document) })
+  expect(challenge.currentTime).toBe(3)
 })
 
 test('rapid music changes reverse smoothly and volume or mute changes preserve the mix', async () => {

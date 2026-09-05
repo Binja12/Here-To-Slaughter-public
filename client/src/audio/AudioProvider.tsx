@@ -10,6 +10,7 @@ export const SOUND_FILES = {
 } as const
 export type Sound = keyof typeof SOUND_FILES
 type Music = 'gameplay' | 'challenge'
+type MusicRequest = { kind: Music; restartKey?: string }
 const MUSIC_FILES = { gameplay: '/music/Gameplay Music.mp3', challenge: '/music/Challenge music.mp3' }
 const STORAGE_KEY = 'htsr.volume'
 const MUSIC_GAIN = 0.28
@@ -28,13 +29,17 @@ const AudioContext = createContext({
   volume: 50,
   setVolume: (_value: number) => {},
   playSound: (_sound: Sound, _modifierLevel = 1) => {},
-  setMusic: (_music: Music) => {},
+  setMusic: (_music: Music, _restartKey?: string) => {},
 })
 export const useAudio = () => useContext(AudioContext)
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [volume, updateVolume] = useState(savedVolume)
-  const [music, setMusic] = useState<Music>('gameplay')
+  const [musicRequest, updateMusic] = useState<MusicRequest>({ kind: 'gameplay' })
+  const setMusic = useCallback((kind: Music, restartKey?: string) => {
+    updateMusic((previous) => previous.kind === kind && previous.restartKey === restartKey
+      ? previous : { kind, restartKey })
+  }, [])
   const volumeRef = useRef(volume)
   const tracks = useRef<Partial<Record<Music, HTMLAudioElement>>>({})
   const effects = useRef(new Set<HTMLAudioElement>())
@@ -143,6 +148,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, [resumeMusic, cancelTransition, applyMusicVolume])
 
   useEffect(() => {
+    const music = musicRequest.kind
+    // Every new challenge/modifier cue starts its music at the beginning.
+    // Never seek gameplay: pausing it after the fade preserves its place.
+    if (music === 'challenge' && tracks.current.challenge) tracks.current.challenge.currentTime = 0
     if (currentMusic.current !== music) {
       cancelTransition()
       currentMusic.current = music
@@ -151,7 +160,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
     }
     resumeMusic()
-  }, [music, resumeMusic, cancelTransition])
+  }, [musicRequest, resumeMusic, cancelTransition])
 
   const playSound = useCallback((sound: Sound, modifierLevel = 1) => {
     if (volumeRef.current === 0 || document.hidden) return
@@ -165,9 +174,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     effect.volume = volumeRef.current / 100
     if (sound === 'modifierPlayed') {
       const level = Number.isFinite(modifierLevel) ? Math.max(1, Math.min(10, Math.floor(modifierLevel))) : 1
-      // One semitone per card, with the first at the original pitch.
+      // Two semitones per card, with the first at the original pitch.
       effect.preservesPitch = false
-      effect.playbackRate = 2 ** ((level - 1) / 12)
+      effect.playbackRate = 2 ** ((level - 1) / 6)
     }
     effects.current.add(effect)
     const release = () => { effects.current.delete(effect) }
