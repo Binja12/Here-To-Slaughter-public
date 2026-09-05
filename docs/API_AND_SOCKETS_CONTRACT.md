@@ -43,14 +43,13 @@ If an authenticated account is assigned to an active game, navigating to any app
 
 "Local storage" means server-side in-memory storage, not browser `localStorage`.
 
-The first implementation uses injected interfaces with in-memory adapters:
+Every store is an injected interface, chosen by `StoresModule` once at load (`docs/DATABASE_AND_LOGS.md`):
 
-- `IUserRepository`
-- `ISessionStore`
-- `ILobbyStore`
-- `IGameAssignmentStore`
+- `IUserRepository` — PostgreSQL when `DATABASE_URL` is set, otherwise in memory
+- `IGameStore` (game process: dealt tables, per-seat last state, both logs) — likewise
+- `ISessionStore`, `ILobbyStore`, `IGameAssignmentStore` — in memory
 
-Database or Redis adapters should later replace these without changing controllers or application services.
+The controllers and application services see the interfaces only.
 
 **Important:** separate server processes cannot share an in-memory session map. Until a shared persistent store is introduced, the game server must resolve sessions through the Lobby/Auth server over the internal NestJS TCP connection.
 
@@ -334,10 +333,12 @@ type GameSnapshot<TState> = {
   gameId: string;
   version: number;
   state: TState;
+  /** The table's story so far, worded for this seat (docs/DATABASE_AND_LOGS.md §3). */
+  log: GameLogEntry[];
 };
 ```
 
-Every recipient gets a separately projected snapshot. A player can see its own private state, such as its hand, but never another player's hidden data.
+Every recipient gets a separately projected snapshot, story included: a line names a card only to the seats that saw it. A player can see its own private state, such as its hand, but never another player's hidden data.
 
 **Deferred:** the exact `state` fields depend on the finalized HTSR-3 engine model and HTSR-5 view requirements.
 

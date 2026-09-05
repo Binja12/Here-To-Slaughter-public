@@ -1,4 +1,5 @@
 import type { PlayerView } from "../views";
+import type { GameLogEntry } from "./game-log";
 
 // ---------------------------------------------------------------------------
 // What a game server pushes to a browser, and the names both ends agree on.
@@ -26,6 +27,8 @@ export type GameSnapshot<TState = PlayerView> = {
   /** Monotonic per game. Every seat's snapshot of one flush shares it. */
   version: number;
   state: TState;
+  /** The table's story so far, worded for this seat. Whole, like `state`. */
+  log: GameLogEntry[];
 };
 
 /** Static game information, sent once per socket connection, including reconnects. */

@@ -47,6 +47,9 @@ depends on (§9). Everything else lives in a folder:
 - `views/` — the projection in front of the API (§5). `player-view.ts` builds
   one player's screen out of the board; the SHAPE it builds lives in
   `shared/src/views.ts`, because it is the client's half of the contract.
+  `game-log.ts` is the second projection: the table's story, one listener
+  per game that records every event verbatim for developers and words the
+  ones a player would tell of (`docs/DATABASE_AND_LOGS.md` §3).
 - `actions/`, `tasks/`, `reactions/`, `cards/`, `conditions/`, `events/`,
   `config/` — one folder per kind of thing.
 
@@ -881,6 +884,15 @@ the two decks are `{ count }` and hold no other field. That asymmetry is the
 whole of what separates two players' views of one table, which is why there is
 no `gameView` — a table has no shared screen, and a function that built one
 would be the thing that leaked.
+
+**The story is projected the same way.** `views/game-log.ts` listens to the
+game's emitter and words events into `GameLogEntry` lines at the moment they
+fire, reading the board only to name seats and cards. A line names a card only
+to the seats that saw it (`LogLine.seen`): a draw is "drew a card" to the
+table and the card's name to the drawer. `GameLog.entriesFor(viewerId)` is
+the per-seat reading; the transport ships it in the snapshot envelope beside
+`PlayerView`, never inside it. Every event is also kept verbatim
+(`EventRecord`) for developers — that list is the engine's, unfiltered.
 
 **A card crossing the line is its printed DATA, not its object.** `ICard.getData()`
 returns the record the card was built from, so the projection is plain

@@ -66,7 +66,7 @@ function GameScreen({
 
   return (
     <CommandProvider send={game.send}>
-      <GameProvider view={game.snapshot.state} info={game.info}>
+      <GameProvider view={game.snapshot.state} info={game.info} log={game.snapshot.log}>
         <Board onLeave={onLeave} />
       </GameProvider>
     </CommandProvider>

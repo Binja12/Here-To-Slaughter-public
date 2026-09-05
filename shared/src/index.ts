@@ -7,3 +7,4 @@ export * from "./contracts/game-settings";
 export * from "./contracts/internal-game";
 export * from "./contracts/game-commands";
 export * from "./contracts/game-snapshots";
+export * from "./contracts/game-log";

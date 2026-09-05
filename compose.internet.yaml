@@ -5,6 +5,20 @@ name: htsr-internet-playtest
 # reachable locally only; the optional Cloudflare Tunnel reaches it over this
 # Compose network without opening an inbound router port.
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "htsr"
+      POSTGRES_PASSWORD: "${HTSR_DB_PASSWORD:-htsr}"
+      POSTGRES_DB: "htsr"
+    volumes:
+      - htsr-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U htsr -d htsr"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
   lobby:
     build:
       context: .
@@ -13,10 +27,14 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: "3000"
+      DATABASE_URL: "postgres://htsr:${HTSR_DB_PASSWORD:-htsr}@db:5432/htsr"
       LOBBY_AUTH_TCP_HOST: "0.0.0.0"
       LOBBY_AUTH_TCP_PORT: "4000"
       GAME_SERVER_TCP_HOST: "game"
       GAME_SERVER_TCP_PORT: "4001"
+    depends_on:
+      db:
+        condition: service_healthy
 
   game:
     build:
@@ -26,6 +44,7 @@ services:
     environment:
       NODE_ENV: "production"
       GAME_SERVER_PORT: "3001"
+      DATABASE_URL: "postgres://htsr:${HTSR_DB_PASSWORD:-htsr}@db:5432/htsr"
       GAME_SERVER_TCP_HOST: "0.0.0.0"
       GAME_SERVER_TCP_PORT: "4001"
       # Socket.IO interprets `/` as the browser's current HTTPS origin. This
@@ -36,7 +55,10 @@ services:
       LOBBY_AUTH_TCP_HOST: "lobby"
       LOBBY_AUTH_TCP_PORT: "4000"
     depends_on:
-      - lobby
+      db:
+        condition: service_healthy
+      lobby:
+        condition: service_started
 
   client:
     build:
@@ -72,3 +94,6 @@ services:
       TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:-}"
     depends_on:
       - gateway
+
+volumes:
+  htsr-db:

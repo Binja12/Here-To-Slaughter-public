@@ -5,6 +5,7 @@ import {
   GameSnapshot,
   HeroInPlayView,
   PendingWindowView,
+  GameLogEntry,
   PlayerView,
   RefusalReason,
 } from '../contract'
@@ -144,6 +145,7 @@ const makeInitialView = (): PlayerView => {
 export class FakeGamePort implements GamePort {
   private view = makeInitialView()
   private version = 0
+  private log: GameLogEntry[] = []
   private events: GameEvents | null = null
   private timers: number[] = []
 
@@ -152,6 +154,11 @@ export class FakeGamePort implements GamePort {
     if (this.view.phase === 'Concluded') {
       this.view = makeInitialView()
       this.version = 0
+      this.log = []
+    }
+    if (this.log.length === 0) {
+      this.say('', 'The game begins')
+      this.say(this.view.playerId, `${this.nameOf(this.view.playerId)}'s turn`)
     }
     this.events = events
     events.onConnected?.({ gameId: this.view.gameId, config: {
@@ -338,6 +345,7 @@ export class FakeGamePort implements GamePort {
       hand: [...this.view.hand, source],
       mainDeck: { count: Math.max(0, this.view.mainDeck.count - 1) },
     }
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} drew ${source.name}`)
     this.publish()
   }
 
@@ -348,6 +356,7 @@ export class FakeGamePort implements GamePort {
     const party = this.mine()
     if (!card || !party) return
     this.removeFromHand(cardId)
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} played ${card.name}`)
     this.replaceParty({
       ...party,
       heroes: [...party.heroes, { card, canRollOn: true }],
@@ -409,6 +418,8 @@ export class FakeGamePort implements GamePort {
   }
 
   private endTurn() {
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} ended their turn`)
+    this.say(this.view.seats[1].playerId, `${this.nameOf(this.view.seats[1].playerId)}'s turn`)
     this.view = {
       ...this.view,
       currentPlayerId: this.view.seats[1].playerId,
@@ -437,6 +448,7 @@ export class FakeGamePort implements GamePort {
     )
     if (!challengedMagic) return
     const opponentId = this.view.parties[1].playerId
+    this.say(opponentId, `${this.nameOf(opponentId)} played ${challengedMagic.name}`)
     this.view = {
       ...this.view,
       currentPlayerId: opponentId,
@@ -490,6 +502,7 @@ export class FakeGamePort implements GamePort {
     const attacker = this.view.parties[1]?.playerId
     const monster = this.view.monsterRow[0]
     if (!attacker || !monster) return
+    this.say(attacker, `${this.nameOf(attacker)} rolled a 6 for ${monster.name}`)
     this.upsertWindow({
       windowId: 'fake-enemy-attack',
       type: 'Attack',
@@ -626,11 +639,20 @@ export class FakeGamePort implements GamePort {
     this.events?.onSnapshot(this.nextSnapshot())
   }
 
+  private say(playerId: string, text: string) {
+    this.log = [...this.log, { seq: this.log.length + 1, at: Date.now(), playerId, text }]
+  }
+
+  private nameOf(playerId: string) {
+    return this.view.seats.find((seat) => seat.playerId === playerId)?.name ?? playerId
+  }
+
   private snapshot(): GameSnapshot {
     return {
       gameId: this.view.gameId,
       version: this.version,
       state: structuredClone(this.view),
+      log: [...this.log],
     }
   }
 

@@ -402,3 +402,95 @@ export const ROLL_MOD_CARDS = {
   step: 2,
   angle: -8,
 };
+
+/* ------------------------------------------------------------------ */
+/* DISCARD PILE BROWSER (DiscardPileModal.tsx) — the owner's painted     */
+/* panel plus the six filter plaques under /board/Discard Pile/. Same   */
+/* mechanic as every other painted widget: the panel is a hard cqh box  */
+/* at the art's own aspect, and everything inside is placed by a        */
+/* fraction of that box measured off the PNG, the way INSET was.        */
+/* ------------------------------------------------------------------ */
+
+const PILE = "/board/Discard Pile/";
+
+export const DISCARD_ART = {
+  frame: PILE + "Pile Border.png", // 1672x941 aspect 1.777
+  All: PILE + "All Button.png", // every plaque 2508x627, aspect 4.0
+  Hero: PILE + "Hero Button.png",
+  Item: PILE + "Item Button.png",
+  Magic: PILE + "Magic Button.png",
+  Modifier: PILE + "Modifier Button.png",
+  Challenge: PILE + "Challenge Button.png",
+} as const;
+
+const PANEL_H = 90; // cqh — leaves a margin of felt top and bottom
+const PANEL_ASPECT = 1672 / 941;
+const PLAQUE_ASPECT = 2508 / 627; // = HUD_ASPECT.actionFrame
+
+/**
+ * The frame's inner window as a fraction of the panel box. Measured off the
+ * PNG: the plain gold band leaves x 0.071..0.942 and y 0.104..0.927, but four
+ * ruby gems bite further in — the side pair to x 0.094 / 0.904 at mid-height,
+ * the top and bottom pair to y 0.153 / 0.848 at mid-width. The content box
+ * clears the SIDE gems (they would cross the card grid) and only the band top
+ * and bottom, because the one row that reaches up there is the title/close
+ * row, which parts around the top gem.
+ */
+const PANEL_WINDOW = { l: 0.099, r: 0.901, t: 0.112, b: 0.918 };
+
+/**
+ * Each plaque was painted on its own canvas, so the gold sits at a different
+ * size on every one: this is the painted area (alpha bounds) as a fraction of
+ * the 2508x627 sheet, and it runs from 0.565 wide on MAGIC to 0.672 on
+ * CHALLENGE. Drawn at one box size they would read as six different buttons.
+ */
+export const DISCARD_BUTTON_INK: Record<string, { w: number; h: number }> = {
+  All: { w: 0.591, h: 0.718 },
+  Hero: { w: 0.654, h: 0.842 },
+  Item: { w: 0.621, h: 0.802 },
+  Magic: { w: 0.565, h: 0.777 },
+  Modifier: { w: 0.575, h: 0.716 },
+  Challenge: { w: 0.672, h: 0.73 },
+};
+
+/** how much of its slot in the row a plaque's PAINT should cover */
+const PLAQUE_FILL = 0.86;
+/** the extra step the chosen plaque takes toward the player */
+export const PLAQUE_PICKED = 1.07;
+
+/** one plaque's visual weight: the geometric mean of its painted box, so a
+ *  wide-and-short sheet and a narrow-and-tall one compare fairly */
+const inkWeight = (key: string) => {
+  const ink = DISCARD_BUTTON_INK[key];
+  return ink ? Math.sqrt(ink.w * ink.h) : 1;
+};
+
+/**
+ * Scale for a plaque's sheet so its PAINT covers `PLAQUE_FILL` of its slot —
+ * always > 1, because roughly a third of every sheet is transparent margin.
+ * Dividing by the plaque's own weight is what makes six differently painted
+ * sheets read at one weight in a row.
+ */
+export const inkScale = (key: string) => PLAQUE_FILL / inkWeight(key);
+
+const PLAQUE_SLOT_W =
+  (PANEL_H * PANEL_ASPECT * (PANEL_WINDOW.r - PANEL_WINDOW.l)) / 6;
+
+export const DISCARD_PANEL = {
+  h: PANEL_H,
+  aspect: PANEL_ASPECT,
+  window: PANEL_WINDOW,
+  plaqueAspect: PLAQUE_ASPECT,
+  /**
+   * The plaque row's height (cqh). `object-contain` fits each sheet to the
+   * slot WIDTH, so a sheet is slot/4 tall before `inkScale` blows it up; the
+   * row has to be tall enough for the biggest of those, picked, or a plaque
+   * would spill over the count under it.
+   */
+  plaqueRowH:
+    (PLAQUE_SLOT_W / PLAQUE_ASPECT) *
+    PLAQUE_PICKED *
+    Math.max(...Object.keys(DISCARD_BUTTON_INK).map(inkScale)),
+  /** the card grid inside the window; gaps in cqh */
+  grid: { cols: 7, gapX: 1.5, gapY: 2.2 },
+};

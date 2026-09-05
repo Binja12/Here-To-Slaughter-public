@@ -1,17 +1,92 @@
-import React, { useEffect, useState } from 'react'
-import { CardType, CardView } from '../contract'
+import React, { useEffect, useMemo, useState } from 'react'
+import { CardView } from '../contract'
 import { artFor } from './assets'
-import { tkey, useTargetable } from './targeting'
+import { DISCARD_ART, DISCARD_PANEL, PLAQUE_PICKED, inkScale } from './layout'
+import { tkey, useTargetable, useTargeting } from './targeting'
 
-const DISCARD_TYPES: CardType[] = [
-  'Hero',
-  'Item',
-  'Magic',
-  'Modifier',
-  'Challenge',
-]
+/** the card types that ever reach the pile — one painted plaque each */
+const DISCARD_TYPES = ['Hero', 'Item', 'Magic', 'Modifier', 'Challenge'] as const
 
-type Filter = 'All' | CardType
+type DiscardType = (typeof DISCARD_TYPES)[number]
+type Filter = 'All' | DiscardType
+
+const FILTERS: Filter[] = ['All', ...DISCARD_TYPES]
+
+const { window: WINDOW, grid: GRID } = DISCARD_PANEL
+
+/** the frame's inner window, as CSS box percentages of the panel */
+const WINDOW_BOX: React.CSSProperties = {
+  left: `${WINDOW.l * 100}%`,
+  top: `${WINDOW.t * 100}%`,
+  width: `${(WINDOW.r - WINDOW.l) * 100}%`,
+  height: `${(WINDOW.b - WINDOW.t) * 100}%`,
+}
+
+/**
+ * One filter plaque. The word is PAINTED into the art, so the button carries
+ * no text of its own — the count sits under it and the name rides on the
+ * button. The chosen one burns bright and steps forward; the rest sit back,
+ * and a type with nothing in the pile greys out (still pressable — it just
+ * says so once you are there).
+ */
+function FilterPlaque({
+  filter,
+  count,
+  selected,
+  onSelect,
+}: {
+  filter: Filter
+  count: number
+  selected: boolean
+  onSelect: (filter: Filter) => void
+}) {
+  const empty = count === 0
+  return (
+    <div className="flex min-w-0 flex-1 flex-col items-center">
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={`${filter}, ${count} ${count === 1 ? 'card' : 'cards'}`}
+        className="group relative w-full focus:outline-none"
+        style={{ height: `${DISCARD_PANEL.plaqueRowH}cqh` }}
+        onClick={() => onSelect(filter)}
+      >
+        {/* `object-contain` fits the sheet to the slot WIDTH, and about a
+            third of every sheet is transparent margin — `inkScale` blows it
+            back up until the PAINT fills the slot, at one weight across all
+            six however differently each was painted. */}
+        <img
+          src={DISCARD_ART[filter]}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className={`absolute inset-0 h-full w-full select-none object-contain transition duration-150 ease-out group-focus-visible:drop-shadow-[0_0_0.5cqw_rgba(255,230,150,0.9)] ${
+            selected
+              ? 'brightness-[1.12] drop-shadow-[0_0_0.55cqw_rgba(255,185,60,0.85)]'
+              : empty
+                ? 'opacity-45 grayscale'
+                : 'brightness-[0.82] saturate-[0.88] group-hover:brightness-[1.05] group-hover:saturate-100'
+          }`}
+          style={{
+            transform: `scale(${inkScale(filter) * (selected ? PLAQUE_PICKED : 1)})`,
+          }}
+        />
+      </button>
+      <span
+        aria-hidden
+        className={`font-heading text-[0.72cqw] leading-none tracking-[0.1em] transition-colors ${
+          selected
+            ? 'text-amber-200 drop-shadow-[0_0_0.3cqw_rgba(255,190,70,0.7)]'
+            : empty
+              ? 'text-stone-600'
+              : 'text-stone-400'
+        }`}
+      >
+        {count}
+      </span>
+    </div>
+  )
+}
 
 function DiscardCard({
   card,
@@ -20,18 +95,31 @@ function DiscardCard({
   onPicked,
 }: {
   card: CardView
+  /** the card's place in the WHOLE pile — what a discard target is keyed by */
   index: number
   top: boolean
   onPicked: () => void
 }) {
   const target = useTargetable(tkey.discardCard(index))
+  const pickable = target.mode === 'target'
 
   return (
     <article
-      className={`relative min-w-0 rounded-[0.4cqw] ${target.className}`}
+      title={card.name}
+      tabIndex={pickable ? 0 : -1}
+      className={`relative min-w-0 rounded-[0.4cqw] transition-transform duration-150 ease-out hover:-translate-y-[0.5cqh] focus:outline-none ${target.className}`}
       onClick={(event) => {
         target.onClick(event)
-        if (target.mode === 'target') onPicked()
+        if (pickable) onPicked()
+      }}
+      onKeyDown={(event) => {
+        // the pile that opens this browser is keyboard-operable, so the card
+        // you answer with has to be too
+        if (!pickable || (event.key !== 'Enter' && event.key !== ' ')) return
+        event.preventDefault()
+        event.stopPropagation()
+        target.onClick(event as unknown as React.MouseEvent)
+        onPicked()
       }}
     >
       <img
@@ -57,6 +145,7 @@ export default function DiscardPileModal({
   onClose: () => void
 }) {
   const [filter, setFilter] = useState<Filter>('All')
+  const { active } = useTargeting()
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -66,13 +155,37 @@ export default function DiscardPileModal({
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [onClose])
 
-  const visibleCards = filter === 'All'
-    ? cards
-    : cards.filter((card) => card.type === filter)
+  // A pick out of the pile is answered in HERE, so a filter left over from
+  // browsing must never be what hides the card the engine is asking for.
+  const picking = !!active?.targets.some((key) => key.startsWith('discardCard:'))
+  useEffect(() => {
+    if (picking) setFilter('All')
+  }, [picking])
+
+  // number every card by its place in the pile ONCE — the grid filters that
+  // list, so a card keeps its pile index whatever the filter shows
+  const pile = useMemo(() => cards.map((card, index) => ({ card, index })), [cards])
+  const counts = useMemo(() => {
+    const tally: Record<string, number> = { All: cards.length }
+    for (const type of DISCARD_TYPES) tally[type] = 0
+    for (const card of cards) tally[card.type] = (tally[card.type] ?? 0) + 1
+    return tally
+  }, [cards])
+
+  const visible =
+    filter === 'All' ? pile : pile.filter((entry) => entry.card.type === filter)
 
   return (
     <div
-      className="absolute inset-0 z-[240] flex items-center justify-center bg-black/80 backdrop-blur-[0.12cqw]"
+      // The browser floats over everything — a challenge on stage, a reaction
+      // window, an aim somewhere else on the table — and its whole subtree
+      // opts out of those dims, or every card in here renders at
+      // brightness(0.35) and reads as "the art failed to load". The one dim
+      // it keeps is its OWN pick: then the dark is what marks the single card
+      // in the pile you may take.
+      className={`absolute inset-0 z-[240] flex items-center justify-center bg-black/80 backdrop-blur-[0.12cqw]${
+        picking ? '' : ' dim-exempt'
+      }`}
       role="presentation"
       onClick={(event) => {
         event.stopPropagation()
@@ -83,70 +196,97 @@ export default function DiscardPileModal({
         aria-label="Discard pile"
         aria-modal="true"
         role="dialog"
-        className="relative flex h-[86%] w-[90%] flex-col overflow-hidden rounded-[0.8cqw] border-[0.1cqw] border-amber-400/70 bg-zinc-950/95 px-[1.4cqw] pb-[1.2cqh] pt-[1.3cqh] text-stone-100 shadow-[0_0_2cqw_rgba(0,0,0,0.9),inset_0_0_1.2cqw_rgba(180,100,20,0.16)]"
+        className="relative text-stone-100"
+        style={{
+          height: `${DISCARD_PANEL.h}cqh`,
+          width: `${DISCARD_PANEL.h * DISCARD_PANEL.aspect}cqh`,
+        }}
         onClick={(event) => event.stopPropagation()}
       >
-        <button
-          autoFocus
-          type="button"
-          aria-label="Close discard pile"
-          className="absolute right-[0.8cqw] top-[0.8cqh] z-10 flex h-[2.1cqw] w-[2.1cqw] items-center justify-center rounded-full border-[0.08cqw] border-amber-300/70 bg-amber-950/90 font-heading text-[1.25cqw] leading-none text-amber-100 transition hover:border-amber-100 hover:bg-amber-800 focus:outline-none focus:ring-[0.12cqw] focus:ring-amber-200"
-          onClick={onClose}
-        >
-          ×
-        </button>
+        {/* a dark plate under the frame so no board shows through the window
+            while the painted panel decodes */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute rounded-[2cqh] bg-[#160b09]"
+          style={WINDOW_BOX}
+        />
+        <img
+          src={DISCARD_ART.frame}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill drop-shadow-[0_0_2.5cqw_rgba(0,0,0,0.95)]"
+        />
 
-        <header className="shrink-0 pr-[3cqw]">
-          <h2 className="font-heading text-[1.5cqw] uppercase tracking-[0.08em] text-amber-300">
-            Discard pile
-          </h2>
-          <p className="mt-[0.15cqh] text-[0.65cqw] text-stone-400">
-            {cards.length} {cards.length === 1 ? 'card' : 'cards'} · top card first
-          </p>
-        </header>
+        <div className="absolute flex flex-col" style={WINDOW_BOX}>
+          <header className="flex shrink-0 items-baseline gap-[1.1cqh] pr-[4.5cqh]">
+            <h2 className="font-heading text-[1.15cqw] uppercase leading-none tracking-[0.16em] text-amber-200 drop-shadow-[0_0.15cqh_0.3cqw_rgba(0,0,0,0.95)]">
+              Discard pile
+            </h2>
+            <p className="font-heading text-[0.62cqw] uppercase leading-none tracking-[0.1em] text-amber-100/50">
+              {filter === 'All'
+                ? `${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`
+                : `${visible.length} of ${cards.length}`}
+              {cards.length > 0 && ' · top card first'}
+            </p>
+          </header>
 
-        <div className="mt-[1cqh] flex shrink-0 flex-wrap gap-[0.45cqw] border-b border-amber-700/40 pb-[1cqh]">
-          {(['All', ...DISCARD_TYPES] as Filter[]).map((type) => {
-            const selected = type === filter
-            const count = type === 'All'
-              ? cards.length
-              : cards.filter((card) => card.type === type).length
-            return (
-              <button
+          <button
+            autoFocus
+            type="button"
+            aria-label="Close discard pile"
+            className="absolute right-0 top-0 z-10 flex h-[3.6cqh] w-[3.6cqh] items-center justify-center rounded-full border-[0.12cqh] border-amber-300/60 bg-[#2a0d0a]/95 pb-[0.25cqh] font-heading text-[1.3cqw] leading-none text-amber-200 shadow-[0_0_0.7cqw_rgba(0,0,0,0.95)] transition hover:border-amber-100 hover:bg-amber-800 hover:text-white focus:outline-none focus-visible:ring-[0.15cqh] focus-visible:ring-amber-200"
+            onClick={onClose}
+          >
+            ×
+          </button>
+
+          <div className="mt-[1.2cqh] flex w-full shrink-0 items-start">
+            {FILTERS.map((type) => (
+              <FilterPlaque
                 key={type}
-                type="button"
-                aria-pressed={selected}
-                className={`rounded-full border px-[0.75cqw] py-[0.32cqh] font-heading text-[0.62cqw] uppercase tracking-[0.06em] transition ${
-                  selected
-                    ? 'border-amber-200 bg-amber-700 text-white shadow-[0_0_0.45cqw_rgba(245,158,11,0.35)]'
-                    : 'border-amber-700/60 bg-zinc-900 text-stone-300 hover:border-amber-300 hover:text-amber-100'
-                }`}
-                onClick={() => setFilter(type)}
-              >
-                {type} <span className="ml-[0.18cqw] opacity-70">{count}</span>
-              </button>
-            )
-          })}
-        </div>
+                filter={type}
+                count={counts[type] ?? 0}
+                selected={type === filter}
+                onSelect={setFilter}
+              />
+            ))}
+          </div>
 
-        <div className="discard-scroll mt-[1.2cqh] min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-[0.45cqw]">
-          {visibleCards.length > 0 ? (
-            <div className="grid grid-cols-6 items-start gap-x-[1cqw] gap-y-[2.1cqh]">
-              {visibleCards.map((card) => (
-                <DiscardCard
-                  key={card.id}
-                  card={card}
-                  index={cards.findIndex((candidate) => candidate.id === card.id)}
-                  top={card.id === cards[0]?.id}
-                  onPicked={onClose}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center font-heading text-[0.9cqw] text-stone-500">
-              No cards of this type
-            </div>
-          )}
+          {/* the gold hairline the plaques stand on */}
+          <div
+            aria-hidden
+            className="mt-[0.8cqh] h-[0.3cqh] w-full shrink-0 bg-gradient-to-r from-transparent via-amber-400/80 to-transparent shadow-[0_0_0.4cqw_rgba(245,158,11,0.35)]"
+          />
+
+          {/* a pickable card's aura spreads ~0.65cqw past it: the scroller is
+              padded so the glow lands inside the clip, not on it */}
+          <div className="discard-scroll mt-[1.4cqh] min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-[0.8cqw] py-[0.6cqh]">
+            {visible.length > 0 ? (
+              <div
+                className="grid items-start"
+                style={{
+                  gridTemplateColumns: `repeat(${GRID.cols}, minmax(0, 1fr))`,
+                  columnGap: `${GRID.gapX}cqh`,
+                  rowGap: `${GRID.gapY}cqh`,
+                }}
+              >
+                {visible.map(({ card, index }) => (
+                  <DiscardCard
+                    key={card.id}
+                    card={card}
+                    index={index}
+                    top={index === 0}
+                    onPicked={onClose}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center font-heading text-[0.95cqw] uppercase tracking-[0.14em] text-stone-500">
+                {cards.length === 0 ? 'The pile is empty' : 'No cards of this type'}
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>
