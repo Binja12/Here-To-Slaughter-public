@@ -5,7 +5,57 @@ Socket.IO server behind one local Caddy address. Only Caddy is bound to the
 host, at `127.0.0.1:8080`; the application and internal TCP ports remain inside
 Docker.
 
-## Why this uses a named tunnel
+There are two ways to put that address on the internet: the one-command
+localhost.run script below, or a named Cloudflare Tunnel.
+
+## The quick route: `scripts/start-internet-playtest.ps1`
+
+```powershell
+.\scripts\start-internet-playtest.ps1
+```
+
+The script brings the stack up, opens an SSH tunnel to localhost.run, feeds
+the hostname it hands back to the game process as `HTSR_PUBLIC_ORIGIN` (the
+Socket.IO CORS origin), recreates `game` with it, then checks the client page,
+the Socket.IO handshake and the lobby API through the public URL before
+printing it.
+
+No account and no domain are needed, but the hostname is random and dies with
+the tunnel — restarting hands out a different one, so the URL cannot be shared
+ahead of time. The tunnel lives in an `ssh.exe` the script tracks by pid in
+`%TEMP%`; closing the terminal does not close it.
+
+```powershell
+.\scripts\start-internet-playtest.ps1 -Stop
+```
+
+That stops the tunnel and the stack together. Use the Cloudflare route below
+instead when a stable hostname is worth the one-time setup.
+
+## Why the art is fast over a tunnel
+
+Everything a remote player fetches goes out over the host computer's upload
+link, and the painted PNG masters under `client/public` weigh 450 MB (a
+card is ~4 MB, the border widgets alone 21 MB). Measured through
+localhost.run: one 1.5 MB button took 2.4 s, and even a
+revalidation that transfers nothing took 0.8 s of round trip. Two things in
+the client image fix that without touching the masters:
+
+- **WebP twins.** The image build runs `scripts/optimize-art.mjs`, which
+  writes `<name>.png.webp` next to every PNG (450 MB → 36 MB, same pixels,
+  no visible loss at q82). nginx hands the twin to any browser that accepts
+  WebP and the PNG to anyone else, so the URLs in the client never change.
+  The twins are git-ignored; `npm start` serves the PNGs and needs nothing.
+- **Versioned URLs.** Every art URL carries `?v=<hash of the PNG masters>`
+  (`client/src/assetUrl.ts`, set by the Dockerfile), and nginx caches a
+  versioned URL for a year. A redrawn card changes the hash, so browsers
+  fetch it fresh; an unversioned request still revalidates every time, which
+  is what keeps art replaced in place from going stale.
+
+A returning player therefore makes no art requests at all, and a first-time
+player downloads about a twelfth of what they used to.
+
+## Why the Cloudflare route uses a named tunnel
 
 HTSR receives lobby updates through Server-Sent Events (SSE). Cloudflare Quick
 Tunnels (`trycloudflare.com`) explicitly do not support SSE, so they cannot run

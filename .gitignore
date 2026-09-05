@@ -48,3 +48,6 @@ CLAUDE.md
 
 #codex
 .codex/**
+
+# WebP twins the image build writes next to the PNG art (scripts/optimize-art.mjs)
+client/public/**/*.png.webp
