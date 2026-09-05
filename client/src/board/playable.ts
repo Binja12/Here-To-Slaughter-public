@@ -11,16 +11,16 @@ export interface PlayableFlags {
   /**
    * The oldest open table window — a roll or a challenge — this seat could
    * still act on and has not yet passed: what the Skip button gives up
-   * (PassWindow), or null. Every seat has the button, the active player
-   * included, since a turn cannot end under an open window. A pass is per
-   * seat; the server settles the window once every seat that could act has
-   * passed, and a card landing in it clears the passes.
+   * (PassWindow), or null. Every seat gets the button, the active player
+   * included. A pass is per seat, so this going null means only that THIS
+   * seat is done — the window stays open on the others' screens, and their
+   * buttons stay lit, until each of them forfeits too (the server settles it
+   * once every seat that could act has passed). A card landing in the window
+   * clears the passes and lights every button again.
    */
   passable: string | null
   /** Every open table window this seat could still act on and has not passed — the Skip button gives them all up at once. */
   passableWindows: string[]
-  /** A table window is open and this seat has passed every one it could act on. */
-  waitingOnPass: boolean
 }
 
 /**
@@ -108,7 +108,6 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     .filter((window) => !passedByMe(window))
     .map((window) => window.windowId)
   const passable = passableWindows[0] ?? null
-  const waitingOnPass = passable === null && tableWindows.length > 0
 
   return {
     mainDeck: afford(AP_COST.draw) && view.hand.length < MAX_HAND_SIZE && view.mainDeck.count > 0,
@@ -127,6 +126,5 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     endTurn: actionWindow,
     passable,
     passableWindows,
-    waitingOnPass,
   }
 }

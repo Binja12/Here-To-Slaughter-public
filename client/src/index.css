@@ -100,7 +100,9 @@ code {
 /* 1. every playable aura goes out — only target auras may glow while aiming.
       MUST come before the dim rule: both are (0,3,0) specific, and a dimmed
       playable card has to end up dimmed (later rule), not aura-less-bright. */
-.targeting .card-aura:not(.target-aura) {
+/* A `live-aura` card — a reaction card kept playable under a question
+   (targeting.tsx `live`) — keeps its green. */
+.targeting .card-aura:not(.target-aura):not(.live-aura) {
   filter: none;
 }
 

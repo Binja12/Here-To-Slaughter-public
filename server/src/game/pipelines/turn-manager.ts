@@ -300,6 +300,9 @@ export class TurnManager implements IGameEventListener {
     // every close, under seamless reactions), which is what ends a turn
     // whose last act was an ability. A spent turn that still has windows
     // open shortens their clocks: the next turn waits for them, not long.
+    // Not while a question stands, anyone's: the play is still being
+    // resolved, so its reactions keep their full clocks and are capped on
+    // the close that settles the last question.
     const spent = this.gs.getActionPoints(playerId) <= 0
     if (!spent) {
       // Points back (a rollback): the end has not come yet after all.
@@ -307,7 +310,12 @@ export class TurnManager implements IGameEventListener {
       return
     }
     if (!this.gs.isBusy()) this.endTurn()
-    else if (this.gs.isSeamless() && !this.endCapped) {
+    else if (this.gs.isSeamless()) {
+      if (this.gs.hasOpenQuestions()) {
+        this.endCapped = false
+        return
+      }
+      if (this.endCapped) return
       this.endCapped = true
       for (const window of this.gs.openWindows()) {
         window.capClock(TURN_END_WINDOW_CAP_MS)

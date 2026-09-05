@@ -757,6 +757,76 @@ describe('seamless reactions', () => {
     expect(roll.capped).toEqual([10_000])
   })
 
+  it('a spent turn under a question caps nothing; the cap lands when the last question settles', () => {
+    const gs = makeGs(1, true)
+    const tm = new TurnManager(gs, new GameEventEmitter())
+    tm.startTurn('p1')
+    const roll = tableWindow(ReactionWindowType.Challenge)
+    const question = tableWindow(ReactionWindowType.CardChoice)
+    gs.addFrame('f1', gs.clone(), [roll.window])
+    gs.addFrame('f2', gs.clone(), [question.window])
+
+    // The last point spent while the play's question is still being answered.
+    expect(tm.enqueue(makeAction(1))).toEqual(accepted())
+    expect(roll.capped).toEqual([])
+    expect(question.capped).toEqual([])
+    tm.resumeDrain()
+    expect(roll.capped).toEqual([])
+
+    question.open = false
+    gs.releaseFrame('f2')
+    tm.resumeDrain()
+    expect(roll.capped).toEqual([10_000])
+    expect(question.capped).toEqual([])
+    expect(tm.getPhase()).toBe(TurnPhase.Action)
+
+    roll.open = false
+    gs.releaseFrame('f1')
+    tm.resumeDrain()
+    expect(tm.getPhase()).toBe(TurnPhase.End)
+  })
+
+  it('a question opened after the cap holds the end again: the table windows are capped once more when it settles', () => {
+    const gs = makeGs(1, true)
+    const tm = new TurnManager(gs, new GameEventEmitter())
+    tm.startTurn('p1')
+    const roll = tableWindow(ReactionWindowType.Modifier)
+    gs.addFrame('f1', gs.clone(), [roll.window])
+    tm.enqueue(makeAction(1))
+    expect(roll.capped).toEqual([10_000])
+
+    // A fight-back's question, asked of somebody after the roll settled its outcome.
+    const question = tableWindow(ReactionWindowType.PlayerChoice)
+    gs.addFrame('f2', gs.clone(), [question.window])
+    tm.resumeDrain()
+    expect(roll.capped).toEqual([10_000])
+
+    question.open = false
+    gs.releaseFrame('f2')
+    tm.resumeDrain()
+    expect(roll.capped).toEqual([10_000, 10_000])
+  })
+
+  it('sizes a new window by the turn: capped on a spent turn, full while a question stands or points remain', () => {
+    // A window sizes itself by the ACTIVE player's budget: the seat the turn names.
+    const spent = makeGs(0, true)
+    spent.setCurrentPlayerId('p1')
+    expect(spent.cappedClock(30_000)).toBe(10_000)
+    expect(spent.cappedClock(5_000)).toBe(5_000)
+
+    const question = tableWindow(ReactionWindowType.CardChoice)
+    spent.addFrame('f1', spent.clone(), [question.window])
+    expect(spent.hasOpenQuestions()).toBe(true)
+    expect(spent.cappedClock(30_000)).toBe(30_000)
+
+    const roll = tableWindow(ReactionWindowType.Attack)
+    const live = makeGs(1, true)
+    live.setCurrentPlayerId('p1')
+    live.addFrame('f1', live.clone(), [roll.window])
+    expect(live.hasOpenQuestions()).toBe(false)
+    expect(live.cappedClock(30_000)).toBe(30_000)
+  })
+
   it('refuses an action while a question of the player stands, and forfeits an optional one', () => {
     const gs = makeGs(3, true)
     const tm = new TurnManager(gs, new GameEventEmitter())

@@ -312,18 +312,33 @@ export class GameState {
   }
 
   /**
-   * A window's clock as the turn allows: once the active player's budget is
-   * gone under seamless reactions, no window runs longer than
-   * TURN_END_WINDOW_CAP_MS, so the next turn is not held for reactions
-   * nobody is making (§11). Every window sizes its clock through here.
+   * A roll or challenge window's clock as the turn allows: once the active
+   * player's budget is gone under seamless reactions AND no question stands
+   * open, no such window runs longer than TURN_END_WINDOW_CAP_MS, so the
+   * next turn is not held for reactions nobody is making (§11). While a
+   * question stands — anyone's — the table is still being asked something
+   * and the reactions to the play keep their full clocks; TurnManager.drain
+   * caps them when the last question settles. Questions themselves are never
+   * capped (ChoiceWindow).
    */
   cappedClock(ms: number): number {
+    return this.turnEnding() ? Math.min(ms, TURN_END_WINDOW_CAP_MS) : ms
+  }
+
+  /** The active player's budget is gone and nobody is being asked anything: the reactions are all that hold the turn. */
+  turnEnding(): boolean {
     const playerId = this.currentPlayerId
-    const ending =
+    return (
       this.seamless &&
       playerId !== undefined &&
-      (this.players.get(playerId)?.getActionPoints() ?? 0) <= 0
-    return ending ? Math.min(ms, TURN_END_WINDOW_CAP_MS) : ms
+      (this.players.get(playerId)?.getActionPoints() ?? 0) <= 0 &&
+      !this.hasOpenQuestions()
+    )
+  }
+
+  /** A question — any open window that is not a challenge, hero roll or attack — stands for somebody. */
+  hasOpenQuestions(): boolean {
+    return this.openWindows().some((w) => !RESTORING_WINDOWS.has(w.getType()))
   }
 
   /**

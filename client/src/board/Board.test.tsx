@@ -67,7 +67,10 @@ test('Skip glows until our pass, then glows again after a modifier clears passes
   fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' }))
   expect(send).toHaveBeenCalledWith({ type: 'PassWindow', payload: { windowId: view.pendingWindows[0].windowId } })
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [view.playerId] } })) }))
-  expect(screen.getByRole('button', { name: 'Waiting for the other players' })).toBeDisabled()
+  // this seat has forfeited, so its slot goes straight back to End Turn — the
+  // other seats keep their own lit Skip until each of them forfeits too
+  expect(screen.queryByRole('button', { name: 'Skip reaction' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'End Turn' })).toBeTruthy()
   expect(document.querySelector('.skip-glow')).toBeNull()
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [] } })) }))
   expect(screen.getByRole('button', { name: 'Skip reaction' }).querySelector('.skip-glow')).toBeTruthy()

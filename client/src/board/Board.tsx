@@ -941,7 +941,16 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
     const { window, pairs, dismiss } = boardChoice
     const source = tkey.pendingWindow(window.windowId)
-    const revision = JSON.stringify(pairs)
+    // The reaction cards in the hand stay playable under the question: a
+    // challenge or modifier against the play that is asking must not wait
+    // for the answer (the owner, 2026-09-05). Pressing one starts the reaction;
+    // the question re-arms once it is done.
+    const live = view.hand.flatMap((card, index) =>
+      flags.hand[index] && (card.type === 'Challenge' || card.type === 'Modifier')
+        ? [tkey.handCard(index)]
+        : [],
+    )
+    const revision = JSON.stringify([pairs, live])
     if ((active?.source === source && active.revision === revision) || answeredChoice.current === window.windowId) return
     const answer = (choice: unknown) => {
       answeredChoice.current = window.windowId
@@ -951,6 +960,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       source,
       tone: 'choice',
       revision,
+      live,
       targets: pairs.map((pair) => pair.key),
       onPick: (key) => {
         const pair = pairs.find((candidate) => candidate.key === key)
@@ -1378,15 +1388,18 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : flags.passable || flags.waitingOnPass ? (
-            // a roll or a challenge is open: nobody can end a turn, so the slot
-            // gives the window up instead (PassWindow) — one window per press,
-            // and once this seat has passed them all it waits for the others
+          ) : flags.passable ? (
+            // a roll or a challenge is open and this seat has not given it up
+            // yet: the slot forfeits instead of ending the turn — one press
+            // takes every window this seat can still pass. Once it HAS passed
+            // them all the slot goes straight back to End Turn (the owner,
+            // 2026-09-05): the wait is the other seats' own reaction clock,
+            // and their buttons stay lit until each of them forfeits too.
             <ImageButton
               src={HUD.skipReaction}
-              label={flags.passable ? 'Skip reaction' : 'Waiting for the other players'}
-              enabled={!!flags.passable}
-              glow={!!flags.passable}
+              label="Skip reaction"
+              enabled
+              glow
               onClick={() => void forfeitWindow()}
             />
           ) : (
@@ -1514,8 +1527,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           </div>
         )}
 
-        {askingCard && boardChoice && (
-          // the asking card, big and bright above the dimmed table
+        {askingCard && boardChoice && !stageOpen && (
+          // The asking card, big and bright above the dimmed table — but NOT
+          // while a challenge or a modified roll holds the stage. Both are
+          // centred (this one spans 10..40cqh, the stage card 21..65cqh), and
+          // when the question is about the very play being contested they are
+          // the same hero: the owner saw it drawn twice, overlapping
+          // (2026-09-05). The stage overlay is already that card, bigger.
           <img
             src={artFor(askingCard).url}
             alt={askingCard.name}
