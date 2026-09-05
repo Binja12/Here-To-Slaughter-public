@@ -1,3 +1,4 @@
+import * as dice from '../../utils/roll-utils'
 import {
   CardBase,
   CardType,
@@ -425,11 +426,13 @@ export const LOWEST = 0.0001
 /** A hero / attack roll of 8. */
 export const MIDDLING = 0.6
 
-export const fixDice = (value: number) =>
-  jest.spyOn(Math, 'random').mockReturnValue(value)
+export const fixDice = (value: number) => {
+  jest.spyOn(dice, 'roll2Dice').mockReturnValue(2 * (Math.floor(value * 6) + 1))
+  return jest.spyOn(Math, 'random').mockReturnValue(value)
+}
 
 /** A fixed sequence, then `rest` for everything after it. */
 export function scriptDice(sequence: number[], rest: number): void {
   const queue = [...sequence]
-  jest.spyOn(Math, 'random').mockImplementation(() => queue.shift() ?? rest)
+  jest.spyOn(dice, 'roll2Dice').mockImplementation(() => 2 * (Math.floor((queue.shift() ?? rest) * 6) + 1))
 }

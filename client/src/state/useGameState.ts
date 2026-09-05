@@ -5,10 +5,12 @@ import type {
   GameCommand,
   GameCommandInput,
   GameSnapshot,
+  GameConnectionInfo,
 } from '../contract'
 import type { GamePort } from '../ports/GamePort'
 
 export type GameApi = {
+  info: GameConnectionInfo | null
   connected: boolean
   snapshot: GameSnapshot | null
   send: (command: GameCommandInput) => Promise<CommandResult>
@@ -22,11 +24,13 @@ declare global {
 }
 
 export function useGameState(port: GamePort, assignment: GameAssigned): GameApi {
+  const [info, setInfo] = useState<GameConnectionInfo | null>(null)
   const [connected, setConnected] = useState(false)
   const [snapshot, setSnapshot] = useState<GameSnapshot | null>(null)
 
   useEffect(() => {
     setSnapshot(null)
+    setInfo(null)
     const accept = (next: GameSnapshot) =>
       setSnapshot((current) => {
         if (current && next.version <= current.version) return current
@@ -34,6 +38,7 @@ export function useGameState(port: GamePort, assignment: GameAssigned): GameApi 
         return next
       })
     const disconnect = port.connect(assignment.webSocketUrl, {
+      onConnected: setInfo,
       onStarted: accept,
       onSnapshot: accept,
       onCompleted: accept,
@@ -58,7 +63,7 @@ export function useGameState(port: GamePort, assignment: GameAssigned): GameApi 
   )
 
   return useMemo(
-    () => ({ connected, snapshot, send }),
-    [connected, snapshot, send],
+    () => ({ connected, snapshot, send, info }),
+    [connected, snapshot, send, info],
   )
 }

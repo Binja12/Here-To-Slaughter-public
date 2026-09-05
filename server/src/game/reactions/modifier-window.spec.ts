@@ -151,6 +151,28 @@ describe('ModifierWindow — standing bonuses stack, each keeping its source', (
   })
 })
 
+describe('ModifierWindow — the turn’s end', () => {
+  it('opens capped once the budget is gone, and a reaction gives it the full wait back', () => {
+    const gs = new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+      true,
+    )
+    gs.registerPlayer(
+      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'party-1', actionPoints: 0 }),
+    )
+    gs.setCurrentPlayerId('p1')
+    const win = makeWindow({ gs, em: new GameEventEmitter(), timeoutMs: 20_000 })
+    expect(win.getDeadline() - Date.now()).toBeLessThanOrEqual(10_000)
+
+    win.submitReaction('p1', { type: 'modifier', value: 1, cardId: 'mod-1', targetPlayerId: 'p1' })
+    expect(win.getDeadline() - Date.now()).toBeGreaterThan(15_000)
+    win.cancel()
+  })
+})
+
 describe('ModifierWindow — targetPlayerId', () => {
   let gs: GameState
   let em: GameEventEmitter

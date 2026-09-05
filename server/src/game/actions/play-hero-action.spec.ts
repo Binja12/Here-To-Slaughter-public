@@ -183,8 +183,8 @@ describe('PlayHeroAction', () => {
       )!
       jest
         .spyOn(Math, 'random')
-        .mockReturnValueOnce(challengerWins ? 0.99 : 0)
-        .mockReturnValueOnce(challengerWins ? 0 : 0.99)
+        .mockReturnValueOnce(challengerWins ? 0.99 : 0).mockReturnValueOnce(challengerWins ? 0.99 : 0)
+        .mockReturnValueOnce(challengerWins ? 0 : 0.99).mockReturnValueOnce(challengerWins ? 0 : 0.99)
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       win.resolve()
     }

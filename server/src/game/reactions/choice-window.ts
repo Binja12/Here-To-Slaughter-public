@@ -99,6 +99,14 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return !this._resolved
   }
 
+  isOptional(): boolean {
+    return false
+  }
+
+  blocksActions(playerId: string): boolean {
+    return playerId === this.respondentId && !this.isOptional()
+  }
+
   /** payload: { choice: unknown } — must be one of the offered options. */
   submitReaction(playerId: string, payload: unknown): RequestResult {
     if (this._resolved) return refused(RefusalReason.NoSuchWindow)

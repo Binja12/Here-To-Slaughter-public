@@ -75,6 +75,8 @@ const makeStubWindow = (
   getId: () => 'w1',
   getType: () => ReactionWindowType.Modifier,
   getRespondentId: () => rollerId,
+  isOptional: () => false,
+  blocksActions: () => false,
   getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
@@ -82,7 +84,7 @@ const makeStubWindow = (
   cancel: () => {}, capClock: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
-  getDeadline: () => 0,
+  getDeadline: () => Date.now() + 60_000,
   acceptsModifierFor: (playerId: string) =>
     playerId === rollerId ? accepted() : refused(RefusalReason.TargetNotRolling),
   cardSpent: jest.fn(),

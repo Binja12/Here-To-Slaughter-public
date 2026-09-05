@@ -16,6 +16,7 @@ import {
   HudDef,
   INSET,
   PLAYERS,
+  PlayerDef,
   PlayerId,
   positionStyle,
   TABLE_BG,
@@ -28,9 +29,19 @@ import PlayerHand from './PlayerHand'
 import HandCount from './HandCount'
 import DiceRoll from './DiceRoll'
 import TurnTimer from './TurnTimer'
+import CardReactionTimer from './CardReactionTimer'
+import GameConfigMenu from './GameConfigMenu'
 import ChallengeWindow from './ChallengeWindow'
+import ModifierWindow from './ModifierWindow'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
-import { liveRollOf, rollLabel, subjectIdOf, useLiveDice } from './liveRoll'
+import {
+  liveRollOf,
+  rollHasModifierCard,
+  rollLabel,
+  rollOutcome,
+  subjectIdOf,
+  useLiveDice,
+} from './liveRoll'
 import { passiveSourceIds } from './passiveRelevance'
 import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
@@ -42,7 +53,7 @@ import {
   useTargetable,
   useTargeting,
 } from './targeting'
-import { useGameView } from '../state/game'
+import { useGameView, useGameInfo } from '../state/game'
 import { useSend } from '../state/commands'
 import {
   CardView,
@@ -140,19 +151,16 @@ function SlotCard({
 }) {
   // A slot card (the monster row) shrinks back as soon as the cursor leaves
   // its resting footprint, not its enlarged box.
-  const hz = useHoverZoom<HTMLImageElement>(undefined, undefined, { stickyBounds: 'rest' })
+  const hz = useHoverZoom<HTMLDivElement>(undefined, undefined, { stickyBounds: 'rest' })
   const target = useTargetable(targetKey, onActivate)
   const zoomable = zoom !== undefined && !(target.targeting && target.mode === 'dimmed')
   const art = artFor(card)
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <img
+      <div
         ref={zoomable ? hz.ref : undefined}
-        src={art.url}
-        alt={alt ?? card.name}
-        draggable={false}
         className={`select-none rounded-[0.3cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-150 ${
-          stretch ? 'h-full w-full object-fill' : 'max-h-[90%] max-w-[90%] object-contain'
+          stretch ? 'relative h-full w-full' : 'relative h-[90%] w-[90%]'
         }${enemy ? ' enemy-aura card-aura-sm' : playable ? ' card-aura card-aura-sm' : passive ? ' passive-aura card-aura-sm' : ''} ${target.className}`}
         style={{
           transformOrigin: origin,
@@ -162,21 +170,45 @@ function SlotCard({
         onMouseEnter={zoomable ? hz.onMouseEnter : undefined}
         onMouseLeave={zoomable ? hz.onMouseLeave : undefined}
         onContextMenu={zoomable ? hz.onContextMenu : undefined}
-      />
+      >
+        <img src={art.url} alt={alt ?? card.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
+        <CardReactionTimer cardId={card.id} zoomed={zoomable && hz.active} />
+      </div>
     </div>
   )
 }
 
-/** Each slain-monster trophy covers a tenth of the one before it. */
+/** Each slain-monster trophy covers at least a tenth of the one before it. */
 const TROPHY_OVERLAP = 0.1
+/** …and at most this much of it: a strip of every trophy always shows. */
+const TROPHY_MIN_STEP = 0.3
+
+/** The stage is 16:9: its width in cqh. */
+const STAGE_W_CQH = (100 * 16) / 9
+
+/**
+ * How far a seat's trophies may fan, in TROPHY WIDTHS from the leader's
+ * centre: the felt between the leader and the stage edge on the reveal
+ * side, over the width of the leader's inner window (the trophies' box).
+ */
+function trophyRoom(layout: PlayerDef, revealSide: 'left' | 'right'): number {
+  const { anchor, leader } = layout
+  const cx =
+    anchor === 'left' ? leader.dx : anchor === 'right' ? STAGE_W_CQH - leader.dx : STAGE_W_CQH / 2 + leader.dx
+  const room = revealSide === 'right' ? STAGE_W_CQH - cx : cx
+  return room / (widthCqh(leader) * INSET.leader.w)
+}
 
 /**
  * A party leader with its slain monsters tucked behind it. The leader zooms
  * on hover like a hero (`useHoverZoom`, capped by the caller so the enlarged
  * card stays inside the stage); while zoomed the trophies fan out beside it
- * at 80% of its size, the first flush against it and each next one a card
- * step further, overlapping by `TROPHY_OVERLAP`. A trophy that is a pick
- * target while the leader is at rest steps out at its own size instead.
+ * at the SAME size, the first flush against it and each next one a card
+ * step further. The step shrinks as trophies pile up so the fan always fits
+ * the felt (`room`), the way the hero row overlaps from five cards on —
+ * each covering the edge of the one under it (the owner, 2026-09-05). A
+ * trophy that is a pick target while the leader is at rest steps out at its
+ * own size instead.
  */
 function LeaderWithCards({
   slot,
@@ -187,12 +219,15 @@ function LeaderWithCards({
   passive = false,
   enemy = false,
   zoom,
+  room,
   onActivate,
 }: {
   slot: PlayerId
   party: PartyView
   origin: string
   revealSide: 'left' | 'right'
+  /** felt on the reveal side, in trophy widths from the leader's centre */
+  room: number
   playable: boolean
   /** its standing effect feeds the open roll: gold */
   /** the leader's standing effect is working right now (feeds the open roll): pink */
@@ -207,14 +242,18 @@ function LeaderWithCards({
   const leaderArt = artFor(party.leader)
   const trophyRefs = useRef<Array<HTMLDivElement | null>>([])
   const getTrophies = useCallback(() => trophyRefs.current, [])
-  const hz = useHoverZoom<HTMLImageElement>(undefined, getTrophies)
+  const hz = useHoverZoom<HTMLDivElement>(undefined, getTrophies)
   const dimmed = leaderTarget.targeting && leaderTarget.mode === 'dimmed'
   const zoomed = hz.active && !dimmed
-  const trophyScale = zoom * 0.8
+  const trophyScale = zoom
   // centre-to-centre distances in trophy widths: inner edges touching the
-  // zoomed leader (minus a hair, glued), then one overlapped step each
+  // zoomed leader (minus a hair, glued), then one step each — a tenth
+  // overlapped, or as much more as it takes for the last one to stay on
+  // the felt (never past TROPHY_MIN_STEP: a strip of each always shows)
   const firstShift = (zoom + trophyScale) / 2 - 0.12
-  const step = trophyScale * (1 - TROPHY_OVERLAP)
+  const count = party.monsters.length
+  const fitStep = count > 1 ? (room - firstShift - trophyScale / 2 - 0.5) / (count - 1) : Infinity
+  const step = Math.max(trophyScale * TROPHY_MIN_STEP, Math.min(trophyScale * (1 - TROPHY_OVERLAP), fitStep))
 
   return (
     <div className="relative h-full w-full">
@@ -233,11 +272,8 @@ function LeaderWithCards({
           origin={origin}
         />
       ))}
-      <img
+      <div
         ref={hz.ref}
-        src={leaderArt.url}
-        alt={party.leader.name}
-        draggable={false}
         className={`absolute inset-0 z-20 h-full w-full select-none rounded-[0.3cqw] object-fill shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out ${
           enemy ? 'enemy-aura card-aura-sm ' : playable ? 'card-aura card-aura-sm ' : passive ? 'passive-aura card-aura-sm ' : ''
         }${leaderTarget.className}`}
@@ -249,7 +285,10 @@ function LeaderWithCards({
         onMouseLeave={hz.onMouseLeave}
         onContextMenu={hz.onContextMenu}
         onClick={leaderTarget.onClick}
-      />
+      >
+        <img src={leaderArt.url} alt={party.leader.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
+        <CardReactionTimer cardId={party.leader.id} zoomed={zoomed} />
+      </div>
     </div>
   )
 }
@@ -414,8 +453,8 @@ function DiscardPile({
         const art = artFor(card)
         const top = index === visible.length - 1
         return (
+          <div key={card.id} className="absolute inset-0" style={{ transform: pileJitter(index, top) }}>
           <img
-            key={card.id}
             src={art.url}
             alt={top ? `${card.name}, discard top` : ''}
             aria-hidden={!top}
@@ -423,8 +462,9 @@ function DiscardPile({
             className={`absolute inset-0 h-full w-full select-none rounded-[0.3cqw] object-contain shadow-[0.1cqw_0.2cqw_0.5cqw_rgba(0,0,0,0.6)]${
               top && enemy ? ' enemy-aura' : playable && top ? ' card-aura' : ''
             }`}
-            style={{ transform: pileJitter(index, top) }}
           />
+          {top && <CardReactionTimer cardId={card.id} />}
+          </div>
         )
       })}
     </div>
@@ -459,11 +499,13 @@ function pileJitter(index: number, top: boolean): string {
 }
 
 function HudWidget({
+  aboveChallenge = false,
   def,
   aspect,
   title,
   children,
 }: {
+  aboveChallenge?: boolean
   def: HudDef
   aspect: number
   title?: string
@@ -471,7 +513,7 @@ function HudWidget({
 }) {
   return (
     <div
-      className="absolute z-40 -translate-x-1/2 -translate-y-1/2"
+      className={`absolute -translate-x-1/2 -translate-y-1/2 ${aboveChallenge ? 'dim-exempt z-[160]' : 'z-40'}`}
       title={title}
       style={{
         height: `${def.h}cqh`,
@@ -537,9 +579,11 @@ function ImageButton({
   src,
   label,
   enabled,
+  glow = false,
   onClick,
 }: {
   src: string
+  glow?: boolean
   label: string
   enabled: boolean
   onClick: () => void
@@ -557,7 +601,7 @@ function ImageButton({
         alt=""
         aria-hidden
         draggable={false}
-        className="dimmable absolute inset-0 h-full w-full object-contain group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)]"
+        className={`dimmable absolute inset-0 h-full w-full object-contain${glow ? ' skip-glow' : ''} group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)]`}
       />
     </button>
   )
@@ -682,6 +726,7 @@ export default function Board({ onLeave }: { onLeave?: () => void }) {
 
 function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const view = useGameView()
+  const info = useGameInfo()
   const send = useSend()
   const flags = derivePlayable(view)
   const discardCards = discardCardsForView(view)
@@ -702,6 +747,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const challengeOpen = !!challenge.active && !overlayHidden
   const liveRoll = liveRollOf(view)
   const dice = useLiveDice(view, liveRoll)
+  // The roll somebody has modified takes the stage (ModifierWindow), put
+  // away and brought back exactly like the challenge overlay; a new roll
+  // always shows itself. A challenge on stage takes precedence.
+  const modifiedRoll = liveRoll && rollHasModifierCard(liveRoll, view) ? liveRoll : null
+  const [modifierHidden, setModifierHidden] = useState(false)
+  const modifiedRollId = modifiedRoll?.windowId
+  useEffect(() => {
+    setModifierHidden(false)
+  }, [modifiedRollId])
+  const modifierOpen = !!modifiedRoll && !modifierHidden && !challengeOpen
+  const stageOpen = challengeOpen || modifierOpen
   const [toast, setToast] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
   const [modifierChoice, setModifierChoice] = useState<{
@@ -744,36 +800,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
   }
   const passiveIds = passiveSourceIds(view)
-  const diceTone = liveRoll && liveRoll.rollerId !== view.playerId ? 'enemy' : 'mine'
+  const diceOutcome = liveRoll ? rollOutcome(liveRoll, view) : 'none'
 
   // A reaction being aimed (modifier / challenge card pressed, board dimmed,
   // targets gold) or a value being picked loses its target when its window
   // lapses mid-resolution: the aim ends with it, the dim with the aim. The
   // test is the TARGETS, not "some window is open" — another window (an
   // unstarted challenge, say) can outlive the roll the modifier was for.
-  const validReactionTargets = useMemo(() => {
-    const keys = new Set<string>()
-    for (const window of view.pendingWindows) {
-      if (window.type === 'Modifier' || window.type === 'Attack') {
-        const key = targetKeyForId(view, subjectIdOf(window))
-        if (key) keys.add(key)
-      } else if (window.type === 'Challenge') {
-        if (window.detail?.challenged === true) {
-          keys.add(tkey.challengeRoll('challenged'))
-          keys.add(tkey.challengeRoll('challenger'))
-        } else {
-          const key = targetKeyForId(view, window.cardId)
-          if (key) keys.add(key)
-        }
-      }
-    }
-    return keys
-  }, [view])
-  useEffect(() => {
-    if (active?.tone === 'reaction' && !active.targets.some((key) => validReactionTargets.has(key))) {
-      cancel()
-    }
-  }, [validReactionTargets, active, cancel])
   const modifierTargetGone =
     !!modifierChoice &&
     !view.pendingWindows.some(
@@ -827,9 +860,29 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
    * dismissed "roll on the hero you just played?", so Buttons never pulled).
    */
   const forfeitWindow = async (): Promise<boolean> => {
-    if (!flags.passable) return false
-    const result = await send({ type: 'PassWindow', payload: { windowId: flags.passable } })
-    return handleResult(result)
+    if (flags.passableWindows.length === 0) return false
+    // Every table window this seat could still act on, in one press
+    // (the owner, 2026-09-05): under seamless reactions several stand open.
+    for (const windowId of flags.passableWindows) {
+      const result = await send({ type: 'PassWindow', payload: { windowId } })
+      if (!handleResult(result)) return false
+    }
+    return true
+  }
+
+  /**
+   * A modifier card aimed at a roll. One printed value: it lands as it is,
+   * nothing to choose (the owner, 2026-09-05); two: the value dialog.
+   */
+  const aimModifier = (card: ModifierCardData, targetPlayerId: string) => {
+    if (card.values.length === 1) {
+      void run({
+        type: 'ApplyModifier',
+        payload: { cardId: card.id, targetPlayerId, value: card.values[0] },
+      })
+      return
+    }
+    setModifierChoice({ card, targetPlayerId })
   }
 
   const run = async (command: GameCommandInput): Promise<boolean> => {
@@ -855,6 +908,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           const key = targetKeyForId(view, option)
           return key ? [{ key, option }] : []
         })
+        // a pick from the discard pile is a board choice too: the pile glows,
+        // opening it shows the pickable cards gold (the owner, 2026-09-05)
         if (pairs.length === window.options.length) return { window, pairs, dismiss: undefined }
       }
       // a yes/no about a board card that CANNOT be walked away from — the
@@ -884,7 +939,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
     const { window, pairs, dismiss } = boardChoice
     const source = tkey.pendingWindow(window.windowId)
-    if (active?.source === source || answeredChoice.current === window.windowId) return
+    const revision = JSON.stringify(pairs)
+    if ((active?.source === source && active.revision === revision) || answeredChoice.current === window.windowId) return
     const answer = (choice: unknown) => {
       answeredChoice.current = window.windowId
       void run({ type: 'SubmitChoice', payload: { windowId: window.windowId, choice } })
@@ -892,6 +948,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     begin({
       source,
       tone: 'choice',
+      revision,
       targets: pairs.map((pair) => pair.key),
       onPick: (key) => {
         const pair = pairs.find((candidate) => candidate.key === key)
@@ -1080,12 +1137,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         begin({
           source,
           tone: 'reaction',
+          sourceCardId: card.id,
           targets: (['challenged', 'challenger'] as const).map((role) =>
             tkey.challengeRoll(role),
           ),
           onPick: (target) => {
             const role = target.split(':')[1] as ChallengeRole
-            setModifierChoice({ card, targetPlayerId: sideOf[role] })
+            aimModifier(card, sideOf[role])
           },
         })
         return
@@ -1100,15 +1158,11 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       begin({
         source,
         tone: 'reaction',
+        sourceCardId: card.id,
         targets: pairs.map((pair) => pair.key),
         onPick: (target) => {
           const pair = pairs.find((candidate) => candidate.key === target)
-          if (pair) {
-            setModifierChoice({
-              card,
-              targetPlayerId: pair.window.respondentId,
-            })
-          }
+          if (pair) aimModifier(card, pair.window.respondentId)
         },
       })
     } else if (card.type === 'Challenge') {
@@ -1116,6 +1170,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         (window) =>
           window.type === 'Challenge' &&
           window.cardId &&
+          window.respondentId !== view.playerId &&
+          window.deadline > Date.now() &&
+          window.detail?.challengeable !== false &&
           window.detail?.challenged !== true,
       )
       const pairs = windows.flatMap((window) => {
@@ -1125,6 +1182,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       begin({
         source,
         tone: 'reaction',
+        sourceCardId: card.id,
         targets: pairs.map((pair) => pair.key),
         onPick: (target) => {
           const contested = pairs.find((pair) => pair.key === target)?.window
@@ -1139,13 +1197,23 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
   }
 
+  useEffect(() => {
+    if (active?.tone !== 'reaction' || !active.sourceCardId) return
+    const index = view.hand.findIndex((card) => card.id === active.sourceCardId)
+    if (index < 0 || !flags.hand[index]) { cancel(); return }
+    activate(tkey.handCard(index))
+    // Refresh target identities and callbacks together when the board changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view])
+
   return (
     <div
       className={`board-root relative h-screen w-screen overflow-hidden bg-zinc-950${
         active ? ` targeting${active.tone === 'reaction' ? ' reaction-targeting' : ''}` : ''
-      }${active?.tone === 'choice' ? ' choice-targeting' : ''}${challengeOpen ? ' challenge-open' : ''}`}
+      }${active?.tone === 'choice' ? ' choice-targeting' : ''}${stageOpen ? ' challenge-open' : ''}`}
       onClick={active ? cancel : undefined}
     >
+      <GameConfigMenu config={info?.config} />
       <div
         className="dimmable pointer-events-none absolute inset-0"
         style={{ backgroundImage: `url("${TABLE_BG}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
@@ -1221,6 +1289,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                   origin={LEADER_ZOOM_ORIGIN[layout.anchor]}
                   // a zoomed leader is exactly as tall as a zoomed monster
                   zoom={MONSTER_ZOOMED_H / layout.leader.h}
+                  room={trophyRoom(layout, layout.anchor === 'right' ? 'left' : 'right')}
                 />
               </Widget>
               <Widget
@@ -1230,8 +1299,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                 // during a challenge the local hand is part of the bright
                 // layer — raised above the overlay's click shield (z-140) —
                 // and every seat's hand count stays readable (modifier fuel)
-                zIndex={challengeOpen && isMine ? 160 : undefined}
-                dimExempt={challengeOpen}
+                zIndex={stageOpen && isMine ? 160 : undefined}
+                dimExempt={stageOpen}
               >
                 {isMine ? (
                   <PlayerHand
@@ -1261,9 +1330,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             since the owner dropped the turn scroll (2026-09-03) */}
         <HudWidget def={HUD_WIDGETS.challengeButton} aspect={3}>
           <DevButton
-            label="Challenge"
-            enabled={!!liveChallenge && overlayHidden}
-            onClick={() => setOverlayHidden(false)}
+            label={liveChallenge ? 'Challenge' : 'Modifier'}
+            enabled={(!!liveChallenge && overlayHidden) || (!!modifiedRoll && modifierHidden)}
+            onClick={() => {
+              setOverlayHidden(false)
+              setModifierHidden(false)
+            }}
           />
         </HudWidget>
         {FAKE_SERVER && (
@@ -1293,7 +1365,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         >
           <ActionPoints current={mine?.actionPoints ?? 0} />
         </HudWidget>
-        <HudWidget def={HUD_WIDGETS.endTurn} aspect={HUD_ASPECT.button}>
+        <HudWidget def={HUD_WIDGETS.endTurn} aspect={HUD_ASPECT.button} aboveChallenge>
           {view.phase === 'Concluded' ? (
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
@@ -1306,6 +1378,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               src={HUD.skipReaction}
               label={flags.passable ? 'Skip reaction' : 'Waiting for the other players'}
               enabled={!!flags.passable}
+              glow={!!flags.passable}
               onClick={() => void forfeitWindow()}
             />
           ) : (
@@ -1338,11 +1411,15 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             void run({ type: 'SubmitChoice', payload: { windowId, choice } })
           }
         />
-        <DiceRoll roll={dice} tone={diceTone} />
+        <DiceRoll roll={dice} outcome={diceOutcome} />
         <ChallengeWindow
           hidden={overlayHidden}
           onHide={() => setOverlayHidden(true)}
-          onForfeit={flags.passable ? () => void forfeitWindow() : undefined}
+        />
+        <ModifierWindow
+          roll={modifiedRoll}
+          hidden={modifierHidden || challengeOpen}
+          onHide={() => setModifierHidden(true)}
         />
 
         <RevealedCards cards={view.revealedCards ?? []} />

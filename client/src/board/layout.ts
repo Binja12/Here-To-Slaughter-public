@@ -358,13 +358,34 @@ export const HUD_WIDGETS: {
   // at centre-board dy 15, board dy -4).
   actionPoints: { anchor: "top", h: 5, dx: 62, dy: 4.5 },
   endTurn: { anchor: "top", h: 5, dx: 62, dy: 10 },
-  // Left of both, centred on the pair: the gems span dx 52..72 and the
-  // button 54.5..69.5, so a 9cqh square at dx 46 clears them with a gap.
-  turnTimer: { anchor: "top", h: 9, dx: 46, dy: 7.25 },
+  // Left of both, close against the gems' column (the owner's red circle,
+  // 2026-09-05): the gems span dx 52..72, a 9cqh square at dx 50 sits
+  // just off them.
+  turnTimer: { anchor: "top", h: 9, dx: 50, dy: 6.75 },
   redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
-  challengeButton: { anchor: "top", h: 4, dx: -80, dy: 4 },
-  restartButton: { anchor: "top", h: 4, dx: -66, dy: 4 },
+  // Right of the Game Settings menu, on the same row (the owner's blue
+  // rectangle, 2026-09-05). Brings back whichever overlay was put away.
+  challengeButton: { anchor: "top", h: 4.5, dx: -54.5, dy: 4.8 },
+  restartButton: { anchor: "top", h: 4, dx: -38, dy: 4.8 },
 };
+
+/* ------------------------------------------------------------------ */
+/* Modifier window (ModifierWindow.tsx) — the roll being modified takes  */
+/* the stage the way a challenge does: the card rolled on centre-stage,   */
+/* the total in a scroll under it, the modifier cards beside it — first   */
+/* right, second left, and so on outward. All cqh from the STAGE centre.  */
+/* ------------------------------------------------------------------ */
+
+export const MODIFIER_LAYOUT = {
+  /** the card rolled on (hero / leader / monster) */
+  card: { h: 42, dx: 0, dy: -8 },
+  /** the total's scroll, under the card */
+  scroll: { h: 6, dx: 0, dy: 18 },
+  /** the modifier cards: the first at +dx (right), the second at −dx
+   *  (left), each next pair `step` further out and `drop` lower, tilted
+   *  `angle`° away from the centre */
+  modCard: { h: 22, dx: 24, dy: -8, step: 5, drop: 1.5, angle: 8 },
+} as const;
 
 /**
  * Modifier cards played onto the CURRENT BOARD ROLL (no challenge window —

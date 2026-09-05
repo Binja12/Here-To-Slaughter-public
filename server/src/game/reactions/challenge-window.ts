@@ -20,6 +20,7 @@ import { GameState } from '../pipelines/game-state'
 import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { roll2Dice } from '../../utils/roll-utils'
 
 export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
   /**
@@ -82,7 +83,7 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
         },
       ),
     )
-    this.resetTimer()
+    this.startClock(gs.cappedClock(this.clockMs))
     // On a TIMER, never inline: the play that opened this has not returned.
     if (gs.isSeamless() && this.clockMs > 0) {
       this.provisional = setTimeout(() => this.resolveProvisionally(), 0)
@@ -149,6 +150,18 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
 
   pass(playerId: string): void {
     this.passes.add(playerId)
+  }
+
+  canPass(playerId: string): boolean {
+    return this.challenged || playerId !== this.challengedId
+  }
+
+  isOptional(): boolean {
+    return false
+  }
+
+  blocksActions(_playerId: string): boolean {
+    return this.challenged
   }
 
   passedBy(): readonly string[] {
@@ -422,8 +435,8 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     this.challengerId = challengerId
     // A new contest, a new set of seats who may act on it.
     this.passes.clear()
-    this.challengerRoll = Math.floor(Math.random() * 11) + 1
-    this.challengedRoll = Math.floor(Math.random() * 11) + 1
+    this.challengerRoll = roll2Dice()
+    this.challengedRoll = roll2Dice()
 
     // Both sides arrive with whatever standing bonuses they already hold, so
     // the opening totals are the real ones and nobody has to wait for
@@ -471,9 +484,13 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     return this.deadline
   }
 
+  /** A reaction landing gives the table the FULL wait again, even after the turn's end capped it (§11). */
   private resetTimer(): void {
+    this.startClock(this.clockMs)
+  }
+
+  private startClock(ms: number): void {
     if (this.timer) clearTimeout(this.timer)
-    const ms = this.gs.cappedClock(this.clockMs)
     this.deadline = Date.now() + ms
     this.timer = setTimeout(() => this.resolve(), ms)
   }

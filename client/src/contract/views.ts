@@ -58,6 +58,9 @@ export type SeatView = {
 }
 
 export type PendingWindowView = {
+  /** Window-owned policies projected for this viewer. */
+  optional?: boolean;
+  canPass?: boolean;
   windowId: string
   type: ReactionWindowType
   respondentId: string
@@ -78,6 +81,16 @@ export type TurnClockView = {
   /** ms left while a reaction window holds the clock */
   heldMs?: number
 }
+
+export type GameConfigView = {
+  actionPointsPerTurn: number;
+  cardSets: string[];
+  turnTimeMs?: number;
+  reactionTimeMs: number;
+  seamlessReactions: boolean;
+  requireAllWinConditions: boolean;
+  winConditions: { type: string; value: number }[];
+};
 
 export type PlayerView = {
   gameId: string
@@ -109,3 +122,8 @@ export type GameSnapshot = {
   version: number
   state: PlayerView
 }
+
+export type GameConnectionInfo = {
+  gameId: string;
+  config: GameConfigView;
+};

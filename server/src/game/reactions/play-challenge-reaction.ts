@@ -59,7 +59,13 @@ export class PlayChallengeReaction implements IReaction {
     const window = contest.frame.windows.find(
       (w) => w.getType() === ReactionWindowType.Challenge,
     )
-    if (window?.getRespondentId() === this.playerId) {
+    if (!window || window.getDeadline() <= Date.now() || window.getDetail()['challengeable'] === false) {
+      return refused(RefusalReason.NoChallengeWindow)
+    }
+    if (window.getDetail()['challenged'] === true) {
+      return refused(RefusalReason.ChallengeAlreadyStarted)
+    }
+    if (window.getRespondentId() === this.playerId) {
       return refused(RefusalReason.CannotChallengeOwnCard)
     }
     return accepted()

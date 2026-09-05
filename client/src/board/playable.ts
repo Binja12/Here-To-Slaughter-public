@@ -17,6 +17,8 @@ export interface PlayableFlags {
    * passed, and a card landing in it clears the passes.
    */
   passable: string | null
+  /** Every open table window this seat could still act on and has not passed — the Skip button gives them all up at once. */
+  passableWindows: string[]
   /** A table window is open and this seat has passed every one it could act on. */
   waitingOnPass: boolean
 }
@@ -44,17 +46,9 @@ export const MAX_HAND_SIZE = 10
  * Equipment, deck and party rules are NOT duplicated: the server remains the
  * legality authority and refusals come back via ack.
  */
-/**
- * A window the viewer may simply walk away from: a yes/no whose "no" is
- * `dismiss` ("roll on the hero you just played?"). The wire has no
- * explicit flag for this yet (an `optional: boolean` on PendingWindowView
- * would be the honest HTSR-4 change); until then, "has a dismiss option"
- * is the tell.
- */
+/** Optionality is declared by the window and projected by the server. */
 export const isOptionalWindow = (window: PendingWindowView): boolean =>
-  window.type === 'TaskChoice' &&
-  Array.isArray(window.options) &&
-  window.options.includes('dismiss')
+  window.optional === true
 
 /** The viewer's own open windows are all optional: the table stays live. */
 export const onlyOptionalWindows = (view: PlayerView): boolean =>
@@ -63,12 +57,6 @@ export const onlyOptionalWindows = (view: PlayerView): boolean =>
 
 export function derivePlayable(view: PlayerView): PlayableFlags {
   const mine = view.parties.find((party) => party.playerId === view.playerId)
-  const reactionOpen = view.pendingWindows.some(
-    (window) =>
-      window.type === 'Modifier' ||
-      window.type === 'Attack' ||
-      window.type === 'Challenge',
-  )
   // The server's own answer: under seamless reactions the table stays live
   // with windows open. An optional question of ours never freezes it either:
   // pressing any other action forfeits the question (Board dismisses it
@@ -100,18 +88,11 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
       window.type === 'Challenge' &&
       !!window.cardId &&
       window.respondentId !== view.playerId &&
-      window.detail?.challenged !== true,
+      window.detail?.challenged !== true &&
+      window.detail?.challengeable !== false,
   )
-  // MIRROR of ReactionManager.eligiblePassers: everyone may act on a roll; on
-  // a challenge, everyone but the defender until it starts, then only the two
-  // contestants. Passing anything else would be accepted and mean nothing.
   const me = view.playerId
-  const mayActOn = (window: PendingWindowView): boolean => {
-    if (window.type !== 'Challenge') return true
-    const detail = window.detail ?? {}
-    if (detail.challenged === true) return detail.challengerId === me || detail.defenderId === me
-    return window.respondentId !== me
-  }
+  const mayActOn = (window: PendingWindowView): boolean => window.canPass === true
   const passedByMe = (window: PendingWindowView): boolean => {
     const passed = window.detail?.passedBy
     return Array.isArray(passed) && passed.includes(me)
@@ -120,13 +101,13 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     view.phase === 'Turns'
       ? view.pendingWindows.filter(
           (window) =>
-            (window.type === 'Modifier' ||
-              window.type === 'Attack' ||
-              window.type === 'Challenge') &&
             mayActOn(window),
         )
       : []
-  const passable = tableWindows.find((window) => !passedByMe(window))?.windowId ?? null
+  const passableWindows = tableWindows
+    .filter((window) => !passedByMe(window))
+    .map((window) => window.windowId)
+  const passable = passableWindows[0] ?? null
   const waitingOnPass = passable === null && tableWindows.length > 0
 
   return {
@@ -145,6 +126,7 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     redraw: afford(AP_COST.redraw),
     endTurn: actionWindow,
     passable,
+    passableWindows,
     waitingOnPass,
   }
 }

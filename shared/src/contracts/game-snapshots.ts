@@ -27,3 +27,6 @@ export type GameSnapshot<TState = PlayerView> = {
   version: number;
   state: TState;
 };
+
+/** Static game information, sent once per socket connection, including reconnects. */
+export const GAME_CONNECTED = "game:connected";

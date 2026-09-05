@@ -1,10 +1,12 @@
 import {
   CommandResult,
+  GameConnectionInfo,
   GameCommand,
   GameSnapshot,
 } from '../contract'
 
 export type GameEvents = {
+  onConnected?: (info: GameConnectionInfo) => void
   onStarted: (snapshot: GameSnapshot) => void
   onSnapshot: (snapshot: GameSnapshot) => void
   onCompleted: (snapshot: GameSnapshot) => void

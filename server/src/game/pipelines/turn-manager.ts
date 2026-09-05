@@ -43,6 +43,12 @@ export class TurnManager implements IGameEventListener {
    * to, so one that outlives its turn does nothing.
    */
   private turn = 0
+  /**
+   * Whether this turn's end has already capped the open windows. Once: a
+   * reaction landing afterwards gives its window the full wait back, and
+   * the next drain must not take it away again (§11).
+   */
+  private endCapped = false
 
   constructor(
     private gs: GameState,
@@ -190,6 +196,7 @@ export class TurnManager implements IGameEventListener {
 
     this.phase = TurnPhase.Action
     this.turn += 1
+    this.endCapped = false
     this.stopClock()
     this.remainingMs = this.turnTimeMs
     this.emitter.emit(
@@ -294,9 +301,14 @@ export class TurnManager implements IGameEventListener {
     // whose last act was an ability. A spent turn that still has windows
     // open shortens their clocks: the next turn waits for them, not long.
     const spent = this.gs.getActionPoints(playerId) <= 0
-    if (!spent) return
+    if (!spent) {
+      // Points back (a rollback): the end has not come yet after all.
+      this.endCapped = false
+      return
+    }
     if (!this.gs.isBusy()) this.endTurn()
-    else if (this.gs.isSeamless()) {
+    else if (this.gs.isSeamless() && !this.endCapped) {
+      this.endCapped = true
       for (const window of this.gs.openWindows()) {
         window.capClock(TURN_END_WINDOW_CAP_MS)
       }

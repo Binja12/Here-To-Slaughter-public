@@ -11,7 +11,7 @@ import {
 } from 'shared'
 import type { Game } from '../setup/create-game'
 import { GameState } from '../pipelines/game-state'
-import { IEffect, IReactionWindow } from '../interfaces'
+import { IEffect, IReactionWindow, isPassable } from '../interfaces'
 import { isActivatable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
@@ -180,6 +180,8 @@ function pendingWindowView(
   const shown = isYours || TABLE_WINDOWS.has(window.getType())
   return {
     windowId: window.getId(),
+    optional: window.isOptional(),
+    canPass: isPassable(window) && window.canPass(playerId),
     type: window.getType(),
     respondentId: window.getRespondentId(),
     cardId: window.subjectCardId?.(),

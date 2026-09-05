@@ -101,6 +101,9 @@ export type SeatView = {
  * window stops the game — but `options` reaches its respondent only.
  */
 export type PendingWindowView = {
+  /** Window-owned policies projected for this viewer. */
+  optional?: boolean;
+  canPass?: boolean;
   windowId: string;
   type: ReactionWindowType;
   /** The roller, the defender, or the only legal answerer of a choice. */
@@ -142,6 +145,16 @@ export type TurnClockView = {
  * Everything one player's screen is drawn from, at one moment. Sent whole on
  * every update rather than as a diff — the board is small.
  */
+export type GameConfigView = {
+  actionPointsPerTurn: number;
+  cardSets: string[];
+  turnTimeMs?: number;
+  reactionTimeMs: number;
+  seamlessReactions: boolean;
+  requireAllWinConditions: boolean;
+  winConditions: { type: string; value: number }[];
+};
+
 export type PlayerView = {
   gameId: string;
   /** Whose view this is. The one player whose hand is named below. */
@@ -186,4 +199,9 @@ export type PlayerView = {
    * their own stands (an optional one is forfeited by the next action).
    */
   acceptsActions: boolean;
+};
+
+export type GameConnectionInfo = {
+  gameId: string;
+  config: GameConfigView;
 };

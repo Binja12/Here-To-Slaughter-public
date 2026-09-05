@@ -240,7 +240,7 @@ describe('PlayItemAction', () => {
         .find((w) => w.isOpen())!
 
       // Challenger rolls 11, defender 1.
-      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
       window.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       unchallenged()
 

@@ -1,3 +1,5 @@
+import CardReactionTimer from './CardReactionTimer';
+import { useOptionalGameView } from '../state/game';
 import React, { useEffect, useState } from "react";
 import { CHALLENGE_LAYOUT, HUD, HUD_ASPECT } from "./layout";
 import { NONHERO_CARD_ASPECT } from "./assets";
@@ -45,15 +47,14 @@ const seatLabel = (seat: string) =>
 export default function ChallengeWindow({
   hidden = false,
   onHide,
-  onForfeit,
 }: {
   /** put away by the player to look at the table (Board's Challenge button brings it back) */
   hidden?: boolean;
   onHide?: () => void;
-  /** settle the contest now instead of waiting the countdown out (PassWindow) */
-  onForfeit?: () => void;
 }) {
   const { active } = useChallenge();
+  const view = useOptionalGameView();
+  const cardId = view?.pendingWindows.find((window) => window.type === 'Challenge' && window.detail?.challenged === true)?.cardId;
   if (!active || hidden) return null;
 
   return (
@@ -70,24 +71,11 @@ export default function ChallengeWindow({
         }}
       />
 
-      <CenterStage active={active} />
+      <CenterStage active={active} cardId={cardId} />
 
       <RollPanel role="challenged" side={active.challenged} />
       <RollPanel role="challenger" side={active.challenger} />
 
-      {onForfeit && (
-        <button
-          type="button"
-          title="Settle the challenge now"
-          onClick={(e) => {
-            e.stopPropagation();
-            onForfeit();
-          }}
-          className="pointer-events-auto absolute bottom-[5cqh] left-1/2 -translate-x-1/2 rounded-[0.45cqw] border-[0.12cqw] border-amber-300/70 bg-gradient-to-b from-red-800 to-red-950 px-[1.4cqw] py-[0.45cqw] font-heading text-[0.9cqw] uppercase tracking-wide text-amber-100 shadow-[0_0.25cqw_0.6cqw_rgba(0,0,0,0.65)] transition hover:brightness-125"
-        >
-          Forfeit challenge
-        </button>
-      )}
     </div>
   );
 }
@@ -96,7 +84,7 @@ export default function ChallengeWindow({
  *  an angle with `peek` of its width showing. Both are MODIFIER TARGETS,
  *  the same keys as the roll panels: press the challenged card to modify
  *  the defender's roll, the challenge card to modify the challenger's. */
-function CenterStage({ active }: { active: ChallengeState }) {
+function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: string }) {
   const L = CHALLENGE_LAYOUT;
   const challenged = useTargetable(tkey.challengeRoll("challenged"));
   const challenger = useTargetable(tkey.challengeRoll("challenger"));
@@ -139,6 +127,7 @@ function CenterStage({ active }: { active: ChallengeState }) {
           className={`absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.6cqw_1.8cqw_rgba(0,0,0,0.85)] ${challenged.className}`}
           onClick={challenged.onClick}
         />
+        <CardReactionTimer cardId={cardId} />
       </div>
     </div>
   );
@@ -235,9 +224,9 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
 }
 
 /** the roll readout in the board's "your turn" scroll art, revealed only
- *  once the dice have finished tumbling — just the score, with the signed
- *  "± {mod}" suffix ONLY when a modifier has been played (exactly like a
- *  roll on the board's turn banner). Modifier updates re-render the label
+ *  once the dice have finished tumbling — the TOTAL as it stands, dice plus
+ *  every modifier (the owner, 2026-09-05: the cards are on the table for
+ *  anyone who wants the arithmetic). Modifier updates re-render the label
  *  in place — the nonce is unchanged so the dice stay settled. */
 function RollScroll({ roll }: { roll: ChallengeRoll | null }) {
   const [shown, setShown] = useState(false);
@@ -251,11 +240,7 @@ function RollScroll({ roll }: { roll: ChallengeRoll | null }) {
 
   if (!roll || !shown) return null;
   const L = CHALLENGE_LAYOUT;
-  const sum = roll.values[0] + roll.values[1];
-  const label =
-    roll.modifier !== null
-      ? `${sum} ${roll.modifier < 0 ? "-" : "+"} ${Math.abs(roll.modifier)}`
-      : `${sum}`;
+  const label = `${roll.values[0] + roll.values[1] + (roll.modifier ?? 0)}`;
   return (
     <div
       className="absolute -translate-x-1/2 -translate-y-1/2"

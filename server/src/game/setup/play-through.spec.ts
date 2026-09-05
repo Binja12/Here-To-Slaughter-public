@@ -382,7 +382,7 @@ describe('a game played through', () => {
     ).toBe(true)
   })
 
-  it('only one challenge lands on a card, and the second is spent for nothing', async () => {
+  it('only one challenge lands on a card, and the second stays in hand', async () => {
     const t = stacked({
       deck: ['hero-044', 'hero-001', 'challenge-102', 'challenge-103'],
     })
@@ -413,11 +413,10 @@ describe('a game played through', () => {
     await settle(t)
 
     expect(ofType(t, GameEventType.ChallengeStarted)).toHaveLength(1)
-    // Both left the hand. A challenge card is spent when it is played, and the
-    // window simply refuses to start a second contest.
+    // The stale challenge is refused before its card is spent.
     const view = see(t, challenger)
     expect(view.hand.map((c) => c.id)).not.toContain('challenge-102')
-    expect(view.hand.map((c) => c.id)).not.toContain('challenge-103')
+    expect(view.hand.map((c) => c.id)).toContain('challenge-103')
   })
 
   it('never offers a roll on a hero the challenge took away', async () => {

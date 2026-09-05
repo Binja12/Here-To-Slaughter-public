@@ -622,9 +622,9 @@ window (`IPassableWindow`: `pass`, `passedBy`, shown in the detail as
 `passedBy` so a screen can say "waiting for the others"). The window settles
 once every seat that could still act on it has passed — `resolve()`, the same
 call the clock makes, so nothing downstream can tell a pass from a lapse. Who
-could act is derived by `ReactionManager.eligiblePassers` from the window's
-own detail, never stored: every seat on a roll; on a challenge, everyone but
-the defender until it starts, then the two contestants alone. A card landing
+could act is declared by `IPassableWindow.canPass(playerId)`: every seat on a
+roll; on a challenge, everyone but the defender until it starts, then every
+seat. The view projects this as `PendingWindowView.canPass`. A card landing
 in the window clears its passes — the roll changed under them. Only the
 table's windows can be passed (Modifier, Attack, Challenge); a choice is one
 player's question and is answered or dismissed through `submitChoice`, so a
@@ -1639,18 +1639,22 @@ table while the last player connects.
 - `GameStarted` goes out before the first `TurnStarted`.
 
 **Under seamless reactions the active player is BLOCKED, and the clock
-held, by one predicate:** `GameState.refusesActions(player)` — a value
-being chosen for a modifier, a challenge contest running, or a question
-of the player's own standing that is not theirs to skip. Another player's
-question never blocks; a table window never blocks; an optional question
-(`TaskChoiceWindow.isOptional`, DISMISS among its labels) is forfeited by
+held, by one predicate:** `GameState.refusesActions(player)` delegates to
+`IReactionWindow.blocksActions(player)`. Each window declares its own policy:
+value choices, attacks and started contests block; ordinary choices block
+their respondent unless optional. Every window implements `isOptional`,
+projected as `PendingWindowView.optional`. An optional question is forfeited by
 the player's next action (`TurnManager.enqueue` resolves it on its
 silence). The same predicate gates the drain and is what the view shows
 as `PlayerView.acceptsActions`. A turn whose budget is gone with windows
 still open caps every window's clock at `TURN_END_WINDOW_CAP_MS` (10 s;
 `GameState.cappedClock` sizes the clocks of windows that open after) and
 ends on the close that leaves the board idle; a lapsed clock under open
-windows forfeits the budget the same way rather than throwing.
+windows forfeits the budget the same way rather than throwing. The cap is
+applied ONCE per turn (`TurnManager.endCapped`): a reaction landing on a
+capped window gives it the full wait back (`resetTimer` never caps), and
+the next drain leaves it alone — a challenge thrown at 10 s gets its whole
+countdown (the owner, 2026-09-05).
 
 **A turn's clock is CONFIG too, it PAUSES under any window, and a lapse is
 a pass.** `TimeControl.turnTimeMs` is the whole of it: `TurnManager` gives
@@ -1948,3 +1952,14 @@ retrieve task hold a `Party` it had no business holding.
 6. One mechanism, not two — cancellation _is_ rollback; all windows settle the
    same way; confirms and conditions hand off the same way.
 7. A step decides about itself, never about its siblings.
+
+## Connection information and dice
+
+The gateway sends `GAME_CONNECTED` (`game:connected`) once per socket connection,
+including reconnects. It contains the public game config for the settings menu;
+recurring snapshots contain only the current player view. The client keeps
+connection information separately from snapshots.
+
+Hero, leader, attack and challenge rolls use `utils/roll-utils.roll2Dice`: two
+independent uniform d6. The exhaustive distribution test covers all 36 face
+pairs. UI dice totals come from these server rolls.

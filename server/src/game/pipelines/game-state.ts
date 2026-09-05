@@ -249,7 +249,7 @@ export class GameState {
    */
   private revert(frameId: string, frame: GameFrame, keepWaiting: boolean): void {
     const spent = this.spentInto(frame)
-    const later = this.windowsAfter(frameId)
+    const later = this.closeFramesAfter(frameId)
     // Copied while this frame is still held, so the mark on the pipeline
     // parked on it survives the copy and can be kept or dropped by name.
     this.abilityPipelines = copyPipelines(frame.snapshot.pipelines, this.frames).filter(
@@ -268,12 +268,19 @@ export class GameState {
     for (const window of later) window.cancel()
   }
 
-  /** The open windows of the frames after `frameId` — held in the order they opened, so those are later work. */
-  private windowsAfter(frameId: string): IReactionWindow[] {
+  /**
+   * The frames after `frameId` are later work: their entries go now, their
+   * open windows are handed back to be cancelled once the board is whole.
+   * Held in the order they opened, so "after" is a position.
+   */
+  private closeFramesAfter(frameId: string): IReactionWindow[] {
     const later: IReactionWindow[] = []
     let after = false
-    for (const [id, frame] of this.frames) {
-      if (after) later.push(...frame.windows.filter((w) => w.isOpen()))
+    for (const [id, frame] of [...this.frames]) {
+      if (after) {
+        later.push(...frame.windows.filter((w) => w.isOpen()))
+        this.frames.delete(id)
+      }
       if (id === frameId) after = true
     }
     return later
@@ -294,28 +301,13 @@ export class GameState {
    */
   refusesActions(playerId: string): boolean {
     if (!this.seamless) return this.isBusy()
-    return this.openWindows().some(
-      (window) =>
-        window.getType() === ReactionWindowType.ValueChoice ||
-        window.getType() === ReactionWindowType.Attack ||
-        (window.getType() === ReactionWindowType.Challenge &&
-          window.getDetail()['challenged'] === true) ||
-        (this.isQuestionFor(window, playerId) && !(window.isOptional?.() ?? false)),
-    )
+    return this.openWindows().some((window) => window.blocksActions(playerId))
   }
 
   /** The open questions `playerId` may walk away from — forfeited by their next action under seamless reactions. */
   optionalQuestionsFor(playerId: string): IReactionWindow[] {
     return this.openWindows().filter(
-      (window) => this.isQuestionFor(window, playerId) && (window.isOptional?.() ?? false),
-    )
-  }
-
-  /** A choice addressed to `playerId`; a table window (a roll, a challenge) is never one. */
-  private isQuestionFor(window: IReactionWindow, playerId: string): boolean {
-    return (
-      !RESTORING_WINDOWS.has(window.getType()) &&
-      window.getRespondentId() === playerId
+      (window) => window.getRespondentId() === playerId && window.isOptional(),
     )
   }
 
@@ -605,7 +597,11 @@ export class GameState {
     this.discardPile = src.discardPile
     this.monsterDeck = src.monsterDeck
     this.monsterPile = src.monsterPile
-    this.frames = src.frames // outer frames survive; restored frame entry is gone
+    // NOT the frames. The live map already holds exactly the outer frames
+    // (`revert` removed the restored one and everything after it), and a
+    // frame that settled since the snapshot must stay settled — the
+    // snapshot's own map would bring it back closed, and a closed frame
+    // reads as an outcome still pending, for ever (hasPendingOutcome).
   }
 
   // ---------------------------------------------------------------------------

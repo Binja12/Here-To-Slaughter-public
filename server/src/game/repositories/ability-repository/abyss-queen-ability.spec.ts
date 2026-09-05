@@ -279,7 +279,7 @@ describe('Abyss Queen (monster-129)', () => {
 
       const { defenderTotal } = finals(ctx.events)
       // -4 then +1 back.
-      expect(defenderTotal).toBe(6 - 4 + 1)
+      expect(defenderTotal).toBe(8 - 4 + 1)
     })
 
     it('does not answer a modifier the owner aimed at themselves', () => {
@@ -297,7 +297,7 @@ describe('Abyss Queen (monster-129)', () => {
       })
 
       const { defenderTotal } = finals(ctx.events)
-      expect(defenderTotal).toBe(6 + 2)
+      expect(defenderTotal).toBe(8 + 2)
     })
   })
 

@@ -107,7 +107,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
         },
       ),
     )
-    this.resetTimer()
+    this.startClock(this.gs.cappedClock(this.timeoutMs))
     // On a TIMER, never inline: the task that opened this has not returned
     // yet, and the continuation it parks has to be parked before it is woken.
     if (this.optimistic()) {
@@ -176,6 +176,18 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
 
   pass(playerId: string): void {
     this.passes.add(playerId)
+  }
+
+  canPass(_playerId: string): boolean {
+    return true
+  }
+
+  isOptional(): boolean {
+    return false
+  }
+
+  blocksActions(_playerId: string): boolean {
+    return !this.optimistic()
   }
 
   passedBy(): readonly string[] {
@@ -355,9 +367,13 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
 
   // --- Internal ---
 
+  /** A reaction landing gives the table the FULL wait again, even after the turn's end capped it (§11). */
   private resetTimer(): void {
+    this.startClock(this.timeoutMs)
+  }
+
+  private startClock(ms: number): void {
     if (this.timer) clearTimeout(this.timer)
-    const ms = this.gs.cappedClock(this.timeoutMs)
     this.deadline = Date.now() + ms
     this.timer = setTimeout(() => this.resolve(), ms)
   }

@@ -1,3 +1,4 @@
+import { roll2Dice } from '../../utils/roll-utils'
 import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { IReactionManager, ITask } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
@@ -30,7 +31,7 @@ export abstract class RollOnHero {
     if (!(hero instanceof HeroCard)) return
 
     const rollReq = hero.getRollReq()
-    const baseRoll = Math.ceil(Math.random() * 11) + 1
+    const baseRoll = roll2Dice()
 
     em.emit(GameEventFactory.diceRolled(playerId, heroId, baseRoll))
 

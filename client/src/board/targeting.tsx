@@ -67,6 +67,8 @@ export const tkey = {
 };
 
 export interface TargetingRequest {
+  sourceCardId?: string;
+  revision?: string;
   /** the card the action originates from — stays bright, click = cancel */
   source: TargetKey;
   /** valid picks — bright + green aura (later provided by the server) */

@@ -326,7 +326,10 @@ function SettingsPanel({
         label="Seamless reactions"
         value={settings.seamlessReactions}
         options={SEAMLESS_OPTIONS}
-        onChange={(on) => set('seamlessReactions', on)}
+        onChange={(on) => {
+          set('seamlessReactions', on)
+          if (!on) window.alert('Seamless mode is off. This makes the game flow simpler to understand, but gameplay is much slower because actions wait for reaction windows to finish.')
+        }}
         editable={editable}
       />
     </div>

@@ -92,27 +92,47 @@ export function facesOf(sum: number, seed: string): [number, number] {
   return [first, sum - first]
 }
 
-const signed = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value)}`
+/** What the roll is against, as the table says it. Empty when nothing is printed. */
+export function rollNeedLabel(roll: LiveRoll, view: PlayerView): string {
+  if (roll.rollReq !== undefined) return `need ${roll.rollReq}+`
+  const monster = cardById(view, roll.subjectId)
+  if (monster?.type !== 'Monster') return ''
+  return monster.rollCompareMode === 'LowToWin'
+    ? `slay ≤${monster.lowerReq}`
+    : `slay ${monster.higherReq}+ · hit back ≤${monster.lowerReq}`
+}
 
-/** The banner text while a roll is open: what was rolled, against what. */
+export type RollOutcome = 'success' | 'failure' | 'none'
+
+/**
+ * What the roll means as it stands: over a hero's requirement or short of
+ * it; for a monster, in its slay band, its fight-back band, or between the
+ * two (the "nothing happens" band, which has no colour). Read live, so a
+ * modifier landing moves it.
+ */
+export function rollOutcome(roll: LiveRoll, view: PlayerView): RollOutcome {
+  if (roll.rollReq !== undefined) return roll.finalRoll >= roll.rollReq ? 'success' : 'failure'
+  const monster = cardById(view, roll.subjectId)
+  if (monster?.type !== 'Monster') return 'none'
+  if (monster.rollCompareMode === 'LowToWin') {
+    if (roll.finalRoll <= monster.lowerReq) return 'success'
+    return roll.finalRoll >= monster.higherReq ? 'failure' : 'none'
+  }
+  if (roll.finalRoll >= monster.higherReq) return 'success'
+  return roll.finalRoll <= monster.lowerReq ? 'failure' : 'none'
+}
+
+/** Whether a modifier CARD has landed on the roll — standing effects alone are not "someone applied a modifier". */
+export function rollHasModifierCard(roll: LiveRoll, view: PlayerView): boolean {
+  return roll.bonuses.some((bonus) => cardById(view, bonus.cardSource)?.type === 'Modifier')
+}
+
+/** The banner text while a roll is open: the total as it stands, against what. */
 export function rollLabel(roll: LiveRoll, view: PlayerView): string {
   const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
   const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
-  const total = bonusTotal(roll.bonuses)
-  const sum = total === 0 ? `${roll.baseRoll}` : `${roll.baseRoll} ${signed(total)} = ${roll.finalRoll}`
-  let need = ''
-  if (roll.rollReq !== undefined) {
-    need = ` · need ${roll.rollReq}+`
-  } else {
-    const monster = cardById(view, roll.subjectId)
-    if (monster?.type === 'Monster') {
-      need =
-        monster.rollCompareMode === 'LowToWin'
-          ? ` · slay ≤${monster.lowerReq}`
-          : ` · slay ${monster.higherReq}+ · hit back ≤${monster.lowerReq}`
-    }
-  }
-  return `${who} rolled ${sum}${need}`
+  const need = rollNeedLabel(roll, view)
+  return `${who} rolled ${roll.finalRoll}${need ? ` · ${need}` : ''}`
 }
 
 /**

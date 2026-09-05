@@ -8,7 +8,6 @@ import {
   IReactionWindow,
   refused,
   isPassable,
-  IPassableWindow,
 } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from '../reactions/modifier-window'
@@ -254,27 +253,13 @@ export class ReactionManager implements IReactionManager {
       ?.frame.windows.find((w) => w.getId() === windowId)
     if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
     if (!isPassable(window)) return refused(RefusalReason.WindowNotPassable)
+    if (!window.canPass(playerId)) return refused(RefusalReason.WindowNotPassable)
     window.pass(playerId)
     const passed = new Set(window.passedBy())
-    if (this.eligiblePassers(window).every((id) => passed.has(id))) {
+    if (this.gs.getPlayers().filter((player) => window.canPass(player.getId())).every((player) => passed.has(player.getId()))) {
       window.resolve()
     }
     return accepted()
   }
 
-  /**
-   * Who could still act on the window: every seat on a roll (anyone may spend
-   * a modifier on it); on a challenge, everyone but the defender until it
-   * starts (only others may challenge), then the two contestants alone (only
-   * they may modify). Derived from the window's own detail, never stored.
-   */
-  private eligiblePassers(window: IPassableWindow): string[] {
-    const seats = this.gs.getPlayers().map((player) => player.getId())
-    if (window.getType() !== ReactionWindowType.Challenge) return seats
-    const detail = window.getDetail()
-    if (detail['challenged'] === true) {
-      return [detail['challengerId'] as string, detail['defenderId'] as string]
-    }
-    return seats.filter((id) => id !== window.getRespondentId())
-  }
 }

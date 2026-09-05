@@ -258,7 +258,7 @@ describe('TurnManager', () => {
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
           executed.push('window-action')
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, capClock: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', isOptional: () => false, blocksActions: () => false, getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, capClock: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', g.clone(), [stub])
           return []
         },
@@ -290,7 +290,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, capClock: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', isOptional: () => false, blocksActions: () => false, getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, capClock: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', g.clone(), [stub])
           executed.push('window-action')
           return []
@@ -487,7 +487,7 @@ describe('TurnManager', () => {
         ...makeAction(1),
         execute: (g) => {
           g.getPlayer('p1')?.decreaseActionPoints(1)
-          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, capClock: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
+          const stub: IReactionWindow = { getId: () => 'w1', getType: () => ReactionWindowType.Modifier, getRespondentId: () => 'p1', isOptional: () => false, blocksActions: () => false, getOptions: () => [], isOpen: () => true, submitReaction: () => accepted(), resolve: () => {}, cancel: () => {}, capClock: () => {}, resultKey: () => NO_CONTEXT_RESULT, getDetail: () => ({}), getDeadline: () => 0 }
           g.addFrame('f1', g.clone(), [stub])
           return []
         },
@@ -677,6 +677,8 @@ describe('seamless reactions', () => {
         getId: () => 'w1',
         getType: () => type,
         getRespondentId: () => 'p1',
+        isOptional: () => false,
+        blocksActions: () => false,
         getOptions: () => [],
         isOpen: () => stub.open,
         submitReaction: () => accepted(),
@@ -703,6 +705,7 @@ describe('seamless reactions', () => {
 
     const detail: Record<string, unknown> = { challenged: false }
     const contest = tableWindow(ReactionWindowType.Challenge, detail)
+    contest.window.blocksActions = () => detail['challenged'] === true
     gs.addFrame('f1', gs.clone(), [contest.window])
     emitter.emit(GameEventFactory.reactionWindowOpened(ReactionWindowType.Challenge, 'p1', 'f1'))
     await sleep(5)
@@ -738,12 +741,29 @@ describe('seamless reactions', () => {
     expect(tm.getPhase()).toBe(TurnPhase.End)
   })
 
+  it('caps once per turn: a window given its full wait back by a reaction is not capped again', () => {
+    const gs = makeGs(1, true)
+    const tm = new TurnManager(gs, new GameEventEmitter())
+    tm.startTurn('p1')
+    const roll = tableWindow(ReactionWindowType.Modifier)
+    gs.addFrame('f1', gs.clone(), [roll.window])
+
+    tm.enqueue(makeAction(1))
+    expect(roll.capped).toEqual([10_000])
+    // Every later drain of the spent turn — a reaction's continuation, a
+    // close — leaves the window's clock alone.
+    tm.resumeDrain()
+    tm.resumeDrain()
+    expect(roll.capped).toEqual([10_000])
+  })
+
   it('refuses an action while a question of the player stands, and forfeits an optional one', () => {
     const gs = makeGs(3, true)
     const tm = new TurnManager(gs, new GameEventEmitter())
     tm.startTurn('p1')
 
     const question = tableWindow(ReactionWindowType.CardChoice)
+    question.window.blocksActions = () => true
     gs.addFrame('f1', gs.clone(), [question.window])
     expect(tm.enqueue(makeAction(1))).toEqual(refused(RefusalReason.Busy))
     question.open = false

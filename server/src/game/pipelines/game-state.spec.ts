@@ -153,6 +153,8 @@ describe('GameState', () => {
       getId: () => 'w1',
       getType: () => ReactionWindowType.Modifier,
       getRespondentId: () => 'p1',
+      isOptional: () => false,
+      blocksActions: () => false,
       getOptions: () => [],
       isOpen: () => isOpen,
       submitReaction: () => ({ accepted: true }) as const,
@@ -195,6 +197,17 @@ describe('GameState', () => {
       expect(cancelled).toEqual(['w2'])
       expect(gs.getFrames().size).toBe(0)
       expect(gs.getPipelines()).toEqual([outer])
+    })
+
+    it('a rollback does not bring back a frame that settled since the snapshot', () => {
+      gs.addFrame('f0', gs.clone(), [stubWindow()])
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
+      // f0 settles while f1 is still open — then f1 fails.
+      gs.releaseFrame('f0')
+      gs.restoreFrame('f1')
+
+      expect(gs.getFrames().size).toBe(0)
+      expect(gs.hasPendingOutcome()).toBe(false)
     })
 
     it('a cancelled window closes without an outcome: no default pick, no FrameResolved', () => {
@@ -502,6 +515,8 @@ describe('GameState — the open modifiable window', () => {
     getId: () => 'w1',
     getType: () => ReactionWindowType.Modifier,
     getRespondentId: () => rollerId,
+    isOptional: () => false,
+    blocksActions: () => false,
     getOptions: () => [],
     isOpen: () => isOpen,
     submitReaction: jest.fn(),

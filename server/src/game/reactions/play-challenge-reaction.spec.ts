@@ -61,6 +61,8 @@ const makeStubWindow = (): IModifiableWindow & {
   getType: () => ReactionWindowType.Challenge,
   getRespondentId: () => 'defender',
   subjectCardId: () => 'hero-1',
+  isOptional: () => false,
+  blocksActions: () => false,
   getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
@@ -68,7 +70,7 @@ const makeStubWindow = (): IModifiableWindow & {
   cancel: () => {}, capClock: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
-  getDeadline: () => 0,
+  getDeadline: () => Date.now() + 60_000,
   acceptsModifierFor: () => accepted(),
   cardSpent: jest.fn(),
   valueBiasFor: () => 'highest' as const,
@@ -126,6 +128,22 @@ describe('PlayChallengeReaction', () => {
 
   it('canExecute returns false when no challenge frame is open', () => {
     expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
+  })
+
+  it('refuses an expired target without spending the card even before the timeout callback runs', () => {
+    const stale = makeStubWindow()
+    stale.getDeadline = () => Date.now() - 1
+    openFrame(gs, stale)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
+    expect(gs.hasInHand('p1', CHAL)).toBe(true)
+  })
+
+  it('refuses an already started contest before spending a second challenge', () => {
+    const started = makeStubWindow()
+    started.getDetail = () => ({ challenged: true })
+    openFrame(gs, started)
+    expect(makeReaction().canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.ChallengeAlreadyStarted })
+    expect(gs.hasInHand('p1', CHAL)).toBe(true)
   })
 
   it('canExecute returns false when card not in player hand', () => {

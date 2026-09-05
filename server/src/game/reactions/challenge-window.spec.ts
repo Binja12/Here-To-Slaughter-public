@@ -112,23 +112,23 @@ describe('ChallengeWindow — standing roll bonuses', () => {
     const win = makeWindow({ gs, em, challengedId: 'p1' })
 
     // challenger 6, challenged 5 — challenged loses on the dice alone...
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0.4)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0.5).mockReturnValueOnce(0.4).mockReturnValueOnce(0.4)
     win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
     win.resolve()
 
     // ...but 5 + 3 = 8 beats 6.
-    expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 8 })
+    expect(resolved()).toMatchObject({ challengerFinal: 8, defenderFinal: 9 })
   })
 
   it("a challenger's own bonus counts toward THEIR roll", () => {
     giveRollBonus('p2', 'hero-028', 3)
     const win = makeWindow({ gs, em, challengedId: 'p1' })
 
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.4).mockReturnValueOnce(0.5)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.4).mockReturnValueOnce(0.4).mockReturnValueOnce(0.5).mockReturnValueOnce(0.5)
     win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
     win.resolve()
 
-    expect(resolved()).toMatchObject({ challengerFinal: 8, defenderFinal: 6 })
+    expect(resolved()).toMatchObject({ challengerFinal: 9, defenderFinal: 8 })
   })
 
   it('ChallengeStarted carries each side opening bonuses, with sources', () => {
@@ -160,7 +160,7 @@ describe('ChallengeWindow — standing roll bonuses', () => {
     win.resolve()
 
     expect(result).toEqual({ accepted: false, reason: RefusalReason.TargetNotInChallenge })
-    expect(resolved()).toMatchObject({ challengerFinal: 6, defenderFinal: 6 })
+    expect(resolved()).toMatchObject({ challengerFinal: 8, defenderFinal: 8 })
   })
 })
 
@@ -266,11 +266,11 @@ describe('ChallengeWindow', () => {
     })
 
     it('ChallengeStarted payload includes both rolls', () => {
-      jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.99)
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0.99).mockReturnValueOnce(0.99)
       const win = makeWindow({ gs, em })
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       const e = events.find((e) => e.getType() === GameEventType.ChallengeStarted)
-      expect(e!.getPayload()).toMatchObject({ challengerRoll: 1, defenderRoll: 11 })
+      expect(e!.getPayload()).toMatchObject({ challengerRoll: 2, defenderRoll: 12 })
     })
 
     it('second challenge submission is ignored (no duplicate)', () => {
@@ -315,15 +315,15 @@ describe('ChallengeWindow', () => {
     })
 
     it('ModifierApplied payload reflects running totals after multiple bonuses', () => {
-      jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0) // both = 1
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0) // both = 1
       const win = makeWindow({ gs, em, challengedId: 'p1' })
       win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       win.submitReaction('p3', { type: 'modifier', value: 2, targetPlayerId: 'p2' }) // challenger: 1+2=3
       win.submitReaction('p3', { type: 'modifier', value: 4, targetPlayerId: 'p1' }) // defender: 1+4=5
       const modEvents = events.filter((e) => e.getType() === GameEventType.ModifierApplied)
       expect(modEvents).toHaveLength(2)
-      expect((modEvents[1].getPayload() as any).defenderTotal).toBe(5)
-      expect((modEvents[1].getPayload() as any).challengerTotal).toBe(3)
+      expect((modEvents[1].getPayload() as any).defenderTotal).toBe(6)
+      expect((modEvents[1].getPayload() as any).challengerTotal).toBe(4)
     })
   })
 
@@ -335,7 +335,7 @@ describe('ChallengeWindow', () => {
     // challenger=1 (random=0), defender=11 (random=0.99) → defender wins → release frame
 
     beforeEach(() => {
-      jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.99)
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0.99).mockReturnValueOnce(0.99)
     })
 
     it('emits ChallengeResolved', () => {
@@ -376,7 +376,7 @@ describe('ChallengeWindow', () => {
     // challenger=11 (random=0.99), defender=1 (random=0) → challenger wins → restore frame
 
     beforeEach(() => {
-      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
     })
 
     it('emits ChallengeResolved', () => {
@@ -422,7 +422,7 @@ describe('ChallengeWindow', () => {
   // ---------------------------------------------------------------------------
 
   it('tie: challenger wins (challengedFinal not > challengerFinal) — restores frame', () => {
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0.5) // both = 6
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0.5).mockReturnValueOnce(0.5).mockReturnValueOnce(0.5) // both = 6
     const win = makeWindow({ gs, em, frameId: 'f-tie' })
     gs.markAbilityUsed('some-hero')
     win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
@@ -437,7 +437,7 @@ describe('ChallengeWindow', () => {
 
   it('modifier on defender can swing outcome from challenger-wins to defender-wins', () => {
     // challenger=11 (random=0.99), defender=1 (random=0) → base: challenger wins
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
     const win = makeWindow({ gs, em, challengedId: 'p1', frameId: 'f-swing' })
     win.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
     // +11 on defender → defenderFinal=12 > challengerFinal=11 → defender wins → release
