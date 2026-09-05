@@ -3,6 +3,7 @@ import { CardType, CardView } from '../contract'
 import { artFor } from './assets'
 import { DISCARD_ART, DISCARD_PANEL, inkScale } from './layout'
 import { tkey, useTargetable, useTargeting } from './targeting'
+import { useAudio } from '../audio/AudioProvider'
 
 /** the card types that ever reach the pile — one painted plaque each */
 const DISCARD_TYPES = ['Hero', 'Item', 'Magic', 'Modifier', 'Challenge'] as const satisfies readonly CardType[]
@@ -108,10 +109,12 @@ function DiscardCard({
   // this is the one case where a card in here is genuinely dark and must not
   // answer a hover like a live one
   const dark = picking && !pickable
+  const { playSound } = useAudio()
 
   return (
     <article
       title={card.name}
+      onMouseEnter={() => { if (!dark) playSound('discardHover') }}
       role={pickable ? 'button' : undefined}
       tabIndex={pickable ? 0 : -1}
       className={`relative min-w-0 rounded-[0.4cqw] transition-transform duration-150 ease-out focus:outline-none focus-visible:outline focus-visible:outline-[0.3cqh] focus-visible:outline-offset-[0.35cqh] focus-visible:outline-amber-200 ${

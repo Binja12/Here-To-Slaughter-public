@@ -477,6 +477,12 @@ export class GameState {
     return open.window.acceptsModifierFor(targetPlayerId)
   }
 
+  /** Stable identity for the public modifier cue, without exposing the window itself. */
+  modifierWindowIdFor(targetPlayerId: string): string | undefined {
+    const open = this.findOpenModifiableWindow(targetPlayerId)
+    return open?.window.acceptsModifierFor(targetPlayerId).accepted ? open.window.getId() : undefined
+  }
+
   /**
    * Land a bonus in the window that is open.
    *

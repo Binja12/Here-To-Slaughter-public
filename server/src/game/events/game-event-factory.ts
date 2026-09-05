@@ -233,6 +233,7 @@ export class GameEventFactory {
     cardId: string,
     targetPlayerId: string,
     value: number,
+    windowId?: string,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.ModifierPlayed,
@@ -241,6 +242,7 @@ export class GameEventFactory {
         cardId,
         targetPlayerId,
         value,
+        ...(windowId ? { windowId } : {}),
         // The card's entry runs with a fresh context: what it needs travels here.
         ctxSeed: {
           [CTX_MODIFIER_TARGET]: [targetPlayerId],

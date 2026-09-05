@@ -348,8 +348,9 @@ export const HUD_WIDGETS: {
   /** the turn clock, a square dial left of the gems/End Turn column */
   turnTimer: HudDef;
   redraw: HudDef;
-  /** the top-left dev row: re-open the challenge window, restart the test */
+  /** Opens whichever reaction window is running, below the discard pile. */
   challengeButton: HudDef;
+  volume: HudDef;
   restartButton: HudDef;
 } = {
   // The owner's placement (2026-09-03): the action-point gems and, right
@@ -365,9 +366,9 @@ export const HUD_WIDGETS: {
   // just off them.
   turnTimer: { anchor: "top", h: 9, dx: 50, dy: 6.75 },
   redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
-  // Right of the Game Settings menu, on the same row (the owner's blue
-  // rectangle, 2026-09-05). Brings back whichever overlay was put away.
-  challengeButton: { anchor: "top", h: 4.5, dx: -54.5, dy: 4.8 },
+  // Bottom rim of the centre board, directly below the discard pile.
+  challengeButton: { anchor: "center", h: 3.5, dx: CENTER_DX, dy: CENTER_DY + CENTER_H / 2 - 6 },
+  volume: { anchor: "top", h: 6, dx: -74, dy: 5.5 },
   restartButton: { anchor: "top", h: 4, dx: -38, dy: 4.8 },
 };
 

@@ -4,13 +4,61 @@ import Board from './Board'
 import { GameProvider } from '../state/game'
 import { CommandProvider } from '../state/commands'
 import { PlayerView } from '../contract'
-import { challengeWindowOpen, midGame, modifierWindowOpen } from '../fixtures/views'
+import { challengeStarted, challengeWindowOpen, midGame, modifierWindowOpen } from '../fixtures/views'
+import * as audio from '../audio/AudioProvider'
 
 const send = jest.fn(async () => ({ commandId: 'test', accepted: true as const }))
 const board = (view: PlayerView) => <GameProvider view={view}><CommandProvider send={send}><Board /></CommandProvider></GameProvider>
+const originalAnimate = Element.prototype.animate
+const playSound = jest.fn()
 
-beforeEach(() => { jest.useFakeTimers(); send.mockResolvedValue({ commandId: 'test', accepted: true }) })
-afterEach(() => jest.useRealTimers())
+beforeEach(() => {
+  jest.useFakeTimers()
+  playSound.mockClear()
+  jest.spyOn(audio, 'useAudio').mockReturnValue({ volume: 50, playSound, setVolume: jest.fn(), setMusic: jest.fn() })
+  send.mockResolvedValue({ commandId: 'test', accepted: true })
+  Element.prototype.animate = jest.fn(() => ({ cancel: jest.fn() })) as unknown as typeof Element.prototype.animate
+})
+afterEach(() => { jest.useRealTimers(); Element.prototype.animate = originalAnimate; jest.restoreAllMocks() })
+
+test('discard rustle belongs to individual cards in the browser, not the pile opener', () => {
+  render(board(midGame))
+  const pile = screen.getByRole('button', { name: /^Open discard pile/ })
+  fireEvent.pointerEnter(pile)
+  fireEvent.focus(pile)
+  fireEvent.click(pile)
+  expect(playSound).not.toHaveBeenCalled()
+  const dialog = screen.getByRole('dialog', { name: 'Discard pile' })
+  const cards = within(dialog).getAllByRole('article')
+  expect(cards.length).toBeGreaterThan(1)
+  fireEvent.mouseEnter(cards[0])
+  fireEvent.mouseMove(cards[0])
+  expect(playSound).toHaveBeenCalledTimes(1)
+  fireEvent.mouseLeave(cards[0])
+  fireEvent.mouseEnter(cards[1])
+  expect(playSound).toHaveBeenCalledTimes(2)
+  fireEvent.mouseLeave(cards[1])
+  fireEvent.mouseEnter(cards[0])
+  expect(playSound).toHaveBeenCalledTimes(3)
+  expect(playSound.mock.calls.every(([sound]) => sound === 'discardHover')).toBe(true)
+})
+
+test('window opener follows the running window and can open an unmodified roll', () => {
+  const { rerender, container } = render(board(modifierWindowOpen))
+  expect(screen.getByRole('slider', { name: 'Sound volume' }).closest('details')).toBeNull()
+  const modifierButton = screen.getByRole('button', { name: 'Modifier window' })
+  expect(modifierButton).toBeEnabled()
+  expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+  fireEvent.click(modifierButton)
+  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
+  expect(modifierButton).toBeEnabled()
+  rerender(board(challengeStarted))
+  expect(screen.getByRole('button', { name: 'Challenge window' })).toBeEnabled()
+  expect(screen.queryByRole('button', { name: 'Modifier window' })).toBeNull()
+  rerender(board({ ...midGame, pendingWindows: [] }))
+  expect(screen.getByRole('button', { name: 'Modifier window' })).toBeDisabled()
+  expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+})
 
 test('removes only the expired challenge target while the other stays pickable', async () => {
   const heroes = midGame.parties.filter((party) => party.playerId !== midGame.playerId).flatMap((party) => party.heroes).slice(0, 2)

@@ -5,6 +5,10 @@
 // ---------------------------------------------------------------------------
 
 export type GameLogEntry = {
+  /** Optional public action cue, independent of localized log text. */
+  sound?: 'heroPlayed' | 'modifierPlayed' | 'monsterSlain';
+  /** The reaction window this modifier was played into; shared by both challenge sides. */
+  soundWindowId?: string;
   /** Monotonic per game, dense for the table. A viewer's list is the table's, some lines reworded. */
   seq: number;
   /** Epoch ms. */

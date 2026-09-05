@@ -54,6 +54,7 @@ describe('GameLog', () => {
     const alice = log.entriesFor(ALICE)
     const bob = log.entriesFor(BOB)
     expect(alice.map((e) => e.text)).toContain('alice played Bad Axe')
+    expect(alice.find((e) => e.text === 'alice played Bad Axe')?.sound).toBe('heroPlayed')
     expect(alice).toEqual(bob)
     expect(alice.map((e) => e.seq)).toEqual(alice.map((_, i) => i + 1))
     expect(alice.every((e) => typeof e.at === 'number')).toBe(true)
@@ -106,6 +107,13 @@ describe('GameLog', () => {
   describe('logLine', () => {
     const gs = () => t.game.gameState
 
+    it('ships the modifier window identity to every seat, even after the window closes', () => {
+      log.onEvent(GameEventFactory.modifierPlayed(BOB, 'modifier-081', ALICE, -2, 'roll-1'))
+      log.onEvent(GameEventFactory.modifierPlayed(ALICE, 'modifier-080', BOB, 2, 'roll-1'))
+      expect(log.entriesFor(ALICE).map((entry) => entry.soundWindowId)).toEqual(['roll-1', 'roll-1'])
+      expect(log.entriesFor(BOB)).toEqual(log.entriesFor(ALICE))
+    })
+
     it('words the table events and the plays', () => {
       expect(logLine(gs(), new GameEvent(GameEventType.GameStarted, '', {}))).toEqual({
         text: 'The game begins',
@@ -114,7 +122,7 @@ describe('GameLog', () => {
         logLine(gs(), new GameEvent(GameEventType.GameEnded, BOB, { winnerId: BOB })),
       ).toEqual({ text: 'bob wins the game' })
       expect(logLine(gs(), GameEventFactory.heroAddedToParty(BOB, 'hero-002', 'Played'))).toEqual(
-        { text: 'bob played Fury Knuckle' },
+        { text: 'bob played Fury Knuckle', sound: 'heroPlayed' },
       )
       expect(logLine(gs(), GameEventFactory.heroAddedToParty(BOB, 'hero-002', 'Stolen'))).toBeUndefined()
       expect(logLine(gs(), GameEventFactory.heroStolen(BOB, ALICE, 'hero-001'))).toEqual({
@@ -122,7 +130,10 @@ describe('GameLog', () => {
       })
       expect(
         logLine(gs(), GameEventFactory.modifierPlayed(BOB, 'modifier-081', ALICE, -2)),
-      ).toEqual({ text: "bob played Modifier (-2) on alice's roll" })
+      ).toEqual({ text: "bob played Modifier (-2) on alice's roll", sound: 'modifierPlayed' })
+      expect(logLine(gs(), GameEventFactory.monsterSlain(ALICE, 'monster-test'))).toEqual({
+        text: 'alice slew monster-test', sound: 'monsterSlain',
+      })
       expect(logLine(gs(), GameEventFactory.diceRolled(ALICE, 'hero-001', 5))).toEqual({
         text: 'alice rolled a 5 for Bad Axe',
       })

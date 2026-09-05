@@ -18,7 +18,7 @@ import CardReactionTimer from './CardReactionTimer'
  * is dimmed like a challenge (`.challenge-open`), the local hand stays on
  * the bright layer, and the centre card is the modifier target, so aiming
  * another modifier works from here. A click on the shield puts the window
- * away; the top-left button brings it back.
+ * away; the window button beside the discard pile brings it back.
  */
 export default function ModifierWindow({
   roll,

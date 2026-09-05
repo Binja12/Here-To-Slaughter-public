@@ -1,6 +1,7 @@
 import CardReactionTimer from './CardReactionTimer';
 import React from 'react';
 import { useTargetable, useTargeting, tkey } from './targeting';
+import { useAudio } from '../audio/AudioProvider';
 
 /**
  * The local player's hand (bottom seat ONLY — opponents just show their
@@ -85,8 +86,12 @@ export default function PlayerHand({
   // card zoomed while the cursor sits on the enlarged part outside where
   // the card lies. The cell on top at rest (highest index) wins overlaps.
   const [hovered, setHovered] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (forcedClosed) setHovered(null);
+  }, [forcedClosed]);
   const cellRefs = React.useRef<Array<HTMLDivElement | null>>([]);
   const hitTest = (event: React.MouseEvent) => {
+    if (forcedClosed) return;
     let hit: number | null = null;
     cellRefs.current.forEach((cell, i) => {
       if (!cell) return;
@@ -166,7 +171,7 @@ export default function PlayerHand({
               <FanCard
                 src={src}
                 index={i}
-                hovered={hovered === i}
+                hovered={hovered === i && !forcedClosed}
                 playable={playable?.[i]}
                 asked={asked?.[i]}
                 onActivate={
@@ -206,16 +211,23 @@ function FanCard({
   const t = useTargetable(tkey.handCard(index), onActivate);
   // dimmed cards are background while an action is aiming — no hover grow
   const dimmed = t.targeting && t.mode === 'dimmed';
+  const { playSound } = useAudio();
+  const zoomed = hovered && !dimmed;
+  // Follow the same resting-box selection as the zoom: one rustle per
+  // card entered, with no delay or repeats while moving within that card.
+  React.useEffect(() => {
+    if (zoomed) playSound('discardHover');
+  }, [zoomed, playSound]);
   return (
     <div
       onClick={t.onClick}
       className={`relative h-full w-full origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
         asked ? ' ask-aura' : playable ? ' card-aura' : ''
       } ${t.className}`}
-      style={{ width: `${CARD_W_CQW}cqw`, transform: hovered && !dimmed ? 'scale(1.6)' : undefined }}
+      style={{ width: `${CARD_W_CQW}cqw`, transform: zoomed ? 'scale(1.6)' : undefined }}
     >
       <img src={src} alt={`hand card ${index + 1}`} draggable={false} className="h-full w-full rounded-[0.4cqw] object-fill" />
-      <CardReactionTimer handIndex={index} zoomed={hovered && !dimmed} />
+      <CardReactionTimer handIndex={index} zoomed={zoomed} />
     </div>
   );
 }

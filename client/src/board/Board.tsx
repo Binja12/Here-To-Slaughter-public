@@ -72,6 +72,9 @@ import { useHoverZoom } from './useHoverZoom'
 import PendingWindows from './PendingWindows'
 import DiscardPileModal from './DiscardPileModal'
 import RevealedCards from './RevealedCards'
+import { useAudio } from '../audio/AudioProvider'
+import { useGameAudio } from '../audio/useGameAudio'
+import VolumeControl from '../audio/VolumeControl'
 
 function Widget({
   def,
@@ -729,6 +732,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const view = useGameView()
   const info = useGameInfo()
   const log = useGameLog()
+  const { playSound } = useAudio()
+  useGameAudio(view, log)
   const send = useSend()
   const flags = derivePlayable(view)
   const discardCards = discardCardsForView(view)
@@ -739,7 +744,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const challenge = useChallenge()
   const liveChallenge = useChallengeSync(view)
   // The overlay can be put away (click its backdrop) to look at the table,
-  // and brought back with the top-left Challenge button. A new challenge
+  // and brought back with the window button beside the discard pile. A new challenge
   // always shows itself.
   const [overlayHidden, setOverlayHidden] = useState(false)
   const liveChallengeId = liveChallenge?.windowId
@@ -753,12 +758,14 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // away and brought back exactly like the challenge overlay; a new roll
   // always shows itself. A challenge on stage takes precedence.
   const modifiedRoll = liveRoll && rollHasModifierCard(liveRoll, view) ? liveRoll : null
+  const [manuallyOpenedRollId, setManuallyOpenedRollId] = useState<string | null>(null)
+  const modifierRoll = modifiedRoll ?? (liveRoll?.windowId === manuallyOpenedRollId ? liveRoll : null)
   const [modifierHidden, setModifierHidden] = useState(false)
   const modifiedRollId = modifiedRoll?.windowId
   useEffect(() => {
     setModifierHidden(false)
   }, [modifiedRollId])
-  const modifierOpen = !!modifiedRoll && !modifierHidden && !challengeOpen
+  const modifierOpen = !!modifierRoll && !modifierHidden && !challengeOpen
   const stageOpen = challengeOpen || modifierOpen
   const [toast, setToast] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -869,6 +876,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       const result = await send({ type: 'PassWindow', payload: { windowId } })
       if (!handleResult(result)) return false
     }
+    playSound('skipReaction')
     return true
   }
 
@@ -1226,7 +1234,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       onClick={active ? cancel : undefined}
     >
       <div
-        className="dim-exempt absolute left-3 top-3 z-[260] flex flex-col items-start gap-2"
+        className="dim-exempt absolute left-3 top-[9vh] z-[260] flex flex-col items-start gap-2"
         onClick={(event) => event.stopPropagation()}
       >
         <GameConfigMenu config={info?.config} />
@@ -1346,13 +1354,19 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         {/* the table's one line of words — the roll as it stands, the
             question being asked, whose turn — as a tooltip on the gems,
             since the owner dropped the turn scroll (2026-09-03) */}
-        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={3}>
+        <HudWidget def={HUD_WIDGETS.volume} aspect={1683 / 423} aboveChallenge>
+          <VolumeControl />
+        </HudWidget>
+        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={4.5} aboveChallenge>
           <DevButton
-            label={liveChallenge ? 'Challenge' : 'Modifier'}
-            enabled={(!!liveChallenge && overlayHidden) || (!!modifiedRoll && modifierHidden)}
+            label={liveChallenge ? 'Challenge window' : 'Modifier window'}
+            enabled={!!liveChallenge || !!liveRoll}
             onClick={() => {
-              setOverlayHidden(false)
-              setModifierHidden(false)
+              if (liveChallenge) setOverlayHidden(false)
+              else {
+                setManuallyOpenedRollId(liveRoll?.windowId ?? null)
+                setModifierHidden(false)
+              }
             }}
           />
         </HudWidget>
@@ -1438,7 +1452,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           onHide={() => setOverlayHidden(true)}
         />
         <ModifierWindow
-          roll={modifiedRoll}
+          roll={modifierRoll}
           hidden={modifierHidden || challengeOpen}
           onHide={() => setModifierHidden(true)}
         />

@@ -23,6 +23,8 @@ import type { GameState } from '../pipelines/game-state'
 
 /** One line as the table reads it, and as the seats that saw the card read it. */
 export type LogLine = {
+  soundWindowId?: string
+  sound?: GameLogEntry['sound']
   text: string
   seen?: { by: string[]; text: string }
 }
@@ -76,6 +78,8 @@ export class GameLog implements IGameEventListener {
       at,
       playerId,
       text: line.seen?.by.includes(viewerId) ? line.seen.text : line.text,
+      ...(line.sound ? { sound: line.sound } : {}),
+      ...(line.soundWindowId ? { soundWindowId: line.soundWindowId } : {}),
     }))
   }
 
@@ -103,7 +107,7 @@ export function logLine(gs: GameState, event: IGameEvent): LogLine | undefined {
   const name = (id: unknown) => gs.getPlayer(String(id))?.getName() ?? String(id)
   const card = (id: unknown) => gs.getCard(String(id))?.getData().name ?? String(id)
   const cards = (ids: unknown) => (Array.isArray(ids) ? ids.map(card).join(', ') : '')
-  const line = (text: string): LogLine => ({ text })
+  const line = (text: string, sound?: GameLogEntry['sound']): LogLine => ({ text, ...(sound ? { sound } : {}) })
 
   switch (event.getType()) {
     case GameEventType.GameStarted:
@@ -120,7 +124,7 @@ export function logLine(gs: GameState, event: IGameEvent): LogLine | undefined {
         seen: { by: [who], text: `${name(who)} drew ${card(p.cardId)}` },
       }
     case GameEventType.HeroAddedToParty:
-      if (p.reason === 'Played') return line(`${name(who)} played ${card(p.cardId)}`)
+      if (p.reason === 'Played') return line(`${name(who)} played ${card(p.cardId)}`, 'heroPlayed')
       if (p.reason === 'Given') return line(`${card(p.cardId)} joined ${name(who)}'s party`)
       // Stolen: HeroStolen tells it.
       return undefined
@@ -135,9 +139,10 @@ export function logLine(gs: GameState, event: IGameEvent): LogLine | undefined {
     case GameEventType.DiceRolled:
       return line(`${name(who)} rolled a ${p.baseRoll} for ${card(p.cardId)}`)
     case GameEventType.ModifierPlayed:
-      return line(
+      return { ...line(
         `${name(who)} played ${card(p.cardId)} (${signed(p.value)}) on ${name(p.targetPlayerId)}'s roll`,
-      )
+        'modifierPlayed',
+      ), ...(typeof p.windowId === 'string' ? { soundWindowId: p.windowId } : {}) }
     case GameEventType.ModifierApplied:
       return p.targetPlayerId === undefined
         ? line(`${signed(p.value)} to the roll: now ${p.finalRoll}`)
@@ -153,7 +158,7 @@ export function logLine(gs: GameState, event: IGameEvent): LogLine | undefined {
     case GameEventType.RollFailed:
       return line(`${name(who)} failed the roll on ${card(p.cardId)}`)
     case GameEventType.MonsterSlain:
-      return line(`${name(who)} slew ${card(p.cardId)}`)
+      return line(`${name(who)} slew ${card(p.cardId)}`, 'monsterSlain')
     case GameEventType.MonsterFoughtBack:
       return line(`${card(p.cardId)} fought back against ${name(who)}`)
     case GameEventType.ChallengePlayed:
