@@ -181,6 +181,18 @@ code {
     drop-shadow(0 var(--aura-dy, 0cqw) calc((0.5 + 0.25 * var(--aura)) * var(--aura-scale, 1) * 1cqw) rgba(220, 20, 20, 0.8));
 }
 
+/* The ability asking for a choice stays pink in its original board slot.
+   This overrides the targeting dim and the card's ordinary playable aura. */
+.targeting .choice-source-aura {
+  filter: drop-shadow(0 0 0.12cqw rgba(255, 185, 235, 1))
+    drop-shadow(0 0 0.4cqw rgba(255, 110, 200, 0.95))
+    drop-shadow(0 0 0.8cqw rgba(235, 70, 170, 0.8));
+}
+
+.targeting .choice-source-aura > img {
+  filter: none;
+}
+
 /* The square glow under each settled die: RED when the roll as it stands
    is short of what it needs, GREEN when it makes it, none in a monster's
    "nothing happens" band (the owner, 2026-09-05). A box-shadow on a

@@ -117,7 +117,7 @@ export default function ModifierWindow({
 
       {/* the roll as it stands — the total, coloured by what it means */}
       <div
-        className="challenge-pop absolute -translate-x-1/2 -translate-y-1/2"
+        className="absolute -translate-x-1/2 -translate-y-1/2"
         style={{
           height: `${L.scroll.h}cqh`,
           width: `${L.scroll.h * HUD_ASPECT.yourTurn}cqh`,

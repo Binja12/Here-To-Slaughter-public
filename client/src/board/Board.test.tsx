@@ -1,13 +1,13 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import Board from './Board'
 import { GameProvider } from '../state/game'
 import { CommandProvider } from '../state/commands'
-import { PlayerView } from '../contract'
+import { CommandResult, GameCommandInput, PlayerView, RefusalReason } from '../contract'
 import { challengeStarted, challengeWindowOpen, midGame, modifierWindowOpen } from '../fixtures/views'
 import * as audio from '../audio/AudioProvider'
 
-const send = jest.fn(async () => ({ commandId: 'test', accepted: true as const }))
+const send = jest.fn<Promise<CommandResult>, [GameCommandInput]>(async () => ({ commandId: 'test', accepted: true }))
 const board = (view: PlayerView) => <GameProvider view={view}><CommandProvider send={send}><Board /></CommandProvider></GameProvider>
 const originalAnimate = Element.prototype.animate
 const playSound = jest.fn()
@@ -17,6 +17,7 @@ beforeEach(() => {
   playSound.mockClear()
   jest.spyOn(audio, 'useAudio').mockReturnValue({ volume: 50, playSound, setVolume: jest.fn(), setMusic: jest.fn() })
   send.mockResolvedValue({ commandId: 'test', accepted: true })
+  send.mockClear()
   Element.prototype.animate = jest.fn(() => ({ cancel: jest.fn() })) as unknown as typeof Element.prototype.animate
 })
 afterEach(() => { jest.useRealTimers(); Element.prototype.animate = originalAnimate; jest.restoreAllMocks() })
@@ -48,15 +49,24 @@ test('window opener follows the running window and can open an unmodified roll',
   expect(screen.getByRole('slider', { name: 'Sound volume' }).closest('details')).toBeNull()
   const modifierButton = screen.getByRole('button', { name: 'Modifier window' })
   expect(modifierButton).toBeEnabled()
+  expect(modifierButton.parentElement).toHaveClass('z-40')
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
   fireEvent.click(modifierButton)
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
   expect(modifierButton).toBeEnabled()
+  fireEvent.click(modifierButton)
+  expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+  fireEvent.click(modifierButton)
+  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
   rerender(board(challengeStarted))
   expect(screen.getByRole('button', { name: 'Challenge window' })).toBeEnabled()
   expect(screen.queryByRole('button', { name: 'Modifier window' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Challenge window' }))
+  expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+  fireEvent.click(screen.getByRole('button', { name: 'Challenge window' }))
+  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
   rerender(board({ ...midGame, pendingWindows: [] }))
-  expect(screen.getByRole('button', { name: 'Modifier window' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Modifier window' })).toBeNull()
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
 })
 
@@ -115,11 +125,70 @@ test('Skip glows until our pass, then glows again after a modifier clears passes
   fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' }))
   expect(send).toHaveBeenCalledWith({ type: 'PassWindow', payload: { windowId: view.pendingWindows[0].windowId } })
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [view.playerId] } })) }))
-  // this seat has forfeited, so its slot goes straight back to End Turn — the
-  // other seats keep their own lit Skip until each of them forfeits too
-  expect(screen.queryByRole('button', { name: 'Skip reaction' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'End Turn' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Skip reaction' })).toBeDisabled()
   expect(document.querySelector('.skip-glow')).toBeNull()
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [] } })) }))
   expect(screen.getByRole('button', { name: 'Skip reaction' }).querySelector('.skip-glow')).toBeTruthy()
+})
+
+test.each(['player-a', 'player-b', 'player-c'])('Skip responds immediately for %s without a server snapshot and rearms on a modifier', async (playerId) => {
+  const view = { ...modifierWindowOpen, playerId }
+  let acknowledge!: (result: CommandResult) => void
+  send.mockImplementationOnce(() => new Promise((resolve) => { acknowledge = resolve }))
+  const { rerender } = render(board(view))
+  const skip = () => screen.getByRole('button', { name: 'Skip reaction' })
+  fireEvent.click(skip())
+  expect(skip()).toBeDisabled()
+  expect(skip().querySelector('.skip-glow')).toBeNull()
+  fireEvent.click(skip())
+  expect(send).toHaveBeenCalledTimes(1)
+  await act(async () => acknowledge({ commandId: 'test', accepted: true }))
+  expect(skip()).toBeDisabled()
+  rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: ['someone-else'] } })) }))
+  expect(skip()).toBeDisabled()
+  const modified = { ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window,
+    deadline: window.deadline + 1000,
+    detail: { ...window.detail, finalRoll: 10, bonuses: [{ cardSource: 'modifier-080', amount: 2 }], passedBy: [] },
+  })) }
+  rerender(board(modified))
+  expect(skip()).toBeEnabled()
+  expect(skip().querySelector('.skip-glow')).toBeTruthy()
+  await act(async () => { fireEvent.click(skip()) })
+  expect(skip()).toBeDisabled()
+  rerender(board({ ...view, pendingWindows: [] }))
+  expect(screen.queryByRole('button', { name: 'Skip reaction' })).toBeNull()
+})
+
+test('a rejected pass lights Skip again', async () => {
+  send.mockResolvedValueOnce({ commandId: 'test', accepted: false, reason: RefusalReason.WindowNotPassable })
+  render(board(modifierWindowOpen))
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' })) })
+  const skip = screen.getByRole('button', { name: 'Skip reaction' })
+  expect(skip).toBeEnabled()
+  expect(skip.querySelector('.skip-glow')).toBeTruthy()
+})
+
+test('a late acknowledgement does not suppress the reopened modifier window', async () => {
+  let acknowledge!: () => void
+  send.mockImplementationOnce(() => new Promise((resolve) => { acknowledge = () => resolve({ commandId: 'test', accepted: true }) }))
+  const { rerender } = render(board(modifierWindowOpen))
+  fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' }))
+  rerender(board({ ...modifierWindowOpen, pendingWindows: modifierWindowOpen.pendingWindows.map((window) => ({ ...window, deadline: window.deadline + 1000 })) }))
+  await act(async () => acknowledge())
+  expect(screen.getByRole('button', { name: 'Skip reaction' })).toBeEnabled()
+})
+
+test('the asking leader stays in its slot with a pink highlight and no reaction timer', () => {
+  const leader = midGame.parties[0].leader
+  const view: PlayerView = { ...midGame, pendingWindows: [{
+    windowId: 'leader-choice', type: 'PlayerChoice', respondentId: midGame.playerId,
+    isYours: true, options: [midGame.parties[1].playerId],
+    deadline: Date.now() + 20000, detail: { sourceCardId: leader.id },
+  }] }
+  const { rerender } = render(board(view))
+  expect(screen.getAllByAltText(leader.name)).toHaveLength(1)
+  expect(screen.getByAltText(leader.name).parentElement).toHaveClass('choice-source-aura', 'dim-exempt')
+  expect(screen.queryByTitle('reaction clock')).toBeNull()
+  rerender(board({ ...view, pendingWindows: [] }))
+  expect(screen.getByAltText(leader.name).parentElement).not.toHaveClass('choice-source-aura')
 })

@@ -13,8 +13,8 @@ export default function CardReactionTimer({ cardId, handIndex, zoomed = false }:
   const handCard = handIndex === undefined ? undefined : view?.hand[handIndex]
   const id = cardId ?? handCard?.id
   const window = (view?.pendingWindows ?? []).filter((window) => {
+    if (window.type !== 'Challenge' && window.type !== 'Modifier' && window.type !== 'Attack') return false
     if (id && subjectIdOf(window) === id) return true
-    if (window.isYours && (window.detail?.cardId === id || window.detail?.sourceCardId === id)) return true
     if (handCard?.type === 'Challenge') return window.type === 'Challenge' &&
       window.respondentId !== view?.playerId && window.detail?.challenged !== true && window.detail?.challengeable !== false
     if (handCard?.type === 'Modifier') return window.type === 'Modifier' || window.type === 'Attack' ||

@@ -46,7 +46,7 @@ import {
 import { passiveSourceIds } from './passiveRelevance'
 import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
-import { derivePlayable, isOptionalWindow } from './playable'
+import { derivePlayable, isOptionalWindow, reactionRevision } from './playable'
 import {
   TargetingProvider,
   TargetKey,
@@ -736,6 +736,22 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   useGameAudio(view, log)
   const send = useSend()
   const flags = derivePlayable(view)
+  const [localPasses, setLocalPasses] = useState<Record<string, string>>({})
+  const passableWindows = view.pendingWindows.filter((window) =>
+    flags.passableWindows.includes(window.windowId) &&
+    localPasses[window.windowId] !== reactionRevision(window),
+  )
+  const hasReactionWindow = view.phase === 'Turns' && view.pendingWindows.some((window) => window.canPass)
+  useEffect(() => {
+    setLocalPasses((passes) => {
+      const remaining = Object.entries(passes).filter(([id, revision]) =>
+        view.pendingWindows.some((window) => window.windowId === id &&
+          reactionRevision(window) === revision &&
+          !(Array.isArray(window.detail?.passedBy) && window.detail?.passedBy.includes(view.playerId))),
+      )
+      return remaining.length === Object.keys(passes).length ? passes : Object.fromEntries(remaining)
+    })
+  }, [view])
   const discardCards = discardCardsForView(view)
   const slots = slotsFor(view)
   const { active, begin, cancel } = useTargeting()
@@ -869,12 +885,29 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
    * dismissed "roll on the hero you just played?", so Buttons never pulled).
    */
   const forfeitWindow = async (): Promise<boolean> => {
-    if (flags.passableWindows.length === 0) return false
-    // Every table window this seat could still act on, in one press
-    // (the owner, 2026-09-05): under seamless reactions several stand open.
-    for (const windowId of flags.passableWindows) {
-      const result = await send({ type: 'PassWindow', payload: { windowId } })
-      if (!handleResult(result)) return false
+    if (passableWindows.length === 0) return false
+    // A non-final pass emits no engine event/snapshot. Keep its acknowledgement
+    // locally until the server confirms it or a changed roll reopens reactions.
+    const attempts = passableWindows.map((window) => [window.windowId, reactionRevision(window)] as const)
+    setLocalPasses((passes) => ({ ...passes, ...Object.fromEntries(attempts) }))
+    for (let index = 0; index < attempts.length; index++) {
+      const [windowId] = attempts[index]
+      let result: CommandResult
+      try {
+        result = await send({ type: 'PassWindow', payload: { windowId } })
+      } catch {
+        result = { accepted: false, error: 'InternalError' }
+      }
+      if (!handleResult(result)) {
+        setLocalPasses((passes) => {
+          const remaining = { ...passes }
+          for (const [id, revision] of attempts.slice(index)) {
+            if (remaining[id] === revision) delete remaining[id]
+          }
+          return remaining
+        })
+        return false
+      }
     }
     playSound('skipReaction')
     return true
@@ -967,6 +1000,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     begin({
       source,
       tone: 'choice',
+      effectSource: targetKeyForId(view, window.detail?.sourceCardId) ?? undefined,
       revision,
       live,
       targets: pairs.map((pair) => pair.key),
@@ -1036,9 +1070,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           (window.type === 'CardChoice' || window.type === 'MonsterChoice') &&
           !!window.optionCards?.length,
       ) ?? null)
-  // The card whose ability is asking (`detail.sourceCardId`), shown big in
-  // the pink effect-working aura for as long as the board is dimmed for its
-  // question — the context the owner asked for (2026-09-04).
+  // Off-board choices name the asking ability in the picker.
   const askingWindow = boardChoice?.window ?? cardPick
   const askingCard = cardById(
     view,
@@ -1357,19 +1389,19 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         <HudWidget def={HUD_WIDGETS.volume} aspect={1683 / 423} aboveChallenge>
           <VolumeControl />
         </HudWidget>
-        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={4.5} aboveChallenge>
+        {(liveChallenge || liveRoll) && <HudWidget def={HUD_WIDGETS.challengeButton} aspect={4.5} aboveChallenge={stageOpen}>
           <DevButton
             label={liveChallenge ? 'Challenge window' : 'Modifier window'}
             enabled={!!liveChallenge || !!liveRoll}
             onClick={() => {
-              if (liveChallenge) setOverlayHidden(false)
+              if (liveChallenge) setOverlayHidden((hidden) => !hidden)
               else {
                 setManuallyOpenedRollId(liveRoll?.windowId ?? null)
-                setModifierHidden(false)
+                setModifierHidden(modifierOpen)
               }
             }}
           />
-        </HudWidget>
+        </HudWidget>}
         {FAKE_SERVER && (
           <HudWidget def={HUD_WIDGETS.restartButton} aspect={3}>
             <DevButton
@@ -1402,18 +1434,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : flags.passable ? (
-            // a roll or a challenge is open and this seat has not given it up
-            // yet: the slot forfeits instead of ending the turn — one press
-            // takes every window this seat can still pass. Once it HAS passed
-            // them all the slot goes straight back to End Turn (the owner,
-            // 2026-09-05): the wait is the other seats' own reaction clock,
-            // and their buttons stay lit until each of them forfeits too.
+          ) : hasReactionWindow ? (
             <ImageButton
               src={HUD.skipReaction}
               label="Skip reaction"
-              enabled
-              glow
+              enabled={passableWindows.length > 0}
+              glow={passableWindows.length > 0}
               onClick={() => void forfeitWindow()}
             />
           ) : (
@@ -1539,21 +1565,6 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               </div>
             </div>
           </div>
-        )}
-
-        {askingCard && boardChoice && !stageOpen && (
-          // The asking card, big and bright above the dimmed table — but NOT
-          // while a challenge or a modified roll holds the stage. Both are
-          // centred (this one spans 10..40cqh, the stage card 21..65cqh), and
-          // when the question is about the very play being contested they are
-          // the same hero: the owner saw it drawn twice, overlapping
-          // (2026-09-05). The stage overlay is already that card, bigger.
-          <img
-            src={artFor(askingCard).url}
-            alt={askingCard.name}
-            draggable={false}
-            className="passive-aura pointer-events-none absolute left-1/2 top-[10cqh] z-[150] h-[30cqh] -translate-x-1/2 rounded-[.35cqw] object-contain"
-          />
         )}
 
         {cardPick && (

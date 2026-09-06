@@ -41,6 +41,12 @@ export const AP_COST = {
 } as const
 export const MAX_HAND_SIZE = 10
 
+/** Passes change per seat; the clock/roll changes when everyone may react again. */
+export function reactionRevision(window: PendingWindowView): string {
+  const { passedBy, ...detail } = window.detail ?? {}
+  return JSON.stringify([window.deadline, detail])
+}
+
 /**
  * Presentation gates copied from the read model plus the cost mirror above.
  * Equipment, deck and party rules are NOT duplicated: the server remains the

@@ -383,7 +383,7 @@ export const MODIFIER_LAYOUT = {
   /** the card rolled on (hero / leader / monster) */
   card: { h: 42, dx: 0, dy: -8 },
   /** the total's scroll, under the card */
-  scroll: { h: 6, dx: 0, dy: 18 },
+  scroll: { h: 6, dx: 0, dy: 16.5 },
   /** the modifier cards: the first at +dx (right), the second at −dx
    *  (left), each next pair `step` further out and `drop` lower, tilted
    *  `angle`° away from the centre */

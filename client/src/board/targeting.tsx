@@ -67,6 +67,8 @@ export const tkey = {
 };
 
 export interface TargetingRequest {
+  /** The ability asking for a choice, highlighted in its board slot. */
+  effectSource?: TargetKey;
   sourceCardId?: string;
   revision?: string;
   /** the card the action originates from — stays bright, click = cancel */
@@ -207,5 +209,6 @@ export function useTargetable(key?: TargetKey, onActivate?: () => void) {
             ? "dimmable cursor-pointer"
             : "dimmable";
 
-  return { mode, className, onClick, targeting: active !== null };
+  const effectSource = key !== undefined && key === active?.effectSource;
+  return { mode, className: className + (effectSource ? " dim-exempt choice-source-aura" : ""), onClick, targeting: active !== null };
 }
