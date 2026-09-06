@@ -6,14 +6,14 @@ describe('FluffyAbility', () => {
   it('registers two complete choose-and-destroy pairs', () => {
     expectAbility('hero-038', FluffyAbility, [
       {
+        on: GameEventType.RollPassing,
+        scope: TriggerScope.SelfCard,
+        steps: ['ChooseCardTask', 'TargetRollTask'],
+      },
+      {
         on: GameEventType.RollSuccess,
         scope: TriggerScope.SelfCard,
-        steps: [
-          'ChooseCardTask',
-          'DestroyTask',
-          'ChooseCardTask',
-          'DestroyTask',
-        ],
+        steps: ['DestroyTask', 'ChooseCardTask', 'DestroyTask',],
       },
     ])
   })

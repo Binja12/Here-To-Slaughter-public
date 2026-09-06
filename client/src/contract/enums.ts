@@ -68,6 +68,7 @@ export enum RefusalReason {
   NoModifiableWindow = 'NoModifiableWindow',
   TargetNotRolling = 'TargetNotRolling',
   TargetNotInChallenge = 'TargetNotInChallenge',
+  TargetRequired = 'TargetRequired',
   NotAModifier = 'NotAModifier',
   ValueNotOnCard = 'ValueNotOnCard',
   NoSuchWindow = 'NoSuchWindow',

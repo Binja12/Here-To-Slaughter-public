@@ -32,9 +32,13 @@ export const EngineCommandSchema = z.discriminatedUnion("type", [
   // reactions — ReactionManager.submitReaction
   command(
     "ApplyModifier",
-    z.object({ cardId: id, targetPlayerId: id, value: z.number().int() }),
+    // A roll has one target and the board names it (GameState.aimModifier);
+    // a started challenge has two rolls, and the player says which
+    // (`targetPlayerId`, refused TargetRequired when missing there).
+    z.object({ cardId: id, value: z.number().int(), targetPlayerId: id.optional() }),
   ),
-  command("Challenge", z.object({ cardId: id, targetedCardId: id })),
+  // No target either: the card contests whichever play is open to it.
+  command("Challenge", z.object({ cardId: id })),
   // a choice — ReactionManager.submitChoice. What a legal choice IS depends
   // on the window, and only the engine knows that.
   command("SubmitChoice", z.object({ windowId: id, choice: z.unknown() })),

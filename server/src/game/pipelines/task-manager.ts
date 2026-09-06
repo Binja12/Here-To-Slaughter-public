@@ -7,7 +7,6 @@ import {
   TriggerScope,
 } from 'shared'
 import {
-  AbilityTrigger,
   IAbilityRule,
   IGameRule,
   IReactionManager,
@@ -329,6 +328,6 @@ export class TaskManager implements IGameEventListener {
       )
     }
 
-    this.gs.parkOn(pipeline, frameId)
+    pipeline.pausedOn = frameId
   }
 }

@@ -6,6 +6,7 @@ import { useTargetable } from './targeting'
 import { useGameView } from '../state/game'
 import { cardById, targetKeyForId } from './viewTargets'
 import CardReactionTimer from './CardReactionTimer'
+import ImageButton from './ImageButton'
 
 /**
  * ModifierWindow — the roll being modified, centre stage, the way a
@@ -13,8 +14,10 @@ import CardReactionTimer from './CardReactionTimer'
  * a leader, a monster under attack) in the middle with the roll's TOTAL in
  * the scroll under it, and every modifier card played onto the roll beside
  * it — the first to the right, the second to the left, the third to the
- * right again, and so on (the owner, 2026-09-05). Opens once a modifier
- * CARD has landed (standing bonuses alone do not open it); the board below
+ * right again, and so on (the owner, 2026-09-05). Opens once ANYTHING is
+ * modifying the roll — a card played onto it or a standing effect (a
+ * leader, a monster, a hero; the owner, 2026-09-06), every source shown
+ * with its amount; the board below
  * is dimmed like a challenge (`.challenge-open`), the local hand stays on
  * the bright layer, and the centre card is the modifier target, so aiming
  * another modifier works from here. A click on the shield puts the window
@@ -24,10 +27,15 @@ export default function ModifierWindow({
   roll,
   hidden = false,
   onHide,
+  canSkip = false,
+  onSkip,
 }: {
   roll: LiveRoll | null
   hidden?: boolean
   onHide?: () => void
+  /** whether this seat may still give the roll up — the Skip button lights while it can */
+  canSkip?: boolean
+  onSkip?: () => void
 }) {
   const view = useGameView()
   const subject = cardById(view, roll?.subjectId)
@@ -42,9 +50,16 @@ export default function ModifierWindow({
   const outcome = rollOutcome(roll, view)
   const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
   const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
-  const modifierCards = roll.bonuses.flatMap((bonus) => {
+  const targetSeat = view.seats.find((seat) => seat.playerId === roll.targetPlayerId)
+  const targetName =
+    roll.targetPlayerId === undefined
+      ? undefined
+      : roll.targetPlayerId === view.playerId
+        ? 'you'
+        : targetSeat?.name ?? 'player'
+  const bonusCards = roll.bonuses.flatMap((bonus) => {
     const card = cardById(view, bonus.cardSource)
-    return card?.type === 'Modifier' ? [{ card, amount: bonus.amount }] : []
+    return card ? [{ card, amount: bonus.amount }] : []
   })
 
   return (
@@ -72,6 +87,11 @@ export default function ModifierWindow({
           >
             {who} {roll.type === 'Attack' ? 'attack' : 'roll'}
           </div>
+          {targetName && (
+            <div className="absolute inset-x-0 -top-[2.4cqh] text-center font-heading text-[0.85cqw] tracking-[0.08cqw] text-amber-100/90">
+              targets {targetName}
+            </div>
+          )}
           <img
             src={art.url}
             alt={subject.name}
@@ -82,8 +102,8 @@ export default function ModifierWindow({
           <CardReactionTimer cardId={subject.id} />
         </div>
 
-        {/* each modifier played onto the roll: right, left, right, left… */}
-        {modifierCards.map(({ card, amount }, index) => {
+        {/* everything modifying the roll: right, left, right, left… */}
+        {bonusCards.map(({ card, amount }, index) => {
           const side = index % 2 === 0 ? 1 : -1
           const rank = Math.floor(index / 2)
           return (
@@ -95,13 +115,13 @@ export default function ModifierWindow({
                 width: `${L.modCard.h * NONHERO_CARD_ASPECT}cqh`,
                 left: `calc(50% + ${side * (L.modCard.dx + rank * L.modCard.step)}cqh)`,
                 top: `calc(50% + ${L.modCard.dy + rank * L.modCard.drop}cqh)`,
-                transform: `translate(-50%, -50%) rotate(${side * L.modCard.angle}deg)`,
+                transform: `translate(-50%, -50%) rotate(${L.modCard.angle}deg)`,
                 zIndex: 10 - rank,
               }}
             >
               <img
                 src={artFor(card).url}
-                alt={`modifier ${amount > 0 ? '+' : ''}${amount}`}
+                alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
                 draggable={false}
                 className="h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
               />
@@ -125,12 +145,16 @@ export default function ModifierWindow({
           top: `calc(50% + ${L.scroll.dy}cqh)`,
         }}
       >
+        {/* the scroll itself glows with what the number means: green over
+            the mark, red under it, nothing in a monster's middle band */}
         <img
           src={HUD.yourTurn}
           alt=""
           aria-hidden
           draggable={false}
-          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+          className={`pointer-events-none absolute inset-0 h-full w-full select-none object-fill${
+            outcome === 'success' ? ' card-aura' : outcome === 'failure' ? ' enemy-aura' : ''
+          }`}
         />
         <span
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap leading-none drop-shadow-[0_0.08cqw_0.15cqw_rgba(0,0,0,0.9)]"
@@ -146,6 +170,23 @@ export default function ModifierWindow({
           {rollNeedLabel(roll, view)}
         </span>
       </div>
+
+      {/* the same Skip as the HUD slot, here where the roll is, so it is
+          plain that this window can be given up (the owner, 2026-09-06) */}
+      {onSkip && (
+        <div
+          className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+          style={{
+            height: `${L.skip.h}cqh`,
+            width: `${L.skip.h * 3}cqh`,
+            left: `calc(50% + ${L.skip.dx}cqh)`,
+            top: `calc(50% + ${L.skip.dy}cqh)`,
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <ImageButton src={HUD.skipReaction} label="Skip reaction" enabled={canSkip} glow={canSkip} onClick={onSkip} />
+        </div>
+      )}
     </div>
   )
 }

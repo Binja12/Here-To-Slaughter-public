@@ -9,7 +9,7 @@ import { Party } from '../../state-structures/party'
 import { HeroCard } from '../../cards/hero-card'
 import { GameEventEmitter } from '../../events/game-event-emitter'
 import { GameEventFactory } from '../../events/game-event-factory'
-import { AbilityContext } from '../../abilities/ability-context'
+import { AbilityContext, CTX_CHOSEN_CARD } from '../../abilities/ability-context'
 import { IReactionWindow } from '../../interfaces'
 
 const makeGs = () =>
@@ -50,8 +50,10 @@ function table() {
   gs.addEffect({ id: 'saber', sourceCardId: 'monster-122', ownerId: 'p1', type: PassiveType.StealsInsteadOfDestroy })
   const { em, emitted, rm } = wire(gs)
   new TaskManager(gs, em, rm, new Map([['monster-122', CorruptedSabretoothAbility], ['hero-001', BadAxeAbility]]))
-  em.emit(GameEventFactory.rollSuccess('p1', 'hero-001'))
-  windowOf(gs, 'p1').submitReaction('p1', { choice: 'theirs' }) // Bad Axe's pick
+  // Bad Axe asks its target while the roll stands; the settle carries the pick.
+  em.emit(GameEventFactory.rollPassing('p1', 'hero-001'))
+  windowOf(gs, 'p1').submitReaction('p1', { choice: 'theirs' })
+  em.emit(GameEventFactory.rollSuccess('p1', 'hero-001', { [CTX_CHOSEN_CARD]: ['theirs'] }))
   return { gs, emitted }
 }
 

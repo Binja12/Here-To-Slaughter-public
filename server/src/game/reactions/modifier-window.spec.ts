@@ -1,4 +1,7 @@
-import { GameEventType, IGameEvent, PassiveType, ReactionWindowType } from 'shared'
+import { CardType, GameEventType, IGameEvent, PassiveType, ReactionWindowType, Zone } from 'shared'
+import { ModifierCard } from '../cards/modifier-card'
+import { PlayerChoiceWindow } from './player-choice-window'
+import { CTX_CHOSEN_CARD, CTX_CHOSEN_PLAYER } from '../abilities/ability-context'
 import { Player } from '../state-structures/player'
 import { ModifierWindow } from './modifier-window'
 import { GameState } from '../pipelines/game-state'
@@ -148,28 +151,6 @@ describe('ModifierWindow — standing bonuses stack, each keeping its source', (
       .getPayload() as Record<string, unknown>
     expect(payload['bonuses']).toEqual([])
     expect(payload['finalRoll']).toBe(2)
-  })
-})
-
-describe('ModifierWindow — the turn’s end', () => {
-  it('opens capped once the budget is gone, and a reaction gives it the full wait back', () => {
-    const gs = new GameState(
-      new CardStack('deck', 'main'),
-      new CardPile('discard', 'discard'),
-      new CardStack('mdeck', 'monster-deck'),
-      new CardPile('mpile', 'monster-pile'),
-      true,
-    )
-    gs.registerPlayer(
-      new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'party-1', actionPoints: 0 }),
-    )
-    gs.setCurrentPlayerId('p1')
-    const win = makeWindow({ gs, em: new GameEventEmitter(), timeoutMs: 20_000 })
-    expect(win.getDeadline() - Date.now()).toBeLessThanOrEqual(10_000)
-
-    win.submitReaction('p1', { type: 'modifier', value: 1, cardId: 'mod-1', targetPlayerId: 'p1' })
-    expect(win.getDeadline() - Date.now()).toBeGreaterThan(15_000)
-    win.cancel()
   })
 })
 
@@ -406,5 +387,143 @@ describe('ModifierWindow', () => {
     expect(count(GameEventType.ReactionWindowClosed)).toBe(1)
     expect(count(GameEventType.FrameResolved)).toBe(1)
     expect(count(GameEventType.RollSuccess)).toBe(1)
+  })
+})
+
+describe('ModifierWindow — the target is asked while the roll stands', () => {
+  const modifierCard = (id: string) =>
+    new ModifierCard({ id, name: id, type: CardType.Modifier, image: '', description: '', set: '', values: [2, -2] })
+  let gs: GameState
+  let em: GameEventEmitter
+  let events: IGameEvent[]
+  const passing = (): IGameEvent[] => events.filter((e) => e.getType() === GameEventType.RollPassing)
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    gs = makeGs()
+    em = new GameEventEmitter()
+    events = collect(em)
+    gs.registerPlayer(new Player({ id: 'p1', name: 'p1', hand: [], partyId: 'party-1', actionPoints: 3 }))
+    gs.registerPlayer(new Player({ id: 'p2', name: 'p2', hand: ['their-card'], partyId: 'party-2', actionPoints: 3 }))
+    for (const id of ['mod-1', 'mod-2']) gs.registerCard(modifierCard(id))
+  })
+  afterEach(() => jest.useRealTimers())
+
+  it('announces RollPassing at open when the roll meets the requirement, and not when it falls short', () => {
+    makeWindow({ gs, em, baseRoll: 5, rollReq: 5 })
+    expect(passing()).toHaveLength(1)
+    expect(passing()[0].getPayload()).toMatchObject({ cardId: 'hero-1' })
+
+    events.length = 0
+    makeWindow({ gs, em, id: 'win-2', frameId: 'frame-2', baseRoll: 4, rollReq: 5 })
+    expect(passing()).toHaveLength(0)
+  })
+
+  it('announces it when a modifier rescues the roll, and only once however often it flips', () => {
+    const win = makeWindow({ gs, em, baseRoll: 3, rollReq: 5 })
+    win.submitReaction('p2', { value: 2, cardId: 'mod-1' })
+    expect(passing()).toHaveLength(1)
+
+    win.submitReaction('p2', { value: -1, cardId: 'leader-x' })
+    win.submitReaction('p2', { value: 1, cardId: 'leader-y' })
+    expect(passing()).toHaveLength(1)
+  })
+
+  it('a target landing is shown as its seat, gives everyone another look, and rides on RollSuccess', () => {
+    const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5 })
+    win.pass('p2')
+    const before = win.getDeadline()
+    jest.advanceTimersByTime(1000)
+
+    win.targetChosen(CTX_CHOSEN_PLAYER, ['p2'], Zone.Hand)
+
+    expect(win.getDetail()).toMatchObject({ targetPlayerId: 'p2', targetZone: Zone.Hand, passedBy: [] })
+    expect(win.getDeadline()).toBeGreaterThan(before)
+
+    win.resolve()
+    const success = events.find((e) => e.getType() === GameEventType.RollSuccess)!
+    expect(success.getPayload()).toMatchObject({ cardId: 'hero-1', ctxSeed: { [CTX_CHOSEN_PLAYER]: ['p2'] } })
+  })
+
+  it("a card picked from a hand is shown as its owner's seat, never as the card", () => {
+    const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5 })
+    win.targetChosen(CTX_CHOSEN_CARD, ['their-card'], Zone.Hand)
+    expect(win.getDetail()['targetPlayerId']).toBe('p2')
+    expect(JSON.stringify(win.getDetail())).not.toContain('their-card')
+  })
+
+  it('does not settle while a question stands over it; the clock runs again instead', () => {
+    const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5 })
+    gs.addFrame('frame-2', gs.clone(), [])
+    const question = new PlayerChoiceWindow('w-q', 'p1', ['p2'], 60_000, gs, 'frame-2', em)
+    gs.addWindow('frame-2', question)
+
+    jest.advanceTimersByTime(5000)
+    expect(win.isOpen()).toBe(true)
+    win.resolve()
+    expect(win.isOpen()).toBe(true)
+
+    question.submitReaction('p1', { choice: 'p2' })
+    jest.advanceTimersByTime(5000)
+    expect(win.isOpen()).toBe(false)
+  })
+
+  it('a modifier landing gives the question standing over the roll its clock back; the roll running out does not', () => {
+    const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5, timeoutMs: 5000 })
+    gs.addFrame('frame-2', gs.clone(), [])
+    const question = new PlayerChoiceWindow('w-q', 'p1', ['p2'], 5000, gs, 'frame-2', em)
+    gs.addWindow('frame-2', question)
+    const asked = question.getDeadline()
+
+    jest.advanceTimersByTime(3000)
+    win.submitReaction('p2', { value: -2, cardId: 'mod-1' })
+    expect(question.getDeadline()).toBe(asked + 3000)
+    expect(win.getDeadline()).toBe(asked + 3000)
+
+    // the roll's own clock running out only restarts the roll
+    jest.advanceTimersByTime(4999)
+    expect(win.isOpen()).toBe(true)
+    expect(question.isOpen()).toBe(true)
+    expect(question.getDeadline()).toBe(asked + 3000)
+  })
+
+  it('any number of cards may follow the first: the roll stays open, each giving the full wait again', () => {
+    const win = makeWindow({ gs, em, baseRoll: 2, rollReq: 5 })
+    win.submitReaction('p2', { value: 1, cardId: 'mod-1' })
+    win.submitReaction('p1', { value: 2, cardId: 'mod-2' })
+    win.submitReaction('p2', { value: -2, cardId: 'mod-1' })
+    expect(win.isOpen()).toBe(true)
+    expect(win.getFinalRoll()).toBe(3)
+
+    win.targetChosen(CTX_CHOSEN_PLAYER, ['p2'], Zone.Hand)
+    expect(win.isOpen()).toBe(true)
+  })
+})
+
+describe('ModifierWindow — every modifier gives the table the full wait again', () => {
+  it("the spend and the landing each restart the clock at the window's own timeout", () => {
+    jest.useFakeTimers()
+    try {
+      const gs = makeGs()
+      const em = new GameEventEmitter()
+      const win = makeWindow({ gs, em, timeoutMs: 5000 })
+      const opened = win.getDeadline()
+
+      jest.advanceTimersByTime(3000)
+      win.cardSpent()
+      expect(win.getDeadline()).toBe(opened + 3000)
+
+      jest.advanceTimersByTime(2000)
+      win.submitReaction('p2', { value: 2, cardId: 'mod-x' })
+      expect(win.getDeadline()).toBe(opened + 5000)
+      expect(win.isOpen()).toBe(true)
+
+      jest.advanceTimersByTime(4999)
+      expect(win.isOpen()).toBe(true)
+      jest.advanceTimersByTime(1)
+      expect(win.isOpen()).toBe(false)
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })

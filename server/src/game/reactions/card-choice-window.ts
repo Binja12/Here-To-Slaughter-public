@@ -21,8 +21,13 @@ export class CardChoiceWindow extends ChoiceWindow {
     private readonly slot: string = CTX_CHOSEN_CARD,
     /** The card whose ability asks, for the screen (`detail.sourceCardId`). */
     sourceCardId?: string,
+    /** What is asked, when the cards alone do not say (`detail.question`). */
+    question?: string,
   ) {
-    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, sourceCardId ? { sourceCardId } : {})
+    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, {
+      ...(sourceCardId && { sourceCardId }),
+      ...(question && { question }),
+    })
   }
 
   getType(): ReactionWindowType {

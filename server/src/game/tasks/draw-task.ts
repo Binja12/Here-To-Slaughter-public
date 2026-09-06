@@ -73,3 +73,19 @@ export class DrawTask extends Draw implements ITask {
     ctx.set(CTX_DRAWN_CARD_IDS, drawn)
   }
 }
+
+/**
+ * The card a slot names goes on top of the main deck, out of wherever it lies
+ * in it — Bullseye's "return the other two to the top in any order": the
+ * player picks which of the two is on top (a CardChoice over the deck's top
+ * two, filed in CTX_DECK_TOP_CARD) and the other is second by itself. A slot
+ * naming nothing, or a card no longer in the deck, moves nothing.
+ */
+export class ReturnToDeckTopTask implements ITask {
+  constructor(private readonly key: string) {}
+
+  execute(gs: GameState, ctx: AbilityContext): void {
+    const [cardId] = ctx.get<string[]>(this.key) ?? []
+    if (cardId) gs.moveToMainDeckTop(cardId)
+  }
+}

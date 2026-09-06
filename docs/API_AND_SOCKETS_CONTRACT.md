@@ -123,8 +123,7 @@ type GameSettings = {
   monsterCount: number; // 2..5 — monsters to slay
   cardSet: "base";
   turnTimeMs: number; // 10 000..120 000 — a turn's clock; paused while any reaction window is open, and the turn ends when it lapses
-  reactionTimeMs: number; // 5 000..30 000 — a full-share reaction window's wait
-  seamlessReactions: boolean; // plays stand at once and are rolled back on a losing reaction; the active player plays on under open windows (docs/SEAMLESS_REACTIONS_PLAN.md)
+  reactionTimeMs: 5000 | 10000 | 20000; // fast / moderate / slow — the challenge window's wait; a hero roll or a question takes the same, an attack twice it
 };
 
 type LobbySnapshot = {
@@ -295,15 +294,19 @@ type AttackMonsterPayload = { monsterId: string };
 type ReDrawPayload = {};
 type EndTurnPayload = {};
 
+// A modifier on a roll lands on that roll: the board names the roller and
+// `targetPlayerId` is ignored. In a started challenge there are two rolls,
+// so `targetPlayerId` says which (the challenger or the defender) and is
+// refused TargetRequired when missing. A challenge card contests the open
+// play; it names nothing (GameState.aimModifier).
 type ApplyModifierPayload = {
   cardId: string;
   value: number;
-  targetPlayerId: string;
+  targetPlayerId?: string;
 };
 
 type ChallengePayload = {
   cardId: string;
-  targetedCardId: string;
 };
 
 type SubmitChoicePayload = {

@@ -27,6 +27,7 @@ export const REFUSAL_MESSAGES: Record<RefusalReason, string> = {
   [RefusalReason.NoModifiableWindow]: 'There is no roll to modify.',
   [RefusalReason.TargetNotRolling]: 'That player is not rolling.',
   [RefusalReason.TargetNotInChallenge]: 'That player is not in the challenge.',
+  [RefusalReason.TargetRequired]: 'Pick whose roll to modify.',
   [RefusalReason.NotAModifier]: 'That card is not a modifier.',
   [RefusalReason.ValueNotOnCard]: 'That modifier value is not printed on the card.',
   [RefusalReason.NoSuchWindow]: 'That choice is no longer open.',

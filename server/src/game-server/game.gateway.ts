@@ -115,7 +115,6 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
         cardSets: config.cardSets,
         turnTimeMs: config.timeControl.turnTimeMs,
         reactionTimeMs: config.timeControl.reactionCountdownMs,
-        seamlessReactions: config.seamlessReactions,
         requireAllWinConditions: config.requireAllWinConditions,
         winConditions: config.winConditions,
       },

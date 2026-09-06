@@ -24,6 +24,8 @@ export type LiveRoll = {
   rollReq?: number
   /** The hero, leader or monster the roll is about. */
   subjectId?: string
+  /** The seat the roll's effect is aimed at, once its owner has chosen. */
+  targetPlayerId?: string
 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value : undefined)
@@ -70,6 +72,7 @@ export function liveRollOf(view: PlayerView): LiveRoll | null {
       finalRoll: num(detail.finalRoll) ?? baseRoll + bonusTotal(bonuses),
       rollReq: num(detail.rollReq),
       subjectId: subjectIdOf(window),
+      targetPlayerId: str(detail.targetPlayerId),
     }
   }
   return null
@@ -92,14 +95,21 @@ export function facesOf(sum: number, seed: string): [number, number] {
   return [first, sum - first]
 }
 
-/** What the roll is against, as the table says it. Empty when nothing is printed. */
+/**
+ * How far the roll stands from each outcome — what must still be added to
+ * reach it, or taken off to fall to it — never the printed thresholds
+ * (the owner, 2026-09-06: a 7 against "slay 8+, hit back ≤5" reads
+ * "slay +1 · hit back −2"). Empty when nothing is printed.
+ */
 export function rollNeedLabel(roll: LiveRoll, view: PlayerView): string {
   if (roll.rollReq !== undefined) return `need +${Math.max(0, roll.rollReq - roll.finalRoll)}`
   const monster = cardById(view, roll.subjectId)
   if (monster?.type !== 'Monster') return ''
+  const up = (req: number) => `+${Math.max(0, req - roll.finalRoll)}`
+  const down = (req: number) => `−${Math.max(0, roll.finalRoll - req)}`
   return monster.rollCompareMode === 'LowToWin'
-    ? `slay ≤${monster.lowerReq}`
-    : `slay ${monster.higherReq}+ · hit back ≤${monster.lowerReq}`
+    ? `slay ${down(monster.lowerReq)}`
+    : `slay ${up(monster.higherReq)} · hit back ${down(monster.lowerReq)}`
 }
 
 export type RollOutcome = 'success' | 'failure' | 'none'
@@ -123,10 +133,6 @@ export function rollOutcome(roll: LiveRoll, view: PlayerView): RollOutcome {
 }
 
 /** Whether a modifier CARD has landed on the roll — standing effects alone are not "someone applied a modifier". */
-export function rollHasModifierCard(roll: LiveRoll, view: PlayerView): boolean {
-  return roll.bonuses.some((bonus) => cardById(view, bonus.cardSource)?.type === 'Modifier')
-}
-
 /** The banner text while a roll is open: the total as it stands, against what. */
 export function rollLabel(roll: LiveRoll, view: PlayerView): string {
   const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)

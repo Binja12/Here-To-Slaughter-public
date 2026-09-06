@@ -118,7 +118,6 @@ describe('CommandDispatcherService', () => {
           BOB,
           command('ApplyModifier', {
             cardId: 'modifier-081',
-            targetPlayerId: ALICE,
             value: 2,
           }),
         ),
@@ -182,7 +181,6 @@ describe('CommandDispatcherService', () => {
         'nobody',
         command('ApplyModifier', {
           cardId: 'modifier-080',
-          targetPlayerId: ALICE,
           value: 2,
         }),
       )

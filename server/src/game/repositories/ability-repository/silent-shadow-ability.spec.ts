@@ -62,7 +62,7 @@ describe('Silent Shadow (hero-021)', () => {
 
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    const [, chooseCard, take] = SilentShadowAbility[0].steps
+    const [chooseCard, take] = SilentShadowAbility[1].steps
     chooseCard.execute(gs, ctx, em, rm)
     const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getRespondentId()).toBe('p1')

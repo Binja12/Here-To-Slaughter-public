@@ -1,6 +1,6 @@
-import { threeSeatOpening } from '../fixtures/views'
+import { modifierWindowOpen, threeSeatOpening } from '../fixtures/views'
 import type { MonsterCardData, PlayerView } from '../contract'
-import { LiveRoll, rollHasModifierCard, rollLabel, rollOutcome } from './liveRoll'
+import { LiveRoll, liveRollOf, rollLabel, rollOutcome } from './liveRoll'
 
 const view: PlayerView = threeSeatOpening
 const monster = view.monsterRow[0] as MonsterCardData
@@ -44,12 +44,23 @@ test('the label shows the total, not the arithmetic', () => {
   expect(rollLabel(roll, view)).toBe('you rolled 8 · need +0')
   expect(rollLabel(heroRoll(6), view)).toBe('you rolled 6 · need +2')
   expect(rollLabel(heroRoll(10), view)).toBe('you rolled 10 · need +0')
+  // a monster: the distance to each outcome, not the thresholds
+  const between = monster.higherReq - 1
+  expect(rollLabel(attack(between), view)).toBe(
+    `you rolled ${between} · slay +1 · hit back −${between - monster.lowerReq}`,
+  )
+  expect(rollLabel(attack(monster.higherReq), view)).toContain('slay +0')
+  expect(rollLabel(attack(monster.lowerReq), view)).toContain('hit back −0')
 })
 
-test('a modifier card on the roll is what opens the modifier window; a standing bonus is not', () => {
-  const modifier = view.hand.find((card) => card.type === 'Modifier')
-  expect(modifier).toBeDefined()
-  expect(rollHasModifierCard(heroRoll(8, [{ cardSource: modifier!.id, amount: 2 }]), view)).toBe(true)
-  expect(rollHasModifierCard(heroRoll(8, [{ cardSource: view.parties[0].leader.id, amount: 1 }]), view)).toBe(false)
-  expect(rollHasModifierCard(heroRoll(8), view)).toBe(false)
+test("the roll carries the seat its effect targets, once the server says so", () => {
+  const untargeted = liveRollOf(modifierWindowOpen)
+  expect(untargeted?.targetPlayerId).toBeUndefined()
+
+  const [window] = modifierWindowOpen.pendingWindows
+  const targeted = liveRollOf({
+    ...modifierWindowOpen,
+    pendingWindows: [{ ...window, detail: { ...window.detail, targetPlayerId: 'player-b' } }],
+  })
+  expect(targeted?.targetPlayerId).toBe('player-b')
 })

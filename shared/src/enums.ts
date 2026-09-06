@@ -142,6 +142,8 @@ export enum GameEventType {
   GameStarted = "GameStarted",
   GameEnded = "GameEnded",
   DiceRolled = "DiceRolled",
+  /** A hero roll stands as a pass, before it settles: the effect may ask for its target now. */
+  RollPassing = "RollPassing",
   RollSuccess = "RollSuccess",
   /**
    * A leader's printed ability was activated (RollOnLeaderAction). Its own
@@ -412,6 +414,8 @@ export enum RefusalReason {
   TargetNotRolling = "TargetNotRolling",
   /** Aimed at somebody who is neither challenger nor defender. */
   TargetNotInChallenge = "TargetNotInChallenge",
+  /** A modifier into a contest named no side: a challenge has two rolls, and the player says which. */
+  TargetRequired = "TargetRequired",
   /** The card named is not a modifier card. */
   NotAModifier = "NotAModifier",
   /** The value sent is not one printed on the card. */

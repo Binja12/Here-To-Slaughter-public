@@ -25,12 +25,12 @@ export type GameCommand =
   | {
       commandId: string
       type: 'ApplyModifier'
-      payload: { cardId: string; targetPlayerId: string; value: number }
+      payload: { cardId: string; value: number; targetPlayerId?: string }
     }
   | {
       commandId: string
       type: 'Challenge'
-      payload: { cardId: string; targetedCardId: string }
+      payload: { cardId: string }
     }
   | {
       commandId: string

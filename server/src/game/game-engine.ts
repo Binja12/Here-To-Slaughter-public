@@ -61,19 +61,6 @@ export class GameEngine implements IGameEventListener {
         // After TaskManager (§8), which continued the pipeline the frame held.
         if (!concluded) this.turnManager.resumeDrain()
         break
-
-      case GameEventType.ReactionWindowClosed:
-        // Under seamless reactions a settlement is a close, not a resolution
-        // (§3): the frame was released before this went out, and this is the
-        // drain that ends a spent turn. A cancelled window closed nothing.
-        if (
-          !concluded &&
-          this.gs.isSeamless() &&
-          (event.getPayload() as { cancelled?: boolean }).cancelled !== true
-        ) {
-          this.turnManager.resumeDrain()
-        }
-        break
     }
   }
 

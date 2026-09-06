@@ -84,7 +84,7 @@ describe('AttackMonsterAction', () => {
   }
 
   /** Nobody spends a modifier, so the window lapses and settles the attack. */
-  const settle = () => jest.advanceTimersByTime(5000)
+  const settle = () => jest.advanceTimersByTime(10_000) // an attack waits twice the countdown
 
   const types = () => emitted.map((e) => e.getType())
 
@@ -456,7 +456,7 @@ describe('AttackMonsterAction — the monster answers back', () => {
     new AttackMonsterAction('a1', 'p1', 'monster-1', ctx.rm, ctx.emitter).execute(
       ctx.gs,
     )
-    jest.advanceTimersByTime(5000)
+    jest.advanceTimersByTime(10_000) // an attack waits twice the countdown
     return ctx
   }
 

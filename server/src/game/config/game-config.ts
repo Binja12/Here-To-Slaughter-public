@@ -13,5 +13,4 @@ export const defaultGameConfig: GameConfig = {
   requireAllWinConditions: false,
   timeControl: StandardTimeControl,
   flawPlay: true,
-  seamlessReactions: true,
 }

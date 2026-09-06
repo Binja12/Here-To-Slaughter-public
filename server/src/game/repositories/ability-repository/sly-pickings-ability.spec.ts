@@ -6,9 +6,14 @@ describe('SlyPickingsAbility', () => {
   it('registers pull, Item check, confirmation, and equip in order', () => {
     expectAbility('hero-018', SlyPickingsAbility, [
       {
+        on: GameEventType.RollPassing,
+        scope: TriggerScope.SelfCard,
+        steps: ['ChoosePlayerTask', 'TargetRollTask'],
+      },
+      {
         on: GameEventType.RollSuccess,
         scope: TriggerScope.SelfCard,
-        steps: ['ChoosePlayerTask', 'PullCardTask', 'CardTypeCondition'],
+        steps: ['PullCardTask', 'CardTypeCondition'],
       },
       {
         on: GameEventType.ConditionMet,

@@ -20,14 +20,16 @@ import { ValueChoiceWindow } from '../reactions/value-choice-window'
 import { TaskChoiceWindow } from '../reactions/task-choice-window'
 
 /**
- * Each window's share of the configured reaction countdown.
+ * Each window's share of the configured reaction countdown, which is the
+ * CHALLENGE window's wait (the lobby's fast / moderate / slow).
  *
  * A share rather than a number, so one config value moves every window
- * together and the RELATIONSHIP between them survives. That relationship is
- * load-bearing: a ValueChoice opens over a roll that is already running and is
- * a question ABOUT it, so it has to settle first. Give both the same countdown
- * and they fall due on the same tick — the roll, whose timer was reset first,
- * wins and settles without the bonus.
+ * together and the RELATIONSHIP between them survives. An attack takes twice
+ * the wait: a monster's roll is the table's biggest decision. A ValueChoice
+ * opens over a roll that is already running and is a question ABOUT it, so
+ * it has to settle first. Give both the same countdown and they fall due on
+ * the same tick — the roll, whose timer was reset first, wins and settles
+ * without the bonus.
  *
  * The two ZERO cases are not shares and are not here: an empty ChoiceWindow and
  * an unchallengeable ChallengeWindow settle on a 0ms timer whatever the
@@ -35,7 +37,7 @@ import { TaskChoiceWindow } from '../reactions/task-choice-window'
  */
 const WINDOW_SHARE: Readonly<Record<ReactionWindowType, number>> = {
   [ReactionWindowType.Modifier]: 1,
-  [ReactionWindowType.Attack]: 1,
+  [ReactionWindowType.Attack]: 2,
   [ReactionWindowType.Challenge]: 1,
   [ReactionWindowType.PlayerChoice]: 1,
   [ReactionWindowType.CardChoice]: 1,
@@ -160,6 +162,7 @@ export class ReactionManager implements IReactionManager {
         this.em,
         config['resultKey'] as string | undefined,
         config['sourceCardId'] as string | undefined,
+        config['question'] as string | undefined,
       )
     }
 

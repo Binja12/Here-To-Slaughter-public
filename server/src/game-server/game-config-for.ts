@@ -15,7 +15,6 @@ export function gameConfigFor(settings: GameSettings): GameConfig {
     cardSets: [settings.cardSet],
     winConditions: winConditionsFor(settings),
     requireAllWinConditions: settings.winCondition === 'monstersAndClasses',
-    seamlessReactions: settings.seamlessReactions,
     timeControl: {
       ...defaultGameConfig.timeControl,
       name: presetOf(settings),

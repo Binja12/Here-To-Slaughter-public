@@ -1,5 +1,6 @@
 import {
   GAME_SETTING_PRESETS,
+  REACTION_SPEEDS,
   presetOf,
   type GameSettings,
   type GameSettingsPreset,
@@ -38,13 +39,11 @@ export const TURN_TIME_OPTIONS: Option<number>[] = [
   120_000, 90_000, 60_000, 45_000, 30_000, 20_000, 10_000,
 ].map((ms) => ({ value: ms, label: formatClock(ms) }))
 
-export const REACTION_TIME_OPTIONS: Option<number>[] = [
-  30_000, 20_000, 15_000, 10_000, 7_500, 5_000,
-].map((ms) => ({ value: ms, label: formatSeconds(ms) }))
-
-export const SEAMLESS_OPTIONS: Option<boolean>[] = [
-  { value: false, label: 'Off' },
-  { value: true, label: 'On' },
+/** The challenge window's wait; a hero roll or a question takes the same, an attack twice it. */
+export const REACTION_TIME_OPTIONS: Option<GameSettings['reactionTimeMs']>[] = [
+  { value: REACTION_SPEEDS.fast, label: `Fast (${formatSeconds(REACTION_SPEEDS.fast)})` },
+  { value: REACTION_SPEEDS.moderate, label: `Moderate (${formatSeconds(REACTION_SPEEDS.moderate)})` },
+  { value: REACTION_SPEEDS.slow, label: `Slow (${formatSeconds(REACTION_SPEEDS.slow)})` },
 ]
 
 export const PRESET_OPTIONS: Option<GameSettingsPreset>[] = [

@@ -60,7 +60,7 @@ describe('Tipsy Tootie (hero-045)', () => {
     const { em } = collect()
     const rm = new ReactionManager(gs, em)
 
-    const [, , steal, give] = TipsyTootieAbility[0].steps
+    const [, steal, give] = TipsyTootieAbility[1].steps
     steal.execute(gs, ctx, em, rm)
     give.execute(gs, ctx, em, rm)
 

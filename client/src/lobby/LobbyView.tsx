@@ -8,7 +8,6 @@ import {
   PLAYER_COUNT_OPTIONS,
   PRESET_OPTIONS,
   REACTION_TIME_OPTIONS,
-  SEAMLESS_OPTIONS,
   TURN_TIME_OPTIONS,
   WIN_CONDITION_OPTIONS,
   presetOf,
@@ -319,17 +318,6 @@ function SettingsPanel({
         value={settings.reactionTimeMs}
         options={REACTION_TIME_OPTIONS}
         onChange={(ms) => set('reactionTimeMs', ms)}
-        editable={editable}
-      />
-      <SettingsRow
-        row={7}
-        label="Seamless reactions"
-        value={settings.seamlessReactions}
-        options={SEAMLESS_OPTIONS}
-        onChange={(on) => {
-          set('seamlessReactions', on)
-          if (!on) window.alert('Seamless mode is off. This makes the game flow simpler to understand, but gameplay is much slower because actions wait for reaction windows to finish.')
-        }}
         editable={editable}
       />
     </div>

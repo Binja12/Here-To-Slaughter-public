@@ -24,6 +24,13 @@ export type WinConditionMode = z.infer<typeof WinConditionModeSchema>;
 export const CardSetSchema = z.enum(["base"]);
 export type CardSet = z.infer<typeof CardSetSchema>;
 
+/** The challenge window's wait at each speed the lobby offers. */
+export const REACTION_SPEEDS = {
+  fast: 5_000,
+  moderate: 10_000,
+  slow: 20_000,
+} as const;
+
 export const GameSettingsSchema = z.object({
   /** Seats at the table; the ready list holds at most this many. */
   playerCount: z.number().int().min(MIN_PLAYER_COUNT).max(MAX_PLAYER_COUNT),
@@ -33,10 +40,15 @@ export const GameSettingsSchema = z.object({
   cardSet: CardSetSchema,
   /** A turn's clock, paused while any reaction window is open. When it lapses the turn ends. */
   turnTimeMs: z.number().int().min(10_000).max(120_000),
-  /** `TimeControl.reactionCountdownMs`: a full-share reaction window's wait. */
-  reactionTimeMs: z.number().int().min(5_000).max(30_000),
-  /** The active player keeps playing under open reaction windows (docs/SEAMLESS_REACTIONS_PLAN.md). */
-  seamlessReactions: z.boolean(),
+  /**
+   * `TimeControl.reactionCountdownMs`: the CHALLENGE window's wait. Every
+   * other window is a share of it (`reaction-manager.ts` WINDOW_SHARE).
+   */
+  reactionTimeMs: z.union([
+    z.literal(REACTION_SPEEDS.fast),
+    z.literal(REACTION_SPEEDS.moderate),
+    z.literal(REACTION_SPEEDS.slow),
+  ]),
 });
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 
@@ -46,15 +58,14 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   monsterCount: 3,
   cardSet: "base",
   turnTimeMs: 60_000,
-  reactionTimeMs: 15_000,
-  seamlessReactions: true,
+  reactionTimeMs: REACTION_SPEEDS.moderate,
 };
 
 /** The default table on shorter clocks. */
 export const FAST_GAME_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
   turnTimeMs: 30_000,
-  reactionTimeMs: 7_500,
+  reactionTimeMs: REACTION_SPEEDS.fast,
 };
 
 export const GAME_SETTING_PRESETS = {

@@ -10,6 +10,10 @@ export type WinConditionMode = 'monstersOrClasses' | 'monstersAndClasses'
 
 export type CardSet = 'base'
 
+/** The challenge window's wait at each speed the lobby offers; every other window is a share of it. */
+export const REACTION_SPEEDS = { fast: 5_000, moderate: 10_000, slow: 20_000 } as const
+export type ReactionTimeMs = (typeof REACTION_SPEEDS)[keyof typeof REACTION_SPEEDS]
+
 /** The table as the host sets it. Sent whole on every change (`PUT /lobby/settings`). */
 export type GameSettings = {
   /** Seats at the table; the ready list holds at most this many. */
@@ -19,9 +23,7 @@ export type GameSettings = {
   monsterCount: number
   cardSet: CardSet
   turnTimeMs: number
-  reactionTimeMs: number
-  /** The active player keeps playing under open reaction windows. */
-  seamlessReactions: boolean
+  reactionTimeMs: ReactionTimeMs
 }
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
@@ -30,15 +32,14 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   monsterCount: 3,
   cardSet: 'base',
   turnTimeMs: 60_000,
-  reactionTimeMs: 15_000,
-  seamlessReactions: true,
+  reactionTimeMs: REACTION_SPEEDS.moderate,
 }
 
 /** The default table on shorter clocks. */
 export const FAST_GAME_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
   turnTimeMs: 30_000,
-  reactionTimeMs: 7_500,
+  reactionTimeMs: REACTION_SPEEDS.fast,
 }
 
 export const GAME_SETTING_PRESETS = {

@@ -137,7 +137,6 @@ const makeInitialView = (): PlayerView => {
     pendingWindows: [],
     turnClock: { turnTimeMs: 60_000, deadline: Date.now() + 60_000 },
     busy: false,
-    acceptsActions: true,
     phase: 'Turns',
   }
 }
@@ -163,7 +162,7 @@ export class FakeGamePort implements GamePort {
     this.events = events
     events.onConnected?.({ gameId: this.view.gameId, config: {
       actionPointsPerTurn: 3, cardSets: ['base'], turnTimeMs: 60_000, reactionTimeMs: 45_000,
-      seamlessReactions: true, requireAllWinConditions: false,
+      requireAllWinConditions: false,
       winConditions: [{ type: 'SlayMonsters', value: 3 }, { type: 'PartyClasses', value: 6 }],
     } })
     events.onConnectionChange?.(true)
@@ -243,12 +242,15 @@ export class FakeGamePort implements GamePort {
         this.endTurn()
         break
       case 'ApplyModifier': {
-        const { cardId, targetPlayerId, value } = command.payload
+        const { cardId, value, targetPlayerId: aimed } = command.payload
+        // The server's rule: a roll's target is the roller; a started
+        // challenge has two rolls and the play names the side.
         const soundWindow = [...this.view.pendingWindows].reverse().find((window) =>
           window.type === 'Challenge'
-            ? window.detail?.challenged === true && [window.detail?.challengerId, window.detail?.defenderId, window.respondentId].includes(targetPlayerId)
-            : ['Modifier', 'Attack'].includes(window.type) && window.respondentId === targetPlayerId,
+            ? window.detail?.challenged === true
+            : ['Modifier', 'Attack'].includes(window.type),
         )
+        const targetPlayerId = aimed ?? soundWindow?.respondentId
         const soundWindowId = soundWindow && (this.soundWindowIds.get(soundWindow.windowId) ?? soundWindow.windowId)
         this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} modified the roll`, 'modifierPlayed', soundWindowId)
         const card = this.view.hand.find((candidate) => candidate.id === cardId)
@@ -296,7 +298,7 @@ export class FakeGamePort implements GamePort {
           ...this.view,
           pendingWindows: this.view.pendingWindows.map((window) =>
             window.type === 'Challenge' &&
-            window.cardId === command.payload.targetedCardId
+            window.detail?.challenged !== true
               ? {
                   ...window,
                   detail: {
@@ -587,7 +589,6 @@ export class FakeGamePort implements GamePort {
       winnerId: this.view.playerId,
       currentPlayerId: undefined,
       busy: false,
-      acceptsActions: true,
       revealedCards: [],
 
       pendingWindows: [],

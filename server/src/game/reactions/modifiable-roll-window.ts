@@ -7,6 +7,7 @@ import {
   RefusalReason,
   RequestResult,
   RollContext,
+  Zone,
 } from 'shared'
 import {
   accepted,
@@ -15,6 +16,7 @@ import {
   RollBonus,
   ValueBias,
   IPassableWindow,
+  ITargetedRollWindow,
 } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -32,8 +34,16 @@ import { GameEventFactory } from '../events/game-event-factory'
 // list, its bias rule and its settlement are a different shape.
 // ---------------------------------------------------------------------------
 
-export abstract class ModifiableRollWindow implements IModifiableWindow, IPassableWindow {
+export abstract class ModifiableRollWindow
+  implements IModifiableWindow, IPassableWindow, ITargetedRollWindow
+{
   protected bonuses: RollBonus[] = []
+  /**
+   * The target the effect chose while this roll stood open, as the slot the
+   * card's choose step wrote (TargetRollTask). Shown to the table as the
+   * seat it belongs to, and carried to the effect on the settle.
+   */
+  private target?: { key: string; picks: unknown[]; zone: Zone }
   /** Seats that gave this roll up; cleared whenever a card lands in it. */
   private readonly passes = new Set<string>()
   private timer?: ReturnType<typeof setTimeout>
@@ -41,13 +51,6 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
   private deadline = 0
   /** The subject's own fields, as handed to open(); reread by getDetail. */
   private detail: Record<string, unknown> = {}
-  /**
-   * Optimistic frames (seamless reactions, §3): the outcome the table
-   * currently shows, applied before the window settled. Undefined until the
-   * tick after opening, and always without the flag.
-   */
-  private applied: unknown = undefined
-  private provisional?: ReturnType<typeof setTimeout>
 
   constructor(
     private readonly id: string,
@@ -107,47 +110,44 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
         },
       ),
     )
-    this.startClock(this.gs.cappedClock(this.timeoutMs))
-    // On a TIMER, never inline: the task that opened this has not returned
-    // yet, and the continuation it parks has to be parked before it is woken.
-    if (this.optimistic()) {
-      this.provisional = setTimeout(() => this.reconcile(), 0)
-    }
+    this.resetTimer()
+    this.announceStanding()
   }
 
   /**
-   * Whether this window resolves provisionally (§3). The seamless flag, for
-   * a roll whose outcome the table can take back; an attack says no.
+   * What the standing roll means to the effect, announced by the subclass
+   * that knows the requirement: a hero roll says RollPassing so its target
+   * can be asked while the window stands. Called at open and after every
+   * bonus.
    */
-  protected optimistic(): boolean {
-    return this.gs.isSeamless()
+  protected announceStanding(): void {}
+
+  /** The chosen target as the seed of the effect's fresh context, if one landed. */
+  protected targetSeed(): Record<string, unknown> | undefined {
+    return this.target && { [this.target.key]: this.target.picks }
+  }
+
+  // --- ITargetedRollWindow ---
+
+  /**
+   * The target is known: the table sees it, and everyone gets another look
+   * at the roll — the full wait again, passes cleared, the way a card
+   * landing does.
+   */
+  targetChosen(key: string, picks: unknown[], zone: Zone): void {
+    this.target = { key, picks, zone }
+    this.passes.clear()
+    this.resetTimer()
   }
 
   /**
-   * Under seamless reactions the standing outcome is applied while the
-   * window is still open, and applied AGAIN whenever a modifier changes it —
-   * after a rollback, so the table only ever shows one outcome of this
-   * roll and the continuation runs once per outcome. What settles later is
-   * then a close (`resolve`), not a resolution.
+   * The seat the target belongs to, never the card: a card picked from a
+   * hand is that player's secret.
    */
-  private reconcile(): void {
-    if (this._resolved) return
-    const finalRoll = this.getFinalRoll()
-    const standing = this.standing(finalRoll)
-    if (this.applied !== undefined) {
-      if (standing === this.applied) return
-      this.gs.revertFrame(this.frameId)
-    }
-    this.applied = standing
-    this.apply(standing)
-    const key = this.resultKey()
-    this.emitter.emit(
-      GameEventFactory.frameResolved(
-        this.frameId,
-        [finalRoll],
-        key === NO_CONTEXT_RESULT ? undefined : { key, value: finalRoll },
-      ),
-    )
+  private targetPlayerId(): string | undefined {
+    const [pick] = this.target?.picks ?? []
+    if (typeof pick !== 'string') return undefined
+    return this.gs.getPlayer(pick) ? pick : this.gs.getCardOwner(pick)
   }
 
   // --- IReactionWindow ---
@@ -168,6 +168,8 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       bonuses: [...this.bonuses],
       finalRoll: this.getFinalRoll(),
       passedBy: [...this.passes],
+      targetPlayerId: this.targetPlayerId(),
+      targetZone: this.target?.zone,
       ...this.detail,
     }
   }
@@ -184,10 +186,6 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
 
   isOptional(): boolean {
     return false
-  }
-
-  blocksActions(_playerId: string): boolean {
-    return !this.optimistic()
   }
 
   passedBy(): readonly string[] {
@@ -267,7 +265,10 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       ),
     )
     this.resetTimer()
-    if (this.optimistic()) this.reconcile()
+    // ...and so does whoever is answering a question over this roll — its
+    // target — who was watching it change (the owner, 2026-09-06).
+    this.gs.restartQuestionsAfter(this.frameId)
+    this.announceStanding()
     return accepted()
   }
 
@@ -285,7 +286,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
   cancel(): void {
     if (this._resolved) return
     this._resolved = true
-    this.stopClocks()
+    if (this.timer) clearTimeout(this.timer)
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
         this.getType(),
@@ -297,36 +298,16 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
     )
   }
 
-  capClock(ms: number): void {
-    if (this._resolved || this.deadline - Date.now() <= ms) return
-    if (this.timer) clearTimeout(this.timer)
-    this.deadline = Date.now() + ms
-    this.timer = setTimeout(() => this.resolve(), ms)
-  }
-
   resolve(): void {
     if (this._resolved) return
+    // Not while a question stands over this roll — its target being chosen,
+    // a modifier's value. The clock runs again instead; the answer landing
+    // restarts it anyway, and a question always settles on its own clock.
+    if (this.gs.hasOpenFramesAfter(this.frameId)) return this.resetTimer()
     this._resolved = true
-    this.stopClocks()
+    if (this.timer) clearTimeout(this.timer)
 
     const finalRoll = this.getFinalRoll()
-
-    if (this.applied !== undefined) {
-      // Already resolved, provisionally, and the board shows it: release
-      // BEFORE the announcement, which is what drains a spent turn under
-      // seamless reactions (GameEngine on ReactionWindowClosed).
-      this.gs.releaseFrame(this.frameId)
-      this.emitter.emit(
-        GameEventFactory.reactionWindowClosed(
-          this.getType(),
-          this.rollerId,
-          this.frameId,
-          finalRoll,
-          { finalRoll, ...this.closedDetail() },
-        ),
-      )
-      return
-    }
 
     this.emitter.emit(
       GameEventFactory.reactionWindowClosed(
@@ -359,27 +340,11 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
    */
   protected abstract settle(finalRoll: number): void
 
-  /** What the number means to this window, as a value two readings can be compared by. */
-  protected abstract standing(finalRoll: number): unknown
-
-  /** What the outcome does to the table, the frame aside. */
-  protected abstract apply(outcome: unknown): void
-
   // --- Internal ---
 
-  /** A reaction landing gives the table the FULL wait again, even after the turn's end capped it (§11). */
   private resetTimer(): void {
-    this.startClock(this.timeoutMs)
-  }
-
-  private startClock(ms: number): void {
     if (this.timer) clearTimeout(this.timer)
-    this.deadline = Date.now() + ms
-    this.timer = setTimeout(() => this.resolve(), ms)
-  }
-
-  private stopClocks(): void {
-    if (this.timer) clearTimeout(this.timer)
-    if (this.provisional) clearTimeout(this.provisional)
+    this.deadline = Date.now() + this.timeoutMs
+    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
   }
 }

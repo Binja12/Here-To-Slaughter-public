@@ -59,7 +59,7 @@ describe('Bear Claw (hero-005)', () => {
     const { em, emitted } = collect()
     const rm = new ReactionManager(gs, em)
 
-    const [, pull, condition] = BearClawAbility[0].steps
+    const [pull, condition] = BearClawAbility[1].steps
     pull.execute(gs, ctx, em, rm)
     condition.execute(gs, ctx, em, rm)
 
@@ -67,7 +67,7 @@ describe('Bear Claw (hero-005)', () => {
     expect(met.getPayload()).toMatchObject({
       ctxSeed: { [CTX_PULLED_CARD_IDS]: ['theirs'], [CTX_CHOSEN_PLAYER]: ['p2'] },
     })
-    expect(BearClawAbility[1].trigger).toMatchObject({ on: GameEventType.ConditionMet, when: (met.getPayload() as { label: string }).label })
+    expect(BearClawAbility[2].trigger).toMatchObject({ on: GameEventType.ConditionMet, when: (met.getPayload() as { label: string }).label })
   })
 
   it('a pulled Item card announces nothing — one pull only', () => {
@@ -80,7 +80,7 @@ describe('Bear Claw (hero-005)', () => {
     const { em, emitted } = collect()
     const rm = new ReactionManager(gs, em)
 
-    const [, pull, condition] = BearClawAbility[0].steps
+    const [pull, condition] = BearClawAbility[1].steps
     pull.execute(gs, ctx, em, rm)
     condition.execute(gs, ctx, em, rm)
 
@@ -96,7 +96,7 @@ describe('Bear Claw (hero-005)', () => {
     ctx.set(CTX_CHOSEN_PLAYER, ['p2']) // as the seed leaves it
     const { em } = collect()
 
-    BearClawAbility[1].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
+    BearClawAbility[2].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
 
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['first', 'second'])
     expect(gs.getPlayer('p2')!.getHand()).toEqual([])

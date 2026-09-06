@@ -57,7 +57,7 @@ describe('Plundering Puma (hero-020)', () => {
     const { em } = collect()
     const rm = new ReactionManager(gs, em)
 
-    const [, pull1, pull2, ask] = PlunderingPumaAbility[0].steps
+    const [pull1, pull2, ask] = PlunderingPumaAbility[1].steps
     pull1.execute(gs, ctx, em, rm)
     pull2.execute(gs, ctx, em, rm)
     expect(gs.getPlayer('p2')!.getHand()).toEqual([])
@@ -78,7 +78,7 @@ describe('Plundering Puma (hero-020)', () => {
     ctx.set(CTX_CHOSEN_PLAYER, ['p2']) // as the confirm's seed leaves it
     const { em } = collect()
 
-    PlunderingPumaAbility[1].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
+    PlunderingPumaAbility[2].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
 
     expect(gs.getPlayer('p2')!.getHand()).toEqual(['top'])
     expect(gs.getPlayer('p1')!.getHand()).toEqual([])

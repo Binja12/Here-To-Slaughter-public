@@ -9,7 +9,7 @@ import {
   TurnPhase,
 } from 'shared'
 import { accepted, IAction, refused } from '../interfaces'
-import { GameState, TURN_END_WINDOW_CAP_MS } from './game-state'
+import { GameState } from './game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { GameEvent } from '../events/game-event'
 
@@ -31,7 +31,7 @@ export class TurnManager implements IGameEventListener {
   private readonly actionQueue: IAction[] = []
   /**
    * The turn's clock. `remainingMs` is what the turn has left, `clock` runs
-   * only while the player is free to act (`clockHeld`), and `runningSince`
+   * only while no reaction window is open — anyone's — and `runningSince`
    * is when it last started, so a pause can take the elapsed part off.
    * All three undefined without `turnTimeMs`.
    */
@@ -43,12 +43,6 @@ export class TurnManager implements IGameEventListener {
    * to, so one that outlives its turn does nothing.
    */
   private turn = 0
-  /**
-   * Whether this turn's end has already capped the open windows. Once: a
-   * reaction landing afterwards gives its window the full wait back, and
-   * the next drain must not take it away again (§11).
-   */
-  private endCapped = false
 
   constructor(
     private gs: GameState,
@@ -63,44 +57,21 @@ export class TurnManager implements IGameEventListener {
 
   onEvent(event: IGameEvent): void {
     switch (event.getType()) {
-      // The clock is re-read off the board (`clockHeld`), never told —
-      // except at an opening, which a window announces from its constructor,
-      // BEFORE it is filed in its frame: held now, which is right for at
-      // least the tick it takes, and re-read once it is filed. Not on
-      // ReactionWindowClosed without seamless reactions: a roll or a
-      // challenge announces its close before it settles its frame (§3), so
-      // FrameResolved is the moment nothing is open. With them a settlement
-      // releases first and announces after, and a contest starting or a
-      // modifier landing moves the predicate too.
+      // Held at an opening, which a window announces from its constructor;
+      // re-read at the settle rather than at ReactionWindowClosed, because a
+      // roll or a challenge announces its close before it settles its frame
+      // (§3), so FrameResolved is the moment nothing is open.
       case GameEventType.ReactionWindowOpened:
         this.pauseClock()
-        if (this.gs.isSeamless()) setTimeout(() => this.syncClock(), 0).unref()
         break
       case GameEventType.FrameResolved:
         this.syncClock()
         break
-      case GameEventType.ReactionWindowClosed:
-      case GameEventType.ChallengeStarted:
-      case GameEventType.ModifierApplied:
-        if (this.gs.isSeamless()) this.syncClock()
-        break
     }
   }
 
-  /**
-   * Whether the clock stands still. Without seamless reactions: under any
-   * open window, anyone's. With them: exactly while the player is refused
-   * actions — a reaction being resolved, a question of their own standing
-   * (`GameState.refusesActions`) — one predicate for blocked and frozen.
-   */
-  private clockHeld(): boolean {
-    if (!this.gs.isSeamless()) return this.gs.hasOpenFrames()
-    const playerId = this.gs.getCurrentPlayerId()
-    return playerId !== undefined && this.gs.refusesActions(playerId)
-  }
-
   private syncClock(): void {
-    if (this.clockHeld()) this.pauseClock()
+    if (this.gs.hasOpenFrames()) this.pauseClock()
     else this.resumeClock()
   }
 
@@ -152,20 +123,12 @@ export class TurnManager implements IGameEventListener {
     if (action.getPlayerId() !== this.gs.getCurrentPlayerId()) {
       return refused(RefusalReason.NotYourTurn)
     }
-    // Without seamless reactions only a reactable action is refused on a
-    // busy board — the rest queue for the idle drain. With them the refusal
-    // is the board's own (`refusesActions`), and an optional question of the
-    // player's is forfeited by the action rather than kept (§4).
-    const refuses = this.gs.refusesActions(action.getPlayerId())
-    if (refuses && (this.gs.isSeamless() || action.isReactable()))
+    // Only a reactable action is refused on a busy board — the rest queue
+    // for the idle drain.
+    if (action.isReactable() && this.gs.isBusy())
       return refused(RefusalReason.Busy)
     const check = action.canExecute(this.gs)
     if (!check.accepted) return check
-    if (this.gs.isSeamless()) {
-      for (const question of this.gs.optionalQuestionsFor(action.getPlayerId())) {
-        question.resolve()
-      }
-    }
     this.actionQueue.push(action)
     this.drain()
     return accepted()
@@ -196,7 +159,6 @@ export class TurnManager implements IGameEventListener {
 
     this.phase = TurnPhase.Action
     this.turn += 1
-    this.endCapped = false
     this.stopClock()
     this.remainingMs = this.turnTimeMs
     this.emitter.emit(
@@ -249,18 +211,15 @@ export class TurnManager implements IGameEventListener {
 
   /**
    * The turn's clock has run out: the budget is forfeited and the drain
-   * ends the turn, the same way a pass does. Without seamless reactions the
-   * clock only runs while no window is open, so it lapses on an idle board;
-   * a pipeline can only be parked on a window, so a busy board here is an
-   * engine mistake. With them it lapses under open windows, and the drain
-   * caps their clocks and ends the turn on the close that leaves the board
-   * idle.
+   * ends the turn, the same way a pass does. The clock only runs while no
+   * window is open, so it lapses on an idle board; a pipeline can only be
+   * parked on a window, so a busy board here is an engine mistake.
    */
   private lapse(turn: number): void {
     this.clock = undefined
     if (turn !== this.turn || this.phase !== TurnPhase.Action) return
     if (this.gs.getGamePhase() === GamePhase.Concluded) return
-    if (this.gs.isBusy() && !this.gs.isSeamless()) {
+    if (this.gs.isBusy()) {
       throw new Error(
         'TurnManager: the turn clock lapsed on a busy board — it pauses while a window is open.',
       )
@@ -281,7 +240,7 @@ export class TurnManager implements IGameEventListener {
     if (playerId === undefined) return
 
     while (this.actionQueue.length > 0) {
-      if (this.gs.refusesActions(playerId)) return
+      if (this.gs.isBusy()) return
 
       const action = this.actionQueue[0]
 
@@ -293,33 +252,13 @@ export class TurnManager implements IGameEventListener {
       this.actionQueue.shift()
       action.execute(this.gs)
 
-      if (this.gs.refusesActions(playerId)) return
+      if (this.gs.isBusy()) return
     }
 
-    // Reached again on every FrameResolved via GameEngine.resumeDrain (and
-    // every close, under seamless reactions), which is what ends a turn
-    // whose last act was an ability. A spent turn that still has windows
-    // open shortens their clocks: the next turn waits for them, not long.
-    // Not while a question stands, anyone's: the play is still being
-    // resolved, so its reactions keep their full clocks and are capped on
-    // the close that settles the last question.
-    const spent = this.gs.getActionPoints(playerId) <= 0
-    if (!spent) {
-      // Points back (a rollback): the end has not come yet after all.
-      this.endCapped = false
-      return
-    }
-    if (!this.gs.isBusy()) this.endTurn()
-    else if (this.gs.isSeamless()) {
-      if (this.gs.hasOpenQuestions()) {
-        this.endCapped = false
-        return
-      }
-      if (this.endCapped) return
-      this.endCapped = true
-      for (const window of this.gs.openWindows()) {
-        window.capClock(TURN_END_WINDOW_CAP_MS)
-      }
+    // Reached again on every FrameResolved via GameEngine.resumeDrain, which
+    // is what ends a turn whose last act was an ability.
+    if (this.gs.getActionPoints(playerId) <= 0 && !this.gs.isBusy()) {
+      this.endTurn()
     }
   }
 }

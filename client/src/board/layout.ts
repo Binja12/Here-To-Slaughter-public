@@ -388,6 +388,8 @@ export const MODIFIER_LAYOUT = {
    *  (left), each next pair `step` further out and `drop` lower, tilted
    *  `angle`° away from the centre */
   modCard: { h: 22, dx: 24, dy: -8, step: 5, drop: 1.5, angle: 8 },
+  /** the Skip button beside the total's scroll (the HUD's window button sits under it) */
+  skip: { h: 5, dx: 21, dy: 16.5 },
 } as const;
 
 /**

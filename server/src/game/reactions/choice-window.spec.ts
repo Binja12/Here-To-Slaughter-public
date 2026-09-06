@@ -83,6 +83,26 @@ describe('ChoiceWindow', () => {
     expect(payloadOf(opened!)['options']).toEqual(['a', 'b'])
   })
 
+  it('restartClock gives the full wait again from now, and does nothing once settled', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const win = makeWindow({ gs, em, timeoutMs: 5000 })
+    const opened = win.getDeadline()
+
+    jest.advanceTimersByTime(4000)
+    win.restartClock()
+    expect(win.getDeadline()).toBe(opened + 4000)
+    jest.advanceTimersByTime(4000)
+    expect(win.isOpen()).toBe(true) // the old clock was cleared
+    jest.advanceTimersByTime(1000)
+    expect(win.isOpen()).toBe(false)
+
+    const before = win.getDeadline()
+    jest.advanceTimersByTime(1000)
+    win.restartClock()
+    expect(win.getDeadline()).toBe(before)
+  })
+
   it('is open before anything is submitted', () => {
     const gs = makeGs()
     const win = makeWindow({ gs, em: new GameEventEmitter() })

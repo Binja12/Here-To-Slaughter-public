@@ -120,8 +120,9 @@ export type PendingWindowView = {
   optionCards?: CardView[];
   /**
    * What the window is asking, as the engine sees it now: a roll's base,
-   * bonuses and running total with its requirement, a challenge's two rolls,
-   * a choice's question. A roll or a challenge is the table's business and
+   * bonuses and running total with its requirement and, once the effect has
+   * chosen, `targetPlayerId` (the seat targeted, never the card); a
+   * challenge's two rolls; a choice's question. A roll or a challenge is the table's business and
    * reaches everyone; a choice's question reaches its respondent only, like
    * `options`, because it can name cards nobody else may see.
    */
@@ -150,7 +151,6 @@ export type GameConfigView = {
   cardSets: string[];
   turnTimeMs?: number;
   reactionTimeMs: number;
-  seamlessReactions: boolean;
   requireAllWinConditions: boolean;
   winConditions: { type: string; value: number }[];
 };
@@ -189,16 +189,8 @@ export type PlayerView = {
   pendingWindows: PendingWindowView[];
   /** Absent on a table played without a clock. */
   turnClock?: TurnClockView;
-  /** `GameState.isBusy` — mid-resolution: a window is open or an ability still has steps. */
+  /** `GameState.isBusy` — mid-resolution: a window is open or an ability still has steps, so no action will be accepted. */
   busy: boolean;
-  /**
-   * Whether an action from the viewer would be taken now, turn permitting —
-   * `!GameState.refusesActions(viewer)`. Without seamless reactions this is
-   * `!busy`; with them the viewer plays on under open windows and is refused
-   * only while a modifier or challenge is being resolved or a question of
-   * their own stands (an optional one is forfeited by the next action).
-   */
-  acceptsActions: boolean;
 };
 
 export type GameConnectionInfo = {

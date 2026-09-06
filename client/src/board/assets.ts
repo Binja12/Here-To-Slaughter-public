@@ -3,8 +3,9 @@ import { assetUrl } from '../assetUrl';
 
 // Every card on the table is drawn from its BOARD scan under client/public/
 // board/. There is no template art any more (the owner, 2026-09-04: the old
-// /cards folder is gone); a card without a scan shows a broken image, which
-// is the reminder to add one.
+// /cards folder is gone); a card without a scan (Call to the Fallen, as of
+// 2026-09-06) draws a placeholder card that names itself, so the table never
+// shows a broken image.
 
 /* ------------------------------------------------------------------ */
 /* BOARD design (client/public/board/): premium scans, frame baked in  */
@@ -74,6 +75,31 @@ export const MAGICS = [
   'Winds Of Change',
 ] as const;
 export const boardMagicUrl = (name: string) => assetUrl(`/board/Magics/Magic ${name}.png`);
+const hasMagicScan = (name: string) => (MAGICS as readonly string[]).includes(name);
+
+/** A stand-in for a card whose scan has not landed: a plain card face that
+ *  names the card, drawn inline so nothing needs to be on disk. */
+export const placeholderCardUrl = (kind: string, name: string): string => {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const words = name.split(' ');
+  const lines: string[] = [];
+  for (const word of words) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && `${last} ${word}`.length <= 14) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  const title = lines
+    .map((line, i) => `<tspan x="543" dy="${i === 0 ? 0 : 130}">${esc(line)}</tspan>`)
+    .join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1086 1448">` +
+    `<rect width="1086" height="1448" rx="60" fill="#2b1d12"/>` +
+    `<rect x="36" y="36" width="1014" height="1376" rx="44" fill="#e9d7b1" stroke="#b58a3c" stroke-width="18"/>` +
+    `<text x="543" y="180" text-anchor="middle" font-family="Georgia, serif" font-size="96" font-weight="bold" fill="#5a3a12">${esc(kind.toUpperCase())}</text>` +
+    `<text x="543" y="700" text-anchor="middle" font-family="Georgia, serif" font-size="112" font-weight="bold" fill="#3b2a14">${title}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
 
 export const MODIFIERS = ['+1-3', '+2-2', '+3-1', '+4', '-4'] as const;
 export const boardModifierUrl = (name: string) =>
@@ -121,8 +147,10 @@ export function artFor(card: CardView): { url: string; aspect: number } {
     case 'Item':
       return { url: boardItemUrl(name), aspect: NONHERO_CARD_ASPECT };
     case 'Magic':
-      // Call to the Fallen has no scan yet: its board url 404s until one lands
-      return { url: boardMagicUrl(name), aspect: NONHERO_CARD_ASPECT };
+      return {
+        url: hasMagicScan(name) ? boardMagicUrl(name) : placeholderCardUrl(card.type, card.name),
+        aspect: NONHERO_CARD_ASPECT,
+      };
     case 'Modifier': {
       const modifierName: Record<string, string> = {
         '2,-2': '+2-2',

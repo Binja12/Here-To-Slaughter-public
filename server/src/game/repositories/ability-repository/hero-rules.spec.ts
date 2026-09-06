@@ -257,12 +257,13 @@ describe('hero rules — the roll a played hero is offered', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(HIGH)
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
-      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
 
-      // Wiggles is asking which hero to steal — nothing else opens that window.
+      // The roll stands, so Wiggles is already asking which hero to steal,
+      // beside the open modifier window — nothing else opens that window.
       const choice = windowOfType(gs, ReactionWindowType.CardChoice)
       expect(choice).toBeDefined()
       choice!.submitReaction('p1', { choice: 'victim' })
+      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
       expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     })
 
@@ -290,7 +291,7 @@ describe('hero rules — the roll a played hero is offered', () => {
         .mockReturnValueOnce(HIGH) // challenger 11
         .mockReturnValueOnce(LOW) // challenged 1
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'wiggles'))
+      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
       jest.advanceTimersByTime(5000)
 
       // Rolled back out of the party before FrameResolved, so it was not among
@@ -417,11 +418,11 @@ describe('hero rules — the roll a played hero is offered', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(HIGH)
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
-      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
 
       const choice = windowOfType(gs, ReactionWindowType.CardChoice)
       expect(choice).toBeDefined()
       choice!.submitReaction('p1', { choice: 'victim' })
+      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
       expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     })
 
@@ -434,7 +435,7 @@ describe('hero rules — the roll a played hero is offered', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'wiggles'))
+      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
       jest.advanceTimersByTime(5000)
 
       expect(gs.getParty('p1').getHeroIds()).not.toContain('wiggles')

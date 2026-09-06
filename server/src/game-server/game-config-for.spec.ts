@@ -20,7 +20,7 @@ describe('gameConfigFor', () => {
     ])
     expect(config.timeControl).toMatchObject({
       name: 'default',
-      reactionCountdownMs: 15_000,
+      reactionCountdownMs: 10_000,
       turnTimeMs: 60_000,
     })
     // What the settings do not name, the engine's default keeps.
@@ -31,16 +31,9 @@ describe('gameConfigFor', () => {
   it('names the fast preset and its shorter clocks', () => {
     expect(gameConfigFor(FAST_GAME_SETTINGS).timeControl).toMatchObject({
       name: 'fast',
-      reactionCountdownMs: 7_500,
+      reactionCountdownMs: 5_000,
       turnTimeMs: 30_000,
     })
-  })
-
-  it('carries the seamless flag through', () => {
-    expect(gameConfigFor(DEFAULT_GAME_SETTINGS).seamlessReactions).toBe(true)
-    expect(
-      gameConfigFor(custom({ seamlessReactions: true })).seamlessReactions,
-    ).toBe(true)
   })
 
   it('seats as many as the settings say', () => {

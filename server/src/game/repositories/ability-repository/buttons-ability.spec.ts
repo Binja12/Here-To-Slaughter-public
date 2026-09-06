@@ -6,9 +6,14 @@ describe('ButtonsAbility', () => {
   it('registers pull, Magic check, confirmation, and play in order', () => {
     expectAbility('hero-034', ButtonsAbility, [
       {
+        on: GameEventType.RollPassing,
+        scope: TriggerScope.SelfCard,
+        steps: ['ChoosePlayerTask', 'TargetRollTask'],
+      },
+      {
         on: GameEventType.RollSuccess,
         scope: TriggerScope.SelfCard,
-        steps: ['ChoosePlayerTask', 'PullCardTask', 'CardTypeCondition'],
+        steps: ['PullCardTask', 'CardTypeCondition'],
       },
       {
         on: GameEventType.ConditionMet,

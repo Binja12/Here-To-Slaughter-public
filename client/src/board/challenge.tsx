@@ -34,13 +34,20 @@ import { NONHERO_CARD_ASPECT } from "./assets";
 
 export type ChallengeRole = "challenged" | "challenger";
 
-/** one side's roll: the 2d6 throw + the modifier total played onto it
- *  (null until a modifier card lands, exactly like the turn banner) */
+/** the art of one thing modifying a roll — a card played onto it or a
+ *  standing effect's source (a leader, a monster, a hero) — and what it adds */
+export interface RollBonusCard {
+  url: string;
+  amount: number;
+}
+
+/** one side's roll: the 2d6 throw + the bonus total on it
+ *  (null until anything modifies it, exactly like the turn banner) */
 export interface ChallengeRoll extends DiceThrow {
   modifier: number | null;
-  /** art of every modifier card played onto THIS roll, in play order —
-   *  shown fanned beside that side's panel */
-  modifierCards: string[];
+  /** everything modifying THIS roll, in the order it landed — shown fanned
+   *  beside that side's panel, each with its amount */
+  modifierCards: RollBonusCard[];
 }
 
 export interface ChallengeSide {
@@ -72,15 +79,16 @@ interface ChallengeContextValue {
   /** the open challenge, or null when the game is not paused on one */
   active: ChallengeState | null;
   open: (args: ChallengeOpenArgs) => void;
-  /** a side rolled (or re-rolled) — replays its dice */
+  /** a side rolled (or re-rolled) — replays its dice, with whatever was
+   *  already modifying that roll (standing effects) beside it */
   setRoll: (
     role: ChallengeRole,
     values: [number, number],
-    modifier?: number | null,
+    bonuses?: RollBonusCard[],
   ) => void;
-  /** a modifier card was played onto one side's roll: bumps that roll's
-   *  modifier total and records the card art (the dice do NOT re-throw —
-   *  the nonce is untouched, so they stay settled on the panel) */
+  /** something landed on one side's roll: bumps that roll's total and
+   *  records the source's art (the dice do NOT re-throw — the nonce is
+   *  untouched, so they stay settled on the panel) */
   addModifier: (role: ChallengeRole, amount: number, cardUrl: string) => void;
   close: () => void;
 }
@@ -112,7 +120,7 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
     (
       role: ChallengeRole,
       values: [number, number],
-      modifier: number | null = null,
+      bonuses: RollBonusCard[] = [],
     ) => {
       setActive((prev) =>
         prev
@@ -122,8 +130,11 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
                 ...prev[role],
                 roll: {
                   values,
-                  modifier,
-                  modifierCards: [],
+                  modifier:
+                    bonuses.length === 0
+                      ? null
+                      : bonuses.reduce((sum, bonus) => sum + bonus.amount, 0),
+                  modifierCards: [...bonuses],
                   nonce: ++nonceSeq.current,
                 },
               },
@@ -146,7 +157,7 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
             roll: {
               ...side.roll,
               modifier: (side.roll.modifier ?? 0) + amount,
-              modifierCards: [...side.roll.modifierCards, cardUrl],
+              modifierCards: [...side.roll.modifierCards, { url: cardUrl, amount }],
             },
           },
         };

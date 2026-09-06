@@ -5,7 +5,6 @@ import {
   GameConfig,
   GameEventType,
   IGameEvent,
-  MonsterCardData,
   PendingWindowView,
   PlayerView,
   ReactionWindowType,
@@ -16,7 +15,6 @@ import { baseGameCards } from '../../data/base-game-cards'
 import { createGame, startGame, Game } from './create-game'
 import { playerView } from '../views/player-view'
 import { IAction, IReaction } from '../interfaces'
-import { CONFIRM } from '../reactions/task-choice-window'
 import { DrawCardAction } from '../actions/draw-card-action'
 import { PlayHeroAction } from '../actions/play-hero-action'
 import { PlayItemAction } from '../actions/play-item-action'
@@ -26,8 +24,6 @@ import { RollOnLeaderAction } from '../actions/roll-on-leader-action'
 import { AttackMonsterAction } from '../actions/attack-monster-action'
 import { EndTurnAction } from '../actions/end-turn-action'
 import { RedrawHandAction } from '../actions/redraw-hand-action'
-import { PlayChallengeReaction } from '../reactions/play-challenge-reaction'
-import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
 
 // ---------------------------------------------------------------------------
 // The harness behind play-through.spec.ts and full-game.spec.ts.
@@ -134,8 +130,6 @@ export type Deal = {
   slack?: number
   /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
   turnTimeMs?: number
-  /** `GameConfig.seamlessReactions`. Off by default, like the printed game. */
-  seamless?: boolean
 }
 
 export type Table = { game: Game; events: IGameEvent[] }
@@ -200,7 +194,6 @@ export function stacked(spec: Deal): Table {
             ...defaultGameConfig.timeControl,
             turnTimeMs: spec.turnTimeMs,
           },
-          seamlessReactions: spec.seamless ?? false,
         }),
         cards,
       }),

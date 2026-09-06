@@ -14,6 +14,7 @@ import { CardPile } from '../state-structures/card-pile'
 import { ModifierCard } from '../cards/modifier-card'
 import { accepted, IModifiableWindow, IReactionWindow, refused } from '../interfaces'
 import { ModifierWindow } from './modifier-window'
+import { ChallengeWindow } from './challenge-window'
 
 // ---------------------------------------------------------------------------
 // PlayModifierReaction — the PLAY, and nothing else.
@@ -76,12 +77,11 @@ const makeStubWindow = (
   getType: () => ReactionWindowType.Modifier,
   getRespondentId: () => rollerId,
   isOptional: () => false,
-  blocksActions: () => false,
   getOptions: () => [],
   isOpen: () => true,
   submitReaction: jest.fn(),
   resolve: () => {},
-  cancel: () => {}, capClock: () => {},
+  cancel: () => {},
   resultKey: () => NO_CONTEXT_RESULT,
   getDetail: () => ({}),
   getDeadline: () => Date.now() + 60_000,
@@ -97,10 +97,10 @@ const openFrame = (gs: GameState, stub: IReactionWindow) => {
   return frameId
 }
 
-const makeReaction = (targetPlayerId = 'p1', value = 2) =>
-  new PlayModifierReaction('r1', 'p1', MOD, targetPlayerId, value)
+const makeReaction = (value = 2) =>
+  new PlayModifierReaction('r1', 'p1', MOD, value)
 
-describe('PlayModifierReaction — target must be the roller', () => {
+describe('PlayModifierReaction — the target is the last play\'s, named by the board', () => {
   let gs: GameState
   let em: GameEventEmitter
 
@@ -123,20 +123,51 @@ describe('PlayModifierReaction — target must be the roller', () => {
   })
   afterEach(() => jest.useRealTimers())
 
-  it('canExecute is true when the target IS the roller', () => {
+  it('a roll open: accepted, and the roller is the target', () => {
     openRealWindow('p1')
-    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p1', 2).canExecute(gs)).toEqual({ accepted: true })
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 2).canExecute(gs)).toMatchObject({ accepted: true })
+    const seen = collect(em)
+    new PlayModifierReaction('r1', 'p2', MOD, 2).execute(gs, em)
+    const played = seen.find((e) => e.getType() === GameEventType.ModifierPlayed)!
+    expect(played.getPayload()).toMatchObject({ cardId: MOD, targetPlayerId: 'p1', value: 2 })
   })
 
-  it('canExecute is false when the target is not the roller', () => {
+  it('a contest open: refused until it starts, then the player names which of the two rolls', () => {
+    const contest = new ChallengeWindow('w1', 'p1', 'hero-1', 5000, gs, 'f1', em)
+    gs.addFrame('f1', gs.clone(), [contest])
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 2, 'p1').canExecute(gs)).toEqual({
+      accepted: false,
+      reason: RefusalReason.ChallengeNotStarted,
+    })
+
+    contest.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 2).canExecute(gs)).toEqual({
+      accepted: false,
+      reason: RefusalReason.TargetRequired,
+    })
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 2, 'p3').canExecute(gs)).toEqual({
+      accepted: false,
+      reason: RefusalReason.TargetNotInChallenge,
+    })
+    expect(new PlayModifierReaction('r1', 'p2', MOD, 2, 'p2').canExecute(gs)).toMatchObject({ accepted: true })
+    const seen = collect(em)
+    new PlayModifierReaction('r1', 'p2', MOD, 2, 'p2').execute(gs, em)
+    const played = seen.find((e) => e.getType() === GameEventType.ModifierPlayed)!
+    expect(played.getPayload()).toMatchObject({ targetPlayerId: 'p2' })
+  })
+
+  it('a roll ignores any side named: the roller is the target', () => {
     openRealWindow('p1')
-    expect(new PlayModifierReaction('r1', 'p2', MOD, 'p2', 2).canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.TargetNotRolling })
+    const seen = collect(em)
+    new PlayModifierReaction('r1', 'p2', MOD, 2, 'p2').execute(gs, em)
+    const played = seen.find((e) => e.getType() === GameEventType.ModifierPlayed)!
+    expect(played.getPayload()).toMatchObject({ targetPlayerId: 'p1' })
   })
 
   it('refuses a value the card does not print — the player named it, the card decides', () => {
     openRealWindow('p1')
     expect(
-      new PlayModifierReaction('r1', 'p2', MOD, 'p1', 99).canExecute(gs),
+      new PlayModifierReaction('r1', 'p2', MOD, 99).canExecute(gs),
     ).toEqual({ accepted: false, reason: RefusalReason.ValueNotOnCard })
   })
 
@@ -144,15 +175,16 @@ describe('PlayModifierReaction — target must be the roller', () => {
     openRealWindow('p1')
     gs.getPlayer('p2')!.addToHand('hero-x')
     expect(
-      new PlayModifierReaction('r1', 'p2', 'hero-x', 'p1', 2).canExecute(gs),
+      new PlayModifierReaction('r1', 'p2', 'hero-x', 2).canExecute(gs),
     ).toEqual({ accepted: false, reason: RefusalReason.NotAModifier })
   })
 
   it('a refused modifier is NOT burned — execute() spends before anything lands', () => {
-    openRealWindow('p1')
-    const r = new PlayModifierReaction('r1', 'p2', MOD, 'p2', 2)
+    // No roll to land on: refused, and execute() asks the same question.
+    const r = new PlayModifierReaction('r1', 'p2', MOD, 2)
 
-    if (r.canExecute(gs)) r.execute(gs, em)
+    expect(r.canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NoModifiableWindow })
+    r.execute(gs, em)
 
     expect(gs.getPlayer('p2')!.getHand()).toContain(MOD)
     expect(gs.getParty('p2').getInstanceCardIds()).not.toContain(MOD)
@@ -195,7 +227,7 @@ describe('PlayModifierReaction', () => {
 
   it('canExecute returns true when frame is open and card is in hand', () => {
     openFrame(gs, makeStubWindow())
-    expect(makeReaction().canExecute(gs)).toEqual({ accepted: true })
+    expect(makeReaction().canExecute(gs)).toMatchObject({ accepted: true, targetPlayerId: 'p1' })
   })
 
   describe('execute', () => {
@@ -227,7 +259,7 @@ describe('PlayModifierReaction', () => {
       // is the whole of what says it was spent into this one.
       expect(gs.getParty('p1').getInstanceCardIds()).toContain(MOD)
       expect(
-        gs.getFrames().get(frameId)?.snapshot.board.getParty('p1').getInstanceCardIds(),
+        gs.getFrames().get(frameId)?.snapshot.getParty('p1').getInstanceCardIds(),
       ).not.toContain(MOD)
       expect(gs.isSpentInOpenFrame(MOD)).toBe(true)
     })
@@ -252,7 +284,7 @@ describe('PlayModifierReaction', () => {
 
     it('emits ModifierPlayed naming the card and the target', () => {
       const events = collect(em)
-      makeReaction('p1').execute(gs, em)
+      makeReaction().execute(gs, em)
 
       const played = events.filter(
         (e) => e.getType() === GameEventType.ModifierPlayed,
@@ -271,7 +303,7 @@ describe('PlayModifierReaction', () => {
     })
 
     it('does NOT submit anything to the window', () => {
-      makeReaction('p2').execute(gs, em)
+      makeReaction().execute(gs, em)
       // ApplyModifierTask does, from the card's own entry.
       expect(stub.submitReaction).not.toHaveBeenCalled()
     })

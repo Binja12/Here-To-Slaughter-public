@@ -68,11 +68,17 @@ export type ChooseCardOptions = {
    * pick takes the default; PlayItemTask then reads both.
    */
   resultKey?: string
+  /**
+   * What is being asked, for the screen (`detail.question`), when the cards
+   * alone do not say — Bullseye's second look asks which goes on TOP.
+   */
+  question?: string
 }
 
 export class ChooseCardTask implements ITask {
   private readonly requiresKey?: string
   private readonly resultKey: string
+  private readonly question?: string
 
   /** A bare string is the `requiresKey`. */
   constructor(
@@ -82,6 +88,7 @@ export class ChooseCardTask implements ITask {
     const opts = typeof options === 'string' ? { requiresKey: options } : options
     this.requiresKey = opts.requiresKey
     this.resultKey = opts.resultKey ?? CTX_CHOSEN_CARD
+    this.question = opts.question
   }
 
   execute(
@@ -118,6 +125,7 @@ export class ChooseCardTask implements ITask {
       options,
       resultKey: this.resultKey,
       sourceCardId: ctx.sourceCardId,
+      ...(this.question && { question: this.question }),
     })
 
     // Suspends even on an empty option set: ChoiceWindow settles that on a

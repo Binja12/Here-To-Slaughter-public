@@ -4,7 +4,7 @@ import {
   RefusalReason,
   RequestResult,
 } from 'shared'
-import { accepted, IReactionWindow, refused } from '../interfaces'
+import { accepted, IRestartableWindow, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { ContextWrite, GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -20,7 +20,7 @@ import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 // never for a player declining.
 // ---------------------------------------------------------------------------
 
-export abstract class ChoiceWindow implements IReactionWindow {
+export abstract class ChoiceWindow implements IRestartableWindow {
   protected picked: unknown = undefined
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
@@ -54,20 +54,10 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
     // Nothing to choose from settles at once, but on a 0ms TIMER — never
     // inline, or the frame would settle before the task that opened it
-    // returned and TaskManager would have nothing parked to resume. A
-    // question always gets its full clock: the turn-end cap is for the
-    // reactions that hold a spent turn (GameState.cappedClock), never for
-    // what the table is being asked.
+    // returned and TaskManager would have nothing parked to resume.
     const clockMs = this.options.length === 0 ? 0 : this.timeoutMs
     this.deadline = Date.now() + clockMs
     this.timer = setTimeout(() => this.resolve(), clockMs)
-  }
-
-  capClock(ms: number): void {
-    if (this._resolved || this.deadline - Date.now() <= ms) return
-    if (this.timer) clearTimeout(this.timer)
-    this.deadline = Date.now() + ms
-    this.timer = setTimeout(() => this.resolve(), ms)
   }
 
   // --- IReactionWindow ---
@@ -104,10 +94,6 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   isOptional(): boolean {
     return false
-  }
-
-  blocksActions(playerId: string): boolean {
-    return playerId === this.respondentId && !this.isOptional()
   }
 
   /** payload: { choice: unknown } — must be one of the offered options. */
@@ -156,6 +142,19 @@ export abstract class ChoiceWindow implements IReactionWindow {
         { cancelled: true },
       ),
     )
+  }
+
+  /**
+   * The full wait again, at this window's own timeout — a modifier landing
+   * on the roll this question stands over (ModifiableRollWindow.submitReaction):
+   * the asked player was watching that roll change and gets their time back
+   * (the owner, 2026-09-06). A question with nothing to choose keeps its 0ms clock.
+   */
+  restartClock(): void {
+    if (this._resolved || this.options.length === 0) return
+    if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + this.timeoutMs
+    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
   }
 
   resolve(): void {

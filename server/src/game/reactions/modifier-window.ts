@@ -18,6 +18,9 @@ import { ModifiableRollWindow } from './modifiable-roll-window'
 // ---------------------------------------------------------------------------
 
 export class ModifierWindow extends ModifiableRollWindow {
+  /** RollPassing goes out once per target: a roll that flips twice does not ask twice. */
+  private asked = false
+
   constructor(
     id: string,
     rollerId: string,
@@ -43,38 +46,32 @@ export class ModifierWindow extends ModifiableRollWindow {
     return { rollReq: this.rollReq, heroId: this.heroId }
   }
 
+  /** A roll that stands as a pass announces it, so the effect may ask for its target while the window is open (§4). */
+  protected override announceStanding(): void {
+    if (this.asked || this.getFinalRoll() < this.rollReq) return
+    this.asked = true
+    this.emitter.emit(GameEventFactory.rollPassing(this.rollerId, this.heroId))
+  }
+
   /**
    * Short of the requirement rolls the frame back, which is also what cancels
    * whatever paused on it (§3). Meeting it releases and announces the hit —
    * the hero's own entries trigger on `RollSuccess`.
    */
   protected settle(finalRoll: number): void {
-    const hit = this.standing(finalRoll)
-    if (hit) this.gs.releaseFrame(this.frameId)
-    else this.gs.restoreFrame(this.frameId)
-    // AFTER the frame exit, so what the outcome fires runs on live state
-    // instead of going back with the frame — the Particularly Rusty Coin's
-    // draw has to survive the roll that earned it. Same shape as
-    // MonsterFoughtBack.
-    this.apply(hit)
-  }
-
-  /** What the number means: the requirement met or not. */
-  protected standing(finalRoll: number): boolean {
-    return finalRoll >= this.rollReq
-  }
-
-  /**
-   * What the outcome does to the table, the frame aside — the hero's own
-   * entries trigger on `RollSuccess`. Separate from the frame exit so an
-   * optimistic window can apply a standing outcome before it settles
-   * (docs/SEAMLESS_REACTIONS_PLAN.md, Phase C).
-   */
-  protected apply(hit: unknown): void {
+    if (finalRoll < this.rollReq) {
+      this.gs.restoreFrame(this.frameId)
+      // AFTER the restore, so what it fires runs on live state instead of
+      // going back with the frame — the Particularly Rusty Coin's draw has to
+      // survive the roll that earned it. Same shape as MonsterFoughtBack.
+      this.emitter.emit(
+        GameEventFactory.rollFailed(this.rollerId, this.heroId),
+      )
+      return
+    }
+    this.gs.releaseFrame(this.frameId)
     this.emitter.emit(
-      hit
-        ? GameEventFactory.rollSuccess(this.rollerId, this.heroId)
-        : GameEventFactory.rollFailed(this.rollerId, this.heroId),
+      GameEventFactory.rollSuccess(this.rollerId, this.heroId, this.targetSeed()),
     )
   }
 }

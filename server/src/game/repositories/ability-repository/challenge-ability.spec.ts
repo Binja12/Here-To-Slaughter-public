@@ -124,7 +124,7 @@ const payloadsOf = (events: IGameEvent[], type: GameEventType) =>
 /** p1 plays a hero; p2 challenges it. Dice are mocked by the caller first. */
 function challengeThePlay(ctx: ReturnType<typeof setup>) {
   ctx.tm.enqueue(new PlayHeroAction('a1', 'p1', HERO, ctx.rm, ctx.em))
-  ctx.rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, HERO))
+  ctx.rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
 }
 
 describe('ChallengeAbility', () => {
@@ -250,11 +250,13 @@ describe('ChallengeAbility', () => {
     challengeThePlay(ctx)
     jest.advanceTimersByTime(5000)
 
-    // Survived, so it is marked; canExecute refuses before the card is spent.
+    // Survived, so it is marked — and with no target to name, a second card
+    // finds no play open to it: the settled window is gone.
     expect(ctx.gs.getCardsChallengedThisTurn()).toContain(HERO)
+    ctx.gs.getPlayer('p2')!.addToHand(CHAL) // a second copy to ask with
     expect(
-      new PlayChallengeReaction('r2', 'p2', CHAL, HERO).canExecute(ctx.gs),
-    ).toEqual({ accepted: false, reason: RefusalReason.AlreadyChallengedThisTurn })
+      new PlayChallengeReaction('r2', 'p2', CHAL).canExecute(ctx.gs),
+    ).toEqual({ accepted: false, reason: RefusalReason.NoChallengeWindow })
   })
 })
 
@@ -287,19 +289,32 @@ describe('a modifier inside a challenge', () => {
   const appliedValues = (ctx: ReturnType<typeof setup>) =>
     payloadsOf(ctx.events, GameEventType.ModifierApplied).map((p) => p['value'])
 
+  const appliedTargets = (ctx: ReturnType<typeof setup>) =>
+    payloadsOf(ctx.events, GameEventType.ModifierApplied).map((p) => p['targetPlayerId'])
+
   it('aimed at the DEFENDER lands the value named on the defender', () => {
     const ctx = contested()
-    ctx.rm.submitReaction(
-      new PlayModifierReaction('r2', 'p2', MOD_2, 'p1', -3),
-    )
+    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, -3, 'p1'))
 
     expect(appliedValues(ctx)).toEqual([-3])
+    expect(appliedTargets(ctx)).toEqual(['p1'])
   })
 
   it('aimed at the CHALLENGER lands the value named on the challenger', () => {
     const ctx = contested()
-    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, 'p2', 3))
+    ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, 3, 'p2'))
 
     expect(appliedValues(ctx)).toEqual([3])
+    expect(appliedTargets(ctx)).toEqual(['p2'])
+  })
+
+  it('a contest has two rolls, so a modifier that names neither is refused before it is spent', () => {
+    const ctx = contested()
+    expect(ctx.rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD_2, 3))).toEqual({
+      accepted: false,
+      reason: RefusalReason.TargetRequired,
+    })
+    expect(appliedValues(ctx)).toEqual([])
+    expect(ctx.gs.getPlayer('p2')!.getHand()).toContain(MOD_2)
   })
 })

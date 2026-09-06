@@ -184,7 +184,7 @@ describe('CloakedSageAbility', () => {
       .spyOn(Math, 'random')
       .mockReturnValueOnce(HIGH).mockReturnValueOnce(HIGH)
       .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
-    rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'magic-1'))
+    rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
     jest.advanceTimersByTime(5000)
 
     expect(gs.getPlayer('p1')!.getHand()).toEqual([])
@@ -201,7 +201,7 @@ describe('CloakedSageAbility', () => {
       .spyOn(Math, 'random')
       .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
       .mockReturnValueOnce(HIGH).mockReturnValueOnce(HIGH)
-    rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'magic-1'))
+    rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
     jest.advanceTimersByTime(5000)
 
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['top'])

@@ -87,7 +87,6 @@ export type GameConfigView = {
   cardSets: string[];
   turnTimeMs?: number;
   reactionTimeMs: number;
-  seamlessReactions: boolean;
   requireAllWinConditions: boolean;
   winConditions: { type: string; value: number }[];
 };
@@ -112,9 +111,8 @@ export type PlayerView = {
   pendingWindows: PendingWindowView[]
   /** absent on a table played without a clock */
   turnClock?: TurnClockView
+  /** mid-resolution: a window is open or an ability still has steps, so no action will be accepted */
   busy: boolean
-  /** Whether an action from the viewer would be taken now, turn permitting. */
-  acceptsActions: boolean
 }
 
 /** One line of the table's story, worded for this seat by the server. */

@@ -28,6 +28,12 @@ export const CTX_CHOSEN_CARD = "chosenCard";
 export const CTX_CHOSEN_PLAYER = "chosenPlayer";
 
 /**
+ * string[] — a CardChoice over the deck's top cards filed here (Bullseye's
+ * "return the other two in any order"): the one that goes on top.
+ */
+export const CTX_DECK_TOP_CARD = "deckTopCard";
+
+/**
  * The ability's own card, as a slot — set by the constructor, so a step that
  * reads "the hero to move" from a slot can be pointed at the card itself:
  * Tipsy Tootie moves ITSELF into the party it stole from.
@@ -85,9 +91,6 @@ export const CTX_CHOSEN_VALUE = "chosenValue";
  */
 export const CTX_MODIFIER_TARGET = "modifierTarget";
 
-/** The card a challenge card was played against — seeded from ChallengePlayed, read by StartChallengeTask. */
-export const CTX_CHALLENGED_CARD = "challengedCard";
-
 /** Returned by resultKey() when a window's outcome is not an ability input. */
 export const NO_CONTEXT_RESULT = Symbol("noContextResult");
 
@@ -112,13 +115,6 @@ export class AbilityContext {
 
   has(key: string): boolean {
     return this.data.has(key);
-  }
-
-  /** The same memory, separately owned: a frame keeps one so a rollback can hand the steps their context back. */
-  clone(): AbilityContext {
-    const copy = new AbilityContext(this.sourceCardId, this.ownerId);
-    for (const [key, value] of this.data) copy.data.set(key, value);
-    return copy;
   }
 }
 

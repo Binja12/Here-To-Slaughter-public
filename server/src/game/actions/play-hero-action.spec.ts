@@ -199,13 +199,13 @@ describe('PlayHeroAction', () => {
     it('snapshots AFTER the hand removal, so a rollback cannot un-play the card', () => {
       makeAction().execute(gs)
       const { frame } = gs.getFrameByWindowType(ReactionWindowType.Challenge)!
-      expect(frame.snapshot.board.getPlayer('p1')!.getHand()).not.toContain('hero-1')
+      expect(frame.snapshot.getPlayer('p1')!.getHand()).not.toContain('hero-1')
     })
 
     it('snapshots BEFORE the party arrival, so a rollback un-does the play', () => {
       makeAction().execute(gs)
       const { frame } = gs.getFrameByWindowType(ReactionWindowType.Challenge)!
-      expect(frame.snapshot.board.getParty('p1').getHeroIds()).not.toContain('hero-1')
+      expect(frame.snapshot.getParty('p1').getHeroIds()).not.toContain('hero-1')
     })
 
     it('keeps the hero when the challenge is not taken up', () => {

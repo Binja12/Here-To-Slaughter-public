@@ -27,6 +27,7 @@ import { artFor, BIG_BACK, boardModifierUrl, SMALL_BACK } from './assets'
 import HeroRow, { Seat as HeroSeat } from './HeroRow'
 import PlayerHand from './PlayerHand'
 import HandCount from './HandCount'
+import ImageButton from './ImageButton'
 import DiceRoll from './DiceRoll'
 import TurnTimer from './TurnTimer'
 import CardReactionTimer from './CardReactionTimer'
@@ -37,7 +38,6 @@ import ModifierWindow from './ModifierWindow'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
 import {
   liveRollOf,
-  rollHasModifierCard,
   rollLabel,
   rollOutcome,
   subjectIdOf,
@@ -76,12 +76,16 @@ import { useAudio } from '../audio/AudioProvider'
 import { useGameAudio } from '../audio/useGameAudio'
 import VolumeControl from '../audio/VolumeControl'
 
+/** A roll or a challenge is the table's; everything else is somebody's question. */
+const TABLE_WINDOW_TYPES = new Set(['Modifier', 'Attack', 'Challenge'])
+
 function Widget({
   def,
   anchor,
   zClass = 'z-20',
   zIndex,
   dimExempt = false,
+  enemy = false,
   children,
 }: {
   def: WidgetDef
@@ -91,6 +95,8 @@ function Widget({
   zIndex?: number
   /** keep this widget bright while a challenge dims the board */
   dimExempt?: boolean
+  /** the FRAME wears the red aura: a roll's effect has chosen what sits in it */
+  enemy?: boolean
   children?: React.ReactNode
 }) {
   const inset = INSET[def.kind]
@@ -111,7 +117,7 @@ function Widget({
         alt=""
         aria-hidden
         draggable={false}
-        className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill"
+        className={`dimmable pointer-events-none absolute inset-0 h-full w-full object-fill${enemy ? ' enemy-aura' : ''}`}
       />
       <div
         className="absolute"
@@ -578,39 +584,6 @@ function DevButton({
   )
 }
 
-/** A painted HUD button (the owner's End Turn / Redraw art). */
-function ImageButton({
-  src,
-  label,
-  enabled,
-  glow = false,
-  onClick,
-}: {
-  src: string
-  glow?: boolean
-  label: string
-  enabled: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      aria-label={label}
-      title={label}
-      disabled={!enabled}
-      onClick={onClick}
-      className="group relative h-full w-full transition-transform duration-[120ms] ease-out enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50"
-    >
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        draggable={false}
-        className={`dimmable absolute inset-0 h-full w-full object-contain${glow ? ' skip-glow' : ''} group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)]`}
-      />
-    </button>
-  )
-}
-
 function CenterArena({
   view,
   discardCards,
@@ -770,24 +743,32 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const challengeOpen = !!challenge.active && !overlayHidden
   const liveRoll = liveRollOf(view)
   const dice = useLiveDice(view, liveRoll)
-  // The roll somebody has modified takes the stage (ModifierWindow), put
-  // away and brought back exactly like the challenge overlay; a new roll
-  // always shows itself. A challenge on stage takes precedence.
-  const modifiedRoll = liveRoll && rollHasModifierCard(liveRoll, view) ? liveRoll : null
+  // Every roll takes the stage (ModifierWindow) the moment it is made
+  // (the owner, 2026-09-06), put away and brought back exactly like the
+  // challenge overlay; a new roll always shows itself. A challenge on stage
+  // takes precedence.
+  const modifiedRoll = liveRoll
   const [manuallyOpenedRollId, setManuallyOpenedRollId] = useState<string | null>(null)
   const modifierRoll = modifiedRoll ?? (liveRoll?.windowId === manuallyOpenedRollId ? liveRoll : null)
-  const [modifierHidden, setModifierHidden] = useState(false)
+  // A question of mine over the roll (its target, a modifier's value) comes
+  // FIRST: the window waits until it is answered, and the opener button can
+  // still bring it forward and put it back (the owner, 2026-09-06).
+  const myQuestionOpen = view.pendingWindows.some(
+    (window) => window.isYours && !TABLE_WINDOW_TYPES.has(window.type),
+  )
+  const [modifierHidden, setModifierHidden] = useState(myQuestionOpen)
   const modifiedRollId = modifiedRoll?.windowId
   useEffect(() => {
-    setModifierHidden(false)
-  }, [modifiedRollId])
+    setModifierHidden(myQuestionOpen)
+  }, [modifiedRollId, myQuestionOpen])
   const modifierOpen = !!modifierRoll && !modifierHidden && !challengeOpen
   const stageOpen = challengeOpen || modifierOpen
   const [toast, setToast] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
   const [modifierChoice, setModifierChoice] = useState<{
     card: ModifierCardData
-    targetPlayerId: string
+    /** Whose roll, in a started challenge only — a roll has one and the server names it. */
+    targetPlayerId?: string
   } | null>(null)
   const mine = view.seats.find((seat) => seat.playerId === view.playerId)
   const current = view.seats.find((seat) => seat.playerId === view.currentPlayerId)
@@ -825,21 +806,31 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
   }
   const passiveIds = passiveSourceIds(view)
+  // The seat a roll's effect has chosen, and what it reaches there — the
+  // hand (a pull, a discard) or the party (a steal, a destroy): the WIDGET
+  // that sits on wears the red aura (the owner, 2026-09-06), not the cards.
+  const targetedHands = new Set<string>()
+  const targetedParties = new Set<string>()
+  for (const window of view.pendingWindows) {
+    if (window.type !== 'Modifier' && window.type !== 'Attack') continue
+    const target = window.detail?.targetPlayerId
+    if (typeof target !== 'string') continue
+    if (window.detail?.targetZone === 'Party') targetedParties.add(target)
+    else targetedHands.add(target)
+  }
   const diceOutcome = liveRoll ? rollOutcome(liveRoll, view) : 'none'
 
-  // A reaction being aimed (modifier / challenge card pressed, board dimmed,
-  // targets gold) or a value being picked loses its target when its window
-  // lapses mid-resolution: the aim ends with it, the dim with the aim. The
-  // test is the TARGETS, not "some window is open" — another window (an
-  // unstarted challenge, say) can outlive the roll the modifier was for.
+  // A value being picked loses its roll when the window lapses
+  // mid-resolution: the dialog goes with it. The test is a roll that takes
+  // modifiers, not "some window is open" — an unstarted challenge can
+  // outlive the roll the modifier was for.
   const modifierTargetGone =
     !!modifierChoice &&
     !view.pendingWindows.some(
       (window) =>
-        (window.type === 'Modifier' || window.type === 'Attack' || window.type === 'Challenge') &&
-        (window.respondentId === modifierChoice.targetPlayerId ||
-          window.detail?.challengerId === modifierChoice.targetPlayerId ||
-          window.detail?.defenderId === modifierChoice.targetPlayerId),
+        window.type === 'Modifier' ||
+        window.type === 'Attack' ||
+        (window.type === 'Challenge' && window.detail?.challenged === true),
     )
   useEffect(() => {
     if (modifierTargetGone) setModifierChoice(null)
@@ -914,14 +905,16 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   }
 
   /**
-   * A modifier card aimed at a roll. One printed value: it lands as it is,
-   * nothing to choose (the owner, 2026-09-05); two: the value dialog.
+   * A modifier card played on the roll of the moment — the server names the
+   * target on a roll; a started challenge has two rolls and `targetPlayerId`
+   * says which. One printed value: it lands as it is, nothing to choose
+   * (the owner, 2026-09-05); two: the value dialog.
    */
-  const aimModifier = (card: ModifierCardData, targetPlayerId: string) => {
+  const playModifier = (card: ModifierCardData, targetPlayerId?: string) => {
     if (card.values.length === 1) {
       void run({
         type: 'ApplyModifier',
-        payload: { cardId: card.id, targetPlayerId, value: card.values[0] },
+        payload: { cardId: card.id, value: card.values[0], ...(targetPlayerId ? { targetPlayerId } : {}) },
       })
       return
     }
@@ -1180,8 +1173,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       })
     } else if (card.type === 'Modifier') {
       if (liveChallenge) {
-        // A started challenge: aim at one of the two roll panels in the
-        // overlay; the panel's side names whose roll the modifier lands on.
+        // A started challenge has two rolls: aim at one of the two roll
+        // panels in the overlay; the panel's side names whose roll the
+        // modifier lands on (the server refuses one that names no side).
         const sideOf: Record<ChallengeRole, string> = {
           challenged: liveChallenge.defenderId,
           challenger: liveChallenge.challengerId,
@@ -1195,57 +1189,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           ),
           onPick: (target) => {
             const role = target.split(':')[1] as ChallengeRole
-            aimModifier(card, sideOf[role])
+            playModifier(card, sideOf[role])
           },
         })
         return
       }
-      const windows = view.pendingWindows.filter(
-        (window) => window.type === 'Modifier' || window.type === 'Attack',
-      )
-      const pairs = windows.flatMap((window) => {
-        const key = targetKeyForId(view, subjectIdOf(window))
-        return key ? [{ key, window }] : []
-      })
-      begin({
-        source,
-        tone: 'reaction',
-        sourceCardId: card.id,
-        targets: pairs.map((pair) => pair.key),
-        onPick: (target) => {
-          const pair = pairs.find((candidate) => candidate.key === target)
-          if (pair) aimModifier(card, pair.window.respondentId)
-        },
-      })
+      // A roll has one target and the server names it: no aiming, the
+      // press goes straight to the value.
+      playModifier(card)
     } else if (card.type === 'Challenge') {
-      const windows = view.pendingWindows.filter(
-        (window) =>
-          window.type === 'Challenge' &&
-          window.cardId &&
-          window.respondentId !== view.playerId &&
-          window.deadline > Date.now() &&
-          window.detail?.challengeable !== false &&
-          window.detail?.challenged !== true,
-      )
-      const pairs = windows.flatMap((window) => {
-        const key = targetKeyForId(view, window.cardId)
-        return key && window.cardId ? [{ key, window }] : []
-      })
-      begin({
-        source,
-        tone: 'reaction',
-        sourceCardId: card.id,
-        targets: pairs.map((pair) => pair.key),
-        onPick: (target) => {
-          const contested = pairs.find((pair) => pair.key === target)?.window
-          if (contested?.cardId) {
-            void run({
-              type: 'Challenge',
-              payload: { cardId: card.id, targetedCardId: contested.cardId },
-            })
-          }
-        },
-      })
+      // Likewise: the card contests whichever play is open to a challenge.
+      void run({ type: 'Challenge', payload: { cardId: card.id } })
     }
   }
 
@@ -1307,7 +1261,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           const isMine = playerId === view.playerId
           return (
             <React.Fragment key={slot}>
-              <Widget def={layout.heroes} anchor={layout.anchor}>
+              <Widget def={layout.heroes} anchor={layout.anchor} enemy={targetedParties.has(playerId)}>
                 <HeroRow
                   heroes={party.heroes}
                   seat={HERO_SEAT[slot]}
@@ -1355,10 +1309,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                 anchor={layout.anchor}
                 zClass="z-40"
                 // during a challenge the local hand is part of the bright
-                // layer — raised above the overlay's click shield (z-140) —
-                // and every seat's hand count stays readable (modifier fuel)
-                zIndex={stageOpen && isMine ? 160 : undefined}
+                // layer — raised above the overlay's click shield (z-140) and
+                // above the HUD's opener (z-160): a hand that is opened sits
+                // over everything (the owner, 2026-09-06) — and every seat's
+                // hand count stays readable (modifier fuel)
+                zIndex={stageOpen && isMine ? 170 : undefined}
                 dimExempt={stageOpen}
+                enemy={targetedHands.has(playerId)}
               >
                 {isMine ? (
                   <PlayerHand
@@ -1434,7 +1391,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : hasReactionWindow ? (
+          ) : hasReactionWindow && !modifierOpen ? (
+            // the modifier window carries its own Skip beside the total;
+            // while it is up, this slot stays out of the way
             <ImageButton
               src={HUD.skipReaction}
               label="Skip reaction"
@@ -1481,6 +1440,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           roll={modifierRoll}
           hidden={modifierHidden || challengeOpen}
           onHide={() => setModifierHidden(true)}
+          canSkip={passableWindows.length > 0}
+          onSkip={() => void forfeitWindow()}
         />
 
         <RevealedCards cards={view.revealedCards ?? []} />
@@ -1548,8 +1509,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                         type: 'ApplyModifier',
                         payload: {
                           cardId: selection.card.id,
-                          targetPlayerId: selection.targetPlayerId,
                           value,
+                          ...(selection.targetPlayerId ? { targetPlayerId: selection.targetPlayerId } : {}),
                         },
                       })
                     }}

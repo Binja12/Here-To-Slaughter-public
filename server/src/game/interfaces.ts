@@ -12,6 +12,7 @@ import {
   RollContext,
   RollResult,
   TriggerScope,
+  Zone,
 } from 'shared'
 import type { GameState } from './pipelines/game-state'
 import type { AbilityContext } from './abilities/ability-context'
@@ -221,6 +222,29 @@ export interface IPassableWindow extends IReactionWindow {
 export const isPassable = (window: IReactionWindow): window is IPassableWindow =>
   typeof (window as Partial<IPassableWindow>).pass === 'function'
 
+/**
+ * A roll window that takes the target its effect chose while it is still
+ * open (§4): the table sees it, the clock restarts, and the settle carries
+ * it to the effect on RollSuccess.
+ */
+export interface ITargetedRollWindow extends IReactionWindow {
+  /** `zone`: what the effect will reach on the targeted seat — its hand or its party — so the table can point at it. */
+  targetChosen(key: string, picks: unknown[], zone: Zone): void
+}
+
+export const isTargetable = (window: IReactionWindow): window is ITargetedRollWindow =>
+  typeof (window as Partial<ITargetedRollWindow>).targetChosen === 'function'
+
+/**
+ * A window whose clock can be given back in full: a question standing over
+ * a roll that just changed (ChoiceWindow). `GameState.restartQuestionsAfter`.
+ */
+export interface IRestartableWindow extends IReactionWindow {
+  restartClock(): void
+}
+export const canRestartClock = (window: IReactionWindow): window is IRestartableWindow =>
+  typeof (window as Partial<IRestartableWindow>).restartClock === 'function'
+
 export interface IModifiableWindow extends IReactionWindow {
   /** Whether a modifier aimed at `playerId` belongs in this window, and if not, why. */
   acceptsModifierFor(playerId: string): RequestResult
@@ -259,23 +283,16 @@ export interface IReactionWindow {
   /**
    * Close WITHOUT an outcome: the clock is cleared, `ReactionWindowClosed`
    * goes out with `cancelled: true`, no default is picked and no
-   * `FrameResolved` follows. A rollback of an earlier frame does this to
-   * every window opened after it (GameState.revertFrame).
+   * `FrameResolved` follows. A concluded game does this to every open
+   * window (GameState.conclude).
    */
   cancel(): void
   /**
    * A question the respondent may simply walk away from — a TaskChoice
-   * offering DISMISS. Under seamless reactions the active player's next
-   * action forfeits one (TurnManager.enqueue) instead of being refused.
+   * offering DISMISS. Projected as `PendingWindowView.optional`; the client
+   * dismisses one before sending another action.
    */
   isOptional(): boolean
-  /** Whether this window holds actions under seamless reactions. */
-  blocksActions(playerId: string): boolean
-  /**
-   * Shortens the clock to `ms` when more than that is left; a shorter clock
-   * is untouched. The turn's end caps every window this way (§11).
-   */
-  capClock(ms: number): void
   /**
    * What the window is asking, read LIVE: the fields it announced at open
    * plus whatever moved since — a bonus that landed, a challenge that

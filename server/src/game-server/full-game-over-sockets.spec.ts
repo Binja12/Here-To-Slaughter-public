@@ -260,7 +260,7 @@ describe('a full game over sockets', () => {
     const first = await windowOn(BOB, ReactionWindowType.Challenge)
     expect(first.cardId).toBe('hero-044')
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    await accepted(BOB, 'Challenge', { cardId: 'challenge-102', targetedCardId: 'hero-044' })
+    await accepted(BOB, 'Challenge', { cardId: 'challenge-102' })
     await settled()
 
     expect(partyOf(see(ALICE), ALICE).heroes).toEqual([])
@@ -273,7 +273,7 @@ describe('a full game over sockets', () => {
     await accepted(ALICE, 'PlayHero', { cardId: 'hero-037' })
     await windowOn(CAROL, ReactionWindowType.Challenge)
     scriptDice([LOWEST, HIGHEST], HIGHEST)
-    await accepted(CAROL, 'Challenge', { cardId: 'challenge-103', targetedCardId: 'hero-037' })
+    await accepted(CAROL, 'Challenge', { cardId: 'challenge-103' })
     const offer = await windowOn(ALICE, ReactionWindowType.TaskChoice, true)
     expect(offer.options).toContain(CONFIRM)
     fixDice(MIDDLING)
@@ -340,7 +340,6 @@ describe('a full game over sockets', () => {
     expect(roll.detail).toMatchObject({ rollerId: ALICE, baseRoll: 8 })
     await accepted(ALICE, 'ApplyModifier', {
       cardId: 'modifier-086',
-      targetPlayerId: ALICE,
       value: 3,
     })
     await shows(BOB, 'the modifier land', (v) => {
