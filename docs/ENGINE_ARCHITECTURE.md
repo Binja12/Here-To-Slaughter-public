@@ -768,7 +768,11 @@ everyone gets another look (the full wait again, passes cleared), and the
 settle puts it on `RollSuccess` as `ctxSeed`, so the effect's fresh context
 starts with it. A roll never settles while a question stands over it
 (`GameState.hasOpenFramesAfter`): the clock runs again instead, and the
-answer landing restarts it anyway. A roll that fails with its question still
+answer landing restarts it anyway. A modifier landing on the roll gives the
+standing question the full wait again too (`GameState.restartQuestionsAfter`,
+`ChoiceWindow.restartClock`): the asked player was watching that roll change
+(the owner, 2026-09-06). Only on a landing, never on the roll's own expiry —
+two clocks restarting each other would never run out. A roll that fails with its question still
 open takes no cancelling: the answer lands on no open window and is dropped,
 like a late modifier value. Heroes that choose from their own hand, the deck
 or the discard keep one entry on `RollSuccess`: nothing there is a target the
@@ -1859,7 +1863,12 @@ announced as a draw); the queue closes over the gap by itself, so "the other
 two return to the top" is what the deck already does. Rejected the same hour:
 a peek task writing the top three onto the context and a move-to-top task
 for the leftovers — stored what the deck derives, and put back what never
-left. Rejected: a reveal window with a
+left. Half reversed 2026-09-06: "in any order" is the player's call
+(the owner), so two steps follow the draw — a `CardChoice` over the deck's top
+two (`CTX_DECK_TOP_CARD`, its `question` in the detail so the picker says
+what is asked) and `ReturnToDeckTopTask`, which moves the chosen one to the
+top (`GameState.moveToMainDeckTop`); the other is second by itself. Still no
+peek onto the context. Rejected: a reveal window with a
 timer the engine enforces on the player — a window gates actions, and a
 look gates nothing.
 

@@ -1,4 +1,4 @@
-import { accepted, isTargetable, refused } from '../interfaces'
+import { accepted, canRestartClock, isTargetable, refused } from '../interfaces'
 import {
   GamePhase,
   HeroClass,
@@ -420,6 +420,26 @@ export class GameState {
     return false
   }
 
+  /**
+   * The full wait again for every question standing over `frameId` — asked
+   * after it, still open. A modifier landing on a roll restarts the roll's
+   * clock (§4); the player choosing its target was watching that roll change
+   * and gets their time back too (the owner, 2026-09-06). Only ever on a
+   * landing, never on the roll's own expiry: two clocks restarting each other
+   * would never run out.
+   */
+  restartQuestionsAfter(frameId: string): void {
+    let after = false
+    for (const [id, frame] of this.frames) {
+      if (after) {
+        for (const window of frame.windows) {
+          if (window.isOpen() && canRestartClock(window)) window.restartClock()
+        }
+      }
+      if (id === frameId) after = true
+    }
+  }
+
   /** True while any frame has an open window — used by TurnManager.drain(). */
   hasOpenFrames(): boolean {
     for (const frame of this.frames.values()) {
@@ -728,6 +748,13 @@ export class GameState {
   /** CardStack.pick on the main deck, through the board. Null when not there. */
   pickFromMainDeck(cardId: string): string | null {
     return this.mainDeck.pick(cardId)
+  }
+
+  /** A card out of anywhere in the main deck onto its top. False when it is not there. */
+  moveToMainDeckTop(cardId: string): boolean {
+    if (this.mainDeck.pick(cardId) === null) return false
+    this.mainDeck.addToTop(cardId)
+    return true
   }
 
 

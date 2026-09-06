@@ -265,6 +265,9 @@ export abstract class ModifiableRollWindow
       ),
     )
     this.resetTimer()
+    // ...and so does whoever is answering a question over this roll — its
+    // target — who was watching it change (the owner, 2026-09-06).
+    this.gs.restartQuestionsAfter(this.frameId)
     this.announceStanding()
     return accepted()
   }

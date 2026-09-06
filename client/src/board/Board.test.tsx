@@ -54,6 +54,10 @@ test('every roll opens its window at once; the opener puts it away and brings it
   expect(modifierButton).toBeEnabled()
   // open the moment the roll is made, with its own Skip on it — the HUD's steps aside
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
+  // the hand sits above the opener while the stage is up
+  const handWidget = screen.getAllByAltText(/^hand card/)[0].closest('.z-40') as HTMLElement
+  expect(modifierButton.parentElement).toHaveClass('z-[160]')
+  expect(Number(handWidget.style.zIndex)).toBeGreaterThan(160)
   expect(screen.getAllByRole('button', { name: 'Skip reaction' })).toHaveLength(1)
   fireEvent.click(modifierButton)
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')

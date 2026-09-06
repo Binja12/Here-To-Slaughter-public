@@ -115,7 +115,7 @@ export default function ModifierWindow({
                 width: `${L.modCard.h * NONHERO_CARD_ASPECT}cqh`,
                 left: `calc(50% + ${side * (L.modCard.dx + rank * L.modCard.step)}cqh)`,
                 top: `calc(50% + ${L.modCard.dy + rank * L.modCard.drop}cqh)`,
-                transform: `translate(-50%, -50%) rotate(${side * L.modCard.angle}deg)`,
+                transform: `translate(-50%, -50%) rotate(${L.modCard.angle}deg)`,
                 zIndex: 10 - rank,
               }}
             >

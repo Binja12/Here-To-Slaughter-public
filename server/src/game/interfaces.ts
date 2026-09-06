@@ -235,6 +235,16 @@ export interface ITargetedRollWindow extends IReactionWindow {
 export const isTargetable = (window: IReactionWindow): window is ITargetedRollWindow =>
   typeof (window as Partial<ITargetedRollWindow>).targetChosen === 'function'
 
+/**
+ * A window whose clock can be given back in full: a question standing over
+ * a roll that just changed (ChoiceWindow). `GameState.restartQuestionsAfter`.
+ */
+export interface IRestartableWindow extends IReactionWindow {
+  restartClock(): void
+}
+export const canRestartClock = (window: IReactionWindow): window is IRestartableWindow =>
+  typeof (window as Partial<IRestartableWindow>).restartClock === 'function'
+
 export interface IModifiableWindow extends IReactionWindow {
   /** Whether a modifier aimed at `playerId` belongs in this window, and if not, why. */
   acceptsModifierFor(playerId: string): RequestResult

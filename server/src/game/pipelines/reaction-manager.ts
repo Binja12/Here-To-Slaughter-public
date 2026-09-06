@@ -162,6 +162,7 @@ export class ReactionManager implements IReactionManager {
         this.em,
         config['resultKey'] as string | undefined,
         config['sourceCardId'] as string | undefined,
+        config['question'] as string | undefined,
       )
     }
 

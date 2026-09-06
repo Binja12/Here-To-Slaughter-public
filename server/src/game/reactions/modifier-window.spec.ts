@@ -468,6 +468,25 @@ describe('ModifierWindow — the target is asked while the roll stands', () => {
     expect(win.isOpen()).toBe(false)
   })
 
+  it('a modifier landing gives the question standing over the roll its clock back; the roll running out does not', () => {
+    const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5, timeoutMs: 5000 })
+    gs.addFrame('frame-2', gs.clone(), [])
+    const question = new PlayerChoiceWindow('w-q', 'p1', ['p2'], 5000, gs, 'frame-2', em)
+    gs.addWindow('frame-2', question)
+    const asked = question.getDeadline()
+
+    jest.advanceTimersByTime(3000)
+    win.submitReaction('p2', { value: -2, cardId: 'mod-1' })
+    expect(question.getDeadline()).toBe(asked + 3000)
+    expect(win.getDeadline()).toBe(asked + 3000)
+
+    // the roll's own clock running out only restarts the roll
+    jest.advanceTimersByTime(4999)
+    expect(win.isOpen()).toBe(true)
+    expect(question.isOpen()).toBe(true)
+    expect(question.getDeadline()).toBe(asked + 3000)
+  })
+
   it('any number of cards may follow the first: the roll stays open, each giving the full wait again', () => {
     const win = makeWindow({ gs, em, baseRoll: 2, rollReq: 5 })
     win.submitReaction('p2', { value: 1, cardId: 'mod-1' })

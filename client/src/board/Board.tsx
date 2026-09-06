@@ -1309,9 +1309,11 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                 anchor={layout.anchor}
                 zClass="z-40"
                 // during a challenge the local hand is part of the bright
-                // layer — raised above the overlay's click shield (z-140) —
-                // and every seat's hand count stays readable (modifier fuel)
-                zIndex={stageOpen && isMine ? 160 : undefined}
+                // layer — raised above the overlay's click shield (z-140) and
+                // above the HUD's opener (z-160): a hand that is opened sits
+                // over everything (the owner, 2026-09-06) — and every seat's
+                // hand count stays readable (modifier fuel)
+                zIndex={stageOpen && isMine ? 170 : undefined}
                 dimExempt={stageOpen}
                 enemy={targetedHands.has(playerId)}
               >

@@ -5,7 +5,7 @@ import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, ITargetedRollWindow, refused } from '../interfaces'
+import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, IRestartableWindow, ITargetedRollWindow, refused } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { AbilityContext, NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -805,5 +805,39 @@ describe('GameState — the roll target and what stands over a roll', () => {
 
     gs.releaseFrame('f2')
     expect(gs.hasOpenFramesAfter('f1')).toBe(false)
+  })
+
+  it('restartQuestionsAfter gives every open question in a later frame its clock back, and nothing else', () => {
+    const restartable = (id: string, open = true) => {
+      let restarts = 0
+      const window: IRestartableWindow = {
+        ...targetable(id).window,
+        isOpen: () => open,
+        restartClock: () => {
+          restarts += 1
+        },
+      }
+      return { window, restarts: () => restarts }
+    }
+    const earlier = restartable('w0')
+    const roll = restartable('w1')
+    const question = restartable('w2')
+    const settled = restartable('w3', false)
+    const plain = targetable('w4').window
+    gs.addFrame('f0', gs.clone(), [earlier.window])
+    gs.addFrame('f1', gs.clone(), [roll.window])
+    gs.addFrame('f2', gs.clone(), [question.window, settled.window, plain])
+    gs.restartQuestionsAfter('f1')
+    expect([earlier.restarts(), roll.restarts(), question.restarts(), settled.restarts()]).toEqual([0, 0, 1, 0])
+  })
+
+  it('moveToMainDeckTop puts a card from anywhere in the deck on top, and says when it is not there', () => {
+    const main = new CardStack('deck', 'main')
+    for (const id of ['a', 'b', 'c']) main.addToBottom(id)
+    const deckGs = new GameState(main, new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    expect(deckGs.moveToMainDeckTop('c')).toBe(true)
+    expect(deckGs.peekMainDeck(3)).toEqual(['c', 'a', 'b'])
+    expect(deckGs.moveToMainDeckTop('zzz')).toBe(false)
+    expect(deckGs.peekMainDeck(3)).toEqual(['c', 'a', 'b'])
   })
 })
