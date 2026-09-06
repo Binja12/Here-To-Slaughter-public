@@ -1,4 +1,5 @@
 import { CardView } from '../contract';
+import { assetUrl } from '../assetUrl';
 
 // Every card on the table is drawn from its BOARD scan under client/public/
 // board/. There is no template art any more (the owner, 2026-09-04: the old
@@ -9,8 +10,8 @@ import { CardView } from '../contract';
 /* BOARD design (client/public/board/): premium scans, frame baked in  */
 /* ------------------------------------------------------------------ */
 
-export const SMALL_BACK = '/board/Small Card Back.png'; // any regular pile
-export const BIG_BACK = '/board/Big Card Back.png'; // monster deck only
+export const SMALL_BACK = assetUrl('/board/Small Card Back.png'); // any regular pile
+export const BIG_BACK = assetUrl('/board/Big Card Back.png'); // monster deck only
 export const BOARD_CARD_ASPECT = 1060 / 1484; // board heroes + small back
 export const MONSTER_CARD_ASPECT = 956 / 1645; // board monsters + big back
 
@@ -27,14 +28,14 @@ const BOARD_HERO_OVERRIDES: Record<string, string> = {
 /** Board-design hero scan for the slug of a printed `image` field. */
 export const boardHeroCardUrl = (slug: string): string =>
   slug === 'guiding-light'
-    ? '/board/heroes/Hero Guardian Light.png' // typo on disk
-    : `/board/heroes/Hero ${BOARD_HERO_OVERRIDES[slug] ?? titleCase(slug)}.png`;
+    ? assetUrl('/board/heroes/Hero Guardian Light.png') // typo on disk
+    : assetUrl(`/board/heroes/Hero ${BOARD_HERO_OVERRIDES[slug] ?? titleCase(slug)}.png`);
 
 /** name like "Mega Slime" → /board/Monsters/Monster Mega Slime.png */
 export const boardMonsterUrl = (name: string) =>
   name === 'Warworn Owlbear' // file lacks the "Monster " prefix
-    ? '/board/Monsters/Warworn Owlbear.png'
-    : `/board/Monsters/Monster ${name}.png`;
+    ? assetUrl('/board/Monsters/Warworn Owlbear.png')
+    : assetUrl(`/board/Monsters/Monster ${name}.png`);
 
 /* ------------------------------------------------------------------ */
 /* Non-hero board cards: items, magics, modifiers, challenge. These have  */
@@ -61,7 +62,7 @@ export const ITEMS = [
   'Wizard Mask',
 ] as const;
 export type ItemName = (typeof ITEMS)[number];
-export const boardItemUrl = (name: string) => `/board/Items/Item ${name}.png`;
+export const boardItemUrl = (name: string) => assetUrl(`/board/Items/Item ${name}.png`);
 
 export const MAGICS = [
   'Critical Boost',
@@ -72,20 +73,20 @@ export const MAGICS = [
   'Forceful Winds',
   'Winds Of Change',
 ] as const;
-export const boardMagicUrl = (name: string) => `/board/Magics/Magic ${name}.png`;
+export const boardMagicUrl = (name: string) => assetUrl(`/board/Magics/Magic ${name}.png`);
 
 export const MODIFIERS = ['+1-3', '+2-2', '+3-1', '+4', '-4'] as const;
 export const boardModifierUrl = (name: string) =>
-  `/board/Modifiers/Modifier ${name}.png`;
+  assetUrl(`/board/Modifiers/Modifier ${name}.png`);
 
 export const boardChallengeUrl = (name = 'Basic') =>
-  `/board/challenge/Challenge ${name}.png`;
+  assetUrl(`/board/challenge/Challenge ${name}.png`);
 
 export const LEADER_CARD_ASPECT = 1024 / 1536;
 
 /** name like "The Divine Arrow" → /board/Leaders/Leader The Divine Arrow.png */
 export const boardLeaderUrl = (name: string) =>
-  `/board/Leaders/Leader ${name}.png`;
+  assetUrl(`/board/Leaders/Leader ${name}.png`);
 
 /** the six board leaders (one per class), for demo/seat assignment */
 export const LEADERS = {

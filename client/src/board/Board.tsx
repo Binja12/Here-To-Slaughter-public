@@ -46,7 +46,7 @@ import {
 import { passiveSourceIds } from './passiveRelevance'
 import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
-import { derivePlayable, isOptionalWindow } from './playable'
+import { derivePlayable, isOptionalWindow, reactionRevision } from './playable'
 import {
   TargetingProvider,
   TargetKey,
@@ -72,6 +72,9 @@ import { useHoverZoom } from './useHoverZoom'
 import PendingWindows from './PendingWindows'
 import DiscardPileModal from './DiscardPileModal'
 import RevealedCards from './RevealedCards'
+import { useAudio } from '../audio/AudioProvider'
+import { useGameAudio } from '../audio/useGameAudio'
+import VolumeControl from '../audio/VolumeControl'
 
 function Widget({
   def,
@@ -729,8 +732,26 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const view = useGameView()
   const info = useGameInfo()
   const log = useGameLog()
+  const { playSound } = useAudio()
+  useGameAudio(view, log)
   const send = useSend()
   const flags = derivePlayable(view)
+  const [localPasses, setLocalPasses] = useState<Record<string, string>>({})
+  const passableWindows = view.pendingWindows.filter((window) =>
+    flags.passableWindows.includes(window.windowId) &&
+    localPasses[window.windowId] !== reactionRevision(window),
+  )
+  const hasReactionWindow = view.phase === 'Turns' && view.pendingWindows.some((window) => window.canPass)
+  useEffect(() => {
+    setLocalPasses((passes) => {
+      const remaining = Object.entries(passes).filter(([id, revision]) =>
+        view.pendingWindows.some((window) => window.windowId === id &&
+          reactionRevision(window) === revision &&
+          !(Array.isArray(window.detail?.passedBy) && window.detail?.passedBy.includes(view.playerId))),
+      )
+      return remaining.length === Object.keys(passes).length ? passes : Object.fromEntries(remaining)
+    })
+  }, [view])
   const discardCards = discardCardsForView(view)
   const slots = slotsFor(view)
   const { active, begin, cancel } = useTargeting()
@@ -739,7 +760,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const challenge = useChallenge()
   const liveChallenge = useChallengeSync(view)
   // The overlay can be put away (click its backdrop) to look at the table,
-  // and brought back with the top-left Challenge button. A new challenge
+  // and brought back with the window button beside the discard pile. A new challenge
   // always shows itself.
   const [overlayHidden, setOverlayHidden] = useState(false)
   const liveChallengeId = liveChallenge?.windowId
@@ -753,12 +774,14 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // away and brought back exactly like the challenge overlay; a new roll
   // always shows itself. A challenge on stage takes precedence.
   const modifiedRoll = liveRoll && rollHasModifierCard(liveRoll, view) ? liveRoll : null
+  const [manuallyOpenedRollId, setManuallyOpenedRollId] = useState<string | null>(null)
+  const modifierRoll = modifiedRoll ?? (liveRoll?.windowId === manuallyOpenedRollId ? liveRoll : null)
   const [modifierHidden, setModifierHidden] = useState(false)
   const modifiedRollId = modifiedRoll?.windowId
   useEffect(() => {
     setModifierHidden(false)
   }, [modifiedRollId])
-  const modifierOpen = !!modifiedRoll && !modifierHidden && !challengeOpen
+  const modifierOpen = !!modifierRoll && !modifierHidden && !challengeOpen
   const stageOpen = challengeOpen || modifierOpen
   const [toast, setToast] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -862,13 +885,31 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
    * dismissed "roll on the hero you just played?", so Buttons never pulled).
    */
   const forfeitWindow = async (): Promise<boolean> => {
-    if (flags.passableWindows.length === 0) return false
-    // Every table window this seat could still act on, in one press
-    // (the owner, 2026-09-05): under seamless reactions several stand open.
-    for (const windowId of flags.passableWindows) {
-      const result = await send({ type: 'PassWindow', payload: { windowId } })
-      if (!handleResult(result)) return false
+    if (passableWindows.length === 0) return false
+    // A non-final pass emits no engine event/snapshot. Keep its acknowledgement
+    // locally until the server confirms it or a changed roll reopens reactions.
+    const attempts = passableWindows.map((window) => [window.windowId, reactionRevision(window)] as const)
+    setLocalPasses((passes) => ({ ...passes, ...Object.fromEntries(attempts) }))
+    for (let index = 0; index < attempts.length; index++) {
+      const [windowId] = attempts[index]
+      let result: CommandResult
+      try {
+        result = await send({ type: 'PassWindow', payload: { windowId } })
+      } catch {
+        result = { accepted: false, error: 'InternalError' }
+      }
+      if (!handleResult(result)) {
+        setLocalPasses((passes) => {
+          const remaining = { ...passes }
+          for (const [id, revision] of attempts.slice(index)) {
+            if (remaining[id] === revision) delete remaining[id]
+          }
+          return remaining
+        })
+        return false
+      }
     }
+    playSound('skipReaction')
     return true
   }
 
@@ -941,7 +982,16 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
     const { window, pairs, dismiss } = boardChoice
     const source = tkey.pendingWindow(window.windowId)
-    const revision = JSON.stringify(pairs)
+    // The reaction cards in the hand stay playable under the question: a
+    // challenge or modifier against the play that is asking must not wait
+    // for the answer (the owner, 2026-09-05). Pressing one starts the reaction;
+    // the question re-arms once it is done.
+    const live = view.hand.flatMap((card, index) =>
+      flags.hand[index] && (card.type === 'Challenge' || card.type === 'Modifier')
+        ? [tkey.handCard(index)]
+        : [],
+    )
+    const revision = JSON.stringify([pairs, live])
     if ((active?.source === source && active.revision === revision) || answeredChoice.current === window.windowId) return
     const answer = (choice: unknown) => {
       answeredChoice.current = window.windowId
@@ -950,7 +1000,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     begin({
       source,
       tone: 'choice',
+      effectSource: targetKeyForId(view, window.detail?.sourceCardId) ?? undefined,
       revision,
+      live,
       targets: pairs.map((pair) => pair.key),
       onPick: (key) => {
         const pair = pairs.find((candidate) => candidate.key === key)
@@ -1018,9 +1070,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           (window.type === 'CardChoice' || window.type === 'MonsterChoice') &&
           !!window.optionCards?.length,
       ) ?? null)
-  // The card whose ability is asking (`detail.sourceCardId`), shown big in
-  // the pink effect-working aura for as long as the board is dimmed for its
-  // question — the context the owner asked for (2026-09-04).
+  // Off-board choices name the asking ability in the picker.
   const askingWindow = boardChoice?.window ?? cardPick
   const askingCard = cardById(
     view,
@@ -1216,7 +1266,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       onClick={active ? cancel : undefined}
     >
       <div
-        className="dim-exempt absolute left-3 top-3 z-[260] flex flex-col items-start gap-2"
+        className="dim-exempt absolute left-3 top-[9vh] z-[260] flex flex-col items-start gap-2"
         onClick={(event) => event.stopPropagation()}
       >
         <GameConfigMenu config={info?.config} />
@@ -1336,16 +1386,22 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         {/* the table's one line of words — the roll as it stands, the
             question being asked, whose turn — as a tooltip on the gems,
             since the owner dropped the turn scroll (2026-09-03) */}
-        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={3}>
+        <HudWidget def={HUD_WIDGETS.volume} aspect={1683 / 423} aboveChallenge>
+          <VolumeControl />
+        </HudWidget>
+        {(liveChallenge || liveRoll) && <HudWidget def={HUD_WIDGETS.challengeButton} aspect={4.5} aboveChallenge={stageOpen}>
           <DevButton
-            label={liveChallenge ? 'Challenge' : 'Modifier'}
-            enabled={(!!liveChallenge && overlayHidden) || (!!modifiedRoll && modifierHidden)}
+            label={liveChallenge ? 'Challenge window' : 'Modifier window'}
+            enabled={!!liveChallenge || !!liveRoll}
             onClick={() => {
-              setOverlayHidden(false)
-              setModifierHidden(false)
+              if (liveChallenge) setOverlayHidden((hidden) => !hidden)
+              else {
+                setManuallyOpenedRollId(liveRoll?.windowId ?? null)
+                setModifierHidden(modifierOpen)
+              }
             }}
           />
-        </HudWidget>
+        </HudWidget>}
         {FAKE_SERVER && (
           <HudWidget def={HUD_WIDGETS.restartButton} aspect={3}>
             <DevButton
@@ -1378,15 +1434,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : flags.passable || flags.waitingOnPass ? (
-            // a roll or a challenge is open: nobody can end a turn, so the slot
-            // gives the window up instead (PassWindow) — one window per press,
-            // and once this seat has passed them all it waits for the others
+          ) : hasReactionWindow ? (
             <ImageButton
               src={HUD.skipReaction}
-              label={flags.passable ? 'Skip reaction' : 'Waiting for the other players'}
-              enabled={!!flags.passable}
-              glow={!!flags.passable}
+              label="Skip reaction"
+              enabled={passableWindows.length > 0}
+              glow={passableWindows.length > 0}
               onClick={() => void forfeitWindow()}
             />
           ) : (
@@ -1425,7 +1478,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           onHide={() => setOverlayHidden(true)}
         />
         <ModifierWindow
-          roll={modifiedRoll}
+          roll={modifierRoll}
           hidden={modifierHidden || challengeOpen}
           onHide={() => setModifierHidden(true)}
         />
@@ -1512,16 +1565,6 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               </div>
             </div>
           </div>
-        )}
-
-        {askingCard && boardChoice && (
-          // the asking card, big and bright above the dimmed table
-          <img
-            src={artFor(askingCard).url}
-            alt={askingCard.name}
-            draggable={false}
-            className="passive-aura pointer-events-none absolute left-1/2 top-[10cqh] z-[150] h-[30cqh] -translate-x-1/2 rounded-[.35cqw] object-contain"
-          />
         )}
 
         {cardPick && (

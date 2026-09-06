@@ -119,6 +119,8 @@ export type PlayerView = {
 
 /** One line of the table's story, worded for this seat by the server. */
 export type GameLogEntry = {
+  sound?: 'heroPlayed' | 'modifierPlayed' | 'monsterSlain'
+  soundWindowId?: string
   seq: number
   at: number
   playerId: string

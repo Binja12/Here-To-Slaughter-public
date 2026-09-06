@@ -9,3 +9,5 @@
 graphify-out
 *.log
 *.pdf
+# WebP twins are generated inside the build (scripts/optimize-art.mjs)
+client/public/**/*.png.webp

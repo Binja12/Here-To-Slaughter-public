@@ -24,13 +24,22 @@ COPY tsconfig.json ./
 COPY shared shared
 COPY server server
 COPY client client
+COPY scripts/optimize-art.mjs scripts/
 RUN npm run build --workspace=shared \
  && npm run build --workspace=server
+# A WebP twin next to every PNG, for nginx to hand to browsers that take it
+# (docker/nginx.conf). The repo keeps only the PNG masters.
+RUN node scripts/optimize-art.mjs
 # Where the browser reaches the lobby. Baked in at build time (CRA).
 ARG REACT_APP_LOBBY_URL=http://localhost:3000
 ENV REACT_APP_LOBBY_URL=$REACT_APP_LOBBY_URL
+# Art URLs carry ?v=<this hash> (client/src/assetUrl.ts) so nginx can cache
+# them for a year; hashing the masters plus the encoder settings means the
+# version moves exactly when the served bytes would.
 # CI=false: eslint warnings must not fail the build. No source maps: faster.
-RUN CI=false GENERATE_SOURCEMAP=false npm run build --workspace=client
+RUN export REACT_APP_ASSET_VERSION=$(find client/public scripts/optimize-art.mjs -type f ! -name '*.webp' -print0 \
+      | LC_ALL=C sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12) \
+ && CI=false GENERATE_SOURCEMAP=false npm run build --workspace=client
 
 # ---- server: lobby/auth or game, picked by the command --------------------
 FROM node:24-bookworm-slim AS server

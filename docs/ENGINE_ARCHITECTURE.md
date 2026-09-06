@@ -1659,12 +1659,19 @@ projected as `PendingWindowView.optional`. An optional question is forfeited by
 the player's next action (`TurnManager.enqueue` resolves it on its
 silence). The same predicate gates the drain and is what the view shows
 as `PlayerView.acceptsActions`. A turn whose budget is gone with windows
-still open caps every window's clock at `TURN_END_WINDOW_CAP_MS` (10 s;
-`GameState.cappedClock` sizes the clocks of windows that open after) and
-ends on the close that leaves the board idle; a lapsed clock under open
-windows forfeits the budget the same way rather than throwing. The cap is
-applied ONCE per turn (`TurnManager.endCapped`): a reaction landing on a
-capped window gives it the full wait back (`resetTimer` never caps), and
+still open caps every roll and challenge window's clock at
+`TURN_END_WINDOW_CAP_MS` (10 s; `GameState.cappedClock` sizes the clocks of
+such windows that open after) and ends on the close that leaves the board
+idle; a lapsed clock under open windows forfeits the budget the same way
+rather than throwing. **Not while a question stands, anyone's**
+(`GameState.hasOpenQuestions`: an open window that is not a Challenge,
+Modifier or Attack): the play is still being resolved — the trap's "discard
+2", the victim's "choose a card" — so the reactions against it keep their
+full clocks, and the cap lands on the close that settles the last question.
+Questions themselves are never capped (`ChoiceWindow` takes its full
+`timeoutMs`). The cap is applied ONCE per stretch without questions
+(`TurnManager.endCapped`, cleared by an open question): a reaction landing
+on a capped window gives it the full wait back (`resetTimer` never caps), and
 the next drain leaves it alone — a challenge thrown at 10 s gets its whole
 countdown (the owner, 2026-09-05).
 

@@ -262,6 +262,7 @@ describe('PlayModifierReaction', () => {
       // The target and the value ride across as ctxSeed, because the card's
       // entry runs with a fresh context.
       expect(played[0].getPayload()).toEqual({
+        windowId: 'w1',
         cardId: MOD,
         targetPlayerId: 'p1',
         value: 2,

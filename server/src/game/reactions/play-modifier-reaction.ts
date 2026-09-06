@@ -64,6 +64,7 @@ export class PlayModifierReaction implements IReaction {
     // The same question canExecute asked. It has already said otherwise; this
     // is what keeps the announcement below honest if it is ever skipped.
     if (!gs.acceptsModifierFor(this.targetPlayerId).accepted) return
+    const windowId = gs.modifierWindowIdFor(this.targetPlayerId)
 
     // Hand -> the owner's instance pile, where it is a card in play for as
     // long as the roll it was spent on is open. Keeping that roll alive is
@@ -77,6 +78,7 @@ export class PlayModifierReaction implements IReaction {
         this.cardId,
         this.targetPlayerId,
         this.value,
+        windowId,
       ),
     )
   }

@@ -54,8 +54,11 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
     // Nothing to choose from settles at once, but on a 0ms TIMER — never
     // inline, or the frame would settle before the task that opened it
-    // returned and TaskManager would have nothing parked to resume.
-    const clockMs = this.options.length === 0 ? 0 : gs.cappedClock(this.timeoutMs)
+    // returned and TaskManager would have nothing parked to resume. A
+    // question always gets its full clock: the turn-end cap is for the
+    // reactions that hold a spent turn (GameState.cappedClock), never for
+    // what the table is being asked.
+    const clockMs = this.options.length === 0 ? 0 : this.timeoutMs
     this.deadline = Date.now() + clockMs
     this.timer = setTimeout(() => this.resolve(), clockMs)
   }

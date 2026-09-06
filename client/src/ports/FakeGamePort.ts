@@ -244,6 +244,13 @@ export class FakeGamePort implements GamePort {
         break
       case 'ApplyModifier': {
         const { cardId, targetPlayerId, value } = command.payload
+        const soundWindow = [...this.view.pendingWindows].reverse().find((window) =>
+          window.type === 'Challenge'
+            ? window.detail?.challenged === true && [window.detail?.challengerId, window.detail?.defenderId, window.respondentId].includes(targetPlayerId)
+            : ['Modifier', 'Attack'].includes(window.type) && window.respondentId === targetPlayerId,
+        )
+        const soundWindowId = soundWindow && (this.soundWindowIds.get(soundWindow.windowId) ?? soundWindow.windowId)
+        this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} modified the roll`, 'modifierPlayed', soundWindowId)
         const card = this.view.hand.find((candidate) => candidate.id === cardId)
         this.removeFromHand(cardId)
         // The server's shape: the spent card sits in its owner's instance
@@ -356,7 +363,7 @@ export class FakeGamePort implements GamePort {
     const party = this.mine()
     if (!card || !party) return
     this.removeFromHand(cardId)
-    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} played ${card.name}`)
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} played ${card.name}`, 'heroPlayed')
     this.replaceParty({
       ...party,
       heroes: [...party.heroes, { card, canRollOn: true }],
@@ -593,7 +600,12 @@ export class FakeGamePort implements GamePort {
     this.events?.onCompleted(snapshot)
   }
 
+  // Demo windows reuse friendly IDs; each new opening still starts a fresh sound ladder.
+  private soundWindowIds = new Map<string, string>()
+  private soundWindowSequence = 0
+
   private upsertWindow(window: PendingWindowView) {
+    this.soundWindowIds.set(window.windowId, `${window.windowId}:${++this.soundWindowSequence}`)
     this.view = {
       ...this.view,
       revealedCards: [],
@@ -639,8 +651,8 @@ export class FakeGamePort implements GamePort {
     this.events?.onSnapshot(this.nextSnapshot())
   }
 
-  private say(playerId: string, text: string) {
-    this.log = [...this.log, { seq: this.log.length + 1, at: Date.now(), playerId, text }]
+  private say(playerId: string, text: string, sound?: GameLogEntry['sound'], soundWindowId?: string) {
+    this.log = [...this.log, { seq: this.log.length + 1, at: Date.now(), playerId, text, ...(sound ? { sound } : {}), ...(soundWindowId ? { soundWindowId } : {}) }]
   }
 
   private nameOf(playerId: string) {

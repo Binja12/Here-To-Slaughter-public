@@ -13,6 +13,7 @@
     "test": "npm test --workspaces"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "sharp": "^0.35.4"
   }
 }

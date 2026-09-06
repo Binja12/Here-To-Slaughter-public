@@ -108,7 +108,13 @@ act, the turn clock pauses. With `seamlessReactions` ON:
 5b. The next turn starts only once every window of the previous turn has
    settled (today's drain rule already: a turn ends on `AP ≤ 0` AND an
    idle board). At End Turn — a pass, a spent budget, a lapsed clock —
-   every open window's clock is shortened to `min(remaining, 10 s)`.
+   every open roll or challenge window's clock is shortened to
+   `min(remaining, 10 s)` — but only once no question (a choice, anyone's)
+   stands open: while the play is still being resolved its reactions keep
+   their full clocks, and the cap lands when the last question settles.
+   Questions are never capped (the owner, 2026-09-05: the trap's "discard
+   2" and the challenge against it both run at the config's time; the
+   opponent's "choose a card" holds the cap too).
    A rollback after End Turn refunds the points the undone plays cost
    (they are in the snapshot) and the turn simply continues: the player
    may act again, the next turn still waits for the board to go idle.
@@ -327,10 +333,12 @@ Specs (`setup/seamless.spec.ts`, stacked deals, real 150 ms clock):
   `capClock(TURN_END_WINDOW_CAP_MS)` = 10 s — a clock with more left is
   reset to 10 s, one with less is untouched. Add `capClock(ms)` to
   `IReactionWindow`, implemented beside each window's `resetTimer`.
-  Windows opened AFTER the cap (a fight-back's choice) are capped when
-  they open — `ReactionManager` reads "the turn is ending" off the
-  board (`AP ≤ 0` for the active player) and builds them capped. One
-  constant, no config.
+  Roll and challenge windows opened AFTER the cap are capped when they
+  open — `GameState.cappedClock` reads "the turn is ending" off the board
+  (`turnEnding`: `AP ≤ 0` for the active player AND no open question).
+  A question is never capped, and while one stands the cap waits
+  (`hasOpenQuestions`); `endCapped` is cleared by an open question so the
+  cap lands again when it settles. One constant, no config.
 - Turn clock: one predicate for blocked and frozen: the clock runs while
   `!gs.refusesActions(activePlayer)`; non-seamless keeps
   `!hasOpenFrames()`. Sync the clock on every window/challenge/modifier
@@ -422,7 +430,8 @@ Confirmed by the owner (2026-09-04):
 4. A failing roll runs its continuation provisionally (fight-back); a
    modifier that flips it reverses that and runs the success side.
 5. The next turn waits for every window of the previous one; at End Turn
-   open windows are capped to 10 s.
+   open roll and challenge windows are capped to 10 s, once no question is
+   open; questions run their full clock.
 
 2. A losing reaction does NOT settle the window: it stays open for
    counters until its clock runs out, reset by every reaction as today.

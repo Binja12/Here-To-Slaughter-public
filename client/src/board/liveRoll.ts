@@ -94,7 +94,7 @@ export function facesOf(sum: number, seed: string): [number, number] {
 
 /** What the roll is against, as the table says it. Empty when nothing is printed. */
 export function rollNeedLabel(roll: LiveRoll, view: PlayerView): string {
-  if (roll.rollReq !== undefined) return `need ${roll.rollReq}+`
+  if (roll.rollReq !== undefined) return `need +${Math.max(0, roll.rollReq - roll.finalRoll)}`
   const monster = cardById(view, roll.subjectId)
   if (monster?.type !== 'Monster') return ''
   return monster.rollCompareMode === 'LowToWin'

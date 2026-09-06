@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { SMALL_BACK } from "./assets";
 import { useTargetable, TargetKey } from "./targeting";
 
@@ -23,6 +23,22 @@ export default function HandCount({
   targetKey?: TargetKey;
 }) {
   const t = useTargetable(targetKey);
+  const countLabel = useRef<HTMLSpanElement>(null);
+  const previousCount = useRef(count);
+  useEffect(() => {
+    const grew = count > previousCount.current;
+    previousCount.current = count;
+    if (!grew) return;
+    const animation = countLabel.current?.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.5)" },
+        { transform: "scale(1)" },
+      ],
+      { duration: 1000, easing: "ease-in-out" },
+    );
+    return () => animation?.cancel();
+  }, [count]);
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div
@@ -41,7 +57,7 @@ export default function HandCount({
           className="absolute left-1/2 top-[30%] -translate-x-1/2 -translate-y-1/2 text-[1.15cqw] leading-none text-[#5a4a33] drop-shadow-[0_0.05cqw_0.05cqw_rgba(255,240,200,0.6)]"
           style={{ fontFamily: "'Alfa Slab One', serif" }}
         >
-          {count}
+          <span ref={countLabel} className="inline-block">{count}</span>
         </span>
       </div>
     </div>

@@ -16,16 +16,18 @@
  */
 
 import type React from "react";
+import { assetUrl } from "../assetUrl";
 
 const WIDGETS = "/board/Border Widgets/";
-export const TABLE_BG = WIDGETS + "Table Background.png";
+const widget = (file: string) => assetUrl(WIDGETS + file);
+export const TABLE_BG = widget("Table Background.png");
 
 export const FRAMES = {
-  heroes: WIDGETS + "Heroes Frame.png", // 2172x724  aspect 3.00
-  leader: WIDGETS + "Leader Card Frame.png", // 1024x1536 aspect 0.667
-  cardback: WIDGETS + "Small Card Back Frame.png", // 1060x1484 aspect 0.714
-  big: WIDGETS + "Big Card Frame.png", // 956x1645  aspect 0.581
-  center: WIDGETS + "Center Border Frame.png", // 1254x1254 aspect 1.0
+  heroes: widget("Heroes Frame.png"), // 2172x724  aspect 3.00
+  leader: widget("Leader Card Frame.png"), // 1024x1536 aspect 0.667
+  cardback: widget("Small Card Back Frame.png"), // 1060x1484 aspect 0.714
+  big: widget("Big Card Frame.png"), // 956x1645  aspect 0.581
+  center: widget("Center Border Frame.png"), // 1254x1254 aspect 1.0
 } as const;
 
 export type FrameKind = keyof typeof FRAMES;
@@ -41,12 +43,12 @@ export const ASPECT: Record<FrameKind, number> = {
 /* HUD art (turn banner + action-points bar). Self-contained widgets, not
  * card frames — placed by HUD_WIDGETS below. */
 export const HUD = {
-  actionFrame: WIDGETS + "Action Pointer Border.png", // 2508x627 aspect 4.0
-  actionGem: WIDGETS + "Action Point Gem.png", // 1254x1254 aspect 1.0
-  yourTurn: WIDGETS + "Your Turn Show.png", // 2508x627 aspect 4.0
-  endTurn: WIDGETS + "End Turn Button.png", // 2172x724 aspect 3.0
-  skipReaction: WIDGETS + "Skip Reaction Button.png", // 2172x724 aspect 3.0 — the Forfeit slot
-  redraw: WIDGETS + "Redraw Button.png", // 2172x724 aspect 3.0
+  actionFrame: widget("Action Pointer Border.png"), // 2508x627 aspect 4.0
+  actionGem: widget("Action Point Gem.png"), // 1254x1254 aspect 1.0
+  yourTurn: widget("Your Turn Show.png"), // 2508x627 aspect 4.0
+  endTurn: widget("End Turn Button.png"), // 2172x724 aspect 3.0
+  skipReaction: widget("Skip Reaction Button.png"), // 2172x724 aspect 3.0 — the Forfeit slot
+  redraw: widget("Redraw Button.png"), // 2172x724 aspect 3.0
 } as const;
 
 export const HUD_ASPECT = {
@@ -346,8 +348,9 @@ export const HUD_WIDGETS: {
   /** the turn clock, a square dial left of the gems/End Turn column */
   turnTimer: HudDef;
   redraw: HudDef;
-  /** the top-left dev row: re-open the challenge window, restart the test */
+  /** Opens whichever reaction window is running, below the discard pile. */
   challengeButton: HudDef;
+  volume: HudDef;
   restartButton: HudDef;
 } = {
   // The owner's placement (2026-09-03): the action-point gems and, right
@@ -363,9 +366,9 @@ export const HUD_WIDGETS: {
   // just off them.
   turnTimer: { anchor: "top", h: 9, dx: 50, dy: 6.75 },
   redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
-  // Right of the Game Settings menu, on the same row (the owner's blue
-  // rectangle, 2026-09-05). Brings back whichever overlay was put away.
-  challengeButton: { anchor: "top", h: 4.5, dx: -54.5, dy: 4.8 },
+  // Bottom rim of the centre board, directly below the discard pile.
+  challengeButton: { anchor: "center", h: 3.5, dx: CENTER_DX, dy: CENTER_DY + CENTER_H / 2 - 6 },
+  volume: { anchor: "top", h: 6, dx: -74, dy: 5.5 },
   restartButton: { anchor: "top", h: 4, dx: -38, dy: 4.8 },
 };
 
@@ -380,7 +383,7 @@ export const MODIFIER_LAYOUT = {
   /** the card rolled on (hero / leader / monster) */
   card: { h: 42, dx: 0, dy: -8 },
   /** the total's scroll, under the card */
-  scroll: { h: 6, dx: 0, dy: 18 },
+  scroll: { h: 6, dx: 0, dy: 16.5 },
   /** the modifier cards: the first at +dx (right), the second at −dx
    *  (left), each next pair `step` further out and `drop` lower, tilted
    *  `angle`° away from the centre */
@@ -412,15 +415,16 @@ export const ROLL_MOD_CARDS = {
 /* ------------------------------------------------------------------ */
 
 const PILE = "/board/Discard Pile/";
+const pile = (file: string) => assetUrl(PILE + file);
 
 export const DISCARD_ART = {
-  frame: PILE + "Pile Border.png", // 1672x941 aspect 1.777
-  All: PILE + "All Button.png", // every plaque 2508x627, aspect 4.0
-  Hero: PILE + "Hero Button.png",
-  Item: PILE + "Item Button.png",
-  Magic: PILE + "Magic Button.png",
-  Modifier: PILE + "Modifier Button.png",
-  Challenge: PILE + "Challenge Button.png",
+  frame: pile("Pile Border.png"), // 1672x941 aspect 1.777
+  All: pile("All Button.png"), // every plaque 2508x627, aspect 4.0
+  Hero: pile("Hero Button.png"),
+  Item: pile("Item Button.png"),
+  Magic: pile("Magic Button.png"),
+  Modifier: pile("Modifier Button.png"),
+  Challenge: pile("Challenge Button.png"),
 } as const;
 
 const PANEL_H = 90; // cqh — leaves a margin of felt top and bottom

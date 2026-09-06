@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { assetUrl } from "../assetUrl";
 import {
   DICE_SIZE,
   DICE_SPOTS,
@@ -52,7 +53,7 @@ export type DiceThrowSpot = Pick<
 >;
 
 
-const faceUrl = (n: number) => `/board/Dice/dice_face_${n}.png`;
+const faceUrl = (n: number) => assetUrl(`/board/Dice/dice_face_${n}.png`);
 
 /** where each face PNG sits on the cube (real-die layout, opposites sum 7) */
 const FACE_PLACEMENT: { value: number; rotate: string }[] = [

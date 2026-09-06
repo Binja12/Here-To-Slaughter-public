@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import AuthView from './auth/AuthView'
 import Board from './board/Board'
+import { AudioProvider } from './audio/AudioProvider'
 import type { GameAssigned } from './contract'
 import LobbyView from './lobby/LobbyView'
 import { createGamePort, createLobbyPort } from './ports/createPorts'
@@ -67,7 +68,7 @@ function GameScreen({
   return (
     <CommandProvider send={game.send}>
       <GameProvider view={game.snapshot.state} info={game.info} log={game.snapshot.log}>
-        <Board onLeave={onLeave} />
+        <AudioProvider><Board onLeave={onLeave} /></AudioProvider>
       </GameProvider>
     </CommandProvider>
   )

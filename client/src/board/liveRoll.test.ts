@@ -41,8 +41,9 @@ test("a monster roll is green in its slay band, red in its fight-back band, noth
 test('the label shows the total, not the arithmetic', () => {
   const modifier = view.hand.find((card) => card.type === 'Modifier')
   const roll = heroRoll(8, [{ cardSource: modifier?.id ?? 'x', amount: 2 }])
-  expect(rollLabel(roll, view)).toBe('you rolled 8 · need 8+')
-  expect(rollLabel(heroRoll(6), view)).toBe('you rolled 6 · need 8+')
+  expect(rollLabel(roll, view)).toBe('you rolled 8 · need +0')
+  expect(rollLabel(heroRoll(6), view)).toBe('you rolled 6 · need +2')
+  expect(rollLabel(heroRoll(10), view)).toBe('you rolled 10 · need +0')
 })
 
 test('a modifier card on the roll is what opens the modifier window; a standing bonus is not', () => {
