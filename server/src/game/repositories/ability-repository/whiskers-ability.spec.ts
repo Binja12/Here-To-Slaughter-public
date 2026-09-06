@@ -6,14 +6,14 @@ describe('WhiskersAbility', () => {
   it('registers steal before destroy', () => {
     expectAbility('hero-037', WhiskersAbility, [
       {
+        on: GameEventType.RollPassing,
+        scope: TriggerScope.SelfCard,
+        steps: ['ChooseCardTask', 'TargetRollTask'],
+      },
+      {
         on: GameEventType.RollSuccess,
         scope: TriggerScope.SelfCard,
-        steps: [
-          'ChooseCardTask',
-          'StealFromPartyTask',
-          'ChooseCardTask',
-          'DestroyTask',
-        ],
+        steps: ['StealFromPartyTask', 'ChooseCardTask', 'DestroyTask',],
       },
     ])
   })

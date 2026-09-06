@@ -22,6 +22,9 @@ beforeEach(() => {
 })
 afterEach(() => { jest.useRealTimers(); Element.prototype.animate = originalAnimate; jest.restoreAllMocks() })
 
+/** The HUD's Skip; the modifier window carries a second one with the same label and state. */
+const hudSkip = () => screen.getAllByRole('button', { name: 'Skip reaction' })[0]
+
 test('discard rustle belongs to individual cards in the browser, not the pile opener', () => {
   render(board(midGame))
   const pile = screen.getByRole('button', { name: /^Open discard pile/ })
@@ -44,13 +47,18 @@ test('discard rustle belongs to individual cards in the browser, not the pile op
   expect(playSound.mock.calls.every(([sound]) => sound === 'discardHover')).toBe(true)
 })
 
-test('window opener follows the running window and can open an unmodified roll', () => {
+test('every roll opens its window at once; the opener puts it away and brings it back', () => {
   const { rerender, container } = render(board(modifierWindowOpen))
   expect(screen.getByRole('slider', { name: 'Sound volume' }).closest('details')).toBeNull()
   const modifierButton = screen.getByRole('button', { name: 'Modifier window' })
   expect(modifierButton).toBeEnabled()
-  expect(modifierButton.parentElement).toHaveClass('z-40')
+  // open the moment the roll is made, with its own Skip on it — the HUD's steps aside
+  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
+  expect(screen.getAllByRole('button', { name: 'Skip reaction' })).toHaveLength(1)
+  fireEvent.click(modifierButton)
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+  expect(screen.getAllByRole('button', { name: 'Skip reaction' })).toHaveLength(1)
+  expect(modifierButton.parentElement).toHaveClass('z-40')
   fireEvent.click(modifierButton)
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
   expect(modifierButton).toBeEnabled()
@@ -70,32 +78,23 @@ test('window opener follows the running window and can open an unmodified roll',
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
 })
 
-test('removes only the expired challenge target while the other stays pickable', async () => {
-  const heroes = midGame.parties.filter((party) => party.playerId !== midGame.playerId).flatMap((party) => party.heroes).slice(0, 2)
-  expect(heroes).toHaveLength(2)
+test("pressing a challenge card contests the open play at once — the target is the table's, nothing is aimed", async () => {
+  const hero = midGame.parties.filter((party) => party.playerId !== midGame.playerId).flatMap((party) => party.heroes)[0]
   const view: PlayerView = {
     ...midGame,
-    pendingWindows: heroes.map((hero, index) => ({
-      ...challengeWindowOpen.pendingWindows[0], windowId: `challenge-${index}`, cardId: hero.card.id,
-    })),
+    pendingWindows: [{ ...challengeWindowOpen.pendingWindows[0], windowId: 'challenge-0', cardId: hero.card.id }],
   }
-  const { rerender } = render(board(view))
+  const { container } = render(board(view))
   const index = view.hand.findIndex((card) => card.type === 'Challenge')
   fireEvent.click(screen.getByAltText(`hand card ${index + 1}`))
-  const target = (name: string) => screen.getAllByAltText(name).find((img) => img.closest('.target-aura'))
-  expect(target(heroes[0].card.name)).toBeDefined()
-  expect(target(heroes[1].card.name)).toBeDefined()
-  rerender(board({ ...view, pendingWindows: [view.pendingWindows[1]] }))
-  expect(target(heroes[0].card.name)).toBeUndefined()
-  expect(target(heroes[1].card.name)).toBeDefined()
-  fireEvent.click(target(heroes[1].card.name)!)
-  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'Challenge', payload: { cardId: view.hand[index].id, targetedCardId: heroes[1].card.id } }))
+  expect(container.querySelector('.target-aura')).toBeNull()
+  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'Challenge', payload: { cardId: view.hand[index].id } }))
 })
 
 test('a discard choice is answered from the pile: the pile glows, the eligible card glows inside it', async () => {
   const hero = midGame.parties[0].heroes[0].card
   const view: PlayerView = {
-    ...midGame, acceptsActions: false,
+    ...midGame,
     discardPile: [hero, ...midGame.discardPile],
     pendingWindows: [{
       windowId: 'fallen', type: 'CardChoice', respondentId: midGame.playerId,
@@ -121,14 +120,14 @@ test('a discard choice is answered from the pile: the pile glows, the eligible c
 test('Skip glows until our pass, then glows again after a modifier clears passes', async () => {
   const view = modifierWindowOpen
   const { rerender } = render(board(view))
-  expect(screen.getByRole('button', { name: 'Skip reaction' }).querySelector('.skip-glow')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' }))
+  expect(hudSkip().querySelector('.skip-glow')).toBeTruthy()
+  fireEvent.click(hudSkip())
   expect(send).toHaveBeenCalledWith({ type: 'PassWindow', payload: { windowId: view.pendingWindows[0].windowId } })
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [view.playerId] } })) }))
-  expect(screen.getByRole('button', { name: 'Skip reaction' })).toBeDisabled()
+  expect(hudSkip()).toBeDisabled()
   expect(document.querySelector('.skip-glow')).toBeNull()
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [] } })) }))
-  expect(screen.getByRole('button', { name: 'Skip reaction' }).querySelector('.skip-glow')).toBeTruthy()
+  expect(hudSkip().querySelector('.skip-glow')).toBeTruthy()
 })
 
 test.each(['player-a', 'player-b', 'player-c'])('Skip responds immediately for %s without a server snapshot and rearms on a modifier', async (playerId) => {
@@ -136,7 +135,7 @@ test.each(['player-a', 'player-b', 'player-c'])('Skip responds immediately for %
   let acknowledge!: (result: CommandResult) => void
   send.mockImplementationOnce(() => new Promise((resolve) => { acknowledge = resolve }))
   const { rerender } = render(board(view))
-  const skip = () => screen.getByRole('button', { name: 'Skip reaction' })
+  const skip = () => hudSkip()
   fireEvent.click(skip())
   expect(skip()).toBeDisabled()
   expect(skip().querySelector('.skip-glow')).toBeNull()
@@ -156,14 +155,14 @@ test.each(['player-a', 'player-b', 'player-c'])('Skip responds immediately for %
   await act(async () => { fireEvent.click(skip()) })
   expect(skip()).toBeDisabled()
   rerender(board({ ...view, pendingWindows: [] }))
-  expect(screen.queryByRole('button', { name: 'Skip reaction' })).toBeNull()
+  expect(screen.queryAllByRole('button', { name: 'Skip reaction' })).toHaveLength(0)
 })
 
 test('a rejected pass lights Skip again', async () => {
   send.mockResolvedValueOnce({ commandId: 'test', accepted: false, reason: RefusalReason.WindowNotPassable })
   render(board(modifierWindowOpen))
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' })) })
-  const skip = screen.getByRole('button', { name: 'Skip reaction' })
+  await act(async () => { fireEvent.click(hudSkip()) })
+  const skip = hudSkip()
   expect(skip).toBeEnabled()
   expect(skip.querySelector('.skip-glow')).toBeTruthy()
 })
@@ -172,10 +171,10 @@ test('a late acknowledgement does not suppress the reopened modifier window', as
   let acknowledge!: () => void
   send.mockImplementationOnce(() => new Promise((resolve) => { acknowledge = () => resolve({ commandId: 'test', accepted: true }) }))
   const { rerender } = render(board(modifierWindowOpen))
-  fireEvent.click(screen.getByRole('button', { name: 'Skip reaction' }))
+  fireEvent.click(hudSkip())
   rerender(board({ ...modifierWindowOpen, pendingWindows: modifierWindowOpen.pendingWindows.map((window) => ({ ...window, deadline: window.deadline + 1000 })) }))
   await act(async () => acknowledge())
-  expect(screen.getByRole('button', { name: 'Skip reaction' })).toBeEnabled()
+  expect(hudSkip()).toBeEnabled()
 })
 
 test('the asking leader stays in its slot with a pink highlight and no reaction timer', () => {
@@ -191,4 +190,54 @@ test('the asking leader stays in its slot with a pink highlight and no reaction 
   expect(screen.queryByTitle('reaction clock')).toBeNull()
   rerender(board({ ...view, pendingWindows: [] }))
   expect(screen.getByAltText(leader.name).parentElement).not.toHaveClass('choice-source-aura')
+})
+
+test("a roll's chosen target reddens the WIDGET the effect reaches — the hand frame, or the party frame — never the cards", () => {
+  const [rolling] = modifierWindowOpen.pendingWindows
+  const other = modifierWindowOpen.seats.find((seat) => seat.playerId !== modifierWindowOpen.playerId)!
+  const aimedAt = (targetZone: string): PlayerView => ({
+    ...modifierWindowOpen,
+    pendingWindows: [{ ...rolling, detail: { ...rolling.detail, targetPlayerId: other.playerId, targetZone } }],
+  })
+  // the widget FRAMES only: the contested monster and the total's scroll wear the red for their own reasons
+  const redFrames = (root: HTMLElement) =>
+    Array.from(root.querySelectorAll('img.enemy-aura')).filter((img) => (img.getAttribute('src') ?? '').includes('Frame'))
+
+  const { container, rerender } = render(board(aimedAt('Hand')))
+  const handFrames = redFrames(container)
+  expect(handFrames).toHaveLength(1)
+  expect(handFrames[0].tagName).toBe('IMG')
+  expect(handFrames[0].getAttribute('alt')).toBe('')
+  expect(screen.getAllByAltText('card back').every((img) => !img.parentElement?.classList.contains('enemy-aura'))).toBe(true)
+
+  rerender(board(aimedAt('Party')))
+  const partyFrames = redFrames(container)
+  expect(partyFrames).toHaveLength(1)
+  expect(partyFrames[0]).not.toBe(handFrames[0])
+  const theirParty = modifierWindowOpen.parties.find((party) => party.playerId === other.playerId)!
+  for (const hero of theirParty.heroes) {
+    expect(screen.getAllByAltText(hero.card.name).every((img) => !img.classList.contains('enemy-aura'))).toBe(true)
+  }
+})
+
+test("my own question over the roll comes first: the window waits for the answer, and the opener can still bring it forward", () => {
+  const [rolling] = modifierWindowOpen.pendingWindows
+  const asked: PlayerView = {
+    ...modifierWindowOpen,
+    pendingWindows: [
+      rolling,
+      { windowId: 'target', type: 'PlayerChoice', respondentId: modifierWindowOpen.playerId, options: ['player-b'], deadline: Date.now() + 30_000, isYours: true },
+    ],
+  }
+  const { container, rerender } = render(board(asked))
+  expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+
+  const opener = screen.getByRole('button', { name: 'Modifier window' })
+  fireEvent.click(opener)
+  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
+  fireEvent.click(opener)
+  expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+
+  rerender(board(modifierWindowOpen))
+  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
 })

@@ -1,8 +1,10 @@
 import {
   CardType,
   GameEventType,
+  ModifierCardData,
   MonsterCardData,
   ReactionWindowType,
+  RefusalReason,
 } from 'shared'
 import { baseGameCards } from '../../data/base-game-cards'
 import { CONFIRM } from '../reactions/task-choice-window'
@@ -328,7 +330,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -366,7 +367,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -398,7 +398,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     react(
@@ -407,7 +406,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-103',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -435,7 +433,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -571,7 +568,6 @@ describe('a game played through', () => {
         actionId(),
         playerId,
         'modifier-086',
-        playerId,
         3,
       ),
     )
@@ -609,7 +605,6 @@ describe('a game played through', () => {
         actionId(),
         playerId,
         'modifier-086',
-        playerId,
         -1,
       ),
     )
@@ -796,7 +791,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'magic-053',
       ),
     )
     await settle(t)
@@ -1135,5 +1129,126 @@ describe('a game played through', () => {
     )
     if (same) expect(same.name).not.toBe('tampered')
     expect(see(one, one.game.playerOrder[0]).hand[0].name).not.toBe('tampered')
+  })
+})
+
+describe('forfeiting a window — every seat passing settles it and the table plays on', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('a challenge window given up by every other seat, then a roll given up by all', async () => {
+    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    playHero(t, alice, 'hero-044')
+    const contest = board(t).pendingWindows.find((w) => w.type === ReactionWindowType.Challenge)!
+    // The defender cannot give up a contest nobody has started; every other seat can.
+    expect(t.game.reactionManager.pass(contest.windowId, alice)).toEqual({
+      accepted: false,
+      reason: RefusalReason.WindowNotPassable,
+    })
+    expect(t.game.reactionManager.pass(contest.windowId, bob)).toEqual({ accepted: true })
+
+    // Settled on the spot: the hero stands and its roll is offered.
+    const offer = await windowFor(t, alice, ReactionWindowType.TaskChoice)
+    expect(partyOf(board(t), alice).heroes.map((h) => h.card.id)).toEqual(['hero-044'])
+
+    fixDice(HIGHEST)
+    answer(t, offer, CONFIRM)
+    const roll = await windowFor(t, alice, ReactionWindowType.Modifier)
+    for (const seat of [alice, bob]) {
+      expect(t.game.reactionManager.pass(roll.windowId, seat)).toEqual({ accepted: true })
+    }
+    expect(board(t).pendingWindows.filter((w) => w.type === ReactionWindowType.Modifier)).toEqual([])
+    expect(ofType(t, GameEventType.RollSuccess)).toHaveLength(1)
+
+    await settle(t)
+    expect(board(t).busy).toBe(false)
+  })
+})
+
+describe("a roll's target is asked while the roll stands, and modifiers may follow it", () => {
+  const SLY_PICKINGS = 'hero-018' // pull a card from another player's hand, rollReq 6
+  const modifierWorth = (value: number) =>
+    (baseGameCards.find(
+      (card) => card.type === CardType.Modifier && (card as ModifierCardData).values.join() === String(value),
+    ) as ModifierCardData).id
+  const PLUS_4 = modifierWorth(4)
+  const MINUS_4 = modifierWorth(-4)
+  const windows = (t: ReturnType<typeof stacked>, type: ReactionWindowType) =>
+    board(t).pendingWindows.filter((w) => w.type === type)
+
+  afterEach(() => jest.restoreAllMocks())
+
+  /** Alice plays Sly Pickings and rolls on it; the challenge is left to lapse. */
+  const rolled = async (t: ReturnType<typeof stacked>, alice: string, die: number) => {
+    playHero(t, alice, SLY_PICKINGS)
+    const offer = await windowFor(t, alice, ReactionWindowType.TaskChoice)
+    fixDice(die)
+    answer(t, offer, CONFIRM)
+    return windowFor(t, alice, ReactionWindowType.Modifier)
+  }
+
+  it('a passing roll asks its target at once, the table sees the seat, and a modifier after it can still sink the roll', async () => {
+    const t = stacked({ deck: [SLY_PICKINGS, PLUS_4, MINUS_4, 'hero-003'], slack: 12 })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    const roll = await rolled(t, alice, MIDDLING) // 8 against 6
+    const question = await windowFor(t, alice, ReactionWindowType.PlayerChoice)
+    expect(windows(t, ReactionWindowType.Modifier)).toHaveLength(1)
+
+    // Giving the roll up does not settle it while the question stands.
+    expect(t.game.reactionManager.pass(roll.windowId, bob)).toEqual({ accepted: true })
+    expect(windows(t, ReactionWindowType.Modifier)).toHaveLength(1)
+
+    expect(answer(t, question, bob)).toEqual({ accepted: true })
+    const targeted = windows(t, ReactionWindowType.Modifier)[0]
+    // a pull reaches the hand: the table points at Bob's cards
+    expect(targeted.detail).toMatchObject({ targetPlayerId: bob, targetZone: 'Hand', passedBy: [] })
+
+    // Bob sinks the roll now that he knows he is the target: 8 - 4 = 4.
+    expect(react(t, new PlayModifierReaction(actionId(), bob, MINUS_4, -4))).toEqual({ accepted: true })
+    await settle(t)
+    expect(ofType(t, GameEventType.RollFailed)).toHaveLength(1)
+    expect(see(t, alice).hand.map((c) => c.id)).toEqual([PLUS_4])
+    expect(see(t, bob).hand.map((c) => c.id)).toEqual(['hero-003'])
+  })
+
+  it('the pull happens only at the settle, so the pulled card cannot go back into the roll', async () => {
+    // One card each: Bob's is the modifier, so the pull can only take that.
+    const t = stacked({ deck: [SLY_PICKINGS, MINUS_4], handSize: 1, slack: 12 })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    await rolled(t, alice, MIDDLING)
+    const question = await windowFor(t, alice, ReactionWindowType.PlayerChoice)
+    answer(t, question, bob)
+    expect(see(t, alice).hand).toHaveLength(0)
+
+    await settle(t)
+    expect(ofType(t, GameEventType.RollSuccess)).toHaveLength(1)
+    expect(see(t, alice).hand.map((c) => c.id)).toEqual([MINUS_4])
+    expect(
+      react(t, new PlayModifierReaction(actionId(), alice, MINUS_4, -4)),
+    ).toEqual({ accepted: false, reason: RefusalReason.NoModifiableWindow })
+  })
+
+  it('a roll short of the mark asks nothing until a modifier rescues it', async () => {
+    const t = stacked({ deck: [SLY_PICKINGS, PLUS_4, MINUS_4, 'hero-003'], slack: 12 })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    await rolled(t, alice, LOWEST) // 2 against 6
+    expect(windows(t, ReactionWindowType.PlayerChoice)).toEqual([])
+
+    expect(react(t, new PlayModifierReaction(actionId(), alice, PLUS_4, 4))).toEqual({ accepted: true })
+    const question = await windowFor(t, alice, ReactionWindowType.PlayerChoice)
+    answer(t, question, bob)
+
+    await settle(t)
+    expect(ofType(t, GameEventType.RollSuccess)).toHaveLength(1)
+    expect(see(t, alice).hand).toHaveLength(1) // the +4 spent, one card pulled
+    expect(see(t, bob).hand).toHaveLength(1)
   })
 })

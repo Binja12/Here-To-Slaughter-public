@@ -62,7 +62,8 @@ describe('Hopper (hero-033)', () => {
 
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    const [choosePlayer, chooseHero, sacrifice] = HopperAbility[0].steps
+    const [choosePlayer] = HopperAbility[0].steps
+    const [chooseHero, sacrifice] = HopperAbility[1].steps
     choosePlayer.execute(gs, ctx, em, rm)
     let window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getOptions()).toEqual(['p2']) // p3 has no heroes

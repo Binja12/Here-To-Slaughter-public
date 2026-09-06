@@ -143,8 +143,6 @@ export type GameConfig = {
   /** Every win condition must stand for one party (AND); otherwise any one ends it (OR). */
   requireAllWinConditions: boolean;
   flawPlay: boolean;
-  /** Optimistic reaction windows: plays proceed under them and roll back on a flip. */
-  seamlessReactions: boolean;
 };
 
 export type TimeControl = {

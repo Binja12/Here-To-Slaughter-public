@@ -9,7 +9,7 @@ import { Party } from '../../state-structures/party'
 import { HeroCard } from '../../cards/hero-card'
 import { GameEventEmitter } from '../../events/game-event-emitter'
 import { GameEventFactory } from '../../events/game-event-factory'
-import { AbilityContext } from '../../abilities/ability-context'
+import { AbilityContext, CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 import { IReactionWindow } from '../../interfaces'
 
 const makeGs = () =>
@@ -47,9 +47,11 @@ describe('Slippery Paws (hero-022)', () => {
     const { em, emitted, rm } = wire(gs)
     new TaskManager(gs, em, rm, new Map([['hero-022', SlipperyPawsAbility]]))
 
-    em.emit(GameEventFactory.rollSuccess('p1', 'hero-022'))
-
+    // The roll stands: the target is asked while the window is open, and the
+    // settle carries it to the effect.
+    em.emit(GameEventFactory.rollPassing('p1', 'hero-022'))
     windowOf(gs, 'p1').submitReaction('p1', { choice: 'p2' })
+    em.emit(GameEventFactory.rollSuccess('p1', 'hero-022', { [CTX_CHOSEN_PLAYER]: ['p2'] }))
     expect(gs.getPlayer('p2')!.getHand()).toEqual([])
     const which = windowOf(gs, 'p1')
     expect(which.getType()).toBe(ReactionWindowType.CardChoice)
@@ -70,8 +72,9 @@ describe('Slippery Paws (hero-022)', () => {
     for (const id of ['hero-022', 'a']) gs.registerCard(hero(id))
     const { em, rm } = wire(gs)
     new TaskManager(gs, em, rm, new Map([['hero-022', SlipperyPawsAbility]]))
-    em.emit(GameEventFactory.rollSuccess('p1', 'hero-022'))
+    em.emit(GameEventFactory.rollPassing('p1', 'hero-022'))
     windowOf(gs, 'p1').submitReaction('p1', { choice: 'p2' })
+    em.emit(GameEventFactory.rollSuccess('p1', 'hero-022', { [CTX_CHOSEN_PLAYER]: ['p2'] }))
     expect(windowOf(gs, 'p1').getOptions()).toEqual(['a'])
   })
 })

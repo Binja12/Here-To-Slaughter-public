@@ -145,7 +145,7 @@ describe('a full game', () => {
     playHero(t, ALICE, 'hero-044')
     await windowFor(t, ALICE, ReactionWindowType.Challenge)
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    react(t, new PlayChallengeReaction(actionId(), BOB, 'challenge-102', 'hero-044'))
+    react(t, new PlayChallengeReaction(actionId(), BOB, 'challenge-102'))
     await settle(t)
 
     expect(partyOf(see(t, ALICE), ALICE).heroes).toEqual([])
@@ -158,7 +158,7 @@ describe('a full game', () => {
     playHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Challenge)
     scriptDice([LOWEST, HIGHEST], HIGHEST)
-    react(t, new PlayChallengeReaction(actionId(), CAROL, 'challenge-103', 'hero-037'))
+    react(t, new PlayChallengeReaction(actionId(), CAROL, 'challenge-103'))
     const offer = await windowFor(t, ALICE, ReactionWindowType.TaskChoice)
     fixDice(MIDDLING)
     answer(t, offer, CONFIRM)
@@ -213,7 +213,7 @@ describe('a full game', () => {
     fixDice(MIDDLING)
     rollOnHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Modifier)
-    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE, 3))
+    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', 3))
     const whiskersSteal = await windowFor(
       t,
       ALICE,

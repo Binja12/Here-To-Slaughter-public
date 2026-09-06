@@ -1,4 +1,4 @@
-import { accepted, refused } from '../interfaces'
+import { accepted, isTargetable, refused } from '../interfaces'
 import {
   GamePhase,
   HeroClass,
@@ -7,10 +7,10 @@ import {
   ReactionWindowType,
   RefusalReason,
   RequestResult,
+  Zone,
 } from 'shared'
 import type {
   IEffect,
-  IAction,
   IModifiableWindow,
   IReactionWindow,
   ITask,
@@ -52,28 +52,11 @@ const RESTORING_WINDOWS: ReadonlySet<ReactionWindowType> = new Set([
   ReactionWindowType.Attack,
 ])
 
-/**
- * Everything a rollback goes back to: the board, and the pipeline stack as
- * it stood when the frame opened, separately owned (steps copied, contexts
- * cloned). The pipeline that parks on this frame is marked in `pipelines`
- * by `parkOn`. Everything pushed after the snapshot is work done after it,
- * and goes with the board it changed (§3).
- */
-export type FrameSnapshot = {
-  board: GameState
-  pipelines: AbilityPipeline[]
-}
-
 export type GameFrame = {
-  snapshot: FrameSnapshot
+  /** The board as it stood before the play's effect, taken by the caller. */
+  snapshot: GameState
   windows: IReactionWindow[]
 }
-
-/**
- * At the end of a turn every open window's clock is shortened to this, so
- * the next turn is not held long by reactions nobody is making (§11).
- */
-export const TURN_END_WINDOW_CAP_MS = 10_000
 
 // ---------------------------------------------------------------------------
 // AbilityPipeline — one ability part-way through its steps.
@@ -111,8 +94,8 @@ export class GameState {
 
   /**
    * Ability pipelines, newest on top; TaskManager works on the top one. Here
-   * rather than on TaskManager so a frame's rollback can drop the ones pushed
-   * after its snapshot (revert).
+   * rather than on TaskManager so a frame's rollback can drop the one parked
+   * on it (restoreFrame).
    */
   private abilityPipelines: AbilityPipeline[] = []
 
@@ -124,13 +107,7 @@ export class GameState {
     private discardPile: CardPile,
     private monsterDeck: CardStack,
     private monsterPile: CardPile,
-    /** `GameConfig.seamlessReactions`: optimistic frames, plays under open windows (§3). */
-    private readonly seamless = false,
   ) {}
-
-  isSeamless(): boolean {
-    return this.seamless
-  }
 
   // ---------------------------------------------------------------------------
   // Frame API
@@ -157,27 +134,9 @@ export class GameState {
     return this.abilityPipelines.pop()
   }
 
-  /** Opens a frame over `board` (a clone taken by the caller, before the play's effect) with the stack as it stands now. */
+  /** Opens a frame over `board`, a clone taken by the caller before the play's effect. */
   addFrame(frameId: string, board: GameState, windows: IReactionWindow[] = []): void {
-    this.frames.set(frameId, {
-      snapshot: { board, pipelines: copyPipelines(this.abilityPipelines, this.frames) },
-      windows,
-    })
-  }
-
-  /**
-   * Parks `pipeline` on `frameId`, live and in the frame's own copy of the
-   * stack, so a rollback that keeps the frame (`revertFrame`) finds the
-   * continuation still waiting for the frame's next resolution, and one
-   * that closes it (`restoreFrame`) knows which pipeline to drop. The copy
-   * was taken while this pipeline was running, so it sits at the same
-   * index in both.
-   */
-  parkOn(pipeline: AbilityPipeline, frameId: string): void {
-    pipeline.pausedOn = frameId
-    const index = this.abilityPipelines.indexOf(pipeline)
-    const copy = this.frames.get(frameId)?.snapshot.pipelines[index]
-    if (copy) copy.pausedOn = frameId
+    this.frames.set(frameId, { snapshot: board, windows })
   }
 
   /**
@@ -215,130 +174,27 @@ export class GameState {
 
   /**
    * Rollback, frame gone: the failed outcome of a window (a roll under its
-   * requirement, a lost challenge). What was thrown into the window is
-   * spent whichever way it went.
+   * requirement, a lost challenge). The board goes back to the snapshot and
+   * the pipeline parked on the frame is dropped — undoing a frame IS
+   * cancelling what waited on it. Spent cards are read BEFORE the swap:
+   * restoring is what erases the evidence, and spent is spent whichever way
+   * the window went.
    */
   restoreFrame(frameId: string): void {
     const frame = this.frames.get(frameId)
     if (!frame) return
-    this.revert(frameId, frame, false)
-  }
-
-  /**
-   * Rollback, frame KEPT: the window stays open and its snapshot stays
-   * valid, so the same frame can roll back again when the outcome flips
-   * back (optimistic frames, §3). The board is restored from a COPY of the
-   * snapshot for that reason — the live board must never alias it.
-   */
-  revertFrame(frameId: string): void {
-    const frame = this.frames.get(frameId)
-    if (!frame) return
-    this.revert(frameId, frame, true)
-    this.frames.set(frameId, frame)
-  }
-
-  /**
-   * The one rollback. Everything after the snapshot is undone: the board
-   * goes back to the snapshot, the stack to the frame's copy of it — with
-   * the pipeline parked on this frame kept waiting (`keepWaiting`, a frame
-   * that stays open) or dropped (a frame that failed) — and the frames
-   * opened since are cancelled, their windows closing without an outcome
-   * AFTER the board is whole again, because a close is announced and an
-   * announcement drains. Spent cards are read BEFORE the swap: restoring is
-   * what erases the evidence.
-   */
-  private revert(frameId: string, frame: GameFrame, keepWaiting: boolean): void {
     const spent = this.spentInto(frame)
-    const later = this.closeFramesAfter(frameId)
-    // Copied while this frame is still held, so the mark on the pipeline
-    // parked on it survives the copy and can be kept or dropped by name.
-    this.abilityPipelines = copyPipelines(frame.snapshot.pipelines, this.frames).filter(
-      (p) => keepWaiting || p.pausedOn !== frameId,
-    )
     this.frames.delete(frameId)
-    this.copyFrom(frame.snapshot.board.clone())
+    this.abilityPipelines = this.abilityPipelines.filter(
+      (p) => p.pausedOn !== frameId,
+    )
+    this.copyFrom(frame.snapshot)
 
-    // The snapshot handed them back to their owners' hands. Spent is spent,
-    // whichever way the window went.
+    // The snapshot handed them back to their owners' hands.
     for (const { cardId, playerId } of spent) {
       this.players.get(playerId)?.removeFromHand(cardId)
       this.discardPile.add(cardId)
     }
-
-    for (const window of later) window.cancel()
-  }
-
-  /**
-   * The frames after `frameId` are later work: their entries go now, their
-   * open windows are handed back to be cancelled once the board is whole.
-   * Held in the order they opened, so "after" is a position.
-   */
-  private closeFramesAfter(frameId: string): IReactionWindow[] {
-    const later: IReactionWindow[] = []
-    let after = false
-    for (const [id, frame] of [...this.frames]) {
-      if (after) {
-        later.push(...frame.windows.filter((w) => w.isOpen()))
-        this.frames.delete(id)
-      }
-      if (id === frameId) after = true
-    }
-    return later
-  }
-
-  /**
-   * Whether an action from `playerId` would be refused right now, the turn
-   * aside. The one answer `TurnManager.enqueue`, its drain, the turn clock
-   * and `PlayerView.acceptsActions` all read.
-   *
-   * Without seamless reactions the board takes nothing mid-resolution. With
-   * them the player plays on under open windows and is refused only while
-   * a modifier or a challenge is being RESOLVED — a value being chosen, a
-   * contest running — while their own attack is being rolled (the one play
-   * that waits, AttackWindow.optimistic), or while a question of their own
-   * stands that is not theirs to skip (an optional one is forfeited by the
-   * action instead).
-   */
-  refusesActions(playerId: string): boolean {
-    if (!this.seamless) return this.isBusy()
-    return this.openWindows().some((window) => window.blocksActions(playerId))
-  }
-
-  /** The open questions `playerId` may walk away from — forfeited by their next action under seamless reactions. */
-  optionalQuestionsFor(playerId: string): IReactionWindow[] {
-    return this.openWindows().filter(
-      (window) => window.getRespondentId() === playerId && window.isOptional(),
-    )
-  }
-
-  /**
-   * A roll or challenge window's clock as the turn allows: once the active
-   * player's budget is gone under seamless reactions AND no question stands
-   * open, no such window runs longer than TURN_END_WINDOW_CAP_MS, so the
-   * next turn is not held for reactions nobody is making (§11). While a
-   * question stands — anyone's — the table is still being asked something
-   * and the reactions to the play keep their full clocks; TurnManager.drain
-   * caps them when the last question settles. Questions themselves are never
-   * capped (ChoiceWindow).
-   */
-  cappedClock(ms: number): number {
-    return this.turnEnding() ? Math.min(ms, TURN_END_WINDOW_CAP_MS) : ms
-  }
-
-  /** The active player's budget is gone and nobody is being asked anything: the reactions are all that hold the turn. */
-  turnEnding(): boolean {
-    const playerId = this.currentPlayerId
-    return (
-      this.seamless &&
-      playerId !== undefined &&
-      (this.players.get(playerId)?.getActionPoints() ?? 0) <= 0 &&
-      !this.hasOpenQuestions()
-    )
-  }
-
-  /** A question — any open window that is not a challenge, hero roll or attack — stands for somebody. */
-  hasOpenQuestions(): boolean {
-    return this.openWindows().some((w) => !RESTORING_WINDOWS.has(w.getType()))
   }
 
   /**
@@ -363,7 +219,7 @@ export class GameState {
     const spent: { cardId: string; playerId: string }[] = []
     for (const [playerId, party] of this.parties) {
       const before = new Set(
-        frame.snapshot.board.parties.get(playerId)?.getInstanceCardIds() ?? [],
+        frame.snapshot.parties.get(playerId)?.getInstanceCardIds() ?? [],
       )
       for (const cardId of party.getInstanceCardIds()) {
         if (before.has(cardId) || cardId === subject) continue
@@ -397,23 +253,10 @@ export class GameState {
    * still acting, or it lapses. A reaction that had to reach for the window
    * to say so would be holding one for no other reason.
    */
-  spendCard(playerId: string, cardId: string, targetPlayerId?: string): void {
+  spendCard(playerId: string, cardId: string): void {
     this.getPlayer(playerId)?.removeFromHand(cardId)
     this.getParty(playerId).addInstanceCard(cardId)
-    this.findOpenModifiableWindow(targetPlayerId)?.window.cardSpent()
-  }
-
-  /** The frame contesting `cardId`, while its challenge window is open. */
-  getFrameContesting(
-    cardId: string,
-  ): { frameId: string; frame: GameFrame } | undefined {
-    for (const [frameId, frame] of this.frames) {
-      const contest = frame.windows.find(
-        (w) => w.getType() === ReactionWindowType.Challenge && w.isOpen(),
-      )
-      if (contest?.subjectCardId?.() === cardId) return { frameId, frame }
-    }
-    return undefined
+    this.findOpenModifiableWindow()?.window.cardSpent()
   }
 
   getFrameByWindowId(
@@ -437,28 +280,22 @@ export class GameState {
    * OPEN means open: a window that has resolved is skipped even while its
    * frame is briefly still there, which it is between `resolve` setting the
    * flag and the release that follows its first emission.
-   *
-   * Under seamless reactions several may be open at once, so the NEWEST one
-   * that takes a bonus for `targetPlayerId` is the one meant; without a
-   * target, or when none takes it, the newest of them answers for itself.
    */
-  private findOpenModifiableWindow(
-    targetPlayerId?: string,
-  ): { frameId: string; window: IModifiableWindow } | undefined {
-    const open: { frameId: string; window: IModifiableWindow }[] = []
-    for (const [frameId, frame] of this.frames) {
-      for (const window of frame.windows) {
-        if (window.isOpen() && isModifiable(window)) open.push({ frameId, window })
+  private findOpenModifiableWindow():
+    | { frameId: string; window: IModifiableWindow }
+    | undefined {
+    for (const type of [
+      ReactionWindowType.Modifier,
+      ReactionWindowType.Attack,
+      ReactionWindowType.Challenge,
+    ]) {
+      const entry = this.getFrameByWindowType(type)
+      const window = entry?.frame.windows.find((w) => w.getType() === type)
+      if (entry && window && window.isOpen() && isModifiable(window)) {
+        return { frameId: entry.frameId, window }
       }
     }
-    open.reverse()
-    if (targetPlayerId !== undefined) {
-      const takes = open.find(
-        (entry) => entry.window.acceptsModifierFor(targetPlayerId).accepted,
-      )
-      if (takes) return takes
-    }
-    return open[0]
+    return undefined
   }
 
   /**
@@ -472,14 +309,42 @@ export class GameState {
    * for no other reason.
    */
   acceptsModifierFor(targetPlayerId: string): RequestResult {
-    const open = this.findOpenModifiableWindow(targetPlayerId)
+    const open = this.findOpenModifiableWindow()
     if (!open) return refused(RefusalReason.NoModifiableWindow)
     return open.window.acceptsModifierFor(targetPlayerId)
   }
 
+  /**
+   * The seat the next modifier lands on, or why none can. A roll has one
+   * roll, so the board names it — the roller, the last play's target, never
+   * the player's pick (the owner, 2026-09-06). A started contest has TWO, so
+   * there the player says which (`aimedAt`), and naming none is refused
+   * `TargetRequired`. The accepted shape is a `RequestResult`, so a reaction
+   * can hand the refusal up unchanged.
+   */
+  aimModifier(
+    aimedAt?: string,
+  ): { accepted: true; targetPlayerId: string } | { accepted: false; reason: RefusalReason } {
+    const open = this.findOpenModifiableWindow()
+    if (!open) return { accepted: false, reason: RefusalReason.NoModifiableWindow }
+    const respondent = open.window.getRespondentId()
+    if (open.window.getType() !== ReactionWindowType.Challenge) {
+      const takes = open.window.acceptsModifierFor(respondent)
+      if (takes.accepted) return { accepted: true, targetPlayerId: respondent }
+      return takes
+    }
+    // Not before the contest has started: there are no rolls yet.
+    const started = open.window.acceptsModifierFor(respondent)
+    if (!started.accepted) return started
+    if (aimedAt === undefined) return { accepted: false, reason: RefusalReason.TargetRequired }
+    const takes = open.window.acceptsModifierFor(aimedAt)
+    if (takes.accepted) return { accepted: true, targetPlayerId: aimedAt }
+    return takes
+  }
+
   /** Stable identity for the public modifier cue, without exposing the window itself. */
   modifierWindowIdFor(targetPlayerId: string): string | undefined {
-    const open = this.findOpenModifiableWindow(targetPlayerId)
+    const open = this.findOpenModifiableWindow()
     return open?.window.acceptsModifierFor(targetPlayerId).accepted ? open.window.getId() : undefined
   }
 
@@ -499,10 +364,21 @@ export class GameState {
     playerId: string,
     bonus: { value: number; cardId: string; targetPlayerId: string },
   ): void {
-    const open = this.findOpenModifiableWindow(bonus.targetPlayerId)
+    const open = this.findOpenModifiableWindow()
     if (!open?.window.acceptsModifierFor(bonus.targetPlayerId).accepted) return
 
     open.window.submitReaction(playerId, { type: 'modifier', ...bonus })
+  }
+
+  /**
+   * Hand the target a hero's effect chose to the roll window still open over
+   * it (TargetRollTask). Nothing when the roll has settled meanwhile: the
+   * question was answered late, and the effect never ran.
+   */
+  landRollTarget(key: string, picks: unknown[], zone: Zone): void {
+    const open = this.findOpenModifiableWindow()
+    if (!open || !isTargetable(open.window)) return
+    open.window.targetChosen(key, picks, zone)
   }
 
   /**
@@ -513,7 +389,7 @@ export class GameState {
     playerId: string,
     targetPlayerId: string,
   ): ValueBias | undefined {
-    return this.findOpenModifiableWindow(targetPlayerId)?.window.valueBiasFor(
+    return this.findOpenModifiableWindow()?.window.valueBiasFor(
       playerId,
       targetPlayerId,
     )
@@ -527,6 +403,21 @@ export class GameState {
         return { frameId, frame }
     }
     return undefined
+  }
+
+  /**
+   * Whether a window opened after `frameId` still stands — a question asked
+   * over a roll (its target, a modifier's value). A roll does not settle
+   * while one does (ModifiableRollWindow.resolve). Frames are held in the
+   * order they opened, so "after" is a position.
+   */
+  hasOpenFramesAfter(frameId: string): boolean {
+    let after = false
+    for (const [id, frame] of this.frames) {
+      if (after && frame.windows.some((w) => w.isOpen())) return true
+      if (id === frameId) after = true
+    }
+    return false
   }
 
   /** True while any frame has an open window — used by TurnManager.drain(). */
@@ -583,7 +474,6 @@ export class GameState {
       this.discardPile.clone(),
       this.monsterDeck.clone(),
       this.monsterPile.clone(),
-      this.seamless,
     )
     for (const [id, player] of this.players)
       copy.players.set(id, player.clone())
@@ -619,10 +509,10 @@ export class GameState {
     this.monsterDeck = src.monsterDeck
     this.monsterPile = src.monsterPile
     // NOT the frames. The live map already holds exactly the outer frames
-    // (`revert` removed the restored one and everything after it), and a
-    // frame that settled since the snapshot must stay settled — the
-    // snapshot's own map would bring it back closed, and a closed frame
-    // reads as an outcome still pending, for ever (hasPendingOutcome).
+    // (`restoreFrame` removed the restored one), and a frame that settled
+    // since the snapshot must stay settled — the snapshot's own map would
+    // bring it back closed, and a closed frame reads as an outcome still
+    // pending, for ever (hasPendingOutcome).
   }
 
   // ---------------------------------------------------------------------------
@@ -1240,21 +1130,3 @@ export class GameState {
   }
 }
 
-/**
- * A stack separately owned: steps copied, contexts cloned, and a mark for a
- * frame that no longer exists dropped — a confirm's TaskConfirmed goes out
- * before its FrameResolved, so a continuation can open its frame while the
- * offer is still marked paused on a frame already released, and a copy
- * carrying that mark would wait for ever (§3).
- */
-function copyPipelines(
-  pipelines: readonly AbilityPipeline[],
-  frames: ReadonlyMap<string, GameFrame>,
-): AbilityPipeline[] {
-  return pipelines.map((p) => ({
-    steps: [...p.steps],
-    ctx: p.ctx.clone(),
-    pausedOn: p.pausedOn !== undefined && frames.has(p.pausedOn) ? p.pausedOn : undefined,
-    system: p.system,
-  }))
-}

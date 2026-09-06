@@ -117,7 +117,6 @@ export function createGame(
     discardPile,
     monsterDeck,
     monsterPile,
-    config.seamlessReactions,
   )
 
   // Every card in the pool is registered, wherever it starts: a card the

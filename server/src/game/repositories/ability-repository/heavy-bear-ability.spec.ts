@@ -62,7 +62,7 @@ describe('Heavy Bear (hero-004)', () => {
 
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    const [, choose1, discard1, choose2, discard2] = HeavyBearAbility[0].steps
+    const [choose1, discard1, choose2, discard2] = HeavyBearAbility[1].steps
     choose1.execute(gs, ctx, em, rm)
     let window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getRespondentId()).toBe('p2')

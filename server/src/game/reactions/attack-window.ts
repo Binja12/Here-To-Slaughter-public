@@ -40,17 +40,6 @@ export class AttackWindow extends ModifiableRollWindow {
     return ReactionWindowType.Attack
   }
 
-  /**
-   * Never. A monster slain or fighting back before the roll has settled
-   * read as wrong at the table (the owner, 2026-09-05): the attack is the
-   * one play that waits for its window under seamless reactions too. The
-   * window still takes modifiers; the attacker waits with it
-   * (GameState.refusesActions).
-   */
-  protected override optimistic(): boolean {
-    return false
-  }
-
   protected closedDetail(): Record<string, unknown> {
     return { monsterId: this.monsterId }
   }
@@ -74,31 +63,23 @@ export class AttackWindow extends ModifiableRollWindow {
    * beyond the window closing, exactly as a short hero roll is.
    */
   protected settle(finalRoll: number): void {
-    const result = this.standing(finalRoll)
-    if (result === RollResult.Slay) this.gs.releaseFrame(this.frameId)
-    else this.gs.restoreFrame(this.frameId)
-    this.apply(result)
-  }
-
-  /** What the number means to THIS monster: slay, fight back or miss. */
-  protected standing(finalRoll: number): RollResult {
     const monster = this.gs.getCard(this.monsterId)
-    return monster instanceof MonsterCard
-      ? monster.trySlay(finalRoll)
-      : RollResult.Miss
-  }
+    const result =
+      monster instanceof MonsterCard
+        ? monster.trySlay(finalRoll)
+        : RollResult.Miss
 
-  /**
-   * What the outcome does to the table, the frame aside. Separate from the
-   * frame exit so an optimistic window can apply a standing outcome before
-   * it settles (docs/SEAMLESS_REACTIONS_PLAN.md, Phase C).
-   */
-  protected apply(result: unknown): void {
     if (result === RollResult.Slay) {
+      this.gs.releaseFrame(this.frameId)
       // Out of the row, into the party, and the next monster turned up behind
       // it — one act, and slayMonster announces it.
       this.gs.slayMonster(this.monsterId, this.rollerId, this.emitter)
-    } else if (result === RollResult.FightBack) {
+      return
+    }
+
+    this.gs.restoreFrame(this.frameId)
+
+    if (result === RollResult.FightBack) {
       this.emitter.emit(
         GameEventFactory.monsterFoughtBack(this.rollerId, this.monsterId),
       )

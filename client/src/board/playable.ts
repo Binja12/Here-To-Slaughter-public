@@ -63,11 +63,10 @@ export const onlyOptionalWindows = (view: PlayerView): boolean =>
 
 export function derivePlayable(view: PlayerView): PlayableFlags {
   const mine = view.parties.find((party) => party.playerId === view.playerId)
-  // The server's own answer: under seamless reactions the table stays live
-  // with windows open. An optional question of ours never freezes it either:
-  // pressing any other action forfeits the question (Board dismisses it
-  // first, then sends the action).
-  const idle = view.acceptsActions || onlyOptionalWindows(view)
+  // `busy` while the only open window is an optional question of ours does
+  // not freeze the table: pressing any other action forfeits the question
+  // (Board dismisses it first, then sends the action).
+  const idle = !view.busy || onlyOptionalWindows(view)
   const actionWindow =
     view.phase === 'Turns' &&
     view.currentPlayerId === view.playerId &&

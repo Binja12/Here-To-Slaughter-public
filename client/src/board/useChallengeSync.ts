@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { PlayerView } from '../contract'
 import { artFor, boardChallengeUrl, SMALL_BACK } from './assets'
 import { ChallengeRole, useChallenge } from './challenge'
-import { bonusesOf, bonusTotal, facesOf, RollBonusView } from './liveRoll'
+import { bonusesOf, facesOf, RollBonusView } from './liveRoll'
 import { slotForPlayer } from './seats'
 import { cardById } from './viewTargets'
 
@@ -46,23 +46,25 @@ export function liveChallengeOf(view: PlayerView): LiveChallenge | null {
 }
 
 /**
- * Drives the challenge overlay (challenge.tsx) from the view, 1:1 with what
- * the old demo did by hand: a started challenge opens it with both rolls,
- * a bonus that grows lands a modifier card on that side, and the window
- * closing closes it. Returns the live challenge so the board can aim
- * modifiers at the two roll panels.
+ * Drives the challenge overlay (challenge.tsx) from the view: a started
+ * challenge opens it with both rolls and whatever was already modifying
+ * them (a leader's, a monster's, a hero's standing bonus — the owner,
+ * 2026-09-06: every effect on a roll is shown beside it, like a card), each
+ * later bonus lands as one more source on that side, and the window closing
+ * closes it. Returns the live challenge so the board can aim modifiers at
+ * the two roll panels.
  */
 export function useChallengeSync(view: PlayerView): LiveChallenge | null {
   const challenge = useChallenge()
   const live = liveChallengeOf(view)
   const opened = useRef<{
     windowId: string
-    totals: Record<ChallengeRole, number>
+    shown: Record<ChallengeRole, number>
   } | null>(null)
 
   const windowId = live?.windowId ?? null
-  const challengerTotal = live ? bonusTotal(live.challengerBonuses) : 0
-  const challengedTotal = live ? bonusTotal(live.challengedBonuses) : 0
+  const challengerCount = live?.challengerBonuses.length ?? 0
+  const challengedCount = live?.challengedBonuses.length ?? 0
 
   useEffect(() => {
     if (!live) {
@@ -71,6 +73,10 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
         challenge.close()
       }
       return
+    }
+    const sourceArt = (bonus: RollBonusView) => {
+      const card = cardById(view, bonus.cardSource)
+      return card ? artFor(card).url : SMALL_BACK
     }
 
     if (opened.current?.windowId !== live.windowId) {
@@ -86,38 +92,33 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
       challenge.setRoll(
         'challenged',
         facesOf(live.challengedRoll, `${live.windowId}:defender`),
-        challengedTotal === 0 ? null : challengedTotal,
+        live.challengedBonuses.map((bonus) => ({ url: sourceArt(bonus), amount: bonus.amount })),
       )
       challenge.setRoll(
         'challenger',
         facesOf(live.challengerRoll, `${live.windowId}:challenger`),
-        challengerTotal === 0 ? null : challengerTotal,
+        live.challengerBonuses.map((bonus) => ({ url: sourceArt(bonus), amount: bonus.amount })),
       )
       opened.current = {
         windowId: live.windowId,
-        totals: { challenged: challengedTotal, challenger: challengerTotal },
+        shown: { challenged: challengedCount, challenger: challengerCount },
       }
       return
     }
 
-    const totals = opened.current.totals
-    const landed = (role: ChallengeRole, total: number, bonuses: RollBonusView[]) => {
-      if (total === totals[role]) return
-      const last = bonuses[bonuses.length - 1]
-      const card = last ? cardById(view, last.cardSource) : undefined
-      challenge.addModifier(
-        role,
-        total - totals[role],
-        card ? artFor(card).url : SMALL_BACK,
-      )
-      totals[role] = total
+    const shown = opened.current.shown
+    const landed = (role: ChallengeRole, bonuses: RollBonusView[]) => {
+      for (const bonus of bonuses.slice(shown[role])) {
+        challenge.addModifier(role, bonus.amount, sourceArt(bonus))
+      }
+      shown[role] = bonuses.length
     }
-    landed('challenged', challengedTotal, live.challengedBonuses)
-    landed('challenger', challengerTotal, live.challengerBonuses)
+    landed('challenged', live.challengedBonuses)
+    landed('challenger', live.challengerBonuses)
     // The three primitives are what can change between snapshots; `view`
     // and `live` are re-read from the render that changed them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowId, challengerTotal, challengedTotal])
+  }, [windowId, challengerCount, challengedCount])
 
   return live
 }

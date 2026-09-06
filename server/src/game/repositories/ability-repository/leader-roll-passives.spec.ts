@@ -258,7 +258,7 @@ describe('leader roll passives', () => {
         ctx.rm,
         ctx.em,
       ).execute(ctx.gs)
-      jest.advanceTimersByTime(5000)
+      jest.advanceTimersByTime(10_000) // an attack waits twice the countdown
       return ctx
     }
 
@@ -298,7 +298,7 @@ describe('leader roll passives', () => {
         .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW) // defender p1 rolls 1
         .mockReturnValue(LOW)
       ctx.rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, 'hero-777'),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 
@@ -323,7 +323,7 @@ describe('leader roll passives', () => {
         .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW) // defender p1 rolls 1
         .mockReturnValue(LOW)
       ctx.rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, 'hero-777'),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
       return payloadsOf(ctx.events, GameEventType.ChallengeResolved)[0]
@@ -413,7 +413,7 @@ describe('leader roll passives', () => {
         .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       ctx.rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, 'hero-777'),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 

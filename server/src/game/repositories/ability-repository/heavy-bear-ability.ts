@@ -1,12 +1,15 @@
 import { GameEventType, Owner, TriggerScope, Zone } from 'shared'
 import { IAbilityRule } from '../../interfaces'
+import { TargetRollTask } from '../../tasks/target-roll-task'
 import { ChooseCardTask, ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { DiscardTask } from '../../tasks/tasks'
+import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 
 // Heavy Bear (hero-004): "Choose a player. That player must DISCARD 2 cards."
 //
-//   [0] RollSuccess → I choose a player → THEY choose a card of their hand →
-//       they discard it → they choose again → they discard again
+//   [0] RollPassing → I choose a player, while the roll still stands
+//   [1] RollSuccess → THEY choose a card of their hand → they discard it →
+//       they choose again → they discard again
 //
 // `executor: 'chosen'` opens the CardChoice for the chosen seat, over the
 // chosen seat's own hand — a card only they can see. DiscardTask then reads
@@ -15,9 +18,12 @@ import { DiscardTask } from '../../tasks/tasks'
 // discard behind it skips.
 export const HeavyBearAbility: IAbilityRule[] = [
   {
+    trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
+    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+  },
+  {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChoosePlayerTask({ owner: Owner.Others }),
       new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),
       new DiscardTask({ executor: 'chosen' }),
       new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),

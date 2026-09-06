@@ -430,48 +430,6 @@ challenge discards the continuation together with the state it would have
 mutated. No cancel flag exists anywhere — `pausedOn` is the pause itself,
 read from the other side.
 
-**A rollback undoes everything after the snapshot, not just the board.**
-A frame's `snapshot` is the board AND the pipeline stack as they stood
-when it opened (`FrameSnapshot { board, pipelines }`) — steps copied,
-contexts cloned, a mark for a frame that no longer exists dropped
-(`copyPipelines`) — and `TaskManager` parks a pipeline through
-`GameState.parkOn`, which marks it live AND in that copy. `revert` puts the
-copy back: everything pushed since is gone with the board it changed, and
-the pipeline parked on the frame is dropped (`restoreFrame`, a failed
-outcome) or kept waiting (`revertFrame`, a frame that stays open so it can
-roll back AGAIN when a roll's total flips back — which is why the board is
-restored from a COPY of the snapshot, never by aliasing it). Every frame
-opened after the restored one is cancelled: its windows close with
-`ReactionWindowClosed { cancelled: true }`, no default pick, no
-`FrameResolved`, and only AFTER the board is whole again, because a close
-is announced and an announcement drains. Without seamless reactions
-nothing is ever there to undo (the stack cannot move under an open frame).
-
-**Optimistic frames (seamless reactions, `GameConfig.seamlessReactions`).**
-The same lever pulled earlier. A challenge or hero-roll window announces
-itself, starts its clock, and on the NEXT tick resolves provisionally
-(`AttackWindow.optimistic` says no: an attack is the one play that waits
-for its window — a monster slain before the roll settled read as wrong at
-the table — and its attacker waits with it): a challenge emits its `FrameResolved` with the card, a roll
-applies its standing outcome (`standing(finalRoll)` → `apply`, the two
-halves `settle` is also made of) and emits `FrameResolved` with the roll.
-The parked continuation runs, the card's entries fire, the board moves on
-— with the window still open. Every modifier landing re-reads the
-standing outcome (`reconcile`): unchanged, nothing; flipped, `revertFrame`
-then the new outcome applied and the continuation woken again with the new
-number. A challenge is different only in that the contest decides once:
-started, it blocks the active player; lost, `restoreFrame`. Settlement
-(lapse, every seat passed) is then a CLOSE, not a resolution — the frame
-is released FIRST, the close announced after with no second
-`FrameResolved` (the entries fired once), and `GameEngine` drains on that
-close, which is what ends a spent turn. A window that settles before its
-tick takes the ordinary path. `GameState.hasPendingOutcome` keeps the win
-check off a provisional board. Several table windows open at once route
-by subject: a challenge names the card it contests (`getFrameContesting`,
-seeded on `ChallengePlayed`), a modifier lands in the newest window that
-takes its target (`findOpenModifiableWindow`). `setup/seamless.spec.ts`
-plays it on a dealt table.
-
 **Rollback means an outcome FAILED**, never a player declining an offer. A
 declined confirm releases its frame like any other outcome (§4).
 
@@ -551,38 +509,40 @@ stop, carry on when it resolves.
   clears the mark. Asking whether the frame is still open would NOT do: a
   window releases its frame BEFORE it announces the outcome (§4), so the stack
   would carry on before the answer arrived.
-- **The stack IS in the snapshot, as its own record.** A frame's snapshot
-  is `{ board, pipelines }`: the board as it was, and the stack as it
-  stood — steps copied, contexts cloned. Pipelines are work in progress ON
-  the board, and a rollback undoes what that work did AND puts the work
-  back where it was, because under seamless reactions a continuation that
-  ran on a provisional outcome has to run again on the next one. Two
-  rules on the way back, stated once beside the rollback they belong to:
-  the pipeline parked on the restored frame (`parkOn` marks it live and in
-  the copy) is dropped when the frame failed and kept waiting when the
-  frame stays open; and a mark for a frame that no longer exists is not
-  copied — a confirm's `TaskConfirmed` goes out before its `FrameResolved`,
-  so a continuation opens its frame while the offer is still marked paused
-  on a frame already released, and a copy carrying that mark would wait for
-  ever (an offered roll that FAILED once left the board busy that way).
-  Pinned in `hero-rules.spec.ts`, the rollback case of
-  `ability-pipelines.spec.ts`, and the frames block of `game-state.spec.ts`.
+- **The stack is NOT in the snapshot.** A snapshot is the board — players,
+  parties, piles, hands, effects. Pipelines are work in progress ON the board,
+  and a rollback undoes what that work did without forgetting the work
+  existed: the live stack survives `restoreFrame` untouched except for the
+  pipelines paused on the restored frame, which it drops. That is the whole
+  cancellation rule, stated once, beside the rollback it belongs to. The
+  pipelines underneath could not have moved while the frame was open (only
+  the top of the stack runs, and the top was paused), so there is nothing a
+  copy could restore that the live record does not already hold. A copy
+  would be a second record of "P is waiting on F" beside `pausedOn`, and
+  the two can disagree: a confirm's `TaskConfirmed` goes out before its
+  `FrameResolved`, so a continuation opens its frame while the offer is
+  still marked paused on a frame already released, and a copy taken then
+  carried a mark nothing would ever clear. An offered roll that FAILED left
+  the board busy for ever that way. Pinned in `hero-rules.spec.ts` and in
+  the rollback case of `ability-pipelines.spec.ts`.
 - **`FrameResolved` drains even when nothing is paused on that frame.** After
   a rollback the pipeline that waited is gone, and the ones underneath still
   have to finish.
-- **A pipeline started inside a frame goes with its rollback.** It is not
-  in the frame's copy of the stack, so the restore drops it. Without
-  seamless reactions the only way to be there at all is the timer race of
-  §8 — a modifier's value choice still open when the roll it was for
-  lapses — and the bonus it would have landed is lost with it, which is
-  what `ApplyModifierTask` would have done anyway. Not pinned.
+- **A pipeline started inside a frame outlives its rollback.** It is on the
+  live stack, so it stays. The only way to be there at all is the timer race
+  of §8 — a modifier's value choice still open when the roll it was for
+  lapses — and `ApplyModifierTask` finds the roll settled and drops the
+  bonus. Not pinned.
 - **The declaration's `steps` are copied when matched.** That list is built
   once at module load (§1); the drain consumes what it is handed.
 
 ## 4. Reaction windows
 
-- Modifier/challenge windows accept many respondents and reset their timer per
-  submission; choice windows have **one respondent, one submission**, resolve
+- Modifier/challenge windows accept many respondents and any number of
+  cards, and give the table the FULL wait again on every one — at the spend
+  and at the landing — so there is always time to answer; they settle only
+  on the clock or once every seat that could still act has passed (the owner,
+  2026-09-06). Choice windows have **one respondent, one submission**, resolve
   immediately, single timer, and **always release** — a choice has no failure
   branch.
 - **A timeout resolves; it never rolls back.** A choice that runs out still
@@ -640,6 +600,17 @@ reads the open Challenge window's respondent — the defender, whoever played
 the contested card — and refuses `CannotChallengeOwnCard` when that is the
 challenger. The client mirrors it in its glow rule (the challenge card in the
 defender's hand stays dark).
+
+**A reaction's target is the last play's, and only a contest asks which
+roll (2026-09-06).** A modifier on a roll lands on that roll: the board names
+the roller (`GameState.aimModifier`), and anything the client says is
+ignored. A started contest has two rolls, so there the player names the side
+(`ApplyModifier.targetPlayerId`, the challenger or the defender); naming none
+is refused `TargetRequired`, and a seat outside the contest
+`TargetNotInChallenge`. A challenge card names nothing: it contests whichever
+play is open to one (`Challenge { cardId }`), read off the open window. The
+client aims only in a contest — pressing a modifier on a roll goes straight
+to its value, pressing a challenge card contests the play.
 
 **Every player door returns a `RequestResult`** (`shared/src/types.ts`):
 `{ accepted: true }` or `{ accepted: false, reason }`, where the reason is a
@@ -781,6 +752,28 @@ aimed at the defender, `highest` aimed at the challenger, so silence tips a
 contest toward the play being defeated). `ChooseValueTask` reads it at open
 time and hands it to the window, because the roll it describes may have settled
 by the time the choice resolves.
+
+**A roll's target is asked while the roll stands, and the settle carries it
+(2026-09-06).** The rulebook lets a modifier wait for the target of a roll's
+effect but not for the effect itself, so a hero whose effect chooses a player
+or another player's card declares TWO entries: `[0]` on `RollPassing` asks
+the target and hands it to the open roll window (`TargetRollTask`, the slot
+the choose step wrote), `[1]` on `RollSuccess` does the effect. The window
+announces `RollPassing` when the standing roll meets its requirement — at
+open, or when a modifier rescues it — and at most once per target, so a roll
+that flips twice does not ask twice. It keeps the target as live state
+(`targetChosen`): the table sees it in the window's detail as the SEAT it
+belongs to, never the card (a pick from a hand is that player's secret),
+everyone gets another look (the full wait again, passes cleared), and the
+settle puts it on `RollSuccess` as `ctxSeed`, so the effect's fresh context
+starts with it. A roll never settles while a question stands over it
+(`GameState.hasOpenFramesAfter`): the clock runs again instead, and the
+answer landing restarts it anyway. A roll that fails with its question still
+open takes no cancelling: the answer lands on no open window and is dropped,
+like a late modifier value. Heroes that choose from their own hand, the deck
+or the discard keep one entry on `RollSuccess`: nothing there is a target the
+rule means. Pinned in `modifier-window.spec.ts`, the targeted heroes' specs and
+`setup/play-through.spec.ts`.
 
 **Modifiers are accepted by CAPABILITY, not by window class.**
 `IModifiableWindow` adds three methods, each with its own rule per window:
@@ -1650,30 +1643,12 @@ table while the last player connects.
   passive install nothing.
 - `GameStarted` goes out before the first `TurnStarted`.
 
-**Under seamless reactions the active player is BLOCKED, and the clock
-held, by one predicate:** `GameState.refusesActions(player)` delegates to
-`IReactionWindow.blocksActions(player)`. Each window declares its own policy:
-value choices, attacks and started contests block; ordinary choices block
-their respondent unless optional. Every window implements `isOptional`,
-projected as `PendingWindowView.optional`. An optional question is forfeited by
-the player's next action (`TurnManager.enqueue` resolves it on its
-silence). The same predicate gates the drain and is what the view shows
-as `PlayerView.acceptsActions`. A turn whose budget is gone with windows
-still open caps every roll and challenge window's clock at
-`TURN_END_WINDOW_CAP_MS` (10 s; `GameState.cappedClock` sizes the clocks of
-such windows that open after) and ends on the close that leaves the board
-idle; a lapsed clock under open windows forfeits the budget the same way
-rather than throwing. **Not while a question stands, anyone's**
-(`GameState.hasOpenQuestions`: an open window that is not a Challenge,
-Modifier or Attack): the play is still being resolved — the trap's "discard
-2", the victim's "choose a card" — so the reactions against it keep their
-full clocks, and the cap lands on the close that settles the last question.
-Questions themselves are never capped (`ChoiceWindow` takes its full
-`timeoutMs`). The cap is applied ONCE per stretch without questions
-(`TurnManager.endCapped`, cleared by an open question): a reaction landing
-on a capped window gives it the full wait back (`resetTimer` never caps), and
-the next drain leaves it alone — a challenge thrown at 10 s gets its whole
-countdown (the owner, 2026-09-05).
+**An optional question is the window's own declaration.** Every window
+implements `isOptional` — true for a `TaskChoice` offering DISMISS (the
+"roll on the played hero?" offer, a leader's "draw a card?") — and the view
+projects it as `PendingWindowView.optional`. The client dismisses such a
+question before it sends any other action, so the table never waits on an
+offer the player has already walked away from.
 
 **A turn's clock is CONFIG too, it PAUSES under any window, and a lapse is
 a pass.** `TimeControl.turnTimeMs` is the whole of it: `TurnManager` gives
@@ -1704,9 +1679,12 @@ seconds between snapshots itself (`client/src/board/TurnTimer.tsx`) and
 draws a held clock still and dimmed rather than dropping it.
 
 **A window's countdown is CONFIG, and each window takes a share of it.**
-`TimeControl.reactionCountdownMs` is the base; `WINDOW_SHARE` in
-`reaction-manager.ts` gives each kind its slice. A share rather than a number,
-so one value moves them all together and the RELATIONSHIP survives — a
+`TimeControl.reactionCountdownMs` is the base — the CHALLENGE window's wait,
+the lobby's fast / moderate / slow (5, 10, 20 s; `REACTION_SPEEDS` in
+`shared/src/contracts/game-settings.ts`) — and `WINDOW_SHARE` in
+`reaction-manager.ts` gives each kind its slice: a hero roll and every
+question the same as a challenge, an attack TWICE it. A share rather than a
+number, so one value moves them all together and the RELATIONSHIP survives — a
 `ValueChoice` is 0.6 of a roll's because it opens over a roll already running
 and must settle first, and at equal countdowns both fall due on the same tick
 and the roll wins without the bonus. The two ZERO cases are not shares: an

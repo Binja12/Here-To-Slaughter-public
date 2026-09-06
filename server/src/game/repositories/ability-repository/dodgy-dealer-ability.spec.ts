@@ -57,7 +57,8 @@ describe('Dodgy Dealer (hero-046)', () => {
     seat(gs, 'p3', ['z'])
     const ctx = new AbilityContext('hero-046', 'p1')
     const { em, emitted, rm } = wire(gs)
-    const [choose, trade] = DodgyDealerAbility[0].steps
+    const [choose] = DodgyDealerAbility[0].steps
+    const [trade] = DodgyDealerAbility[1].steps
     choose.execute(gs, ctx, em, rm)
     expect(openWindow(gs).getOptions()).toEqual(['p2', 'p3'])
     answer(gs, ctx, 'p2')
@@ -78,7 +79,7 @@ describe('Dodgy Dealer (hero-046)', () => {
     const ctx = new AbilityContext('hero-046', 'p1')
     ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
     const { em, rm } = wire(gs)
-    DodgyDealerAbility[0].steps[1].execute(gs, ctx, em, rm)
+    DodgyDealerAbility[1].steps[0].execute(gs, ctx, em, rm)
     expect(gs.getPlayer('p1')!.getHand()).toEqual([])
     expect(gs.getPlayer('p2')!.getHand()).toEqual(['a'])
   })

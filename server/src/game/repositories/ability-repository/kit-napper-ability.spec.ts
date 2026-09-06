@@ -6,9 +6,14 @@ describe('KitNapperAbility', () => {
   it('registers choose then steal', () => {
     expectAbility('hero-017', KitNapperAbility, [
       {
+        on: GameEventType.RollPassing,
+        scope: TriggerScope.SelfCard,
+        steps: ['ChooseCardTask', 'TargetRollTask'],
+      },
+      {
         on: GameEventType.RollSuccess,
         scope: TriggerScope.SelfCard,
-        steps: ['ChooseCardTask', 'StealFromPartyTask'],
+        steps: ['StealFromPartyTask'],
       },
     ])
   })

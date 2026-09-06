@@ -14,10 +14,13 @@ import { ModifierCard } from '../cards/modifier-card'
 // is worth is the card's own entry in the abilityRegistry, the same split
 // every other card type has (§1).
 //
-// The value comes WITH the play, the way a target does, and is verified here
-// against the `values` printed on the card before anything is spent — a
-// number the card does not print is refused by name. It rides to the card's
-// entry on the event, so the entry is one step and no window opens.
+// The value comes WITH the play and is verified here against the `values`
+// printed on the card before anything is spent — a number the card does not
+// print is refused by name. It rides to the card's entry on the event, so the
+// entry is one step and no window opens.
+//
+// The TARGET comes with the play only in a contest, which has two rolls; a
+// roll has one, and the board names it (GameState.aimModifier).
 // ---------------------------------------------------------------------------
 
 export class PlayModifierReaction implements IReaction {
@@ -25,10 +28,10 @@ export class PlayModifierReaction implements IReaction {
     private readonly id: string,
     private readonly playerId: string,
     private readonly cardId: string,
-    /** Whose roll this is aimed at — a challenge has two. */
-    private readonly targetPlayerId: string,
     /** One of the card's printed values. Verified in canExecute. */
     private readonly value: number,
+    /** Whose roll, in a started challenge — a contest has two. A roll names its own. */
+    private readonly targetPlayerId?: string,
   ) {}
 
   getId(): string {
@@ -53,18 +56,18 @@ export class PlayModifierReaction implements IReaction {
       return refused(RefusalReason.ValueNotOnCard)
     }
 
-    // One question, and it covers both halves: is a window open, and would it
-    // take a bonus aimed at this player. execute() spends the card before the
-    // entry can land anything, so a target the window would refuse has to be
-    // caught while the card is still in hand.
-    return gs.acceptsModifierFor(this.targetPlayerId)
+    // Is there a roll to land on, and would it take a bonus. execute() spends
+    // the card before the entry can land anything, so a roll that would
+    // refuse has to be caught while the card is still in hand.
+    return gs.aimModifier(this.targetPlayerId)
   }
 
   execute(gs: GameState, em: IGameEventEmitter): void {
     // The same question canExecute asked. It has already said otherwise; this
     // is what keeps the announcement below honest if it is ever skipped.
-    if (!gs.acceptsModifierFor(this.targetPlayerId).accepted) return
-    const windowId = gs.modifierWindowIdFor(this.targetPlayerId)
+    const aim = gs.aimModifier(this.targetPlayerId)
+    if (!aim.accepted) return
+    const windowId = gs.modifierWindowIdFor(aim.targetPlayerId)
 
     // Hand -> the owner's instance pile, where it is a card in play for as
     // long as the roll it was spent on is open. Keeping that roll alive is
@@ -76,7 +79,7 @@ export class PlayModifierReaction implements IReaction {
       GameEventFactory.modifierPlayed(
         this.playerId,
         this.cardId,
-        this.targetPlayerId,
+        aim.targetPlayerId,
         this.value,
         windowId,
       ),

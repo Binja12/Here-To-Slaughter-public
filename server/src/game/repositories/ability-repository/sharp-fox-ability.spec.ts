@@ -43,7 +43,7 @@ describe('Sharp Fox (hero-016)', () => {
     ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
     const { em, emitted } = collect()
 
-    SharpFoxAbility[0].steps[1].execute(gs, ctx, em, new ReactionManager(gs, em))
+    SharpFoxAbility[1].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
 
     expect(gs.getRevealed('p1')).toEqual(['x', 'y'])
     expect(gs.getFrames().size).toBe(0)

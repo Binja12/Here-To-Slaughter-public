@@ -13,7 +13,6 @@ export default function GameConfigMenu({ config }: { config?: GameConfigView }) 
         <dt>Turn timer</dt><dd>{config.turnTimeMs === undefined ? 'Unlimited' : `${config.turnTimeMs / 1000}s`}</dd>
         <dt>Reaction timer</dt><dd>{config.reactionTimeMs / 1000}s</dd>
         <dt>Action points</dt><dd>{config.actionPointsPerTurn} per turn</dd>
-        <dt>Seamless mode</dt><dd>{config.seamlessReactions ? 'On' : 'Off'}</dd>
         <dt>Card sets</dt><dd>{config.cardSets.join(', ')}</dd>
       </dl>
     </details>

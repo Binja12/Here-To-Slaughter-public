@@ -1,11 +1,11 @@
 import { ItemCard } from '../cards/item-card'
-import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason } from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason, Zone } from 'shared'
 import { GameState } from './game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, refused } from '../interfaces'
+import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, ITargetedRollWindow, refused } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
 import { AbilityContext, NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -154,26 +154,17 @@ describe('GameState', () => {
       getType: () => ReactionWindowType.Modifier,
       getRespondentId: () => 'p1',
       isOptional: () => false,
-      blocksActions: () => false,
       getOptions: () => [],
       isOpen: () => isOpen,
       submitReaction: () => ({ accepted: true }) as const,
       resolve: () => {},
-      cancel: () => {}, capClock: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
     })
 
-    it('restoreFrame cancels every frame opened after it and drops the work pushed since', () => {
-      const cancelled: string[] = []
-      const window = (id: string): IReactionWindow => ({
-        ...stubWindow(),
-        getId: () => id,
-        cancel: () => {
-          cancelled.push(id)
-        },
-      })
+    it('restoreFrame drops the pipeline parked on the frame and nothing else', () => {
       const pipeline = (pausedOn?: string) => ({
         steps: [],
         ctx: new AbilityContext('card-x', 'p1'),
@@ -184,17 +175,11 @@ describe('GameState', () => {
       gs.pushPipeline(outer)
       const opener = pipeline()
       gs.pushPipeline(opener)
-      gs.addFrame('f1', gs.clone(), [window('w1')])
-      gs.parkOn(opener, 'f1')
-      // later work: a pipeline pushed after the snapshot, parked on its own frame
-      const later = pipeline()
-      gs.pushPipeline(later)
-      gs.addFrame('f2', gs.clone(), [window('w2')])
-      gs.parkOn(later, 'f2')
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
+      opener.pausedOn = 'f1'
 
       gs.restoreFrame('f1')
 
-      expect(cancelled).toEqual(['w2'])
       expect(gs.getFrames().size).toBe(0)
       expect(gs.getPipelines()).toEqual([outer])
     })
@@ -214,11 +199,10 @@ describe('GameState', () => {
       const emitter = new GameEventEmitter()
       const received: IGameEvent[] = []
       emitter.addListener({ onEvent: (e) => received.push(e) })
-      gs.addFrame('f1', gs.clone(), [])
       const question = new PlayerChoiceWindow('w2', 'p1', ['p2'], 5000, gs, 'f2', emitter)
       gs.addFrame('f2', gs.clone(), [question])
 
-      gs.restoreFrame('f1')
+      question.cancel()
 
       expect(question.isOpen()).toBe(false)
       expect(question.picks()).toEqual([])
@@ -226,22 +210,6 @@ describe('GameState', () => {
       expect(closed).toHaveLength(1)
       expect(closed[0].getPayload()).toMatchObject({ frameId: 'f2', cancelled: true })
       expect(received.some((e) => e.getType() === GameEventType.FrameResolved)).toBe(false)
-    })
-
-    it('revertFrame restores the board, keeps the frame open, and can do it again', () => {
-      gs.addFrame('f1', gs.clone(), [stubWindow()])
-      gs.markAbilityUsed('hero-x')
-
-      gs.revertFrame('f1')
-      expect(gs.getAbilitiesUsedThisTurn()).toEqual([])
-      expect(gs.getFrames().has('f1')).toBe(true)
-      expect(gs.hasOpenFrames()).toBe(true)
-
-      // the snapshot was not consumed by the first revert
-      gs.markAbilityUsed('hero-y')
-      gs.revertFrame('f1')
-      expect(gs.getAbilitiesUsedThisTurn()).toEqual([])
-      expect(gs.getFrames().has('f1')).toBe(true)
     })
 
     it('frame is present after addFrame', () => {
@@ -338,7 +306,7 @@ describe('GameState', () => {
 
       it('leaves the SNAPSHOT alone — it predates the burn', () => {
         gs.spendCard('p1', 'mod-1')
-        const snap = gs.getFrames().get('f1')!.snapshot.board
+        const snap = gs.getFrames().get('f1')!.snapshot
         // The frame records what was spent instead of reaching back into a
         // past GameState to describe a decision the present just made.
         expect(snap.getPlayer('p1')!.getHand()).toContain('mod-1')
@@ -516,12 +484,11 @@ describe('GameState — the open modifiable window', () => {
     getType: () => ReactionWindowType.Modifier,
     getRespondentId: () => rollerId,
     isOptional: () => false,
-    blocksActions: () => false,
     getOptions: () => [],
     isOpen: () => isOpen,
     submitReaction: jest.fn(),
     resolve: () => {},
-    cancel: () => {}, capClock: () => {},
+    cancel: () => {},
     resultKey: () => NO_CONTEXT_RESULT,
     getDetail: () => ({}),
     getDeadline: () => 0,
@@ -773,5 +740,70 @@ describe('GameState.drawFromMainDeck', () => {
     expect(gs.drawFromMainDeck()).toBe('x1')
     expect(gs.getMainDeck().getSize()).toBe(0)
     expect(gs.getDiscardPile().getSize()).toBe(0)
+  })
+})
+
+describe('GameState — the roll target and what stands over a roll', () => {
+  let gs: GameState
+
+  beforeEach(() => {
+    gs = new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-1'))
+  })
+
+  const targetable = (id: string) => {
+    const landed: unknown[] = []
+    const window: IModifiableWindow & ITargetedRollWindow = {
+      getId: () => id,
+      getType: () => ReactionWindowType.Modifier,
+      getRespondentId: () => 'p1',
+      isOptional: () => false,
+      getOptions: () => [],
+      isOpen: () => true,
+      submitReaction: () => accepted(),
+      resolve: () => {},
+      cancel: () => {},
+      resultKey: () => NO_CONTEXT_RESULT,
+      getDetail: () => ({}),
+      getDeadline: () => 0,
+      acceptsModifierFor: () => accepted(),
+      cardSpent: () => {},
+      valueBiasFor: () => 'highest' as const,
+      targetChosen: (key: string, picks: unknown[], zone: Zone) => {
+        landed.push([key, picks, zone])
+      },
+    }
+    return { window, landed }
+  }
+
+  it('landRollTarget hands the pick to the open roll window, and does nothing with none open', () => {
+    expect(() => gs.landRollTarget('chosenPlayer', ['p2'], Zone.Hand)).not.toThrow()
+
+    const { window, landed } = targetable('w1')
+    gs.addFrame('f1', gs.clone(), [window])
+    gs.landRollTarget('chosenPlayer', ['p2'], Zone.Hand)
+    expect(landed).toEqual([['chosenPlayer', ['p2'], Zone.Hand]])
+  })
+
+  it('hasOpenFramesAfter sees an open window in a later frame only', () => {
+    const earlier = targetable('w0').window
+    const roll = targetable('w1').window
+    const later = targetable('w2').window
+    gs.addFrame('f0', gs.clone(), [earlier])
+    gs.addFrame('f1', gs.clone(), [roll])
+    expect(gs.hasOpenFramesAfter('f1')).toBe(false)
+
+    gs.addFrame('f2', gs.clone(), [later])
+    expect(gs.hasOpenFramesAfter('f1')).toBe(true)
+    expect(gs.hasOpenFramesAfter('f2')).toBe(false)
+
+    gs.releaseFrame('f2')
+    expect(gs.hasOpenFramesAfter('f1')).toBe(false)
   })
 })

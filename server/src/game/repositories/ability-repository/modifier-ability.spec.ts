@@ -117,7 +117,7 @@ function rollAndPlayModifier(values: number[], value = values[0]) {
   jest.spyOn(Math, 'random').mockReturnValue(LOW)
   new RollOnHeroAction('a1', 'p1', HERO, ctx.em, ctx.rm).execute(ctx.gs)
   const result = ctx.rm.submitReaction(
-    new PlayModifierReaction('r1', 'p2', MOD, 'p1', value),
+    new PlayModifierReaction('r1', 'p2', MOD, value),
   )
   return { ...ctx, result }
 }

@@ -231,8 +231,8 @@ describe('Wise Shield — full life cycle', () => {
       const { gs, em, rm, tm } = setup()
       playWiseShield(gs, em, rm, tm)
       const { frame } = gs.getFrameByWindowType(ReactionWindowType.Challenge)!
-      expect(frame.snapshot.board.getPlayer('p1')!.getHand()).not.toContain(WISE_SHIELD)
-      expect(frame.snapshot.board.getParty('p1').getHeroIds()).not.toContain(WISE_SHIELD)
+      expect(frame.snapshot.getPlayer('p1')!.getHand()).not.toContain(WISE_SHIELD)
+      expect(frame.snapshot.getParty('p1').getHeroIds()).not.toContain(WISE_SHIELD)
     })
   })
 
@@ -288,7 +288,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(HIGH).mockReturnValueOnce(HIGH)
         .mockReturnValue(HIGH)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 
@@ -308,7 +308,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 
@@ -330,7 +330,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 
@@ -350,7 +350,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(HIGH).mockReturnValueOnce(HIGH)
         .mockReturnValue(HIGH)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 
@@ -367,7 +367,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(LOW).mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
       rm.submitReaction(
-        new PlayChallengeReaction('r1', 'p2', CHAL, WISE_SHIELD),
+        new PlayChallengeReaction('r1', 'p2', CHAL),
       )
       jest.advanceTimersByTime(5000)
 
@@ -411,7 +411,7 @@ describe('Wise Shield — full life cycle', () => {
 
     it('FAILED roll rescued by a modifier: RollSuccess fires and the effect installs', () => {
       const { gs, rm, events } = toModifierWindow(LOW) // baseRoll 1
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1', 5)) // 1 + 5 = 6
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 5)) // 1 + 5 = 6
       settleValueChoice()
       jest.advanceTimersByTime(5000)
 
@@ -439,7 +439,7 @@ describe('Wise Shield — full life cycle', () => {
 
     it('a played modifier is recorded against the card that paid for it', () => {
       const { rm, events } = toModifierWindow(LOW)
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1', 5))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 5))
       settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)
@@ -494,7 +494,7 @@ describe('Wise Shield — full life cycle', () => {
         .mockReturnValueOnce(0.5).mockReturnValueOnce(0.5) // challenger p2 rolls 6
         .mockReturnValueOnce(0.4).mockReturnValueOnce(0.4) // challenged p1 rolls 5
         .mockReturnValue(LOW) // whatever the granted roll needs afterwards
-      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
+      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL))
       jest.advanceTimersByTime(5000)
 
       const resolved = payloadsOf(events, GameEventType.ChallengeResolved)
@@ -514,20 +514,20 @@ describe('Wise Shield — full life cycle', () => {
       tm.enqueue(new PlayHeroAction('a3', 'p1', 'hero-777', rm, em))
       jest
         .spyOn(Math, 'random')
-        .mockReturnValueOnce(0.5).mockReturnValueOnce(0.5) // challenger p2 rolls 6
-        .mockReturnValueOnce(0).mockReturnValueOnce(0) // challenged p1 rolls 1
+        .mockReturnValueOnce(0.5).mockReturnValueOnce(0.5) // challenger p2 rolls 8
+        .mockReturnValueOnce(0).mockReturnValueOnce(0) // challenged p1 rolls 2
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL, 'hero-777'))
+      rm.submitReaction(new PlayChallengeReaction('r3', 'p2', CHAL))
 
       // p2 pushes their OWN challenge roll with a +5 modifier.
-      rm.submitReaction(new PlayModifierReaction('r4', 'p2', MOD, 'p2', 5))
+      rm.submitReaction(new PlayModifierReaction('r4', 'p2', MOD, 5, 'p2'))
       settleValueChoice()
       jest.advanceTimersByTime(5000)
 
       const resolved = payloadsOf(events, GameEventType.ChallengeResolved)
       expect(resolved[0]).toMatchObject({
-        challengerFinal: 13, // 6 + 5 from the card
-        defenderFinal: 5, // 1 + 3 from Wise Shield
+        challengerFinal: 13, // 8 + 5 from the card
+        defenderFinal: 5, // 2 + 3 from Wise Shield
         defenderWins: false,
       })
       expect(gs.getDiscardPile().getAll()).toContain(MOD)
@@ -538,7 +538,7 @@ describe('Wise Shield — full life cycle', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(LOW) // baseRoll 1
       tm.enqueue(new RollOnHeroAction('a2', 'p1', 'hero-099', em, rm))
-      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 'p1', 5))
+      rm.submitReaction(new PlayModifierReaction('r2', 'p2', MOD, 5))
       settleValueChoice()
 
       const applied = payloadsOf(events, GameEventType.ModifierApplied)

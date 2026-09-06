@@ -59,7 +59,7 @@ describe('Fury Knuckle (hero-002)', () => {
     const { em, emitted } = collect()
     const rm = new ReactionManager(gs, em)
 
-    const [, pull, condition] = FuryKnuckleAbility[0].steps
+    const [pull, condition] = FuryKnuckleAbility[1].steps
     pull.execute(gs, ctx, em, rm)
     condition.execute(gs, ctx, em, rm)
 
@@ -67,7 +67,7 @@ describe('Fury Knuckle (hero-002)', () => {
     expect(met.getPayload()).toMatchObject({
       ctxSeed: { [CTX_PULLED_CARD_IDS]: ['theirs'], [CTX_CHOSEN_PLAYER]: ['p2'] },
     })
-    expect(FuryKnuckleAbility[1].trigger).toMatchObject({ on: GameEventType.ConditionMet, when: (met.getPayload() as { label: string }).label })
+    expect(FuryKnuckleAbility[2].trigger).toMatchObject({ on: GameEventType.ConditionMet, when: (met.getPayload() as { label: string }).label })
   })
 
   it('a pulled Hero card announces nothing — one pull only', () => {
@@ -80,7 +80,7 @@ describe('Fury Knuckle (hero-002)', () => {
     const { em, emitted } = collect()
     const rm = new ReactionManager(gs, em)
 
-    const [, pull, condition] = FuryKnuckleAbility[0].steps
+    const [pull, condition] = FuryKnuckleAbility[1].steps
     pull.execute(gs, ctx, em, rm)
     condition.execute(gs, ctx, em, rm)
 
@@ -96,7 +96,7 @@ describe('Fury Knuckle (hero-002)', () => {
     ctx.set(CTX_CHOSEN_PLAYER, ['p2']) // as the seed leaves it
     const { em } = collect()
 
-    FuryKnuckleAbility[1].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
+    FuryKnuckleAbility[2].steps[0].execute(gs, ctx, em, new ReactionManager(gs, em))
 
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['first', 'second'])
     expect(gs.getPlayer('p2')!.getHand()).toEqual([])

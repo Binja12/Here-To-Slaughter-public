@@ -6,9 +6,14 @@ describe('BadAxeAbility', () => {
   it('registers the destroy flow for Bad Axe', () => {
     expectAbility('hero-001', BadAxeAbility, [
       {
+        on: GameEventType.RollPassing,
+        scope: TriggerScope.SelfCard,
+        steps: ['ChooseCardTask', 'TargetRollTask'],
+      },
+      {
         on: GameEventType.RollSuccess,
         scope: TriggerScope.SelfCard,
-        steps: ['ChooseCardTask', 'DestroyTask'],
+        steps: ['DestroyTask'],
       },
     ])
   })

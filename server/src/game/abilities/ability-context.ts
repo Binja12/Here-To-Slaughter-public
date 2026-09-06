@@ -85,9 +85,6 @@ export const CTX_CHOSEN_VALUE = "chosenValue";
  */
 export const CTX_MODIFIER_TARGET = "modifierTarget";
 
-/** The card a challenge card was played against — seeded from ChallengePlayed, read by StartChallengeTask. */
-export const CTX_CHALLENGED_CARD = "challengedCard";
-
 /** Returned by resultKey() when a window's outcome is not an ability input. */
 export const NO_CONTEXT_RESULT = Symbol("noContextResult");
 
@@ -112,13 +109,6 @@ export class AbilityContext {
 
   has(key: string): boolean {
     return this.data.has(key);
-  }
-
-  /** The same memory, separately owned: a frame keeps one so a rollback can hand the steps their context back. */
-  clone(): AbilityContext {
-    const copy = new AbilityContext(this.sourceCardId, this.ownerId);
-    for (const [key, value] of this.data) copy.data.set(key, value);
-    return copy;
   }
 }
 

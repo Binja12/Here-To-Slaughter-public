@@ -81,7 +81,7 @@ describe('ReactionManager', () => {
     it('snapshot is captured at open time — later mutations do not affect it', () => {
       const id = rm.openFrame()
       gs.markAbilityUsed('hero-x')
-      const snap = gs.getFrames().get(id)!.snapshot.board
+      const snap = gs.getFrames().get(id)!.snapshot
       expect(snap.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
     })
 
@@ -288,12 +288,11 @@ describe('ReactionManager', () => {
       getType: () => ReactionWindowType.CardChoice,
       getRespondentId: () => 'p1',
       isOptional: () => false,
-      blocksActions: () => false,
       getOptions: () => ['a'],
       isOpen: () => open,
       submitReaction: jest.fn(() => verdict),
       resolve: () => {},
-      cancel: () => {}, capClock: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
@@ -328,5 +327,29 @@ describe('ReactionManager', () => {
       expect(rm.submitChoice('w1', 'p1', 'a')).toBe(verdict)
       expect(open.submitReaction).toHaveBeenCalledWith('p1', { choice: 'a' })
     })
+  })
+})
+
+describe('ReactionManager — each window takes its share of the countdown', () => {
+  it('an attack waits twice as long as a challenge; a hero roll the same as a challenge', () => {
+    jest.useFakeTimers()
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const rm = new ReactionManager(gs, em, 1_000)
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1'))
+    const now = Date.now()
+
+    const wait = (type: ReactionWindowType, config: Record<string, unknown>) => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, type, 'p1', config)
+      return gs.getFrames().get(frameId)!.windows[0].getDeadline() - now
+    }
+
+    expect(wait(ReactionWindowType.Challenge, { cardId: 'hero-1' })).toBe(1_000)
+    expect(wait(ReactionWindowType.Modifier, { baseRoll: 5, rollReq: 7, heroId: 'hero-1' })).toBe(1_000)
+    expect(wait(ReactionWindowType.Attack, { baseRoll: 5, monsterId: 'monster-1' })).toBe(2_000)
+    expect(wait(ReactionWindowType.PlayerChoice, { options: ['p1'] })).toBe(1_000)
+    jest.useRealTimers()
   })
 })

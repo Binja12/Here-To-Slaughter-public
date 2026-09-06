@@ -147,7 +147,7 @@ describe('GameGateway', () => {
       await send(socket, 'DrawCard')
       await sleep(20)
       expect(infos).toHaveLength(1)
-      expect(infos[0]).toMatchObject({ config: { seamlessReactions: true, reactionTimeMs: 15_000 } })
+      expect(infos[0]).toMatchObject({ config: { reactionTimeMs: 10_000 } })
       expect(snapshots.length).toBeGreaterThan(0)
       for (const snapshot of snapshots) expect(snapshot.state).not.toHaveProperty('config')
       socket.disconnect()

@@ -240,7 +240,6 @@ export const threeSeatOpening: PlayerView = {
 
   pendingWindows: [],
   busy: false,
-  acceptsActions: true,
 }
 
 export const midGame: PlayerView = {
@@ -303,8 +302,7 @@ const withWindow = (
 ): PlayerView => ({
   ...base,
   pendingWindows: [window],
-  // what the server says with any window open and seamless reactions off
-  acceptsActions: false,
+  busy: true,
 })
 
 export const myTaskChoice = withWindow(threeSeatOpening, {

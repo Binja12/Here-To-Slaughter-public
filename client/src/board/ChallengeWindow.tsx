@@ -30,8 +30,9 @@ import {
  *  - one roll panel per side — challenged LEFT (green aura), challenger
  *    RIGHT (red aura) — each showing that player's 2d6 with the SAME dice
  *    widget as the board (DicePair) thrown in from its outer edge, the
- *    settled total in the board's "your turn" scroll art, and every
- *    modifier card played onto that roll fanned at its outer edge.
+ *    settled total in the board's "your turn" scroll art, and everything
+ *    modifying that roll — cards played onto it, a leader's, a monster's or
+ *    a hero's standing bonus — fanned at its outer edge, each with its amount.
  *    (Every seat's hand size stays readable on the BOARD: the cardback
  *    widgets are dim-exempted while a challenge is open — Board.tsx.)
  *
@@ -196,8 +197,8 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
 
         <RollScroll roll={side.roll} />
 
-        {/* every modifier played onto THIS roll, fanned at the outer edge */}
-        {side.roll?.modifierCards.map((url, i) => (
+        {/* everything modifying THIS roll, fanned at the outer edge */}
+        {side.roll?.modifierCards.map(({ url, amount }, i) => (
           <div
             key={`${url}-${i}`}
             className="absolute"
@@ -212,10 +213,13 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
           >
             <img
               src={url}
-              alt="modifier card"
+              alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
               draggable={false}
               className="h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
             />
+            <span className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
+              {amount > 0 ? '+' : '−'}{Math.abs(amount)}
+            </span>
           </div>
         ))}
       </div>

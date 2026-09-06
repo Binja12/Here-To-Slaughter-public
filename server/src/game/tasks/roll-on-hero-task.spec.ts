@@ -151,6 +151,8 @@ describe('RollOnHeroTask', () => {
     expect(emitted.map((e) => e.getType())).toEqual([
       GameEventType.DiceRolled,
       GameEventType.ReactionWindowOpened,
+      // 12 against 5: the roll stands, and the hero's effect may ask now.
+      GameEventType.RollPassing,
     ])
     expect(emitted[1].getPayload()).toMatchObject({
       heroId: 'hero-1',
@@ -189,6 +191,6 @@ describe('RollOnHeroTask', () => {
     // In the snapshot too, so restoring it cannot hand the roll back.
     expect(gs.getAbilitiesUsedThisTurn()).toContain('hero-1')
     const { snapshot } = gs.getFrames().get(frameId as string)!
-    expect(snapshot.board.getAbilitiesUsedThisTurn()).toContain('hero-1')
+    expect(snapshot.getAbilitiesUsedThisTurn()).toContain('hero-1')
   })
 })
