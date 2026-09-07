@@ -235,7 +235,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['magic-054', CriticalBoostAbility],
   ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to all your rolls this turn
   ['magic-056', EnchantedSpellAbility],
-  ['magic-057', ForcedExchangeAbility], // Forced Exchange — choose a player, STEAL from them
+  ['magic-057', ForcedExchangeAbility], // Forced Exchange — STEAL a hero, GIVE one back
   ['magic-058', WindsOfChangeAbility], // Winds of Change — a worn item goes home, then DRAW
   ['magic-059', WindsOfChangeAbility],
   ['magic-060', ForcefulWindsAbility], // Forceful Winds — every worn item goes home
@@ -328,4 +328,17 @@ export const isActivatable = (cardId: string): boolean =>
     (rule) =>
       rule.trigger.on === GameEventType.LeaderActivated &&
       rule.trigger.scope === TriggerScope.SelfCard,
+  )
+
+/**
+ * Whether a card declares anything that still fires from a PARTY — every entry
+ * but the fight-back, which only a monster still in the pile can run. Asked of
+ * a leader (with `isActivatable` false, its rule is a passive by elimination)
+ * and of a monster won into a party, whose printed rule is its passive. Read
+ * by `views/player-view.ts` for the pink aura, so the glow and the registry
+ * cannot disagree.
+ */
+export const hasStandingRule = (cardId: string): boolean =>
+  (abilityRegistry.get(cardId) ?? []).some(
+    (rule) => rule.trigger.on !== GameEventType.MonsterFoughtBack,
   )

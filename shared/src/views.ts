@@ -186,6 +186,14 @@ export type PlayerView = {
    * the same question the action and the choice window ask.
    */
   attackableMonsterIds: string[];
+  /**
+   * Every card on the table whose rule works with nobody playing anything —
+   * what the board glows pink. A standing effect names its own card, a leader
+   * that is not ACTIVATED is a passive by elimination, and a monster won into
+   * a party carries the rule it was won for; only the server can say which,
+   * because behaviour lives in the ability registry and never in card data.
+   */
+  passiveCardIds: string[];
   pendingWindows: PendingWindowView[];
   /** Absent on a table played without a clock. */
   turnClock?: TurnClockView;

@@ -18,9 +18,9 @@ import { ApplyModifierTask } from '../../tasks/modifier-tasks'
 // belongs to the leader watching it be played. "On a roll" needs no test —
 // ModifierPlayed only happens into an open roll.
 //
-// Both entries match the same event, and the leader is scanned before the
-// instance pile, so the Horn's bonus lands first and the card's second. A sum
-// does not care, and neither parks: see ApplyModifierTask for why.
+// Both entries match the same event, and TaskManager runs the card the event
+// NAMES before anything watching it, so the card's own bonus lands first and
+// the Horn's second. A sum does not care: see ApplyModifierTask for why.
 const HORN_VALUES = [1, -1]
 
 export const ProtectingHornAbility: IAbilityRule[] = [

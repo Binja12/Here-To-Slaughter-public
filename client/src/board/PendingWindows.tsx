@@ -26,6 +26,10 @@ export default function PendingWindows({
       window.type !== 'Modifier' &&
       window.type !== 'Attack' &&
       window.type !== 'Challenge' &&
+      // a choice with nothing to choose is not a question: the engine opens it
+      // and settles it on a 0ms timer, and drawing a card with no buttons for
+      // that frame reads as the table asking something it is not
+      !(window.options && window.options.length === 0) &&
       !hiddenWindowIds.includes(window.windowId),
   )
   if (visibleWindows.length === 0) return null
@@ -165,7 +169,8 @@ function ChoiceButton({
   )
 }
 
-function Countdown({ deadline }: { deadline: number }) {
+/** The window's own clock, drawn as a bar. Shared with Board's ask overlay. */
+export function Countdown({ deadline }: { deadline: number }) {
   const initial = useRef(Math.max(1, deadline - Date.now()))
   const [remaining, setRemaining] = useState(initial.current)
   useEffect(() => {

@@ -21,7 +21,11 @@ export default function ImageButton({
       title={label}
       disabled={!enabled}
       onClick={onClick}
-      className="group relative h-full w-full transition-transform duration-[120ms] ease-out enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50"
+      // A disabled painted button takes no clicks at all: its box is mostly
+      // transparent padding, and swallowing the press there left a dead hole
+      // over the felt — which is what the board reads to put a held-open hand
+      // away (Board.pressedFelt).
+      className="group relative h-full w-full transition-transform duration-[120ms] ease-out enabled:hover:scale-105 enabled:active:scale-95 disabled:pointer-events-none disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50"
     >
       <AssetImage
         src={src}

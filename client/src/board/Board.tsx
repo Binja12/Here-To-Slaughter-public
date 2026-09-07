@@ -32,10 +32,10 @@ import ImageButton from './ImageButton'
 import DiceRoll from './DiceRoll'
 import TurnTimer from './TurnTimer'
 import CardReactionTimer from './CardReactionTimer'
-import GameConfigMenu from './GameConfigMenu'
-import GameLogMenu from './GameLogMenu'
 import ChallengeWindow from './ChallengeWindow'
 import ModifierWindow from './ModifierWindow'
+import SettingsMenu from './SettingsMenu'
+import { BoardSettingsProvider, useBoardSettings } from './boardSettings'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
 import {
   liveRollOf,
@@ -44,7 +44,6 @@ import {
   subjectIdOf,
   useLiveDice,
 } from './liveRoll'
-import { passiveSourceIds } from './passiveRelevance'
 import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
 import { derivePlayable, isOptionalWindow, reactionRevision } from './playable'
@@ -70,12 +69,11 @@ import {
 import { slotsFor } from './seats'
 import { cardById, discardCardsForView, idForTargetKey, targetKeyForId } from './viewTargets'
 import { useHoverZoom } from './useHoverZoom'
-import PendingWindows from './PendingWindows'
+import PendingWindows, { Countdown } from './PendingWindows'
 import DiscardPileModal from './DiscardPileModal'
 import RevealedCards from './RevealedCards'
 import { useAudio } from '../audio/AudioProvider'
 import { useGameAudio } from '../audio/useGameAudio'
-import VolumeControl from '../audio/VolumeControl'
 
 /** A roll or a challenge is the table's; everything else is somebody's question. */
 const TABLE_WINDOW_TYPES = new Set(['Modifier', 'Attack', 'Challenge'])
@@ -118,7 +116,9 @@ function Widget({
         alt=""
         aria-hidden
         draggable={false}
-        className={`dimmable pointer-events-none absolute inset-0 h-full w-full object-fill${enemy ? ' enemy-aura' : ''}`}
+        className={`board-felt dimmable absolute inset-0 h-full w-full object-fill${
+          enemy ? ' enemy-aura enemy-frame' : ''
+        }`}
       />
       <div
         className="absolute"
@@ -524,7 +524,11 @@ function HudWidget({
 }) {
   return (
     <div
-      className={`absolute -translate-x-1/2 -translate-y-1/2 ${aboveChallenge ? 'dim-exempt z-[160]' : 'z-40'}`}
+      // z-[110] clears the board-wide hover lift (`has-[:hover]:z-[100]` on the
+      // centre wrapper and on every widget): a HUD button sits ON the felt and
+      // the rim, so hovering the wooden centre used to swallow Redraw and the
+      // window opener whole (the owner, 2026-09-07).
+      className={`absolute -translate-x-1/2 -translate-y-1/2 ${aboveChallenge ? 'dim-exempt z-[160]' : 'z-[110]'}`}
       title={title}
       style={{
         height: `${def.h}cqh`,
@@ -680,6 +684,9 @@ const LEADER_ZOOM_ORIGIN: Record<Anchor, string> = {
 /** Choice windows answered by pressing a glowing card on the board. */
 const BOARD_CHOICES = new Set(['CardChoice', 'PlayerChoice', 'MonsterChoice'])
 
+/** height (cqh) of the Draw / Forfeit answers beside a question card */
+const ANSWER_H = 11
+
 /**
  * The card a yes/no window is about. The server's ConfirmTask detail is
  * `{ confirms, sourceCardId, cardId?, ctxSeed? }` — "roll on the hero you
@@ -694,15 +701,36 @@ function askedCardOf(window: PendingWindowView): string | undefined {
 
 export default function Board({ onLeave }: { onLeave?: () => void }) {
   return (
-    <TargetingProvider>
-      <ChallengeProvider>
-        <BoardInner onLeave={onLeave} />
-      </ChallengeProvider>
-    </TargetingProvider>
+    <BoardSettingsProvider>
+      <TargetingProvider>
+        <ChallengeProvider>
+          <BoardInner onLeave={onLeave} />
+        </ChallengeProvider>
+      </TargetingProvider>
+    </BoardSettingsProvider>
+  )
+}
+
+/**
+ * A press on the FELT — the table, a painted frame, or the bare stage — as
+ * opposed to a press on anything the player can act with. What closes a hand
+ * held open by the click-to-open setting (the owner, 2026-09-07); the felt and
+ * every frame carry `board-felt` and take pointer events for exactly this.
+ */
+function pressedFelt(event: React.MouseEvent): boolean {
+  const target = event.target as HTMLElement
+  return (
+    target.classList.contains('board-felt') ||
+    target.classList.contains('board-stage') ||
+    target.classList.contains('board-root')
   )
 }
 
 function BoardInner({ onLeave }: { onLeave?: () => void }) {
+  const { settings } = useBoardSettings()
+  // Click-to-open hand: the board owns whether it is held open, because what
+  // closes it is a press on the FELT, which only the root sees.
+  const [handHeldOpen, setHandHeldOpen] = useState(false)
   const tableBackground = useBackgroundImage(TABLE_BG)
   const view = useGameView()
   const info = useGameInfo()
@@ -793,12 +821,10 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   //  - red: the card an OPPONENT just played (the contested card, until
   //    its challenge window closes) or rolls on (hero / leader / monster,
   //    until the roll closes); the dice go red with it;
-  //  - pink: every card whose effect is WORKING right now — a standing
-  //    effect while it is RELEVANT (passiveRelevance.ts: the Fist of Reason
-  //    during a challenge window, Mega Slime while its owner is over budget)
-  //    or one feeding the open roll (the server names them as the roll's
-  //    bonus sources). The owner's rule, 2026-09-04: gold = can pick, green =
-  //    can play, pink = effect working — and only while it is.
+  //  - pink: every card carrying a PASSIVE (`view.passiveCardIds`), all game
+  //    long. The owner's rule, 2026-09-07: gold = can pick, green = can play,
+  //    pink = this one has a standing rule. Pink is the quietest of the four,
+  //    so red and green still win the card they are on.
   const enemyIds = new Set<string>()
   for (const window of view.pendingWindows) {
     if (window.type !== 'Modifier' && window.type !== 'Attack' && window.type !== 'Challenge') continue
@@ -807,7 +833,11 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       if (subject) enemyIds.add(subject)
     }
   }
-  const passiveIds = passiveSourceIds(view)
+  // Pink = "this card's rule works with nobody playing anything", every one
+  // of them, all game long (the owner, 2026-09-07: always, leaders and won
+  // monsters included). The server names them off the ability registry —
+  // behaviour never reaches card data, so nothing here could work it out.
+  const passiveIds = new Set(view.passiveCardIds)
   // The seat a roll's effect has chosen, and what it reaches there — the
   // hand (a pull, a discard) or the party (a steal, a destroy): the WIDGET
   // that sits on wears the red aura (the owner, 2026-09-06), not the cards.
@@ -820,6 +850,10 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     if (window.detail?.targetZone === 'Party') targetedParties.add(target)
     else targetedHands.add(target)
   }
+  // A roll's effect has chosen YOU: red down both sides of the screen, so it
+  // reads even with the modifier window on the stage (the owner, 2026-09-07).
+  const targeted =
+    targetedHands.has(view.playerId) || targetedParties.has(view.playerId)
   const diceOutcome = liveRoll ? rollOutcome(liveRoll, view) : 'none'
 
   // A value being picked loses its roll when the window lapses
@@ -1079,6 +1113,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const mySlot = (Object.entries(slots) as [PlayerId, string | null][]).find(
     ([, id]) => id === view.playerId,
   )?.[0]
+  // The card ASKING (the ability) and the card asked ABOUT, for the overlay.
+  const askCard = cardById(
+    view,
+    typeof optionalAsk?.detail?.sourceCardId === 'string' ? optionalAsk.detail.sourceCardId : undefined,
+  )
+  const askSubject = cardById(view, askedCardId)
   const askedKey = askedCardId ? targetKeyForId(view, askedCardId) : null
   const askOnBoard =
     !!askedKey &&
@@ -1218,20 +1258,27 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     <div
       className={`board-root relative h-screen w-screen overflow-hidden bg-zinc-950${
         active ? ` targeting${active.tone === 'reaction' ? ' reaction-targeting' : ''}` : ''
-      }${active?.tone === 'choice' ? ' choice-targeting' : ''}${stageOpen ? ' challenge-open' : ''}`}
-      onClick={active ? cancel : undefined}
+      }${active?.tone === 'choice' ? ' choice-targeting' : ''}${stageOpen ? ' challenge-open' : ''}${
+        settings.glowEffects ? '' : ' no-glow'
+      }`}
+      onClick={(event) => {
+        if (handHeldOpen && pressedFelt(event)) setHandHeldOpen(false)
+        if (active) cancel()
+      }}
     >
       <div
-        className="dim-exempt absolute left-3 top-[9vh] z-[260] flex flex-col items-start gap-2"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <GameConfigMenu config={info?.config} />
-        <GameLogMenu entries={log} />
-      </div>
-      <div
-        className="dimmable pointer-events-none absolute inset-0"
+        className="board-felt dimmable absolute inset-0"
         style={{ backgroundImage: `url("${tableBackground}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
       />
+      {/* an opponent's roll is aimed at YOU — the whole screen bleeds red, so
+          it is legible from under the modifier window's own overlay. Outside
+          the stage: it is the SCREEN's edge, not the table's. */}
+      {targeted && (
+        <div
+          aria-hidden
+          className="target-vignette pointer-events-none absolute inset-0 z-[300]"
+        />
+      )}
       <div
         className="board-stage absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 [container-type:size]"
         style={{ width: 'min(100vw, calc(100vh * 16 / 9))', height: 'min(100vh, calc(100vw * 9 / 16))' }}
@@ -1240,7 +1287,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           className="absolute z-20 -translate-x-1/2 -translate-y-1/2 has-[:hover]:z-[100]"
           style={{ left: `calc(50% + ${CENTER_DX}cqh)`, top: `calc(50% + ${CENTER_DY}cqh)`, height: `${CENTER_H}cqh`, width: `${CENTER_H * ASPECT.center}cqh` }}
         >
-          <AssetImage src={FRAMES.center} alt="" aria-hidden draggable={false} className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill" />
+          <AssetImage src={FRAMES.center} alt="" aria-hidden draggable={false} className="board-felt dimmable absolute inset-0 h-full w-full object-fill" />
           <CenterArena
             view={view}
             discardCards={discardCards}
@@ -1322,10 +1369,14 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                 {isMine ? (
                   <PlayerHand
                     cards={view.hand.map((card) => artFor(card).url)}
+                    ids={view.hand.map((card) => card.id)}
                     anchorCenterCqw={82}
                     playable={flags.hand}
                     asked={askedInHand}
                     onActivateCard={(index) => activate(tkey.handCard(index))}
+                    sticky={settings.stickyHand}
+                    stuckOpen={handHeldOpen}
+                    onStickyOpen={() => setHandHeldOpen(true)}
                   >
                     <HandCount
                       count={view.hand.length}
@@ -1342,25 +1393,34 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           )
         })}
 
-        {/* the table's one line of words — the roll as it stands, the
-            question being asked, whose turn — as a tooltip on the gems,
-            since the owner dropped the turn scroll (2026-09-03) */}
-        <HudWidget def={HUD_WIDGETS.volume} aspect={1683 / 423} aboveChallenge>
-          <VolumeControl />
+        {/* the volume now lives behind the gear, not on the felt
+            (the owner, 2026-09-07) */}
+        <HudWidget def={HUD_WIDGETS.settings} aspect={1} aboveChallenge>
+          <SettingsMenu config={info?.config} log={log} />
         </HudWidget>
-        {(liveChallenge || liveRoll) && <HudWidget def={HUD_WIDGETS.challengeButton} aspect={4.5} aboveChallenge={stageOpen}>
-          <DevButton
-            label={liveChallenge ? 'Challenge window' : 'Modifier window'}
-            enabled={!!liveChallenge || !!liveRoll}
-            onClick={() => {
-              if (liveChallenge) setOverlayHidden((hidden) => !hidden)
-              else {
-                setManuallyOpenedRollId(liveRoll?.windowId ?? null)
-                setModifierHidden(modifierOpen)
-              }
-            }}
-          />
-        </HudWidget>}
+        {/* One painted slot for the reaction windows: the challenge plaque
+            while a challenge runs, the modifier plaque while a roll does, and
+            greyed on its own when neither is (the owner, 2026-09-07) — it used
+            to unmount, so the slot blinked in and out of the rim.
+            `dim-exempt` on the wrapper: ImageButton's art is `dimmable`, and
+            without it the painted plaque would go dark under targeting the way
+            a card does. */}
+        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={HUD_ASPECT.answer} aboveChallenge={stageOpen}>
+          <div className="dim-exempt h-full w-full">
+            <ImageButton
+              src={liveChallenge ? HUD.challengeWindow : HUD.modifierWindow}
+              label={liveChallenge ? 'Challenge window' : 'Modifier window'}
+              enabled={!!liveChallenge || !!liveRoll}
+              onClick={() => {
+                if (liveChallenge) setOverlayHidden((hidden) => !hidden)
+                else {
+                  setManuallyOpenedRollId(liveRoll?.windowId ?? null)
+                  setModifierHidden(modifierOpen)
+                }
+              }}
+            />
+          </div>
+        </HudWidget>
         {FAKE_SERVER && (
           <HudWidget def={HUD_WIDGETS.restartButton} aspect={3}>
             <DevButton
@@ -1427,7 +1487,10 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             ...(boardChoice ? [boardChoice.window.windowId] : []),
             ...(valueAsk ? [valueAsk.windowId] : []),
             ...(cardPick ? [cardPick.windowId] : []),
-            ...(optionalAsk && askOnBoard ? [optionalAsk.windowId] : []),
+            // a yes/no is answered either on the board (the card glows) or in
+            // the ConfirmAsk overlay below — never as a strip card as well
+            ...(optionalAsk ? [optionalAsk.windowId] : []),
+            ...(actionAsk ? [actionAsk.windowId] : []),
           ]}
           onSubmit={(windowId, choice) =>
             void run({ type: 'SubmitChoice', payload: { windowId, choice } })
@@ -1456,7 +1519,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         )}
 
         {actionAsk && (
-          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+          <div className="dim-exempt absolute inset-0 z-[210] flex items-center justify-center bg-black/60">
             <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
               <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
                 {typeof actionAsk.detail?.question === 'string' ? actionAsk.detail.question : 'Choose'}
@@ -1477,6 +1540,68 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                     {String(option)}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* A yes/no about a card the viewer cannot press — the Crowned
+            Serpent's "you may DRAW", asked of its owner about a monster in
+            their own party — takes the stage instead of the strip card it
+            used to get, which sat UNDER the modifier window (the owner,
+            2026-09-07): the card that asks beside the two painted answers. */}
+        {optionalAsk && !askOnBoard && (
+          <div className="dim-exempt absolute inset-0 z-[210] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {askCard ? `${askCard.name}${question ? `: ${question}` : ''}` : question ?? 'Your response'}
+              </div>
+              <div className="flex items-center justify-center gap-[1.2cqw]">
+                {askCard && (
+                  <AssetImage
+                    src={artFor(askCard).url}
+                    alt={askCard.name}
+                    draggable={false}
+                    className="passive-aura h-[30cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                {/* the subject, when the question is about a DIFFERENT card
+                    than the one asking (Quick Draw's drawn Item) */}
+                {askSubject && askSubject.id !== askCard?.id && (
+                  <AssetImage
+                    src={artFor(askSubject).url}
+                    alt={askSubject.name}
+                    draggable={false}
+                    className="ask-aura h-[30cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                <div className="flex flex-col gap-[1.2cqh]">
+                  <div style={{ height: `${ANSWER_H}cqh`, width: `${ANSWER_H * HUD_ASPECT.answer}cqh` }}>
+                    <ImageButton
+                      src={HUD.draw}
+                      label={question ? `Yes — ${question}` : 'Yes'}
+                      enabled
+                      glow
+                      onClick={() =>
+                        void send({
+                          type: 'SubmitChoice',
+                          payload: { windowId: optionalAsk.windowId, choice: 'confirm' },
+                        }).then(handleResult)
+                      }
+                    />
+                  </div>
+                  <div style={{ height: `${ANSWER_H}cqh`, width: `${ANSWER_H * HUD_ASPECT.answer}cqh` }}>
+                    <ImageButton
+                      src={HUD.forfeit}
+                      label="No"
+                      enabled
+                      onClick={() => void forfeit()}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-[.8cqh]">
+                <Countdown deadline={optionalAsk.deadline} />
               </div>
             </div>
           </div>

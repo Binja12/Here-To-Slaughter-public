@@ -4,7 +4,7 @@ import Board from './Board'
 import { GameProvider } from '../state/game'
 import { CommandProvider } from '../state/commands'
 import { CommandResult, GameCommandInput, PlayerView, RefusalReason } from '../contract'
-import { challengeStarted, challengeWindowOpen, midGame, modifierWindowOpen } from '../fixtures/views'
+import { challengeStarted, challengeWindowOpen, midGame, modifierWindowOpen, monsterAsksOverRoll, rollTargetsYou } from '../fixtures/views'
 import * as audio from '../audio/AudioProvider'
 
 const send = jest.fn<Promise<CommandResult>, [GameCommandInput]>(async () => ({ commandId: 'test', accepted: true }))
@@ -49,20 +49,19 @@ test('discard rustle belongs to individual cards in the browser, not the pile op
 
 test('every roll opens its window at once; the opener puts it away and brings it back', () => {
   const { rerender, container } = render(board(modifierWindowOpen))
-  expect(screen.getByRole('slider', { name: 'Sound volume' }).closest('details')).toBeNull()
   const modifierButton = screen.getByRole('button', { name: 'Modifier window' })
   expect(modifierButton).toBeEnabled()
   // open the moment the roll is made, with its own Skip on it — the HUD's steps aside
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
   // the hand sits above the opener while the stage is up
   const handWidget = screen.getAllByAltText(/^hand card/)[0].closest('.z-40') as HTMLElement
-  expect(modifierButton.parentElement).toHaveClass('z-[160]')
+  expect(modifierButton.closest('[class*="z-[160]"]')).not.toBeNull()
   expect(Number(handWidget.style.zIndex)).toBeGreaterThan(160)
   expect(screen.getAllByRole('button', { name: 'Skip reaction' })).toHaveLength(1)
   fireEvent.click(modifierButton)
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
   expect(screen.getAllByRole('button', { name: 'Skip reaction' })).toHaveLength(1)
-  expect(modifierButton.parentElement).toHaveClass('z-40')
+  expect(modifierButton.closest('[class*="z-[110]"]')).not.toBeNull()
   fireEvent.click(modifierButton)
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
   expect(modifierButton).toBeEnabled()
@@ -77,9 +76,19 @@ test('every roll opens its window at once; the opener puts it away and brings it
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
   fireEvent.click(screen.getByRole('button', { name: 'Challenge window' }))
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
+  // With nothing running the slot STAYS, greyed: it used to unmount, so the
+  // painted plaque blinked in and out of the rim (the owner, 2026-09-07).
   rerender(board({ ...midGame, pendingWindows: [] }))
-  expect(screen.queryByRole('button', { name: 'Modifier window' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Modifier window' })).toBeDisabled()
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+})
+
+test('the volume lives behind the gear, not on the felt', () => {
+  render(board(midGame))
+  expect(screen.queryByRole('slider', { name: 'Sound volume' })).toBeNull()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  expect(screen.getByRole('slider', { name: 'Sound volume' })).toBeInTheDocument()
 })
 
 test("pressing a challenge card contests the open play at once — the target is the table's, nothing is aimed", async () => {
@@ -244,4 +253,64 @@ test("my own question over the roll comes first: the window waits for the answer
 
   rerender(board(modifierWindowOpen))
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
+})
+
+test("a monster's \"you may\" takes the stage over the roll it is watching", () => {
+  const { container } = render(board(monsterAsksOverRoll))
+
+  // The ask comes first — the roll's own window steps aside for it — and it
+  // is drawn ABOVE where that window sits (z-140), so bringing the window
+  // back with its opener cannot bury the question the way the strip card was.
+  const draw = screen.getByRole('button', { name: /crowned serpent draws/i })
+  const ask = draw.closest('[class*="z-[210]"]')
+  expect(ask).not.toBeNull()
+  // no strip card as well
+  expect(screen.queryByText('Your response, You')).toBeNull()
+  expect(within(ask as HTMLElement).getByAltText('Crowned Serpent')).toBeInTheDocument()
+  const forfeit = within(ask as HTMLElement).getByRole('button', { name: 'No' })
+
+  fireEvent.click(draw)
+  expect(send).toHaveBeenCalledWith({
+    type: 'SubmitChoice',
+    payload: { windowId: 'window-serpent', choice: 'confirm' },
+  })
+
+  send.mockClear()
+  fireEvent.click(forfeit)
+  expect(send).toHaveBeenCalledWith({
+    type: 'SubmitChoice',
+    payload: { windowId: 'window-serpent', choice: 'dismiss' },
+  })
+})
+
+test('the screen bleeds red while an opponent\'s roll is aimed at you, and nowhere else', () => {
+  const { container, rerender } = render(board(rollTargetsYou))
+  expect(container.querySelector('.target-vignette')).not.toBeNull()
+
+  rerender(board(modifierWindowOpen))
+  expect(container.querySelector('.target-vignette')).toBeNull()
+})
+
+test('the glow setting turns every aura off without touching the overlay dim', () => {
+  const { container } = render(board(midGame))
+  const root = container.querySelector('.board-root')!
+  expect(root).not.toHaveClass('no-glow')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: /glow effects/i }))
+  expect(root).toHaveClass('no-glow')
+})
+
+test('every card the server calls a passive wears the pink aura, all game long', () => {
+  const { container } = render(board(midGame))
+  const pink = Array.from(container.querySelectorAll('.passive-aura'))
+  expect(pink.length).toBeGreaterThan(0)
+  // the two leaders the fixture names, and no window is open to make them
+  // "relevant" — pink is now about the card, not the moment
+  expect(midGame.pendingWindows).toHaveLength(0)
+  // An opponent's passive leader (the aura rides the leader's wrapper). The
+  // viewer's own is GREEN instead — pink stays the lowest of the four tones,
+  // so "you may roll on this" still wins the card it is on.
+  expect(screen.getByAltText('The Fist of Reason').closest('.passive-aura')).not.toBeNull()
+  expect(screen.getByAltText('The Divine Arrow').closest('.card-aura')).not.toBeNull()
 })

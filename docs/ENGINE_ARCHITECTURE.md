@@ -148,6 +148,15 @@ outcome (principle 3).
 so a played card's own pipeline lands on the stack above them and resolves
 before the rest of whatever played it.
 
+**The card an event NAMES goes before anything watching it.** Of the pipelines
+one event matches, those whose `sourceCardId` is the event's own `cardId` are
+pushed first; the rest keep `abilitySources`' position order behind them. A
+modifier card's `ApplyModifierTask` therefore lands its bonus on the roll
+before the Crowned Serpent's "you may DRAW" opens a window and parks the
+stack — without it, the whole table watched an unchanged number until the
+Serpent's owner answered, on every screen. The Protecting Horn is the visible
+consequence: its bonus now lands second, and a sum does not care.
+
 **The instance pile is a ZONE, not a waiting room.** A played card sits there
 precisely so it is not in the discard while it resolves: a magic card that
 picks a card from the discard must not be able to pick itself, and the pile is
@@ -905,12 +914,22 @@ serialisable data with no behaviour attached (§1). It hands back a copy:
 `createGame` builds every game's cards from the same module-level records, and
 a shared object would let one table's screen be mutated into another's.
 
-**Three questions the view answers so the client cannot** —
-`attackableMonsterIds`, `HeroInPlayView.canRollOn` and `busy`. Each is a rule
-the engine already owns (`canAttackMonster`, `canUseHeroEffect` plus the
-once-per-turn slot, `GameState.isBusy`), and a screen that worked them out for
-itself would be that rule implemented twice, in two languages, free to
-disagree. `busy` is the same question `TurnManager.drain` asks before it runs
+**Four questions the view answers so the client cannot** —
+`attackableMonsterIds`, `passiveCardIds`, `HeroInPlayView.canRollOn` and
+`busy`. Each is a rule the engine already owns (`canAttackMonster`;
+`isActivatable` / `hasStandingRule` over the ability registry;
+`canUseHeroEffect` plus the once-per-turn slot; `GameState.isBusy`), and a
+screen that worked them out for itself would be that rule implemented twice, in
+two languages, free to disagree.
+
+`passiveCardIds` is the one the client could not even guess at: behaviour lives
+in the registry and never in card data (§1), so "does this card have a standing
+rule" is unanswerable off the wire. Three sources, unioned — the source card of
+every installed effect, each party's leader when it is not the ACTIVATED one,
+and each party's won monsters (whose printed rule is the passive they were won
+for; a fight-back only fires from the pile). A hero's printed effect is rolled
+for rather than standing, so heroes reach the list only through the effects they
+installed. `busy` is the same question `TurnManager.drain` asks before it runs
 an action, which is exactly why a client greying out its buttons must not ask
 a different one.
 
@@ -1062,6 +1081,15 @@ Two hand-offs, one shape:
 "No" is the **absence** of an event, so nothing has to be cancelled and nothing
 rolls back.
 
+**The condition hands on the cards that MATCHED, not everything it tested.**
+`ConditionMet` seeds the tested slot with the matching ids only, so the confirm
+behind it names one of them and the choice behind that offers them. Quick Draw
+(`hero-010`) is why: _"DRAW 2 cards. If at least one of those cards is an Item
+card, you may play one of them immediately"_ drew a Challenge first, the ask
+pointed at the Challenge, and the board glowed a card the offer could not be
+taken on. Pan Chucks' _"you may reveal it"_ reveals the Challenge for the same
+reason.
+
 **Snowball (hero-040)** — the reference. _"DRAW a card. If it is a Magic card,
 you may play it immediately and DRAW a second card."_
 
@@ -1137,10 +1165,20 @@ step behind then skips on the same empty slot, which reads as a bug from the
 table.
 
 **A choice must not offer what cannot be carried out.** `PlayerFilter.hasHeroes`
-exists because both of Forced Exchange's clauses are about the chosen player's
-party, so an empty seat is a legal pick that leads nowhere. The rule is the one
-`partyReqMet` follows for monsters: an option offered is an option that can be
-acted on.
+exists because a wording's next clause can be about the chosen player's party
+(Hopper's "that player SACRIFICES a Hero card"), so an empty seat is a legal
+pick that leads nowhere. The rule is the one `partyReqMet` follows for
+monsters: an option offered is an option that can be acted on.
+
+**A seat named by a card is a seat that need not be asked for.** Forced
+Exchange is printed "Choose a player. STEAL a Hero card from that player's
+Party…", but `getCardOwner` settles the seat from the hero, so pointing at the
+hero chooses both and the reachable outcomes are identical. It therefore runs
+the engine's one steal shape — `ChooseCardTask({ zone: Party, owner: Others })`
+then `StealFromPartyTask`, the two lines Entangling Trap, Kit Napper, Whiskers
+and Wiggles already declare — instead of a prompt of its own. A player choice
+earns its window when the card acts on the SEAT rather than on something in it
+(Heavy Bear, Hopper, Bear Claw's second pull).
 
 **A confirm must be the last step of its entry — by discipline, not by check.**
 Anything after it would run on "no" as well as "yes", because the window
@@ -1578,12 +1616,12 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   (`magic-049`/`050`) is the same shape stretched over TWO choices — price then
   payoff, in printed order, with each acting step directly behind its own
   choice because the second pick overwrites `CTX_CHOSEN_CARD`. Forced Exchange
-  (`magic-057`) is the only reader of `Owner.Chosen`: it picks a player, then
-  reads THAT player's party, which is the late binding §5 exists for — and it
-  keeps reading it across two more windows, because only a player choice
-  writes `CTX_CHOSEN_PLAYER` while the card choices overwrite
-  `CTX_CHOSEN_CARD` around it. Three windows, one entry, and the gear travels
-  both ways for free. The
+  (`magic-057`) takes a hero out of ANY other party and hands one back to
+  whichever party that was: two windows, one entry, the seat derived from the
+  stolen hero (`CTX_STOLEN_FROM_PLAYER`) rather than asked for, and the gear
+  travels both ways for free. `Owner.Chosen` is the late binding §5 exists for
+  and Heavy Bear (`hero-004`) is its reference — a card that acts on the SEAT,
+  so the seat is worth a window of its own. The
   Enchanted Spell (`magic-055`/`056`) is Wise Shield's wording on a magic card
   and shares its declaration exactly — what a card IS has no bearing on the
   shape of what it does. Really Big Ring is the

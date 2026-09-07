@@ -23,7 +23,7 @@ import { useAudio } from '../audio/AudioProvider';
  * (that bug made cards jump sideways once).
  */
 
-const CARD_H_CQH = 28; // fan card height
+export const CARD_H_CQH = 28; // fan card height
 const CARD_H_CQW = CARD_H_CQH * 0.5625; // board is 16:9 → 1cqh = 0.5625cqw
 const CARD_W_CQW = CARD_H_CQW * 0.716; // ≈ 11.3cqw (scan aspect)
 // target uncovered fraction per card; slightly above 0.7 because the
@@ -33,17 +33,26 @@ const PIVOT = 2.0; // transform-origin y, in card heights (the "wrist")
 const RIGHT_EDGE_CQW = 98; // clamp: fan may not pass this board x
 /** how long the fan stays open on its own after a card arrives */
 const PEEK_MS = 3000;
+/** cards arriving TOGETHER pop one after another, this far apart */
+const ARRIVAL_STAGGER_MS = 160;
 
 export default function PlayerHand({
   cards,
+  ids,
   anchorCenterCqw,
   playable,
   asked,
   onActivateCard,
+  sticky = false,
+  stuckOpen = false,
+  onStickyOpen,
   children,
 }: {
   /** image urls of the cards in hand, left to right */
   cards: string[];
+  /** card ids, index-aligned with `cards` — what says WHICH card just arrived
+   *  (two copies of one modifier share an art url, never an id) */
+  ids?: string[];
   /** board-x (cqw) of the hand slot's center — used to clamp the fan */
   anchorCenterCqw: number;
   /** per-card playable flags, index-aligned with `cards` — true cards get
@@ -55,6 +64,14 @@ export default function PlayerHand({
   /** normal-mode click per card index (starting that card's action) —
    *  wired on cards whose `playable` or `asked` flag is true */
   onActivateCard?: (index: number) => void;
+  /** the player's setting: the fan opens on a PRESS and stays open, instead
+   *  of following the cursor */
+  sticky?: boolean;
+  /** sticky mode only: the fan is being held open (the board owns this, since
+   *  what closes it is a press on the felt) */
+  stuckOpen?: boolean;
+  /** sticky mode only: the stack was pressed, or a card arrived */
+  onStickyOpen?: () => void;
   /** the closed-stack widget the fan is anchored to (e.g. <HandCount/>) */
   children: React.ReactNode;
 }) {
@@ -73,15 +90,65 @@ export default function PlayerHand({
   const [peeking, setPeeking] = React.useState(false);
   const count = cards.length;
   const lastCount = React.useRef(count);
+  const openStuck = React.useRef(onStickyOpen);
+  openStuck.current = onStickyOpen;
   React.useEffect(() => {
     const grew = count > lastCount.current;
     lastCount.current = count;
     if (!grew) return;
+    // Sticky mode promises that only a press on the felt closes the fan, so an
+    // arrival hands it the same open state a press would, not a timed peek.
+    if (sticky) {
+      openStuck.current?.();
+      return;
+    }
     setPeeking(true);
     const timer = window.setTimeout(() => setPeeking(false), PEEK_MS);
     return () => window.clearTimeout(timer);
-  }, [count]);
+  }, [count, sticky]);
   const peekOpen = peeking && !forcedClosed;
+
+  // Which cards are NEW since the last hand — they grow and settle back, so
+  // the fan says WHICH one just arrived (the owner, 2026-09-07). Ids, not urls:
+  // identical copies share their art. The opening hand is not an arrival.
+  //
+  // Arrivals are ADDED to the set and each card takes its OWN id out again
+  // when its own animation ends (`retire`, wired to onAnimationEnd). One
+  // shared timer used to own the whole set, so a second card arriving killed
+  // the first card's pop mid-flight and a hand change that was not an arrival
+  // stranded ids in the set for the next remount to replay.
+  // The map holds each arriving card's own start delay, FIXED when it
+  // arrives: a delay derived from who else is still animating would change
+  // under a card whose neighbour finished first, and a changed
+  // `animation-delay` re-times a running animation.
+  const [arrived, setArrived] = React.useState<ReadonlyMap<string, number>>(new Map());
+  const idKey = ids?.join('|') ?? '';
+  const lastIds = React.useRef<ReadonlySet<string> | null>(null);
+  React.useEffect(() => {
+    if (ids === undefined) return;
+    const held = new Set(ids);
+    const before = lastIds.current;
+    lastIds.current = held;
+    if (before === null) return;
+    const fresh = ids.filter((id) => !before.has(id));
+    if (fresh.length === 0) return;
+    setArrived((current) => {
+      const next = new Map(current);
+      // cards drawn TOGETHER pop one after another, so a DRAW 2 reads as two
+      fresh.forEach((id, order) => next.set(id, order * ARRIVAL_STAGGER_MS));
+      return next;
+    });
+    // `ids` is a fresh array every render; its CONTENT is the input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idKey]);
+  const retire = React.useCallback((id: string) => {
+    setArrived((current) => {
+      if (!current.has(id)) return current;
+      const next = new Map(current);
+      next.delete(id);
+      return next;
+    });
+  }, []);
   // Which card the cursor is over, judged by the cells' RESTING boxes: the
   // enlarged image is a child of its cell, so DOM hover alone would keep a
   // card zoomed while the cursor sits on the enlarged part outside where
@@ -125,22 +192,37 @@ export default function PlayerHand({
   const fanHalf = ((n - 1) * gap + CARD_W_CQW) / 2;
   const shiftLeft = Math.max(0, anchorCenterCqw + fanHalf - RIGHT_EDGE_CQW);
 
+  // The stack is pressable exactly while the setting is on and the fan is
+  // shut — one value, so the cursor and the click can never disagree.
+  const pressToOpen = sticky && !stuckOpen;
+
+  const OPEN = 'pointer-events-auto translate-y-0 scale-100 opacity-100';
+  const SHUT = 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0';
+  const ON_HOVER =
+    'group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100';
+  const fanState = forcedClosed
+    ? SHUT
+    : sticky
+      ? stuckOpen
+        ? OPEN
+        : SHUT
+      : peekOpen
+        ? OPEN
+        : `${SHUT} ${ON_HOVER}`;
+
   return (
     <div
-      className="group hand-group relative h-full w-full"
+      className={`group hand-group relative h-full w-full${pressToOpen ? ' cursor-pointer' : ''}`}
       onMouseEnter={() => setPeeking(false)}
+      // sticky mode: pressing anywhere on the stack opens the fan, and only a
+      // press on the felt closes it again (the board owns that half)
+      onClick={pressToOpen ? () => onStickyOpen?.() : undefined}
     >
       {children}
 
       {/* fan anchor: low on the slot, overlapping the stack */}
       <div
-        className={`absolute bottom-[12%] left-1/2 transition-all duration-200 ease-out ${
-          forcedClosed
-            ? 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0'
-            : peekOpen
-              ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
-              : 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100'
-        }`}
+        className={`absolute bottom-[12%] left-1/2 transition-all duration-200 ease-out ${fanState}`}
         style={{ marginLeft: `-${shiftLeft}cqw` }}
       >
         <div
@@ -156,7 +238,10 @@ export default function PlayerHand({
             // a `hover:` class cannot beat the inline base z, which let the
             // next card paint over the zoomed one.
             <div
-              key={`${src}-${i}`}
+              // the CARD's identity, not its slot: playing a card shifts every
+              // later index, and an index key would remount those cells and
+              // replay whatever animation their new index was carrying
+              key={ids?.[i] ?? `${src}-${i}`}
               ref={(element) => {
                 cellRefs.current[i] = element;
               }}
@@ -173,6 +258,9 @@ export default function PlayerHand({
                 src={src}
                 index={i}
                 hovered={hovered === i && !forcedClosed}
+                arrived={!!ids && arrived.has(ids[i])}
+                arrivalDelayMs={(ids && arrived.get(ids[i])) || 0}
+                onArrived={ids ? () => retire(ids[i]) : undefined}
                 playable={playable?.[i]}
                 asked={asked?.[i]}
                 onActivate={
@@ -195,6 +283,9 @@ function FanCard({
   src,
   index,
   hovered = false,
+  arrived = false,
+  arrivalDelayMs = 0,
+  onArrived,
   playable,
   asked = false,
   onActivate,
@@ -203,6 +294,12 @@ function FanCard({
   index: number;
   /** the cell (resting footprint) is under the cursor — grow */
   hovered?: boolean;
+  /** this card has just joined the hand: one grow-and-settle */
+  arrived?: boolean;
+  /** how long this card waits before its pop, so a pair reads as two events */
+  arrivalDelayMs?: number;
+  /** this card's own pop has finished — it takes its id out of the set */
+  onArrived?: () => void;
   playable?: boolean;
   /** the open yes/no is about this card: gold, pressing = yes */
   asked?: boolean;
@@ -222,10 +319,20 @@ function FanCard({
   return (
     <div
       onClick={t.onClick}
+      // Only this card's own pop retires this card: another element's
+      // animation bubbles up here, and `hand-arrival` is the only one that
+      // means the card has finished arriving.
+      onAnimationEnd={(event) => {
+        if (event.animationName === 'hand-arrival') onArrived?.();
+      }}
       className={`relative h-full w-full origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
         asked ? ' ask-aura' : playable ? ' card-aura' : ''
-      } ${t.className}`}
-      style={{ width: `${CARD_W_CQW}cqw`, transform: zoomed ? 'scale(1.6)' : undefined }}
+      }${arrived ? ' hand-arrival' : ''} ${t.className}`}
+      style={{
+        width: `${CARD_W_CQW}cqw`,
+        transform: zoomed ? 'scale(1.6)' : undefined,
+        animationDelay: arrived && arrivalDelayMs ? `${arrivalDelayMs}ms` : undefined,
+      }}
     >
       <AssetImage src={src} alt={`hand card ${index + 1}`} draggable={false} className="h-full w-full rounded-[0.4cqw] object-fill" />
       <CardReactionTimer handIndex={index} zoomed={zoomed} />

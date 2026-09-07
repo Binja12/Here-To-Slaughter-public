@@ -110,27 +110,38 @@ export default function ModifierWindow({
           return (
             <div
               key={`${card.id}-${index}`}
-              className="challenge-pop absolute"
+              className="absolute"
               style={{
                 height: `${L.modCard.h}cqh`,
                 width: `${L.modCard.h * NONHERO_CARD_ASPECT}cqh`,
                 left: `calc(50% + ${side * (L.modCard.dx + rank * L.modCard.step)}cqh)`,
                 top: `calc(50% + ${L.modCard.dy + rank * L.modCard.drop}cqh)`,
-                transform: `translate(-50%, -50%) rotate(${L.modCard.angle}deg)`,
+                // the card is CENTRED on that point and leans away from the
+                // middle — mirrored per side, so the left fan is the right
+                // fan's reflection
+                transform: `translate(-50%, -50%) rotate(${side * L.modCard.angle}deg)`,
                 zIndex: 10 - rank,
               }}
             >
-              <AssetImage
-                src={artFor(card).url}
-                alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
-                draggable={false}
-                className="h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
-              />
-              <span
-                className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]"
-              >
-                {amount > 0 ? '+' : '−'}{Math.abs(amount)}
-              </span>
+              {/* the entrance lives on an INNER wrapper, the way the challenge
+                  window's pieces do: `challenge-pop` animates `transform`, so
+                  on the positioned element itself it wiped the centring
+                  translate above and every card sat half a width to the right
+                  of where it belongs — which put the LEFT fan under the card
+                  in the middle (the owner, four times) */}
+              <div className="challenge-pop relative h-full w-full">
+                <AssetImage
+                  src={artFor(card).url}
+                  alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
+                  draggable={false}
+                  className="h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
+                />
+                <span
+                  className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]"
+                >
+                  {amount > 0 ? '+' : '−'}{Math.abs(amount)}
+                </span>
+              </div>
             </div>
           )
         })}

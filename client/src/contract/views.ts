@@ -106,6 +106,8 @@ export type PlayerView = {
   discardPile: CardView[]
   monsterRow: CardView[]
   attackableMonsterIds: string[]
+  /** every card on the table whose rule works with nobody playing anything — the pink aura */
+  passiveCardIds: string[]
   /** cards the engine is showing you right now, for its reveal clock (5 s) */
   revealedCards: CardView[]
   pendingWindows: PendingWindowView[]

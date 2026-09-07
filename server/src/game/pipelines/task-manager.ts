@@ -97,6 +97,11 @@ export class TaskManager implements IGameEventListener {
     // Matched after the wake, so anything this event starts goes on top of it
     // and resolves first.
     const matched: AbilityPipeline[] = []
+    // The card the event NAMES; everything else matching is an onlooker.
+    const { cardId: eventCardId } = (event.getPayload() ?? {}) as {
+      cardId?: string
+    }
+    const own: AbilityPipeline[] = []
 
     for (const source of this.abilitySources()) {
       if (!triggerMatches(this.gs, source, source.trigger, event)) continue
@@ -121,10 +126,17 @@ export class TaskManager implements IGameEventListener {
 
       // Copy the steps: the drain consumes the array, and the declaration's
       // own list is built once at module load and reused forever.
-      matched.push({ steps: [...source.steps], ctx, system: source.system })
+      const pipeline = { steps: [...source.steps], ctx, system: source.system }
+      if (eventCardId && source.sourceCardId === eventCardId) own.push(pipeline)
+      else matched.push(pipeline)
     }
 
-    this.add(matched)
+    // The named card finishes its OWN behaviour before anything watching it
+    // reacts: a modifier's bonus is on the roll before the Crowned Serpent's
+    // "you may DRAW" parks the stack, so the table sees the number it is
+    // answering (the owner, 2026-09-07). Order INSIDE each group is
+    // abilitySources' — position order.
+    this.add([...own, ...matched])
     this.drain()
   }
 

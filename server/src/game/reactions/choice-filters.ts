@@ -20,9 +20,9 @@ import { ItemCard } from '../cards/item-card'
 export type PlayerFilter = {
   owner?: Owner
   /**
-   * Keep only players fielding at least one hero. For a wording whose SECOND
-   * clause is about that player's party — Forced Exchange takes one and hands
-   * one back — offering an empty seat would offer a choice that cannot be
+   * Keep only players fielding at least one hero. For a wording whose next
+   * clause is about that player's party — Hopper's "that player SACRIFICES a
+   * Hero card" — offering an empty seat would offer a choice that cannot be
    * carried out.
    */
   hasHeroes?: boolean
