@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import { useEffect, useRef, useState } from "react";
 import { assetUrl } from "../assetUrl";
 import {
@@ -327,7 +328,7 @@ function Die({
                   backfaceVisibility: "hidden",
                 }}
               >
-                <img
+                <AssetImage
                   src={faceUrl(f.value)}
                   alt={`die face ${f.value}`}
                   draggable={false}

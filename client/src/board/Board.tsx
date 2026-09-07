@@ -1,3 +1,4 @@
+import AssetImage, { useBackgroundImage } from '../loading/AssetImage'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Anchor,
@@ -112,7 +113,7 @@ function Widget({
         ...positionStyle(anchor, def.dx, def.dy),
       }}
     >
-      <img
+      <AssetImage
         src={FRAMES[def.kind]}
         alt=""
         aria-hidden
@@ -181,7 +182,7 @@ function SlotCard({
         onMouseLeave={zoomable ? hz.onMouseLeave : undefined}
         onContextMenu={zoomable ? hz.onContextMenu : undefined}
       >
-        <img src={art.url} alt={alt ?? card.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
+        <AssetImage src={art.url} alt={alt ?? card.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
         <CardReactionTimer cardId={card.id} zoomed={zoomable && hz.active} />
       </div>
     </div>
@@ -296,7 +297,7 @@ function LeaderWithCards({
         onContextMenu={hz.onContextMenu}
         onClick={leaderTarget.onClick}
       >
-        <img src={leaderArt.url} alt={party.leader.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
+        <AssetImage src={leaderArt.url} alt={party.leader.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
         <CardReactionTimer cardId={party.leader.id} zoomed={zoomed} />
       </div>
     </div>
@@ -341,7 +342,7 @@ const Trophy = React.forwardRef<
       }}
       onClick={target.onClick}
     >
-      <img
+      <AssetImage
         src={art.url}
         alt={`${card.name}, slain monster`}
         draggable={false}
@@ -387,7 +388,7 @@ function DeckPile({
       {Array.from({ length: layers }, (_, index) => {
         const top = index === layers - 1
         return (
-          <img
+          <AssetImage
             key={index}
             src={back}
             alt={top ? 'deck' : ''}
@@ -464,7 +465,7 @@ function DiscardPile({
         const top = index === visible.length - 1
         return (
           <div key={card.id} className="absolute inset-0" style={{ transform: pileJitter(index, top) }}>
-          <img
+          <AssetImage
             src={art.url}
             alt={top ? `${card.name}, discard top` : ''}
             aria-hidden={!top}
@@ -541,9 +542,9 @@ const AP_SLOT_X = [25.5, 37.5, 50, 62.4, 74.5]
 function ActionPoints({ current }: { current: number }) {
   return (
     <div className="relative h-full w-full">
-      <img src={HUD.actionFrame} alt="" aria-hidden className="dimmable absolute inset-0 h-full w-full object-fill" />
+      <AssetImage src={HUD.actionFrame} alt="" aria-hidden className="dimmable absolute inset-0 h-full w-full object-fill" />
       {AP_SLOT_X.map((x, index) => (
-        <img
+        <AssetImage
           key={index}
           src={HUD.actionGem}
           alt="action point"
@@ -702,6 +703,7 @@ export default function Board({ onLeave }: { onLeave?: () => void }) {
 }
 
 function BoardInner({ onLeave }: { onLeave?: () => void }) {
+  const tableBackground = useBackgroundImage(TABLE_BG)
   const view = useGameView()
   const info = useGameInfo()
   const log = useGameLog()
@@ -1228,7 +1230,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       </div>
       <div
         className="dimmable pointer-events-none absolute inset-0"
-        style={{ backgroundImage: `url("${TABLE_BG}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+        style={{ backgroundImage: `url("${tableBackground}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
       />
       <div
         className="board-stage absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 [container-type:size]"
@@ -1238,7 +1240,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           className="absolute z-20 -translate-x-1/2 -translate-y-1/2 has-[:hover]:z-[100]"
           style={{ left: `calc(50% + ${CENTER_DX}cqh)`, top: `calc(50% + ${CENTER_DY}cqh)`, height: `${CENTER_H}cqh`, width: `${CENTER_H * ASPECT.center}cqh` }}
         >
-          <img src={FRAMES.center} alt="" aria-hidden draggable={false} className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill" />
+          <AssetImage src={FRAMES.center} alt="" aria-hidden draggable={false} className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill" />
           <CenterArena
             view={view}
             discardCards={discardCards}
@@ -1515,7 +1517,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                       })
                     }}
                   >
-                    <img
+                    <AssetImage
                       src={boardModifierUrl(`${value > 0 ? '+' : ''}${value}`)}
                       alt={`${value > 0 ? '+' : ''}${value}`}
                       draggable={false}
@@ -1540,7 +1542,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               </div>
               <div className="flex items-center justify-center gap-[1cqw]">
                 {askingCard && (
-                  <img
+                  <AssetImage
                     src={artFor(askingCard).url}
                     alt={askingCard.name}
                     draggable={false}
@@ -1560,7 +1562,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                       })
                     }
                   >
-                    <img
+                    <AssetImage
                       src={artFor(card).url}
                       alt={card.name}
                       draggable={false}
@@ -1581,7 +1583,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               </div>
               <div className="flex items-center justify-center gap-[1cqw]">
                 {valueAskCard && (
-                  <img
+                  <AssetImage
                     src={artFor(valueAskCard).url}
                     alt={valueAskCard.name}
                     draggable={false}

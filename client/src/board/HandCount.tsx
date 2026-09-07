@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React, { useEffect, useRef } from "react";
 import { SMALL_BACK } from "./assets";
 import { useTargetable, TargetKey } from "./targeting";
@@ -47,7 +48,7 @@ export default function HandCount({
         } ${t.className}`}
         onClick={t.onClick}
       >
-        <img
+        <AssetImage
           src={SMALL_BACK}
           alt="card back"
           draggable={false}

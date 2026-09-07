@@ -7,6 +7,7 @@ import {
   ServerToClientGameEvents,
 } from '../contract'
 import { GameEvents, GamePort } from './GamePort'
+import { backgroundTraffic } from '../loading/traffic'
 
 export class RealGamePort implements GamePort {
   private socket: Socket<ServerToClientGameEvents, ClientToServerGameEvents> | null = null
@@ -21,6 +22,7 @@ export class RealGamePort implements GamePort {
 
     socket.on('connect', () => events.onConnectionChange?.(true))
     socket.on('disconnect', () => events.onConnectionChange?.(false))
+    socket.on('connect_error', () => events.onConnectionChange?.(false))
     socket.on('game:connected', (info) => events.onConnected?.(info))
     socket.on('game-started', (snapshot: GameSnapshot) => events.onStarted(snapshot))
     socket.on('game:snapshot', (snapshot: GameSnapshot) => events.onSnapshot(snapshot))
@@ -33,13 +35,18 @@ export class RealGamePort implements GamePort {
   }
 
   async send(command: GameCommand): Promise<CommandResult> {
-    const first = await this.emitOnce(command)
-    if (first) return first
-    const retry = await this.emitOnce(command)
-    return retry ?? {
-      commandId: command.commandId,
-      accepted: false,
-      error: 'InternalError',
+    const release = backgroundTraffic.foregroundRequest()
+    try {
+      const first = await this.emitOnce(command)
+      if (first) return first
+      const retry = await this.emitOnce(command)
+      return retry ?? {
+        commandId: command.commandId,
+        accepted: false,
+        error: 'InternalError',
+      }
+    } finally {
+      release()
     }
   }
 

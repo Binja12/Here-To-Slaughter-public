@@ -1,5 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { assetUrl } from '../assetUrl'
+import { musicPlaylist } from '../loading/catalog'
+import { backgroundTraffic } from '../loading/traffic'
+import { MusicTrack } from './MusicTrack'
 
 export const SOUND_FILES = {
   heroPlayed: '/sound effects/hero played.mp3',
@@ -41,7 +44,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       ? previous : { kind, restartKey })
   }, [])
   const volumeRef = useRef(volume)
-  const tracks = useRef<Partial<Record<Music, HTMLAudioElement>>>({})
+  const tracks = useRef<Partial<Record<Music, MusicTrack>>>({})
   const effects = useRef(new Set<HTMLAudioElement>())
   const currentMusic = useRef<Music>('gameplay')
   const musicLevels = useRef<Record<Music, number>>({ gameplay: 1, challenge: 0 })
@@ -68,13 +71,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const next = Math.max(0, Math.min(100, Math.round(value)))
     volumeRef.current = next
     updateVolume(next)
+    Object.values(tracks.current).forEach((track) => track?.setMuted(next === 0))
     applyMusicVolume()
     effects.current.forEach((effect) => { effect.volume = next / 100 })
     try { localStorage.setItem(STORAGE_KEY, String(next)) } catch { /* Storage may be disabled. */ }
   }, [applyMusicVolume])
 
   const resumeMusic = useCallback(() => {
-    if (document.hidden) return
+    if (document.hidden || backgroundTraffic.busy) return
     const incoming = currentMusic.current
     const track = tracks.current[incoming]
     if (!track || fadeTimer.current !== null || pendingMusic.current === incoming) return
@@ -114,9 +118,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const created = tracks.current
     for (const kind of MUSIC_KINDS) {
-      const track = new Audio(assetUrl(MUSIC_FILES[kind]))
-      track.loop = true
-      track.preload = 'auto'
+      const file = MUSIC_FILES[kind]
+      const track = new MusicTrack(musicPlaylist(file) ?? [{ url: assetUrl(file), startSeconds: 0, durationSeconds: 0 }], assetUrl(file))
+      track.setMuted(volumeRef.current === 0)
       track.volume = volumeRef.current / 100 * MUSIC_GAIN * musicLevels.current[kind]
       created[kind] = track
     }
@@ -134,13 +138,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('pointerdown', resumeMusic)
     document.addEventListener('keydown', resumeMusic)
     document.addEventListener('visibilitychange', visibility)
+    const unsubscribe = backgroundTraffic.onIdle(resumeMusic)
     resumeMusic()
     return () => {
       cancelTransition()
       document.removeEventListener('pointerdown', resumeMusic)
       document.removeEventListener('keydown', resumeMusic)
       document.removeEventListener('visibilitychange', visibility)
-      Object.values(created).forEach((track) => { if (track) { track.pause(); track.removeAttribute('src'); track.load() } })
+      unsubscribe()
+      Object.values(created).forEach((track) => track?.dispose())
       activeEffects.forEach((effect) => effect.pause())
       activeEffects.clear()
       tracks.current = {}

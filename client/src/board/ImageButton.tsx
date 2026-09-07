@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React from 'react'
 
 /** A painted HUD button (the owner's End Turn / Redraw / Skip art). */
@@ -22,7 +23,7 @@ export default function ImageButton({
       onClick={onClick}
       className="group relative h-full w-full transition-transform duration-[120ms] ease-out enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50"
     >
-      <img
+      <AssetImage
         src={src}
         alt=""
         aria-hidden

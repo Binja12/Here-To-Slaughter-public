@@ -20,10 +20,25 @@ Socket.IO CORS origin), recreates `game` with it, then checks the client page,
 the Socket.IO handshake and the lobby API through the public URL before
 printing it.
 
-No account and no domain are needed, but the hostname is random and dies with
-the tunnel — restarting hands out a different one, so the URL cannot be shared
-ahead of time. The tunnel lives in an `ssh.exe` the script tracks by pid in
-`%TEMP%`; closing the terminal does not close it.
+No account and no domain are needed. Free localhost.run domains can change
+while the same SSH process is running, and the free service has a speed limit
+([provider documentation](https://localhost.run/docs/forever-free/)). A free
+account with a registered SSH key gives longer-lived domains, not removal of
+the free-tier speed limit.
+
+Keep the launcher terminal open: it checks the public page every 15 seconds
+and warns if the tunnel fails or announces a replacement address. It reads the
+latest announced address, rather than retaining the first address in the log.
+It does not automatically recreate the game server when an address changes,
+because that would end active games. Restart the launcher to configure a new
+address before continuing. The tunnel lives in an `ssh.exe` tracked by pid in
+`%TEMP%`; closing the terminal stops monitoring but does not close that tunnel.
+
+If PowerShell blocks scripts, use a policy override for this process only:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-internet-playtest.ps1
+```
 
 ```powershell
 .\scripts\start-internet-playtest.ps1 -Stop
@@ -32,28 +47,37 @@ ahead of time. The tunnel lives in an `ssh.exe` the script tracks by pid in
 That stops the tunnel and the stack together. Use the Cloudflare route below
 instead when a stable hostname is worth the one-time setup.
 
+If the board remains visible but game actions stop working, check the connection
+status message at the top of the game and the launcher's tunnel warnings. The
+settings and volume controls are local UI; their working does not establish
+that the game server is still reachable. The game shows a reconnecting notice
+after WebSocket disconnection and clears it when the connection returns.
+
 ## Why the art is fast over a tunnel
 
 Everything a remote player fetches goes out over the host computer's upload
 link, and the painted PNG masters under `client/public` weigh 450 MB (a
 card is ~4 MB, the border widgets alone 21 MB). Measured through
 localhost.run: one 1.5 MB button took 2.4 s, and even a
-revalidation that transfers nothing took 0.8 s of round trip. Two things in
-the client image fix that without touching the masters:
+revalidation that transfers nothing took 0.8 s of round trip. The client build
+prepares smaller delivery assets while keeping every original:
 
-- **WebP twins.** The image build runs `scripts/optimize-art.mjs`, which
-  writes `<name>.png.webp` next to every PNG (450 MB → 36 MB, same pixels,
-  no visible loss at q82). nginx hands the twin to any browser that accepts
-  WebP and the PNG to anyone else, so the URLs in the client never change.
-  The twins are git-ignored; `npm start` serves the PNGs and needs nothing.
-- **Versioned URLs.** Every art URL carries `?v=<hash of the PNG masters>`
-  (`client/src/assetUrl.ts`, set by the Dockerfile), and nginx caches a
-  versioned URL for a year. A redrawn card changes the hash, so browsers
-  fetch it fresh; an unversioned request still revalidates every time, which
-  is what keeps art replaced in place from going stale.
+- **Images sized for the largest zoom.** Quality-90 WebP profiles cover 1080,
+  1440 and 2160 effective stage heights, accounting for screen pixel density.
+  The 1080 set totals 15.57 MiB. Hover and challenge views use the same prepared
+  resolution from the outset. Failed exports fall back to full-size art.
+- **Prioritized downloads.** Login/lobby idle time warms game assets. Visible
+  images interrupt background transfers. Music uses five-minute segments,
+  buffering one upcoming part instead of fetching the entire long soundtrack.
+- **Stable versioned URLs.** Generated media and code have immutable hashed
+  paths. Original fallbacks use per-file hashes. Unchanged files can be reused
+  from browser cache across screens and deployments; HTML still revalidates.
 
-A returning player therefore makes no art requests at all, and a first-time
-player downloads about a twelfth of what they used to.
+Full-size WebP twins remain available through nginx's original-URL negotiation.
+Local `npm start` uses delivery assets if prepared, otherwise the originals.
+See [ONLINE_ASSET_PREPARATION.md](ONLINE_ASSET_PREPARATION.md) for preparation,
+profile bounds, fallback behavior and measured loading checks. The host's upload
+bandwidth and tunnel round-trip time still determine actual remote speed.
 
 ## Why the Cloudflare route uses a named tunnel
 

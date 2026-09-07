@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import CardReactionTimer from './CardReactionTimer';
 import React from 'react';
 import { useTargetable, useTargeting, tkey } from './targeting';
@@ -226,7 +227,7 @@ function FanCard({
       } ${t.className}`}
       style={{ width: `${CARD_W_CQW}cqw`, transform: zoomed ? 'scale(1.6)' : undefined }}
     >
-      <img src={src} alt={`hand card ${index + 1}`} draggable={false} className="h-full w-full rounded-[0.4cqw] object-fill" />
+      <AssetImage src={src} alt={`hand card ${index + 1}`} draggable={false} className="h-full w-full rounded-[0.4cqw] object-fill" />
       <CardReactionTimer handIndex={index} zoomed={zoomed} />
     </div>
   );

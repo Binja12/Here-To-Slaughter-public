@@ -11,3 +11,5 @@ graphify-out
 *.pdf
 # WebP twins are generated inside the build (scripts/optimize-art.mjs)
 client/public/**/*.png.webp
+client/public/generated/
+client/src/generated/

@@ -4,6 +4,14 @@ Read before touching `server/src/game/**`. This records the _why_ behind the
 shapes in the code. Branch: `HTSR-3-Game-engine`. Suite:
 `npm test --workspace=server`.
 
+Client asset delivery, lobby warmup and music buffering are documented in
+[ONLINE_ASSET_PREPARATION.md](ONLINE_ASSET_PREPARATION.md). They run separately
+from the engine's live game-state connection and do not change its contracts.
+Visible art and commands awaiting acknowledgement pause background media.
+Speculative card ordering uses only the public filename catalog, never deck state.
+Client request/reply timing and the waiting-for-reply notice are separate from
+engine reaction-window timers; details are in the asset delivery document.
+
 **Reference implementations.** `hero-040` (Snowball) and `hero-028` (Wise
 Shield) are the most complete cycles in the engine. Snowball exercises the full
 ability pipeline — draw, condition, confirm, continuation — across three

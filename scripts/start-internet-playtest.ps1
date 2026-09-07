@@ -63,6 +63,13 @@ function Get-TunnelOutput {
   ) -join "`n"
 }
 
+function Get-LatestTunnelUrl {
+  param([string]$Output)
+  $urls = [regex]::Matches($Output, 'https://[A-Za-z0-9.-]+\.lhr\.life\b')
+  if ($urls.Count -gt 0) { return $urls[$urls.Count - 1].Value }
+  return $null
+}
+
 function Test-PublicEndpoint {
   param(
     [string]$Uri,
@@ -118,11 +125,11 @@ try {
 
   for ($attempt = 0; $attempt -lt 30 -and -not $publicUrl; $attempt++) {
     Start-Sleep -Seconds 1
-    $match = [regex]::Match((Get-TunnelOutput), 'https://[A-Za-z0-9.-]+\.lhr\.life')
-    if ($match.Success) {
-      $publicUrl = $match.Value.TrimEnd('.')
+    $publicUrl = Get-LatestTunnelUrl (Get-TunnelOutput)
+    if ($publicUrl) {
       break
     }
+    $ssh.Refresh()
     if ($ssh.HasExited) {
       throw "localhost.run SSH tunnel exited. $((Get-TunnelOutput).Trim())"
     }
@@ -172,5 +179,29 @@ try {
 Write-Host ''
 Write-Host "HTSR is ready: $publicUrl" -ForegroundColor Green
 Write-Host "Send that URL to your friends. Keep Docker Desktop and this computer running."
-Write-Host "The hostname is random and dies with the tunnel; restarting hands out a new one."
+Write-Host "Keep this terminal open for tunnel health warnings. Free hostnames can change while running."
 Write-Host "To stop later: .\scripts\start-internet-playtest.ps1 -Stop"
+
+$lastReportedUrl = $publicUrl
+$unreachable = $false
+while ($true) {
+  Start-Sleep -Seconds 15
+  $ssh.Refresh()
+  if ($ssh.HasExited) {
+    Write-Warning 'The public tunnel has stopped. The local game server is still running, but players cannot reach it through this link.'
+    break
+  }
+  $latestUrl = Get-LatestTunnelUrl (Get-TunnelOutput)
+  if ($latestUrl -and $latestUrl -ne $lastReportedUrl) {
+    Write-Warning "localhost.run changed the address from $lastReportedUrl to $latestUrl. The old link no longer works."
+    Write-Warning 'Restart this launcher to configure the replacement address before continuing. Restarting the game server ends active matches.'
+    $lastReportedUrl = $latestUrl
+  }
+  $healthy = Test-PublicEndpoint -Uri $lastReportedUrl
+  if (-not $healthy -and -not $unreachable) {
+    Write-Warning "The public page at $lastReportedUrl is unreachable. Loaded pages may still show the board while downloads and game actions fail."
+  } elseif ($healthy -and $unreachable) {
+    Write-Host "The public page responds again at $lastReportedUrl." -ForegroundColor Green
+  }
+  $unreachable = -not $healthy
+}

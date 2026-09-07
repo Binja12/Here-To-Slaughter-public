@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React from 'react'
 import { boardModifierUrl } from './assets'
 
@@ -5,7 +6,7 @@ import { boardModifierUrl } from './assets'
 export default function ValueArt({ value }: { value: number }) {
   const sign = `${value > 0 ? '+' : ''}${value}`
   return (
-    <img
+    <AssetImage
       src={boardModifierUrl(sign)}
       alt={sign}
       draggable={false}

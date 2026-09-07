@@ -20,24 +20,27 @@ RUN npm ci --no-audit --no-fund
 
 # ---- build: shared -> server -> client ------------------------------------
 FROM deps AS build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 COPY tsconfig.json ./
 COPY shared shared
 COPY server server
 COPY client client
-COPY scripts/optimize-art.mjs scripts/
+COPY scripts/optimize-art.mjs scripts/prepare-online-art.mjs scripts/online-art-sizes.mjs scripts/prepare-online-music.mjs scripts/verify-online-assets.mjs scripts/build-asset-catalog.mjs scripts/
 RUN npm run build --workspace=shared \
  && npm run build --workspace=server
 # A WebP twin next to every PNG, for nginx to hand to browsers that take it
 # (docker/nginx.conf). The repo keeps only the PNG masters.
 RUN node scripts/optimize-art.mjs
+RUN npm run assets:prepare && npm run assets:verify
 # Where the browser reaches the lobby. Baked in at build time (CRA).
 ARG REACT_APP_LOBBY_URL=http://localhost:3000
 ENV REACT_APP_LOBBY_URL=$REACT_APP_LOBBY_URL
-# Art URLs carry ?v=<this hash> (client/src/assetUrl.ts) so nginx can cache
-# them for a year; hashing the masters plus the encoder settings means the
-# version moves exactly when the served bytes would.
+# The generated catalog supplies per-file versions. This bundle-wide version
+# covers any original URL not represented in that catalog.
 # CI=false: eslint warnings must not fail the build. No source maps: faster.
-RUN export REACT_APP_ASSET_VERSION=$(find client/public scripts/optimize-art.mjs -type f ! -name '*.webp' -print0 \
+RUN export REACT_APP_ASSET_VERSION=$(find client/public scripts/optimize-art.mjs -type f ! -path 'client/public/generated/*' ! -name '*.webp' -print0 \
       | LC_ALL=C sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12) \
  && CI=false GENERATE_SOURCEMAP=false npm run build --workspace=client
 
