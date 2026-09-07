@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { CardType, CardView } from '../contract'
 import { artFor } from './assets'
@@ -61,7 +62,7 @@ function FilterPlaque({
             back up until the PAINT fills the slot, at one weight across all
             six however differently each was painted. It must not hit-test:
             scaled up it overhangs into the neighbouring slots. */}
-        <img
+        <AssetImage
           src={DISCARD_ART[plaque]}
           alt=""
           aria-hidden
@@ -134,7 +135,7 @@ function DiscardCard({
         onPicked()
       }}
     >
-      <img
+      <AssetImage
         src={artFor(card).url}
         alt={`${card.name}, ${card.type}`}
         draggable={false}
@@ -244,7 +245,7 @@ export default function DiscardPileModal({
           className="pointer-events-none absolute rounded-[2cqh] bg-[#160b09]"
           style={WINDOW_BOX}
         />
-        <img
+        <AssetImage
           src={DISCARD_ART.frame}
           alt=""
           aria-hidden

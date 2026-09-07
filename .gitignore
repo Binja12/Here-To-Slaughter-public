@@ -51,3 +51,7 @@ CLAUDE.md
 
 # WebP twins the image build writes next to the PNG art (scripts/optimize-art.mjs)
 client/public/**/*.png.webp
+
+# Reproducible delivery assets; originals remain tracked at their existing URLs.
+client/public/generated/
+client/src/generated/

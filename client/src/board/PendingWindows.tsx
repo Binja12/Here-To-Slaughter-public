@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React, { useEffect, useRef, useState } from 'react'
 import type { PendingWindowView, PlayerView } from '../contract'
 import { artFor } from './assets'
@@ -64,7 +65,7 @@ function WindowCard({
       onClick={target.onClick}
     >
       {art && card && (
-        <img
+        <AssetImage
           src={art.url}
           alt={card.name}
           draggable={false}

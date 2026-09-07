@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React, { useRef } from 'react'
 import { assetUrl } from '../assetUrl'
 import { useAudio } from './AudioProvider'
@@ -13,15 +14,15 @@ export default function VolumeControl() {
   return (
     <div className="volume-control" title={`Sound volume: ${volume}%`} onClick={(event) => event.stopPropagation()}>
       <div className="volume-outline volume-sprite" aria-hidden="true">
-        <img src={assetUrl('/music/Volume outline.png')} alt="" draggable={false} />
+        <AssetImage src={assetUrl('/music/Volume outline.png')} alt="" draggable={false} />
       </div>
       <div className="volume-track" aria-hidden="true">
         <div className="volume-fill volume-sprite" style={{ clipPath: `inset(0 ${100 - volume}% 0 0)` }}>
-          <img src={assetUrl('/music/Volume Bar.png')} alt="" draggable={false} />
+          <AssetImage src={assetUrl('/music/Volume Bar.png')} alt="" draggable={false} />
         </div>
       </div>
       <div className="volume-knob volume-sprite" aria-hidden="true" style={{ left: `${25.61 + 51.81 * volume / 100}%` }}>
-        <img src={assetUrl('/music/Volume Knob.png')} alt="" draggable={false} />
+        <AssetImage src={assetUrl('/music/Volume Knob.png')} alt="" draggable={false} />
       </div>
       <input className="volume-input" type="range" min="0" max="100" step="1" value={volume}
         aria-label="Sound volume" aria-valuetext={volume === 0 ? 'Muted' : `${volume}%`}

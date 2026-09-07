@@ -1,16 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import AuthView from './auth/AuthView'
-import Board from './board/Board'
-import { AudioProvider } from './audio/AudioProvider'
 import type { GameAssigned } from './contract'
-import LobbyView from './lobby/LobbyView'
-import { createGamePort, createLobbyPort } from './ports/createPorts'
-import type { GamePort } from './ports/GamePort'
+import { createLobbyPort } from './ports/createPorts'
 import type { LobbyPort } from './ports/LobbyPort'
-import { CommandProvider } from './state/commands'
-import { GameProvider } from './state/game'
-import { useGameState } from './state/useGameState'
 import { useLobbyState } from './state/useLobbyState'
+import { loadGameScreen, loadLobbyView, useAssetWarmup } from './loading/warmup'
+
+const LobbyView = lazy(loadLobbyView)
+const GameScreen = lazy(loadGameScreen)
+const opening = <main className="flex min-h-screen items-center justify-center bg-zinc-950 font-heading text-xl text-amber-200">Opening Here to Slaughter…</main>
 
 type Screen = 'checking' | 'auth' | 'lobby' | 'game'
 
@@ -44,41 +42,14 @@ function LobbyScreen({
       void lobby.startGame()
     }
   }, [autoStart, lobby])
-  return <LobbyView lobby={lobby} />
-}
-
-function GameScreen({
-  port,
-  assignment,
-  onLeave,
-}: {
-  port: GamePort
-  assignment: GameAssigned
-  onLeave: () => void
-}) {
-  const game = useGameState(port, assignment)
-  if (!game.snapshot) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 font-heading text-xl text-amber-200">
-        {game.connected ? 'Waiting for the table…' : 'Connecting to the table…'}
-      </main>
-    )
-  }
-
-  return (
-    <CommandProvider send={game.send}>
-      <GameProvider view={game.snapshot.state} info={game.info} log={game.snapshot.log}>
-        <AudioProvider><Board onLeave={onLeave} /></AudioProvider>
-      </GameProvider>
-    </CommandProvider>
-  )
+  return <Suspense fallback={opening}><LobbyView lobby={lobby} /></Suspense>
 }
 
 export default function App() {
   const lobbyPort = useMemo(createLobbyPort, [])
-  const gamePort = useMemo(createGamePort, [])
   const [screen, setScreen] = useState<Screen>('checking')
   const [assignment, setAssignment] = useState<GameAssigned | null>(null)
+  useAssetWarmup(screen === 'game' ? 'game-connecting' : screen)
 
   useEffect(() => {
     let active = true
@@ -98,6 +69,7 @@ export default function App() {
   }, [lobbyPort])
 
   const enterGame = useCallback((next: GameAssigned) => {
+    performance.mark?.('htsr:join-game')
     setAssignment(next)
     setScreen('game')
   }, [])
@@ -120,7 +92,7 @@ export default function App() {
   }
 
   if (screen === 'game' && assignment) {
-    return <GameScreen port={gamePort} assignment={assignment} onLeave={returnToLobby} />
+    return <Suspense fallback={opening}><GameScreen assignment={assignment} onLeave={returnToLobby} /></Suspense>
   }
 
   return (

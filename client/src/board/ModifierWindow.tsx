@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React from 'react'
 import { HUD, HUD_ASPECT, MODIFIER_LAYOUT } from './layout'
 import { artFor, NONHERO_CARD_ASPECT } from './assets'
@@ -92,7 +93,7 @@ export default function ModifierWindow({
               targets {targetName}
             </div>
           )}
-          <img
+          <AssetImage
             src={art.url}
             alt={subject.name}
             draggable={false}
@@ -119,7 +120,7 @@ export default function ModifierWindow({
                 zIndex: 10 - rank,
               }}
             >
-              <img
+              <AssetImage
                 src={artFor(card).url}
                 alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
                 draggable={false}
@@ -147,7 +148,7 @@ export default function ModifierWindow({
       >
         {/* the scroll itself glows with what the number means: green over
             the mark, red under it, nothing in a monster's middle band */}
-        <img
+        <AssetImage
           src={HUD.yourTurn}
           alt=""
           aria-hidden

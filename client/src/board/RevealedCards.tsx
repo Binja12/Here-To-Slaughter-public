@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import React from 'react'
 import type { CardView } from '../contract'
 import { artFor } from './assets'
@@ -19,7 +20,7 @@ export default function RevealedCards({ cards }: { cards: CardView[] }) {
           Revealed
         </span>
         {cards.map((card) => (
-          <img
+          <AssetImage
             key={card.id}
             src={artFor(card).url}
             alt={`${card.name}, ${card.type}`}

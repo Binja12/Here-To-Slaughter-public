@@ -1,10 +1,13 @@
 import React from 'react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { AudioProvider, useAudio } from './AudioProvider'
+import { backgroundTraffic } from '../loading/traffic'
 import VolumeControl from './VolumeControl'
 import { useGameAudio } from './useGameAudio'
 import { GameLogEntry, PlayerView } from '../contract'
 import { challengeStarted, midGame, modifierWindowOpen } from '../fixtures/views'
+
+jest.mock('../loading/traffic', () => ({ backgroundTraffic: { busy: false, onIdle: () => () => {}, foregroundRequest: () => () => {}, request: jest.fn(async () => new Blob()) } }))
 
 class FakeAudio {
   static instances: FakeAudio[] = []
@@ -21,11 +24,15 @@ class FakeAudio {
   pause = jest.fn(() => { this.paused = true })
   removeAttribute = jest.fn()
   load = jest.fn()
-  constructor(public src: string) { FakeAudio.instances.push(this) }
+  getAttribute = (name: string) => name === 'src' ? this.src : null
+  constructor(public src = '') { FakeAudio.instances.push(this) }
 }
 const originalAudio = window.Audio
 beforeEach(() => {
   localStorage.clear()
+  ;(backgroundTraffic.request as jest.Mock).mockResolvedValue(new Blob())
+  URL.createObjectURL = jest.fn(() => 'blob:music')
+  URL.revokeObjectURL = jest.fn()
   FakeAudio.instances = []
   window.Audio = FakeAudio as unknown as typeof Audio
 })
@@ -112,6 +119,7 @@ test('music crossfades in both directions and pauses the outgoing track only aft
   jest.useFakeTimers()
   const ui = (view: PlayerView) => <AudioProvider><GameAudio view={view} /></AudioProvider>
   const { rerender, unmount } = render(ui(midGame))
+  await act(async () => {})
   const [gameplay, challenge] = FakeAudio.instances
   expect(gameplay.paused).toBe(false)
   expect(gameplay.loop).toBe(true)
@@ -202,6 +210,7 @@ test('rapid music changes reverse smoothly and volume or mute changes preserve t
   jest.useFakeTimers()
   const ui = (view: PlayerView) => <AudioProvider><GameAudio view={view} /></AudioProvider>
   const { rerender, unmount } = render(ui(midGame))
+  await act(async () => {})
   const [gameplay, challenge] = FakeAudio.instances
   await act(async () => { rerender(ui(challengeStarted)) })
   act(() => { jest.advanceTimersByTime(400) })
@@ -279,6 +288,7 @@ test('blocked autoplay retries on interaction without replaying old effects', as
   gameplay.play.mockRejectedValueOnce(new Error('NotAllowedError'))
   await act(async () => { fireEvent.pointerDown(document) })
   fireEvent.keyDown(document, { key: 'Enter' })
+  await act(async () => {})
   expect(gameplay.paused).toBe(false)
   expect(oneShots()).toHaveLength(0)
   unmount()

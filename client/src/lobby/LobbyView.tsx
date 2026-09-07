@@ -1,3 +1,4 @@
+import AssetImage, { useBackgroundImage } from '../loading/AssetImage'
 import React from 'react'
 import type { GameSettings, LobbyPlayer } from '../contract'
 import type { LobbyApi } from '../state/useLobbyState'
@@ -46,7 +47,8 @@ function Art({
   style,
   ...rest
 }: { art: LobbyArt } & React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={className} style={{ ...artStyle(art), ...style }} {...rest} />
+  const url = useBackgroundImage(art.url)
+  return <div className={className} style={{ ...artStyle({ ...art, url }), ...style }} {...rest} />
 }
 
 /** The +/− medallion art filling an avatar ring. */
@@ -326,7 +328,8 @@ function SettingsPanel({
 
 export default function LobbyView({ lobby }: { lobby: LobbyApi }) {
   const snapshot = lobby.snapshot
-  const startArt = LOBBY_ART.startFlat
+  const startArt = { ...LOBBY_ART.startFlat, url: useBackgroundImage(LOBBY_ART.startFlat.url) }
+  const backgroundUrl = useBackgroundImage(LOBBY_ART.backgroundEmpty.url)
   const readyCount = snapshot?.readyPlayers.length ?? 0
   const seatCount = snapshot?.settings.playerCount ?? 4
   const canStart = readyCount >= 2 && readyCount <= seatCount
@@ -351,7 +354,7 @@ export default function LobbyView({ lobby }: { lobby: LobbyApi }) {
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: `url("${LOBBY_ART.backgroundEmpty.url}")`,
+          backgroundImage: `url("${backgroundUrl}")`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -368,7 +371,7 @@ export default function LobbyView({ lobby }: { lobby: LobbyApi }) {
         {/* the side bars are not drawn any more (the owner, 2026-09-03) —
             the seat frames stand on the table by themselves; the bar art
             and LAYERS.sideBar* stay available should they come back */}
-        <img
+        <AssetImage
           src={LOBBY_ART.centerFrame.url}
           alt=""
           aria-hidden

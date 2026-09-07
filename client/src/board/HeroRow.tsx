@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import CardReactionTimer from './CardReactionTimer';
 import React from "react";
 import { artFor, BOARD_CARD_ASPECT } from "./assets";
@@ -173,7 +174,7 @@ export function HeroCardWidget({
           }}
           onClick={itemTarget.onClick}
         >
-          <img
+          <AssetImage
             src={itemUrl}
             alt={item?.name}
             draggable={false}
@@ -195,7 +196,7 @@ export function HeroCardWidget({
         onContextMenu={hz.onContextMenu}
         onClick={t.onClick}
       >
-        <img
+        <AssetImage
           src={boardUrl}
           alt={card.name}
           draggable={false}

@@ -1,3 +1,4 @@
+import AssetImage from '../loading/AssetImage'
 import CardReactionTimer from './CardReactionTimer';
 import { useOptionalGameView } from '../state/game';
 import React, { useEffect, useState } from "react";
@@ -113,7 +114,7 @@ function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: stri
             zIndex: challenger.mode === "target" ? 2 : undefined,
           }}
         >
-          <img
+          <AssetImage
             src={active.challengeCardUrl}
             alt="challenge card"
             draggable={false}
@@ -121,7 +122,7 @@ function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: stri
             onClick={challenger.onClick}
           />
         </div>
-        <img
+        <AssetImage
           src={active.challengedCardUrl}
           alt="challenged card"
           draggable={false}
@@ -211,7 +212,7 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
               zIndex: i,
             }}
           >
-            <img
+            <AssetImage
               src={url}
               alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
               draggable={false}
@@ -255,7 +256,7 @@ function RollScroll({ roll }: { roll: ChallengeRoll | null }) {
         top: `calc(50% + ${L.scroll.dy}cqh)`,
       }}
     >
-      <img
+      <AssetImage
         src={HUD.yourTurn}
         alt=""
         aria-hidden
