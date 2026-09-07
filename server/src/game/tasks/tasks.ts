@@ -1,4 +1,4 @@
-import { CardType, IGameEventEmitter, PassiveType, RollContext } from 'shared'
+import { CardType, IGameEventEmitter, Owner, PassiveType, RollContext } from 'shared'
 import {
   IEffect,
   EffectExpiry,
@@ -357,7 +357,16 @@ export class RevealTask implements ITask {
       this.spec.to === 'all'
         ? gs.getPlayers().map((player) => player.getId())
         : [ctx.ownerId]
-    for (const seat of seats) gs.revealTo(seat, cardIds)
+    // Whose look this is, for the caption. A filter over somebody else's zone
+    // is a LOOK AT THEM — the only thing the screen needs beyond the ability's
+    // own owner, and the filter is where it is already written down.
+    const source = {
+      byPlayerId: ctx.ownerId,
+      ...(this.spec.filter?.owner === Owner.Chosen && {
+        ofPlayerId: chosenPlayers(ctx)[0],
+      }),
+    }
+    for (const seat of seats) gs.revealTo(seat, cardIds, source)
     em.emit(GameEventFactory.cardsRevealed(ctx.ownerId, cardIds, this.spec.to === 'all'))
 
     setTimeout(() => {

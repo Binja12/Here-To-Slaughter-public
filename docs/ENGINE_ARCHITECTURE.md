@@ -1164,6 +1164,18 @@ cards qualify. Without it the player is asked which hero to hand over and the
 step behind then skips on the same empty slot, which reads as a bug from the
 table.
 
+**Every choice says what it is FOR, and only the task can.** Each
+choice-opening task takes a `question` — "Choose a hero to sacrifice", "Choose
+a player to pull a card from" — which rides in the window's detail and which
+the board puts up in large type over the choice (the owner, 2026-09-07). The
+client cannot derive it: it receives a list of ids and knows neither the filter
+nor the step that consumes the pick. The task cannot derive it either — a step
+decides about itself, never about its siblings (§2) — so the verb comes from
+the ability author, who is the one who knows the choice feeds a `SacrificeTask`
+rather than a `DestroyTask`. It is DECLARED, in the same place and for the same
+reason the filter is. A window whose task was given none falls back to its type
+("Choose a card"), which is the screen admitting it was not told.
+
 **A choice must not offer what cannot be carried out.** `PlayerFilter.hasHeroes`
 exists because a wording's next clause can be about the chosen player's party
 (Hopper's "that player SACRIFICES a Hero card"), so an empty seat is a legal

@@ -17,7 +17,7 @@ const MAY_DRAW = 'CrownedSerpentDraws'
 export const CrownedSerpentAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.ModifierPlayed, scope: TriggerScope.Anyone },
-    steps: [new ConfirmTask({ confirms: MAY_DRAW })],
+    steps: [new ConfirmTask({ confirms: MAY_DRAW, question: 'Draw a card?' })],
   },
   {
     trigger: { on: GameEventType.TaskConfirmed, scope: TriggerScope.SelfCard, when: MAY_DRAW },
@@ -29,7 +29,10 @@ export const CrownedSerpentAbility: IAbilityRule[] = [
     // fight-back text on its own).
     trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Self },
+        { question: 'Choose a hero to sacrifice' },
+      ),
       new SacrificeTask(),
     ],
   },

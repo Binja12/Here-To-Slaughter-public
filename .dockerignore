@@ -9,7 +9,11 @@
 graphify-out
 *.log
 *.pdf
-# WebP twins are generated inside the build (scripts/optimize-art.mjs)
+# WebP twins are a local convenience; the build no longer makes or needs them.
 client/public/**/*.png.webp
-client/public/generated/
+# The prepared ART is COMMITTED and must reach the build: it holds the one
+# export per image, so nothing is re-encoded per build. The MUSIC is not —
+# it is made in-image by `npm run assets:music` (ffmpeg), and the host's copy
+# is 350MB that would otherwise ride into the context and the nginx image.
+client/public/generated/online-music/
 client/src/generated/

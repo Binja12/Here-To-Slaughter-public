@@ -22,7 +22,7 @@ import { CTX_DESTROYED_HERO_ITEM, CTX_CHOSEN_CARD } from '../../abilities/abilit
 export const ShurikittyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }), new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party)],
+    steps: [new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }, { question: 'Choose a hero to destroy' }), new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party)],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },

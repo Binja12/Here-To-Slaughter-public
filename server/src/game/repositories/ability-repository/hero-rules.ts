@@ -26,7 +26,12 @@ export const heroRules: ISystemRule[] = [
   {
     trigger: { on: GameEventType.FrameResolved, scope: TriggerScope.SelfCard },
     // No subjectKey: the subject is the entry's own source card.
-    steps: [new ConfirmTask({ confirms: OFFERS_ROLL })],
+    steps: [
+      new ConfirmTask({
+        confirms: OFFERS_ROLL,
+        question: "Roll to use this hero's effect?",
+      }),
+    ],
   },
   {
     trigger: {

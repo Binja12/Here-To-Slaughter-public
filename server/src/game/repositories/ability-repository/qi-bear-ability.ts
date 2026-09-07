@@ -17,7 +17,10 @@ import { CTX_DISCARDED_CARDS } from '../../abilities/ability-context'
 // round before. Pay first, then destroy: a discard that buys nothing (no
 // hero on the table) is still a discard, as printed.
 const round = () => [
-  new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }, CTX_DISCARDED_CARDS),
+  new ChooseCardTask(
+    { zone: Zone.Party, owner: Owner.All, destroyable: true },
+    { requiresKey: CTX_DISCARDED_CARDS, question: 'Choose a hero to destroy' },
+  ),
   new DestroyTask(),
 ]
 
@@ -25,13 +28,28 @@ export const QiBearAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
       ...round(),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, CTX_DISCARDED_CARDS),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        {
+          requiresKey: CTX_DISCARDED_CARDS,
+          question: 'Choose a card to discard',
+        },
+      ),
       new DiscardTask(),
       ...round(),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, CTX_DISCARDED_CARDS),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        {
+          requiresKey: CTX_DISCARDED_CARDS,
+          question: 'Choose a card to discard',
+        },
+      ),
       new DiscardTask(),
       ...round(),
     ],

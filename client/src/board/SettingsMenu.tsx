@@ -88,11 +88,32 @@ export default function SettingsMenu({
                 checked={settings.stickyHand}
                 onChange={(value) => set('stickyHand', value)}
               />
+            </Section>
+
+            <Section title="Auras">
               <Toggle
-                label="Glow effects"
-                hint="The coloured auras — green playable, gold asked, pink passive, red opponent. Off, the board tells you nothing and you read it yourself."
-                checked={settings.glowEffects}
-                onChange={(value) => set('glowEffects', value)}
+                label="Play aura"
+                hint="Green — a card you may play right now."
+                checked={settings.auraPlay}
+                onChange={(value) => set('auraPlay', value)}
+              />
+              <Toggle
+                label="Effects aura"
+                hint="Pink — a card whose standing rule is in force."
+                checked={settings.auraEffect}
+                onChange={(value) => set('auraEffect', value)}
+              />
+              <Toggle
+                label="Target aura"
+                hint="Red — an opponent acting, and the screen's rim while their roll is aimed at you."
+                checked={settings.auraTarget}
+                onChange={(value) => set('auraTarget', value)}
+              />
+              <Toggle
+                label="Instant play aura"
+                hint="Gold — the card, seat or monster the engine is asking you to press."
+                checked={settings.auraInstant}
+                onChange={(value) => set('auraInstant', value)}
               />
             </Section>
 

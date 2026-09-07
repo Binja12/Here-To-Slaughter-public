@@ -10,6 +10,7 @@ export const SOUND_FILES = {
   monsterSlain: '/sound effects/monster slain.mp3',
   skipReaction: '/sound effects/skip reaction.mp3',
   discardHover: '/sound effects/Discard Hover.mp3',
+  turnStart: '/sound effects/Turn Start.mp3',
 } as const
 export type Sound = keyof typeof SOUND_FILES
 type Music = 'gameplay' | 'challenge'

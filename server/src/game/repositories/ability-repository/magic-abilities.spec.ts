@@ -325,6 +325,57 @@ describe('magic abilities', () => {
   })
 
   // =========================================================================
+  // Entangling Trap — magic-051 / magic-052
+  // =========================================================================
+
+  describe('Entangling Trap (magic-051)', () => {
+    const SPELL = 'magic-051'
+
+    it('pays both discards, then takes a hero', () => {
+      const ctx = setup(SPELL, ['pay-1', 'pay-2'])
+      cast(ctx, SPELL)
+
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'pay-1' })
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'pay-2' })
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2-hero' })
+
+      expect(ctx.gs.getDiscardPile().getAll()).toEqual(
+        expect.arrayContaining(['pay-1', 'pay-2']),
+      )
+      expect(ctx.gs.getParty('p1').getHeroIds()).toContain('p2-hero')
+    })
+
+    // "DISCARD 2 cards, THEN steal" — the steal is what the discards buy, so
+    // a hand that cannot pay does not get the hero (the owner, 2026-09-07).
+    it('steals nothing when the hand cannot pay both discards', () => {
+      const ctx = setup(SPELL, ['pay-1'])
+      cast(ctx, SPELL)
+
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'pay-1' })
+      // the second discard has nothing to offer: it settles on its own 0ms
+      // timer, and the steal is never asked
+      jest.advanceTimersByTime(1)
+
+      expect(cardChoice(ctx.gs)).toBeUndefined()
+      expect(ctx.gs.getDiscardPile().getAll()).toContain('pay-1')
+      expect(ctx.gs.getParty('p1').getHeroIds()).toEqual(['p1-hero'])
+      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
+      expect(ctx.gs.hasOpenFrames()).toBe(false)
+    })
+
+    it('asks nobody at all with an empty hand', () => {
+      const ctx = setup(SPELL)
+      cast(ctx, SPELL)
+      jest.advanceTimersByTime(1)
+      jest.advanceTimersByTime(1)
+
+      expect(cardChoice(ctx.gs)).toBeUndefined()
+      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
+      expect(ctx.gs.hasOpenFrames()).toBe(false)
+    })
+  })
+
+  // =========================================================================
   // Forced Exchange — magic-057
   // =========================================================================
 

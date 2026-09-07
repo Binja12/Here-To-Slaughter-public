@@ -41,7 +41,10 @@ export default function PlayerHand({
   ids,
   anchorCenterCqw,
   playable,
+  free,
   asked,
+  visible,
+  forceOpen = false,
   onActivateCard,
   sticky = false,
   stuckOpen = false,
@@ -56,14 +59,27 @@ export default function PlayerHand({
   /** board-x (cqw) of the hand slot's center — used to clamp the fan */
   anchorCenterCqw: number;
   /** per-card playable flags, index-aligned with `cards` — true cards get
-   *  the green Hearthstone aura (modifiers/challenges can glow off-turn) */
+   *  an aura (modifiers/challenges can glow off-turn) */
   playable?: boolean[];
+  /** per-card: costs no action point, so a playable one glows GOLD instead of
+   *  green (playable.ts isFreeAction) */
+  free?: boolean[];
   /** per-card: the engine's open yes/no is ABOUT this card ("play the hero
    *  you just drew?" — Mellow Dee): gold ask-aura, pressing it says yes */
   asked?: boolean[];
   /** normal-mode click per card index (starting that card's action) —
    *  wired on cards whose `playable` or `asked` flag is true */
   onActivateCard?: (index: number) => void;
+  /**
+   * Per-card: draw this one at all. The fan narrows to the cards a reaction
+   * window can be answered with — modifiers on a roll, challenges on a play —
+   * so the hand shows the ANSWER and not the whole hand (the owner,
+   * 2026-09-07). Indices stay the hand's own throughout: a hidden card keeps
+   * its slot in `playable` / `asked` and its own targeting key.
+   */
+  visible?: boolean[];
+  /** the fan is held open by the table, not by the cursor — a reaction window */
+  forceOpen?: boolean;
   /** the player's setting: the fan opens on a PRESS and stays open, instead
    *  of following the cursor */
   sticky?: boolean;
@@ -158,6 +174,12 @@ export default function PlayerHand({
     if (forcedClosed) setHovered(null);
   }, [forcedClosed]);
   const cellRefs = React.useRef<Array<HTMLDivElement | null>>([]);
+  // hit-testing walks the RENDERED cells; a narrowing fan must not leave stale
+  // boxes behind for cards that are no longer drawn
+  const shownCount = cards.filter((_, index) => visible?.[index] !== false).length;
+  React.useEffect(() => {
+    cellRefs.current.length = shownCount;
+  }, [shownCount]);
   const hitTest = (event: React.MouseEvent) => {
     if (forcedClosed) return;
     let hit: number | null = null;
@@ -176,7 +198,13 @@ export default function PlayerHand({
     setHovered((current) => (current === hit ? current : hit));
   };
 
-  const n = cards.length;
+  // The cards actually drawn, each still carrying the index the rest of the
+  // board knows it by.
+  const shown = cards
+    .map((src, index) => ({ src, index }))
+    .filter(({ index }) => visible?.[index] !== false);
+
+  const n = shown.length;
   const mid = (n - 1) / 2;
 
   // wide photo-like arc, capped at ±28° for big hands
@@ -200,19 +228,21 @@ export default function PlayerHand({
   const SHUT = 'pointer-events-none translate-y-[1.5cqh] scale-95 opacity-0';
   const ON_HOVER =
     'group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100';
+  const held = !forcedClosed && (forceOpen || peekOpen || (sticky && stuckOpen));
   const fanState = forcedClosed
     ? SHUT
-    : sticky
-      ? stuckOpen
-        ? OPEN
-        : SHUT
-      : peekOpen
-        ? OPEN
+    : held
+      ? OPEN
+      : sticky
+        ? SHUT
         : `${SHUT} ${ON_HOVER}`;
 
   return (
     <div
-      className={`group hand-group relative h-full w-full${pressToOpen ? ' cursor-pointer' : ''}`}
+      // `hand-open` is for the REST of the board: index.css moves the centre
+      // buttons out from under a fan that is being held open, the way
+      // `:has(.hand-group:hover)` does for one that is merely hovered.
+      className={`group hand-group relative h-full w-full${held ? ' hand-open' : ''}${pressToOpen ? ' cursor-pointer' : ''}`}
       onMouseEnter={() => setPeeking(false)}
       // sticky mode: pressing anywhere on the stack opens the fan, and only a
       // press on the felt closes it again (the board owns that half)
@@ -231,7 +261,7 @@ export default function PlayerHand({
           onMouseMove={hitTest}
           onMouseLeave={() => setHovered(null)}
         >
-          {cards.map((src, i) => (
+          {shown.map(({ src, index: i }, slot) => (
             // The zoom follows the cell's RESTING box (hitTest above), so it
             // ends the moment the cursor leaves where the card sits
             // (the owner, 2026-09-03). The hovered cell's z is set INLINE —
@@ -243,25 +273,26 @@ export default function PlayerHand({
               // replay whatever animation their new index was carrying
               key={ids?.[i] ?? `${src}-${i}`}
               ref={(element) => {
-                cellRefs.current[i] = element;
+                cellRefs.current[slot] = element;
               }}
               className="absolute bottom-0 left-1/2 h-full"
               style={{
                 transform: `translateX(calc(-50% + ${
-                  (i - mid) * nudge
-                }cqw)) rotate(${(i - mid) * step}deg)`,
+                  (slot - mid) * nudge
+                }cqw)) rotate(${(slot - mid) * step}deg)`,
                 transformOrigin: `50% ${PIVOT * 100}%`,
-                zIndex: hovered === i ? 999 : i,
+                zIndex: hovered === slot ? 999 : slot,
               }}
             >
               <FanCard
                 src={src}
                 index={i}
-                hovered={hovered === i && !forcedClosed}
+                hovered={hovered === slot && !forcedClosed}
                 arrived={!!ids && arrived.has(ids[i])}
                 arrivalDelayMs={(ids && arrived.get(ids[i])) || 0}
                 onArrived={ids ? () => retire(ids[i]) : undefined}
                 playable={playable?.[i]}
+                free={free?.[i]}
                 asked={asked?.[i]}
                 onActivate={
                   (playable?.[i] || asked?.[i]) && onActivateCard
@@ -287,6 +318,7 @@ function FanCard({
   arrivalDelayMs = 0,
   onArrived,
   playable,
+  free = false,
   asked = false,
   onActivate,
 }: {
@@ -301,6 +333,8 @@ function FanCard({
   /** this card's own pop has finished — it takes its id out of the set */
   onArrived?: () => void;
   playable?: boolean;
+  /** costs no action point: gold rather than green while playable */
+  free?: boolean;
   /** the open yes/no is about this card: gold, pressing = yes */
   asked?: boolean;
   /** normal-mode click (starting this card's action) */
@@ -326,8 +360,8 @@ function FanCard({
         if (event.animationName === 'hand-arrival') onArrived?.();
       }}
       className={`relative h-full w-full origin-bottom select-none rounded-[0.4cqw] shadow-[-0.3cqw_0.3cqw_1cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out${
-        asked ? ' ask-aura' : playable ? ' card-aura' : ''
-      }${arrived ? ' hand-arrival' : ''} ${t.className}`}
+        asked || (playable && free) ? ' ask-aura' : playable ? ' card-aura' : ''
+      }${arrived ? ' hand-arrival' : ''}${zoomed ? ' is-zoomed' : ''} ${t.className}`}
       style={{
         width: `${CARD_W_CQW}cqw`,
         transform: zoomed ? 'scale(1.6)' : undefined,

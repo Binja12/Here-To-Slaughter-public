@@ -42,11 +42,17 @@ export const ForcedExchangeAbility: IAbilityRule[] = [
       scope: TriggerScope.SelfCard,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Others },
+        { question: 'Choose a hero to steal' },
+      ),
       new StealFromPartyTask(),
       new ChooseCardTask(
         { zone: Zone.Party, owner: Owner.Self },
-        CTX_STOLEN_FROM_PLAYER,
+        {
+          requiresKey: CTX_STOLEN_FROM_PLAYER,
+          question: 'Choose a hero from your party to give',
+        },
       ),
       new GiveHeroTask(undefined, CTX_STOLEN_FROM_PLAYER),
     ],

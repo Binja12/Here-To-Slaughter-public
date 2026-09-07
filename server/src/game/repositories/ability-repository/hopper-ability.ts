@@ -15,12 +15,15 @@ import { SacrificeTask } from '../../tasks/hero-tasks'
 export const HopperAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others, hasHeroes: true }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Party)],
+    steps: [new ChoosePlayerTask({ owner: Owner.Others, hasHeroes: true }, 'Choose a player to sacrifice a hero'), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Party)],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Chosen, executor: 'chosen' }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Chosen, executor: 'chosen' },
+        { question: 'Choose a hero to sacrifice' },
+      ),
       new SacrificeTask({ executor: 'chosen' }),
     ],
   },

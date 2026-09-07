@@ -51,6 +51,10 @@ export class CardChoiceWindow extends ChoiceWindow {
     return this.options[Math.floor(Math.random() * this.options.length)]
   }
 
+  protected override picksAtRandom(): boolean {
+    return true
+  }
+
   /** The card must still be registered when the window resolves. */
   protected override isStillValid(choice: unknown): boolean {
     return !!this.gs.getCard(choice as string)

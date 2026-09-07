@@ -277,10 +277,12 @@ export const CHALLENGE_LAYOUT = {
   tuck: { peek: 0.3, angle: 14, scale: 0.94 },
   /** the two roll panels — centres at ±dx from the stage centre
    *  (challenged at −dx, challenger at +dx), w/h in cqh */
-  panel: { w: 30, h: 26, dx: 43, dy: -6 },
+  panel: { w: 30, h: 30, dx: 43, dy: -6 },
   /** the roll-total scroll (the board's "your turn" art) inside a panel —
-   *  centre offset in cqh from the PANEL centre */
-  scroll: { h: 6, dx: 0, dy: 10.5 },
+   *  centre offset in cqh from the PANEL centre. Big: it is the number the
+   *  whole table is reading (the owner, 2026-09-08), which is why the panel
+   *  grew with it and the dice moved up to clear it. */
+  scroll: { h: 10, dx: 0, dy: 11 },
   /** modifier cards played onto a roll, by the panel's outer edge — dx is
    *  mirrored toward that side's OUTER edge (challenged left, challenger
    *  right); each next card steps `step` further out and tilts `angle`°
@@ -293,8 +295,8 @@ export const CHALLENGE_LAYOUT = {
   dice: {
     size: 6.5,
     spots: {
-      challenged: { dx: 0, dy: 4, fromDx: -20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
-      challenger: { dx: 0, dy: 4, fromDx: 20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
+      challenged: { dx: 0, dy: 2, fromDx: -20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
+      challenger: { dx: 0, dy: 2, fromDx: 20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
     },
   },
 } as const;
@@ -376,8 +378,11 @@ export const HUD_WIDGETS: {
   // just off them.
   turnTimer: { anchor: "top", h: 9, dx: 50, dy: 6.75 },
   redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
-  // Bottom rim of the centre board, directly below the discard pile.
-  challengeButton: { anchor: "center", h: 6, dx: CENTER_DX, dy: CENTER_DY + CENTER_H / 2 - 6 },
+  // The centre frame's BOTTOM rim (the owner, 2026-09-08). CENTER_H 64 about
+  // CENTER_DY -4 puts that frame at stage y 14..78; this mirrors the 4cqh
+  // inset the button used to have at the top, so it spans 67..74 — beside
+  // Redraw (69.8..74.3), which sits left of centre and never meets it.
+  challengeButton: { anchor: "center", h: 7, dx: CENTER_DX, dy: 20.5 },
   restartButton: { anchor: "top", h: 4, dx: -38, dy: 4.8 },
   // the gear takes the corner the volume slider used to hold: the volume
   // lives behind it now (the owner, 2026-09-07)
@@ -403,14 +408,16 @@ export const HUD_WIDGETS: {
 export const MODIFIER_LAYOUT = {
   /** the card rolled on (hero / leader / monster) */
   card: { h: 42, dx: 0, dy: -16 },
-  /** the total's scroll, under the card */
-  scroll: { h: 6, dx: 0, dy: 8.5 },
+  /** the total's scroll, under the card — big: it is the number the whole
+   *  table is deciding on (the owner, 2026-09-07) */
+  scroll: { h: 8, dx: 0, dy: 9 },
   /** the modifier cards: the first at +dx (right), the second at −dx
    *  (left), each next pair `step` further out and `drop` lower, tilted
    *  `angle`° away from the centre */
   modCard: { h: 22, dx: 24, dy: -8, step: 5, drop: 1.5, angle: 8 },
-  /** the Skip button beside the total's scroll (the HUD's window button sits under it) */
-  skip: { h: 5, dx: 21, dy: 8.5 },
+  /** the Skip button beside the total's scroll — clear of the wider scroll
+   *  (the scroll is 4:1, so at h 8 it reaches 16cqh either side of centre) */
+  skip: { h: 7, dx: 28, dy: 9 },
 } as const;
 
 /**

@@ -243,7 +243,7 @@ export class FakeGamePort implements GamePort {
           options: this.view.seats
             .filter((seat) => seat.playerId !== this.view.playerId)
             .map((seat) => seat.playerId),
-          detail: { question: 'Pull a card from whose hand?' },
+          detail: { question: 'Choose a player to pull a card from' },
           deadline: freshDeadline(10_000),
           isYours: true,
         })
@@ -577,7 +577,7 @@ export class FakeGamePort implements GamePort {
       respondentId: this.view.playerId,
       options,
       optionCards: this.view.hand.slice(0, 3),
-      detail: { question: 'Choose a card to discard.', sourceCardId: leader?.id },
+      detail: { question: 'Choose a card to discard', sourceCardId: leader?.id },
       deadline: freshDeadline(),
       isYours: true,
     })

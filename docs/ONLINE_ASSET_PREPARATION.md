@@ -1,11 +1,15 @@
 # Online delivery assets
 
-`npm run assets:prepare` creates delivery copies in
-`client/public/generated/online-art` and `client/public/generated/online-music`.
-`npm run assets:verify` checks the generated files. The Docker build runs both.
-Generated files are ignored by Git and excluded from the Docker input context;
-the build regenerates them from tracked originals. Originals stay at their
-existing public URLs and are included in the client server image as fallbacks.
+`npm run assets:art` creates delivery copies in
+`client/public/generated/online-art`; `npm run assets:music` does the same under
+`online-music`. `npm run assets:verify` checks both.
+
+**The prepared IMAGES are committed.** `client/public/generated/online-art` is
+tracked and reaches the Docker build as-is, so a build re-encodes nothing —
+that used to be minutes of sharp on every build (the owner, 2026-09-08). When
+art changes: run `npm run assets:art`, then `npm run assets:verify`, then commit
+what the first wrote. Music still needs ffmpeg and is still made inside the
+build. Originals stay at their existing public URLs and ship as fallbacks.
 
 The frontend uses these delivery copies through `client/src/loading/` and
 `client/src/audio/MusicTrack.ts`. Client start, test and build commands generate
@@ -71,25 +75,30 @@ overwritten, cropped or enlarged. Backgrounds already exceed their source
 resolution at 1080p, and reference art without an audited display bound retains
 its original resolution.
 
-The manifest has profiles for **480, 1080, 1440 and 2160 effective stage pixels high**.
-The current trial pins delivery to **480** in
-`client/src/loading/deliverySettings.json`, including on high-DPI monitors.
-This scales the audited largest-view envelopes by 480/1080, retains aspect ratio,
-and rounds export widths upward to 64-pixel steps. Example outputs:
+**One export per image**, for a **720-pixel-high stage**
+(`STAGE_PIXEL_HEIGHTS` in `scripts/online-art-sizes.mjs`). It scales the audited
+largest-view envelopes by 720/1080, retains aspect ratio, and rounds export
+widths up to 64-pixel steps. Example outputs:
 
-| Image | 480 profile dimensions |
+| Image | export |
 | --- | ---: |
-| Hero Bad Axe | 192x256 |
-| Monster Abyss Queen | 256x386 |
-| Leader The Divine Arrow | 192x288 |
-| Table background | 896x504 |
+| Hero Bad Axe | 320x426 |
+| Monster Mega Slime | 384x662 |
+| Magic Call Of The Fallen | 320x427 |
+| Table background | 1672x941 (the master's own size) |
 
-These are asset pixels, not new board layout dimensions. Hover/challenge views
-keep the same URL; they can look softer under this deliberate low-resolution
-trial. No art is cropped. Higher profiles, full-resolution WebP and PNG originals
-remain on the server. Change `stagePixelHeight` to 1080 for the previous profile;
-setting it to `null` restores selection by effective viewport height:
-`min(viewportHeight, viewportWidth * 9/16) * devicePixelRatio`.
+An image with **no audited display bound** — the table background, the lobby
+canvas, unaudited art — exports at its master's size instead. That is the
+"backgrounds at full size" rule (the owner, 2026-09-08): a downscaled felt is
+the one resize the eye catches.
+
+The export does NOT depend on the viewport. `selectImage` takes the one profile
+whatever the screen is, so nothing re-picks on resize or a DPI change and a 4K
+screen gets the same file a laptop does — deliberate, and the reason there is
+one profile rather than four. Hover and challenge views keep the same URL and
+can look softer. No art is cropped; the PNG masters remain on the server as the
+full-size fallback. To change the trade, edit `STAGE_PIXEL_HEIGHTS`, re-run
+`npm run assets:art`, and commit what it writes.
 
 `AssetImage` and `useBackgroundImage` register visible requests before effects
 start background work. Newly drawn cards use the same path and interrupt the

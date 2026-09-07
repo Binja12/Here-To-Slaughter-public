@@ -19,6 +19,8 @@ describe('EntanglingTrapAbility', () => {
     },
   ]
 
+  // The steal's ChooseCardTask hangs off CTX_DISCARDED_CARDS, so an unpaid
+  // price asks nobody — see magic-abilities.spec.ts for that behaviour.
   it.each(['magic-051', 'magic-052'])(
     'registers both discard payments before the steal for %s',
     (cardId) => {

@@ -2,7 +2,9 @@ import AssetImage from '../loading/AssetImage'
 import CardReactionTimer from './CardReactionTimer';
 import { useOptionalGameView } from '../state/game';
 import React, { useEffect, useState } from "react";
-import { CHALLENGE_LAYOUT, HUD, HUD_ASPECT } from "./layout";
+import { CHALLENGE_LAYOUT, HUD, HUD_ASPECT, PlayerId } from "./layout";
+import { nameOf, slotsFor } from "./seats";
+import type { PlayerView } from "../contract";
 import { NONHERO_CARD_ASPECT } from "./assets";
 import { DicePair, DICE_SETTLE_MS } from "./DiceRoll";
 import { tkey, useTargetable } from "./targeting";
@@ -43,8 +45,13 @@ import {
  * picking which roll to modify is one click on the panel (gold pick glow).
  */
 
-const seatLabel = (seat: string) =>
-  seat === "p1" ? "you" : `player ${seat.slice(1)}`;
+
+
+/** The name of whoever is in this screen seat, worded for the viewer. */
+const seatName = (view: PlayerView | null, seat: PlayerId): string => {
+  if (!view) return seat === 'p1' ? 'YOU' : 'PLAYER'
+  return nameOf(view, slotsFor(view)[seat] ?? undefined)
+}
 
 export default function ChallengeWindow({
   hidden = false,
@@ -56,8 +63,20 @@ export default function ChallengeWindow({
 }) {
   const { active } = useChallenge();
   const view = useOptionalGameView();
-  const cardId = view?.pendingWindows.find((window) => window.type === 'Challenge' && window.detail?.challenged === true)?.cardId;
+  const cardId = view?.pendingWindows.find((window) => window.type === 'Challenge')?.cardId;
   if (!active || hidden) return null;
+
+  // Only the side that is WINNING glows, so the window says at a glance who
+  // is ahead (the owner, 2026-09-08). Level, or either side still rolling,
+  // and neither glows — there is no lead to report.
+  const ahead = rollTotal(active.challenged.roll);
+  const behind = rollTotal(active.challenger.roll);
+  const lead =
+    ahead === null || behind === null || ahead === behind
+      ? null
+      : ahead > behind
+        ? "challenged"
+        : "challenger";
 
   return (
     <div className="dim-exempt pointer-events-none absolute inset-0 z-[140]">
@@ -75,21 +94,44 @@ export default function ChallengeWindow({
 
       <CenterStage active={active} cardId={cardId} />
 
-      <RollPanel role="challenged" side={active.challenged} />
-      <RollPanel role="challenger" side={active.challenger} />
+      {/* Nothing else until somebody has actually challenged: before that the
+          window is the PLAY, on its own, so a card tucked behind its hero can
+          be seen and contested (the owner, 2026-09-07). The viewer is always
+          seated at p1 (seats.ts), so this is the whole of "am I the one who
+          challenged". Whichever side is MINE takes the left panel; with
+          neither side mine the roles keep their own order. The green/red stays
+          with the ROLE — it says who is defending, which the position does
+          not. */}
+      {active.started && (
+        <>
+          <RollPanel
+            role="challenged"
+            side={active.challenged}
+            left={active.challenger.seat !== "p1"}
+            name={seatName(view, active.challenged.seat)}
+            leading={lead === "challenged"}
+          />
+          <RollPanel
+            role="challenger"
+            side={active.challenger}
+            left={active.challenger.seat === "p1"}
+            name={seatName(view, active.challenger.seat)}
+            leading={lead === "challenger"}
+          />
+        </>
+      )}
 
     </div>
   );
 }
 
 /** centre stage: challenged card in front, challenge card tucked behind at
- *  an angle with `peek` of its width showing. Both are MODIFIER TARGETS,
- *  the same keys as the roll panels: press the challenged card to modify
- *  the defender's roll, the challenge card to modify the challenger's. */
+ *  an angle with `peek` of its width showing. Neither takes a pick — a
+ *  modifier is aimed at a roll PANEL, and having the cards answer to the same
+ *  keys made aiming feel undefined (the owner, 2026-09-08). They are what the
+ *  challenge is ABOUT; the panels are where it is decided. */
 function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: string }) {
   const L = CHALLENGE_LAYOUT;
-  const challenged = useTargetable(tkey.challengeRoll("challenged"));
-  const challenger = useTargetable(tkey.challengeRoll("challenger"));
   return (
     <div
       className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
@@ -101,7 +143,29 @@ function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: stri
       }}
     >
       <div className="challenge-pop relative h-full w-full">
-        <div
+        {/* the hero an item is going onto, tucked the OTHER way from the
+            challenge card so both can be read at once */}
+        {active.carrierCardUrl && (
+          <div
+            className="absolute left-1/2 top-1/2"
+            style={{
+              height: `${L.tuck.scale * 100}%`,
+              aspectRatio: String(active.carrierCardAspect ?? NONHERO_CARD_ASPECT),
+              transformOrigin: "50% 80%",
+              transform: `translate(-50%, -50%) translateX(${
+                -L.tuck.peek * 100
+              }%) rotate(${-L.tuck.angle}deg)`,
+            }}
+          >
+            <AssetImage
+              src={active.carrierCardUrl}
+              alt="hero the item is played onto"
+              draggable={false}
+              className="h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.5cqw_1.4cqw_rgba(0,0,0,0.8)]"
+            />
+          </div>
+        )}
+        {active.started && <div
           className="absolute left-1/2 top-1/2"
           style={{
             height: `${L.tuck.scale * 100}%`,
@@ -110,24 +174,20 @@ function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: stri
             transform: `translate(-50%, -50%) translateX(${
               L.tuck.peek * 100
             }%) rotate(${L.tuck.angle}deg)`,
-            // the tucked card comes forward while it is a pick
-            zIndex: challenger.mode === "target" ? 2 : undefined,
           }}
         >
           <AssetImage
             src={active.challengeCardUrl}
             alt="challenge card"
             draggable={false}
-            className={`h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.5cqw_1.4cqw_rgba(0,0,0,0.8)] ${challenger.className}`}
-            onClick={challenger.onClick}
+            className="h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.5cqw_1.4cqw_rgba(0,0,0,0.8)]"
           />
-        </div>
+        </div>}
         <AssetImage
           src={active.challengedCardUrl}
           alt="challenged card"
           draggable={false}
-          className={`absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.6cqw_1.8cqw_rgba(0,0,0,0.85)] ${challenged.className}`}
-          onClick={challenged.onClick}
+          className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill shadow-[0.3cqw_0.6cqw_1.8cqw_rgba(0,0,0,0.85)]"
         />
         <CardReactionTimer cardId={cardId} />
       </div>
@@ -135,14 +195,36 @@ function CenterStage({ active, cardId }: { active: ChallengeState; cardId?: stri
   );
 }
 
+/** A side's roll as the table reads it: both dice plus everything played
+ *  onto it. Null while that side has not rolled. */
+const rollTotal = (roll: ChallengeRoll | null) =>
+  roll ? roll.values[0] + roll.values[1] + (roll.modifier ?? 0) : null;
+
 /** one side's roll panel: role title + seat, that player's 2d6 (the shared
  *  DicePair widget), the settled total in the "your turn" scroll, and its
- *  played modifier cards. Challenged sits LEFT with the green aura,
- *  challenger RIGHT with the red one; `mirror` flips the modifier fan's
- *  offsets toward that side's edge of the screen. */
-function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide }) {
+ *  played modifier cards. The VIEWER's side sits left when they are in the
+ *  challenge at all, otherwise the challenged does; `mirror` flips the
+ *  modifier fan's offsets toward that side's edge of the screen. The aura
+ *  colour follows the ROLE — green defends, red contests — not the side, and
+ *  only the side that is AHEAD wears one. */
+function RollPanel({
+  role,
+  side,
+  left,
+  name,
+  leading,
+}: {
+  role: ChallengeRole;
+  side: ChallengeSide;
+  /** which half of the stage this panel takes — the caller decides */
+  left: boolean;
+  /** whose roll this is, already worded for the viewer ("YOU") */
+  name: string;
+  /** this side's total is the higher one — the only side that glows */
+  leading: boolean;
+}) {
   const L = CHALLENGE_LAYOUT;
-  const left = role === "challenged";
+  const defending = role === "challenged";
   const mirror = left ? -1 : 1;
   const spot = L.dice.spots[role];
   // the panel is a targetable element (modifier picks) — but its glow stays
@@ -155,9 +237,11 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
       className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-[1cqw] border-[0.18cqw] bg-black/60 ${
         pickable
           ? "challenge-glow-pick cursor-pointer border-amber-200/80"
-          : left
-            ? "challenge-glow-green border-green-300/60"
-            : "challenge-glow-red border-red-300/60"
+          : !leading
+            ? "border-stone-400/25"
+            : defending
+              ? "challenge-glow-green border-green-300/60"
+              : "challenge-glow-red border-red-300/60"
       }`}
       style={{
         height: `${L.panel.h}cqh`,
@@ -169,14 +253,14 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
     >
       <div className="challenge-pop relative h-full w-full">
         <div
-          className={`absolute inset-x-0 top-[6%] text-center font-heading text-[0.95cqw] uppercase tracking-[0.18cqw] ${
-            left ? "text-green-300" : "text-red-300"
+          className={`absolute inset-x-0 top-[4%] text-center font-heading text-[1.15cqw] uppercase tracking-[0.18cqw] ${
+            defending ? "text-green-300" : "text-red-300"
           }`}
         >
           {role}
         </div>
-        <div className="absolute inset-x-0 top-[19%] text-center font-heading text-[1.25cqw] text-amber-100">
-          {seatLabel(side.seat)}
+        <div className="absolute inset-x-0 top-[17%] truncate px-[0.5cqw] text-center font-heading text-[1.9cqw] uppercase leading-tight text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
+          {name}
         </div>
 
         {side.roll ? (
@@ -191,12 +275,12 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
             <DicePair dice={side.roll} spot={spot} size={L.dice.size} />
           </div>
         ) : (
-          <div className="absolute inset-x-0 top-[55%] text-center font-body text-[1.1cqw] italic text-amber-100/50">
+          <div className="absolute inset-x-0 top-[55%] text-center font-body text-[1.5cqw] italic text-amber-100/60">
             rolling…
           </div>
         )}
 
-        <RollScroll roll={side.roll} />
+        <RollScroll roll={side.roll} tone={leading ? (defending ? "green" : "red") : null} />
 
         {/* everything modifying THIS roll, fanned at the outer edge */}
         {side.roll?.modifierCards.map(({ url, amount }, i) => (
@@ -218,7 +302,7 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
               draggable={false}
               className="h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
             />
-            <span className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
+            <span className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1.35cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
               {amount > 0 ? '+' : '−'}{Math.abs(amount)}
             </span>
           </div>
@@ -233,7 +317,14 @@ function RollPanel({ role, side }: { role: ChallengeRole; side: ChallengeSide })
  *  every modifier (the owner, 2026-09-05: the cards are on the table for
  *  anyone who wants the arithmetic). Modifier updates re-render the label
  *  in place — the nonce is unchanged so the dice stay settled. */
-function RollScroll({ roll }: { roll: ChallengeRoll | null }) {
+function RollScroll({
+  roll,
+  tone,
+}: {
+  roll: ChallengeRoll | null;
+  /** the winning side's colour, or null while this side is not ahead */
+  tone: "green" | "red" | null;
+}) {
   const [shown, setShown] = useState(false);
   const nonce = roll?.nonce;
   useEffect(() => {
@@ -245,7 +336,7 @@ function RollScroll({ roll }: { roll: ChallengeRoll | null }) {
 
   if (!roll || !shown) return null;
   const L = CHALLENGE_LAYOUT;
-  const label = `${roll.values[0] + roll.values[1] + (roll.modifier ?? 0)}`;
+  const label = `${rollTotal(roll)}`;
   return (
     <div
       className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -261,14 +352,15 @@ function RollScroll({ roll }: { roll: ChallengeRoll | null }) {
         alt=""
         aria-hidden
         draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+        className={`pointer-events-none absolute inset-0 h-full w-full select-none object-fill${
+          tone === "green" ? " card-aura" : tone === "red" ? " enemy-aura" : ""
+        }`}
       />
       <span
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap leading-none text-[#f5b03e] drop-shadow-[0_0.08cqw_0.15cqw_rgba(0,0,0,0.9)]"
         style={{
           fontFamily: "'Alfa Slab One', serif",
-          // matches the TurnBanner's 0.95cqw at its 6cqh scroll height
-          fontSize: `${L.scroll.h * 0.28}cqh`,
+          fontSize: `${L.scroll.h * 0.42}cqh`,
         }}
       >
         {label}

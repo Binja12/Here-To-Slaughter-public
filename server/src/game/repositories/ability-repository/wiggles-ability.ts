@@ -22,7 +22,13 @@ const CONFIRMS_ROLL = 'RollOnHero'
 export const WigglesAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party)],
+    steps: [
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Others },
+        { question: 'Choose a hero to steal' },
+      ),
+      new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
@@ -33,6 +39,7 @@ export const WigglesAbility: IAbilityRule[] = [
       // a fresh context and cannot see this one's blackboard.
       new ConfirmTask({
         confirms: CONFIRMS_ROLL,
+        question: "Roll to use the stolen hero's effect?",
         subjectKey: CTX_STOLEN_HERO_ID,
       }),
     ],

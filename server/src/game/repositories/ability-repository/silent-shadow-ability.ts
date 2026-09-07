@@ -20,12 +20,12 @@ import { ChooseCardTask, ChoosePlayerTask } from '../../tasks/choose-tasks'
 export const SilentShadowAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to take a card from'), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen }),
+      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen }, { question: 'Choose a card to take from their hand' }),
       new RetrieveCardTask(),
     ],
   },

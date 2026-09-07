@@ -57,20 +57,43 @@ export interface ChallengeSide {
 }
 
 export interface ChallengeState {
+  /**
+   * Whether anybody has actually challenged yet. Before that the window is
+   * just the play on the table, up for contest: the card alone, no challenge
+   * card behind it and no roll panels — the two rolls do not exist. It is what
+   * makes a play VISIBLE while it can still be contested, which a card tucked
+   * behind its hero was not (the owner, 2026-09-07).
+   */
+  started: boolean;
   /** art of the card whose play is being contested (centre stage) */
   challengedCardUrl: string;
   /** aspect ratio (w/h) of that art — cards differ (leader vs item vs magic) */
   challengedCardAspect: number;
   /** art of the challenge card itself (tucked behind at an angle) */
   challengeCardUrl: string;
+  /**
+   * An ITEM is played AT a hero, and the hero is already wearing it by the
+   * time the window opens (server item-tasks.ts equips before it opens the
+   * Challenge). Its art rides behind the item, mirroring the challenge card,
+   * so the window says what the play actually does (the owner, 2026-09-08).
+   * Absent for every other kind of play.
+   */
+  carrierCardUrl?: string;
+  /** aspect (w/h) of that art — a hero card is not shaped like an item */
+  carrierCardAspect?: number;
   challenged: ChallengeSide;
   challenger: ChallengeSide;
 }
 
 export interface ChallengeOpenArgs {
+  /** false while the play is merely contestable — see ChallengeState.started */
+  started?: boolean;
   challengedCardUrl: string;
   challengedCardAspect?: number;
   challengeCardUrl: string;
+  /** the hero an ITEM is being played onto — see ChallengeState.carrierCardUrl */
+  carrierCardUrl?: string;
+  carrierCardAspect?: number;
   challengedSeat: PlayerId;
   challengerSeat: PlayerId;
 }
@@ -108,9 +131,12 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
 
   const open = useCallback((args: ChallengeOpenArgs) => {
     setActive({
+      started: args.started ?? true,
       challengedCardUrl: args.challengedCardUrl,
       challengedCardAspect: args.challengedCardAspect ?? NONHERO_CARD_ASPECT,
       challengeCardUrl: args.challengeCardUrl,
+      carrierCardUrl: args.carrierCardUrl,
+      carrierCardAspect: args.carrierCardAspect,
       challenged: { seat: args.challengedSeat, roll: null },
       challenger: { seat: args.challengerSeat, roll: null },
     });
@@ -126,6 +152,8 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
         prev
           ? {
               ...prev,
+              // a roll landing IS the challenge starting
+              started: true,
               [role]: {
                 ...prev[role],
                 roll: {

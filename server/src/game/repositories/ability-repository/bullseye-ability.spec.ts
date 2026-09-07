@@ -70,7 +70,7 @@ describe('Bullseye (hero-014)', () => {
     const which = openWindow(gs)
     expect(which.getType()).toBe(ReactionWindowType.CardChoice)
     expect(which.getOptions()).toEqual(['t1', 't3'])
-    expect(which.getDetail()).toMatchObject({ question: 'Bullseye: which card goes on top of the deck?', sourceCardId: 'hero-014' })
+    expect(which.getDetail()).toMatchObject({ question: 'Choose a card to put on top of the deck', sourceCardId: 'hero-014' })
     expect(which.resultKey()).toBe(CTX_DECK_TOP_CARD)
     ctx.set(CTX_DECK_TOP_CARD, ['t3'])
     which.resolve()

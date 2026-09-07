@@ -182,6 +182,30 @@ describe('playerView', () => {
     expect(playerView(game, alice).revealedCards).toEqual([])
   })
 
+  // The strip captions itself, and only the engine knows whose look it is.
+  it('names whose look a reveal is, and drops the caption when it ends', () => {
+    const game = dealt()
+    const [alice, bob] = game.playerOrder
+    const [aCard] = game.gameState.getPlayer(alice)!.getHand()
+
+    // a LOOK at a hand: the cards belong to alice, bob's ability is showing them
+    game.gameState.revealTo(bob, [aCard], { byPlayerId: bob, ofPlayerId: alice })
+    expect(playerView(game, bob)).toMatchObject({
+      revealedBy: bob,
+      revealedOf: alice,
+    })
+
+    // a revealed DRAW names only who revealed it
+    game.gameState.hideRevealed(bob, [aCard])
+    game.gameState.revealTo(bob, [aCard], { byPlayerId: bob })
+    const shown = playerView(game, bob)
+    expect(shown.revealedBy).toBe(bob)
+    expect(shown.revealedOf).toBeUndefined()
+
+    game.gameState.hideRevealed(bob, [aCard])
+    expect(playerView(game, bob).revealedBy).toBeUndefined()
+  })
+
   it('starts every party empty, with its leader ready', () => {
     const view = playerView(dealt(), 'alice')
 

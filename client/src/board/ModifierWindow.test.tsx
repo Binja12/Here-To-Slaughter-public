@@ -9,8 +9,9 @@ import { CARD_H_CQH } from './PlayerHand'
 import type { CardView, PlayerView } from '../contract'
 import type { LiveRoll } from './liveRoll'
 
-// The bonus cards fan out from the card in the middle — first right, then
-// left, then right again. Each one is CENTRED on its computed point, and the
+// The bonus cards fan out from the card in the middle: everything that ADDS
+// to the left, everything that SUBTRACTS to the right, each side stepping
+// outward from the centre. Each one is CENTRED on its computed point, and the
 // entrance animation must not be what carries that centring: `challenge-pop`
 // animates `transform`, so putting it on the positioned element itself wiped
 // the `translate(-50%, -50%)` and slid every card half its own width to the
@@ -31,7 +32,12 @@ const roll: LiveRoll = {
   type: 'Modifier',
   rollerId: view.playerId,
   baseRoll: 7,
-  bonuses: bonusCards.map((card, index) => ({ cardSource: card.id, amount: index + 1 })),
+  // two that add and two that take away, interleaved, so the render has to
+  // SORT them rather than take them in the order they arrived
+  bonuses: bonusCards.map((card, index) => ({
+    cardSource: card.id,
+    amount: index % 2 === 0 ? index + 1 : -(index + 1),
+  })),
   finalRoll: 17,
   rollReq: 9,
   subjectId: view.parties[0].leader.id,
@@ -66,23 +72,25 @@ test('every modifier card is centred on its own point, and the entrance rides an
   }
 })
 
-test('the fan alternates right and left, stepping outward, and leans away from the middle', () => {
+test('adds fan out to the left, subtracts to the right, each stepping outward', () => {
   const { container } = modifierWindow()
   const { dx, step, angle } = MODIFIER_LAYOUT.modCard
   const cards = boxes(container)
 
+  // the two that add first (left, negative offsets), then the two that
+  // subtract (right) — whatever order the bonuses arrived in
   expect(cards.map((card) => card.style.left)).toEqual([
-    `calc(50% + ${dx}cqh)`,
     `calc(50% + ${-dx}cqh)`,
-    `calc(50% + ${dx + step}cqh)`,
     `calc(50% + ${-(dx + step)}cqh)`,
+    `calc(50% + ${dx}cqh)`,
+    `calc(50% + ${dx + step}cqh)`,
   ])
   // mirrored, so the left half of the fan is the right half's reflection
   expect(cards.map((card) => card.style.transform)).toEqual([
-    `translate(-50%, -50%) rotate(${angle}deg)`,
+    `translate(-50%, -50%) rotate(${-angle}deg)`,
     `translate(-50%, -50%) rotate(${-angle}deg)`,
     `translate(-50%, -50%) rotate(${angle}deg)`,
-    `translate(-50%, -50%) rotate(${-angle}deg)`,
+    `translate(-50%, -50%) rotate(${angle}deg)`,
   ])
 })
 

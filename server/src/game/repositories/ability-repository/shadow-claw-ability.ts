@@ -26,6 +26,6 @@ import { ChoosePlayerTask } from '../../tasks/choose-tasks'
 export const ShadowClawAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.LeaderActivated, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new PullCardTask()],
+    steps: [new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to pull a card from'), new PullCardTask()],
   },
 ]

@@ -24,6 +24,8 @@ afterEach(() => { jest.useRealTimers(); Element.prototype.animate = originalAnim
 
 /** The HUD's Skip; the modifier window carries a second one with the same label and state. */
 const hudSkip = () => screen.getAllByRole('button', { name: 'Skip reaction' })[0]
+/** Skip is not on screen at all — there is nothing left for it to give up. */
+const noSkip = () => screen.queryAllByRole('button', { name: 'Skip reaction' }).length === 0
 
 test('discard rustle belongs to individual cards in the browser, not the pile opener', () => {
   render(board(midGame))
@@ -130,14 +132,17 @@ test('a discard choice is answered from the pile: the pile glows, the eligible c
   await waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'SubmitChoice', payload: { windowId: 'fallen', choice: hero.id } }))
 })
 
-test('Skip glows until our pass, then glows again after a modifier clears passes', async () => {
+// The owner, 2026-09-08: a Skip with nothing behind it reads as an action the
+// table is waiting on, so the button is absent — not merely disabled — once
+// this seat has no window left to give up.
+test('Skip glows until our pass, goes away, and comes back when a modifier clears passes', async () => {
   const view = modifierWindowOpen
   const { rerender } = render(board(view))
   expect(hudSkip().querySelector('.skip-glow')).toBeTruthy()
   fireEvent.click(hudSkip())
   expect(send).toHaveBeenCalledWith({ type: 'PassWindow', payload: { windowId: view.pendingWindows[0].windowId } })
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [view.playerId] } })) }))
-  expect(hudSkip()).toBeDisabled()
+  expect(noSkip()).toBe(true)
   expect(document.querySelector('.skip-glow')).toBeNull()
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: [] } })) }))
   expect(hudSkip().querySelector('.skip-glow')).toBeTruthy()
@@ -148,27 +153,26 @@ test.each(['player-a', 'player-b', 'player-c'])('Skip responds immediately for %
   let acknowledge!: (result: CommandResult) => void
   send.mockImplementationOnce(() => new Promise((resolve) => { acknowledge = resolve }))
   const { rerender } = render(board(view))
-  const skip = () => hudSkip()
-  fireEvent.click(skip())
-  expect(skip()).toBeDisabled()
-  expect(skip().querySelector('.skip-glow')).toBeNull()
-  fireEvent.click(skip())
+  fireEvent.click(hudSkip())
+  // gone at once, on the local pass alone — no server snapshot yet, and so
+  // no second press to send
+  expect(noSkip()).toBe(true)
   expect(send).toHaveBeenCalledTimes(1)
   await act(async () => acknowledge({ commandId: 'test', accepted: true }))
-  expect(skip()).toBeDisabled()
+  expect(noSkip()).toBe(true)
   rerender(board({ ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window, detail: { ...window.detail, passedBy: ['someone-else'] } })) }))
-  expect(skip()).toBeDisabled()
+  expect(noSkip()).toBe(true)
   const modified = { ...view, pendingWindows: view.pendingWindows.map((window) => ({ ...window,
     deadline: window.deadline + 1000,
     detail: { ...window.detail, finalRoll: 10, bonuses: [{ cardSource: 'modifier-080', amount: 2 }], passedBy: [] },
   })) }
   rerender(board(modified))
-  expect(skip()).toBeEnabled()
-  expect(skip().querySelector('.skip-glow')).toBeTruthy()
-  await act(async () => { fireEvent.click(skip()) })
-  expect(skip()).toBeDisabled()
+  expect(hudSkip()).toBeEnabled()
+  expect(hudSkip().querySelector('.skip-glow')).toBeTruthy()
+  await act(async () => { fireEvent.click(hudSkip()) })
+  expect(noSkip()).toBe(true)
   rerender(board({ ...view, pendingWindows: [] }))
-  expect(screen.queryAllByRole('button', { name: 'Skip reaction' })).toHaveLength(0)
+  expect(noSkip()).toBe(true)
 })
 
 test('a rejected pass lights Skip again', async () => {
@@ -205,32 +209,108 @@ test('the asking leader stays in its slot with a pink highlight and no reaction 
   expect(screen.getByAltText(leader.name).parentElement).not.toHaveClass('choice-source-aura')
 })
 
-test("a roll's chosen target reddens the WIDGET the effect reaches — the hand frame, or the party frame — never the cards", () => {
+test("a roll aimed at you is said by the SCREEN's rim and nowhere else — no reddened widget frames", () => {
   const [rolling] = modifierWindowOpen.pendingWindows
-  const other = modifierWindowOpen.seats.find((seat) => seat.playerId !== modifierWindowOpen.playerId)!
-  const aimedAt = (targetZone: string): PlayerView => ({
+  const aimedAtMe = (targetZone: string): PlayerView => ({
     ...modifierWindowOpen,
-    pendingWindows: [{ ...rolling, detail: { ...rolling.detail, targetPlayerId: other.playerId, targetZone } }],
+    pendingWindows: [{
+      ...rolling,
+      detail: { ...rolling.detail, targetPlayerId: modifierWindowOpen.playerId, targetZone },
+    }],
   })
-  // the widget FRAMES only: the contested monster and the total's scroll wear the red for their own reasons
   const redFrames = (root: HTMLElement) =>
     Array.from(root.querySelectorAll('img.enemy-aura')).filter((img) => (img.getAttribute('src') ?? '').includes('Frame'))
 
-  const { container, rerender } = render(board(aimedAt('Hand')))
-  const handFrames = redFrames(container)
-  expect(handFrames).toHaveLength(1)
-  expect(handFrames[0].tagName).toBe('IMG')
-  expect(handFrames[0].getAttribute('alt')).toBe('')
-  expect(screen.getAllByAltText('card back').every((img) => !img.parentElement?.classList.contains('enemy-aura'))).toBe(true)
+  const { container, rerender } = render(board(aimedAtMe('Hand')))
+  expect(container.querySelector('.target-vignette')).not.toBeNull()
+  expect(redFrames(container)).toHaveLength(0)
 
-  rerender(board(aimedAt('Party')))
-  const partyFrames = redFrames(container)
-  expect(partyFrames).toHaveLength(1)
-  expect(partyFrames[0]).not.toBe(handFrames[0])
-  const theirParty = modifierWindowOpen.parties.find((party) => party.playerId === other.playerId)!
-  for (const hero of theirParty.heroes) {
-    expect(screen.getAllByAltText(hero.card.name).every((img) => !img.classList.contains('enemy-aura'))).toBe(true)
+  rerender(board(aimedAtMe('Party')))
+  expect(container.querySelector('.target-vignette')).not.toBeNull()
+  expect(redFrames(container)).toHaveLength(0)
+})
+
+test('the screen edge says whose turn it is: all four for yours, one for theirs', () => {
+  const [rolling] = modifierWindowOpen.pendingWindows
+  const myTurn: PlayerView = { ...midGame, currentPlayerId: midGame.playerId }
+  const { container, rerender } = render(board(myTurn))
+  expect(container.querySelector('.turn-vignette.turn-side-all')).not.toBeNull()
+  expect(container.querySelector('.target-vignette')).toBeNull()
+
+  // an opponent's turn lights only the edge their party sits on. midGame seats
+  // three, so the others take the LEFT and RIGHT sides (seats.ts).
+  rerender(board({ ...midGame, currentPlayerId: midGame.seats[1].playerId }))
+  expect(container.querySelector('.turn-vignette.turn-side-left')).not.toBeNull()
+  rerender(board({ ...midGame, currentPlayerId: midGame.seats[2].playerId }))
+  expect(container.querySelector('.turn-vignette.turn-side-right')).not.toBeNull()
+
+  // my turn AND a roll aimed at me: the red rim rides over the white one
+  rerender(board({
+    ...myTurn,
+    pendingWindows: [{ ...rolling, detail: { ...rolling.detail, targetPlayerId: midGame.playerId } }],
+  }))
+  expect(container.querySelector('.target-vignette')).not.toBeNull()
+  expect(container.querySelector('.turn-vignette')).not.toBeNull()
+})
+
+test('a reaction window narrows the hand to the cards that answer it, and opens it', () => {
+  const { container, rerender } = render(board(midGame))
+  const shown = () => screen.queryAllByAltText(/^hand card/).length
+  expect(shown()).toBe(midGame.hand.length)
+
+  // a roll on the table: only the modifiers, and the fan is held open
+  rerender(board(modifierWindowOpen))
+  const modifiers = modifierWindowOpen.hand.filter((card) => card.type === 'Modifier').length
+  expect(modifiers).toBeGreaterThan(0)
+  expect(shown()).toBe(modifiers)
+  const fan = container.querySelector('.hand-group > div:nth-child(2)')!
+  expect(fan.className).toContain('opacity-100')
+
+  // a play that can still be contested: only the challenges
+  const contestable: PlayerView = {
+    ...midGame,
+    busy: true,
+    pendingWindows: [{ ...challengeWindowOpen.pendingWindows[0], windowId: 'c1', cardId: midGame.parties[1].heroes[0].card.id }],
   }
+  rerender(board(contestable))
+  const challenges = midGame.hand.filter((card) => card.type === 'Challenge').length
+  expect(challenges).toBeGreaterThan(0)
+  expect(shown()).toBe(challenges)
+})
+
+test('every choice this seat is asked puts its instruction up in large type, takes no clicks, and outlives its window', async () => {
+  const asked: PlayerView = {
+    ...midGame,
+    busy: true,
+    pendingWindows: [{
+      windowId: 'sacrifice',
+      type: 'CardChoice',
+      respondentId: midGame.playerId,
+      isYours: true,
+      options: [midGame.parties[0].heroes[0].card.id],
+      detail: { question: 'Choose a hero to sacrifice', sourceCardId: midGame.parties[0].monsters[0].id },
+      deadline: Date.now() + 15_000,
+    }],
+  }
+  const { container, rerender } = render(board(asked))
+  const banner = screen.getByText('Choose a hero to sacrifice')
+  expect(banner.closest('.pointer-events-none')).not.toBeNull()
+
+  // a window whose task was never given one still says something useful
+  rerender(board({
+    ...asked,
+    pendingWindows: [{ ...asked.pendingWindows[0], detail: { sourceCardId: 'x' } }],
+  }))
+  expect(screen.getByText('Choose a card')).toBeInTheDocument()
+
+  // …and a roll is the table's business, not a question put to this seat.
+  // The words do not vanish in the same frame as the answer, though: they
+  // stay up briefly so you can see what you were just asked.
+  rerender(board(modifierWindowOpen))
+  expect(container.querySelector('.choice-banner')).not.toBeNull()
+  await waitFor(() => expect(container.querySelector('.choice-banner')).toBeNull(), {
+    timeout: 3000,
+  })
 })
 
 test("my own question over the roll comes first: the window waits for the answer, and the opener can still bring it forward", () => {
@@ -291,14 +371,23 @@ test('the screen bleeds red while an opponent\'s roll is aimed at you, and nowhe
   expect(container.querySelector('.target-vignette')).toBeNull()
 })
 
-test('the glow setting turns every aura off without touching the overlay dim', () => {
+test('each aura tone has its own switch, and one going off leaves the others alone', () => {
   const { container } = render(board(midGame))
   const root = container.querySelector('.board-root')!
-  expect(root).not.toHaveClass('no-glow')
+  for (const tone of ['no-aura-play', 'no-aura-effect', 'no-aura-target', 'no-aura-instant']) {
+    expect(root).not.toHaveClass(tone)
+  }
 
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  fireEvent.click(screen.getByRole('checkbox', { name: /glow effects/i }))
-  expect(root).toHaveClass('no-glow')
+  fireEvent.click(screen.getByRole('checkbox', { name: /effects aura/i }))
+  expect(root).toHaveClass('no-aura-effect')
+  expect(root).not.toHaveClass('no-aura-play')
+  expect(root).not.toHaveClass('no-aura-target')
+  expect(root).not.toHaveClass('no-aura-instant')
+
+  fireEvent.click(screen.getByRole('checkbox', { name: /target aura/i }))
+  expect(root).toHaveClass('no-aura-effect')
+  expect(root).toHaveClass('no-aura-target')
 })
 
 test('every card the server calls a passive wears the pink aura, all game long', () => {

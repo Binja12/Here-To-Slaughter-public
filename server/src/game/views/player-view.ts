@@ -50,6 +50,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .getAll()
       .map((id) => cardOf(gs, id)),
     revealedCards: gs.getRevealed(playerId).map((id) => cardOf(gs, id)),
+    ...revealCaption(gs, playerId),
     monsterRow: gs
       .getMonsterPile()
       .getAll()
@@ -118,6 +119,19 @@ function turnClockView(game: Game): TurnClockView | undefined {
   return deadline === undefined
     ? { turnTimeMs, heldMs: remainingMs }
     : { turnTimeMs, deadline }
+}
+
+/** The two facts the reveal strip captions itself with; nothing when idle. */
+function revealCaption(
+  gs: GameState,
+  playerId: string,
+): { revealedBy?: string; revealedOf?: string } {
+  const source = gs.getRevealSource(playerId)
+  if (!source || gs.getRevealed(playerId).length === 0) return {}
+  return {
+    revealedBy: source.byPlayerId,
+    ...(source.ofPlayerId && { revealedOf: source.ofPlayerId }),
+  }
 }
 
 /** THROWS: a zone holding an unregistered id is a broken board (§11.2). */

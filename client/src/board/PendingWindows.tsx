@@ -4,6 +4,7 @@ import type { PendingWindowView, PlayerView } from '../contract'
 import { artFor } from './assets'
 import { cardById } from './viewTargets'
 import { tkey, useTargetable } from './targeting'
+import { nameOf } from './seats'
 
 export default function PendingWindows({
   view,
@@ -57,9 +58,7 @@ function WindowCard({
   window: PendingWindowView
   onSubmit: (windowId: string, choice: unknown) => void
 }) {
-  const respondent = view.seats.find(
-    (seat) => seat.playerId === window.respondentId,
-  )
+  const respondent = nameOf(view, window.respondentId)
   const card = cardById(view, window.cardId)
   const art = card ? artFor(card) : null
   const target = useTargetable(tkey.pendingWindow(window.windowId))
@@ -82,9 +81,7 @@ function WindowCard({
           {window.type}
         </div>
         <div className="text-[0.58cqw] leading-tight text-stone-200">
-          {window.isYours
-            ? `Your response${respondent ? `, ${respondent.name}` : ''}`
-            : `Waiting for ${respondent?.name ?? 'player'}…`}
+          {window.isYours ? 'Your response' : `Waiting for ${respondent}…`}
         </div>
 
         {window.detail && (
@@ -123,11 +120,8 @@ function humanize(value: string): string {
 
 function formatDetailValue(value: unknown, view: PlayerView): string {
   if (typeof value === 'string') {
-    return (
-      view.seats.find((seat) => seat.playerId === value)?.name ??
-      cardById(view, value)?.name ??
-      value
-    )
+    if (view.seats.some((seat) => seat.playerId === value)) return nameOf(view, value)
+    return cardById(view, value)?.name ?? value
   }
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (value === null) return '—'
@@ -136,10 +130,9 @@ function formatDetailValue(value: unknown, view: PlayerView): string {
 
 function optionLabel(option: unknown, view: PlayerView): string {
   if (typeof option === 'string') {
-    const resolved =
-      view.seats.find((seat) => seat.playerId === option)?.name ??
-      cardById(view, option)?.name
-    if (resolved) return resolved
+    if (view.seats.some((seat) => seat.playerId === option)) return nameOf(view, option)
+    const card = cardById(view, option)?.name
+    if (card) return card
     return humanize(option.toLowerCase())
   }
   if (typeof option === 'number') {

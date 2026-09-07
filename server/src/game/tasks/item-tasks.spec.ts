@@ -204,11 +204,11 @@ describe('PlayItemTask', () => {
     expect(window?.getType()).toBe(ReactionWindowType.Challenge)
   })
 
-  it("puts a plain item on another party's hero too — the rules do not say whose (the owner, 2026-09-04)", () => {
+  it("refuses a plain item on another party's hero — it helps its own side (the owner, 2026-09-08)", () => {
     run(play(), bothSlots('item-1', 'hero-2'))
 
-    expect(gs.getEquippedItem('hero-2')).toBe('item-1')
-    expect(player.getHand()).not.toContain('item-1')
+    expect(gs.getEquippedItem('hero-2')).toBeUndefined()
+    expect(player.getHand()).toContain('item-1')
   })
 
   it('allows a CURSED item onto another party — that is what it is for', () => {

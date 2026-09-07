@@ -14,7 +14,11 @@ export const SpookyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardEachTask({ owner: Owner.Others, hasHeroes: true }, { zone: Zone.Party }),
+      new ChooseCardEachTask(
+        { owner: Owner.Others, hasHeroes: true },
+        { zone: Zone.Party },
+        'Choose a hero to sacrifice',
+      ),
       new SacrificeEachTask(),
     ],
   },

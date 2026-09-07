@@ -1,11 +1,12 @@
 import AssetImage from '../loading/AssetImage'
 import React from 'react'
 import { HUD, HUD_ASPECT, MODIFIER_LAYOUT } from './layout'
-import { artFor, NONHERO_CARD_ASPECT } from './assets'
+import { artFor, boardModifierUrl, NONHERO_CARD_ASPECT } from './assets'
 import { LiveRoll, rollNeedLabel, rollOutcome } from './liveRoll'
 import { useTargetable } from './targeting'
 import { useGameView } from '../state/game'
 import { cardById, targetKeyForId } from './viewTargets'
+import { nameOf } from './seats'
 import CardReactionTimer from './CardReactionTimer'
 import ImageButton from './ImageButton'
 
@@ -14,8 +15,10 @@ import ImageButton from './ImageButton'
  * challenge takes the stage in ChallengeWindow: the card rolled on (a hero,
  * a leader, a monster under attack) in the middle with the roll's TOTAL in
  * the scroll under it, and every modifier card played onto the roll beside
- * it — the first to the right, the second to the left, the third to the
- * right again, and so on (the owner, 2026-09-05). Opens once ANYTHING is
+ * it — the ones that ADD on the left, the ones that SUBTRACT on the right
+ * (the owner, 2026-09-08). A challenge window sides its cards by whose roll
+ * they landed on; a modifier window has only the one roll, so the side is
+ * free to say the sign instead. Opens once ANYTHING is
  * modifying the roll — a card played onto it or a standing effect (a
  * leader, a monster, a hero; the owner, 2026-09-06), every source shown
  * with its amount; the board below
@@ -49,19 +52,23 @@ export default function ModifierWindow({
   const L = MODIFIER_LAYOUT
   const art = artFor(subject)
   const outcome = rollOutcome(roll, view)
-  const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
-  const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
-  const targetSeat = view.seats.find((seat) => seat.playerId === roll.targetPlayerId)
+  const who = nameOf(view, roll.rollerId)
   const targetName =
-    roll.targetPlayerId === undefined
-      ? undefined
-      : roll.targetPlayerId === view.playerId
-        ? 'you'
-        : targetSeat?.name ?? 'player'
+    roll.targetPlayerId === undefined ? undefined : nameOf(view, roll.targetPlayerId)
   const bonusCards = roll.bonuses.flatMap((bonus) => {
     const card = cardById(view, bonus.cardSource)
     return card ? [{ card, amount: bonus.amount }] : []
   })
+  // side -1 is the left fan (adds), +1 the right (subtracts); rank counts
+  // outward from the centre card within each side.
+  const placed = [
+    ...bonusCards
+      .filter((bonus) => bonus.amount > 0)
+      .map((bonus, rank) => ({ ...bonus, side: -1, rank })),
+    ...bonusCards
+      .filter((bonus) => bonus.amount <= 0)
+      .map((bonus, rank) => ({ ...bonus, side: 1, rank })),
+  ]
 
   return (
     <div className="dim-exempt pointer-events-none absolute inset-0 z-[140]">
@@ -83,14 +90,18 @@ export default function ModifierWindow({
         }}
       >
         <div className="challenge-pop relative h-full w-full">
+          {/* the two lines over the card, big enough to read across the
+              table (the owner, 2026-09-07) */}
+          {/* wider than the card and never wrapped: a long name would break
+              "MIRA ATTACK" across two lines inside the card's own width */}
           <div
-            className="absolute inset-x-0 -top-[4.5cqh] text-center font-heading text-[1.1cqw] uppercase tracking-[0.15cqw] text-amber-200"
+            className="absolute left-1/2 -top-[7.5cqh] -translate-x-1/2 whitespace-nowrap text-center font-heading text-[1.9cqw] uppercase tracking-[0.2cqw] text-amber-200 drop-shadow-[0_0.12cqw_0.25cqw_rgba(0,0,0,0.9)]"
           >
             {who} {roll.type === 'Attack' ? 'attack' : 'roll'}
           </div>
           {targetName && (
-            <div className="absolute inset-x-0 -top-[2.4cqh] text-center font-heading text-[0.85cqw] tracking-[0.08cqw] text-amber-100/90">
-              targets {targetName}
+            <div className="absolute left-1/2 -top-[3.9cqh] -translate-x-1/2 whitespace-nowrap text-center font-heading text-[1.35cqw] uppercase tracking-[0.12cqw] text-red-300 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
+              target: {targetName}
             </div>
           )}
           <AssetImage
@@ -103,13 +114,19 @@ export default function ModifierWindow({
           <CardReactionTimer cardId={subject.id} />
         </div>
 
-        {/* everything modifying the roll: right, left, right, left… */}
-        {bonusCards.map(({ card, amount }, index) => {
-          const side = index % 2 === 0 ? 1 : -1
-          const rank = Math.floor(index / 2)
+        {/* everything modifying the roll: adds left, subtracts right */}
+        {placed.map(({ card, amount, side, rank }) => {
+          // A modifier card that offered a choice (+1/-3) shows the value
+          // that was CHOSEN, not the two-sided card — the window has to say
+          // what actually landed (the owner, 2026-09-08). A standing effect
+          // (a leader, a monster, a hero) keeps its own art.
+          const url =
+            card.type === 'Modifier' && amount !== 0
+              ? boardModifierUrl(amount > 0 ? `+${amount}` : `${amount}`)
+              : artFor(card).url
           return (
             <div
-              key={`${card.id}-${index}`}
+              key={`${card.id}-${side}-${rank}`}
               className="absolute"
               style={{
                 height: `${L.modCard.h}cqh`,
@@ -131,13 +148,13 @@ export default function ModifierWindow({
                   in the middle (the owner, four times) */}
               <div className="challenge-pop relative h-full w-full">
                 <AssetImage
-                  src={artFor(card).url}
+                  src={url}
                   alt={`roll bonus ${amount > 0 ? '+' : ''}${amount}`}
                   draggable={false}
                   className="h-full w-full select-none rounded-[0.4cqw] object-fill shadow-[0.2cqw_0.4cqw_1cqw_rgba(0,0,0,0.75)]"
                 />
                 <span
-                  className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]"
+                  className="absolute left-1/2 top-full mt-[0.4cqh] -translate-x-1/2 whitespace-nowrap font-heading text-[1.5cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]"
                 >
                   {amount > 0 ? '+' : '−'}{Math.abs(amount)}
                 </span>
@@ -172,13 +189,13 @@ export default function ModifierWindow({
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap leading-none drop-shadow-[0_0.08cqw_0.15cqw_rgba(0,0,0,0.9)]"
           style={{
             fontFamily: "'Alfa Slab One', serif",
-            fontSize: `${L.scroll.h * 0.3}cqh`,
+            fontSize: `${L.scroll.h * 0.42}cqh`,
             color: outcome === 'success' ? '#86efac' : outcome === 'failure' ? '#fca5a5' : '#f5b03e',
           }}
         >
           {roll.finalRoll}
         </span>
-        <span className="absolute inset-x-0 top-full mt-[0.3cqh] text-center font-heading text-[0.75cqw] text-amber-100/80">
+        <span className="absolute inset-x-0 top-full mt-[0.4cqh] whitespace-nowrap text-center font-heading text-[1.3cqw] uppercase tracking-[0.08cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
           {rollNeedLabel(roll, view)}
         </span>
       </div>

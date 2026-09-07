@@ -196,13 +196,30 @@ describe('PlayItemAction', () => {
       expect(makeAction('hero-1').canExecute(gs)).toEqual({ accepted: true })
     })
 
-    it("a plain item dresses an opponent's bare hero too — the rules do not say whose (the owner, 2026-09-04)", () => {
-      const opponent = makePlayer('p2')
-      const opponentParty = makeParty('p2', ['enemy-hero'])
-      gs.registerPlayer(opponent)
-      gs.registerParty(opponentParty)
+    // Ownership decides the side (the owner, 2026-09-08): plain items help
+    // your own party, cursed ones are played at somebody else's.
+    const withOpponent = () => {
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2', ['enemy-hero']))
       gs.registerCard(makeHeroCard('enemy-hero'))
+    }
+
+    it("refuses a plain item on an opponent's hero", () => {
+      withOpponent()
+      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NotYourHero,
+      })
+    })
+
+    it('a CURSED item goes on an enemy hero, never your own', () => {
+      withOpponent()
+      gs.registerCard(makeItemCard('item-1', true))
       expect(makeAction('enemy-hero').canExecute(gs)).toEqual({ accepted: true })
+      expect(makeAction('hero-1').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NotAnEnemyHero,
+      })
     })
   })
 

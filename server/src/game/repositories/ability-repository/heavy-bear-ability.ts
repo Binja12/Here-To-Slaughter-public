@@ -19,14 +19,20 @@ import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 export const HeavyBearAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to discard 2 cards'), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' },
+        { question: 'Choose the first card to discard' },
+      ),
       new DiscardTask({ executor: 'chosen' }),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' },
+        { question: 'Choose the second card to discard' },
+      ),
       new DiscardTask({ executor: 'chosen' }),
     ],
   },

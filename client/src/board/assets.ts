@@ -3,9 +3,8 @@ import { assetUrl } from '../assetUrl';
 
 // Every card on the table is drawn from its BOARD scan under client/public/
 // board/. There is no template art any more (the owner, 2026-09-04: the old
-// /cards folder is gone); a card without a scan (Call to the Fallen, as of
-// 2026-09-06) draws a placeholder card that names itself, so the table never
-// shows a broken image.
+// /cards folder is gone); a card without a scan draws a placeholder that names
+// itself, so the table never shows a broken image.
 
 /* ------------------------------------------------------------------ */
 /* BOARD design (client/public/board/): premium scans, frame baked in  */
@@ -66,6 +65,7 @@ export type ItemName = (typeof ITEMS)[number];
 export const boardItemUrl = (name: string) => assetUrl(`/board/Items/Item ${name}.png`);
 
 export const MAGICS = [
+  'Call Of The Fallen',
   'Critical Boost',
   'Destructive Spell',
   'Enchanted Spell',
@@ -131,6 +131,8 @@ const ART_NAME_OVERRIDES: Record<string, string> = {
   'Bard Mask': 'Bad Mask',
   "Curse of the Snake's Eyes": "Curse Of The Snake's Eyes",
   'Winds of Change': 'Winds Of Change',
+  // the scan says "Of The", the card says "to the"
+  'Call to the Fallen': 'Call Of The Fallen',
 };
 
 const heroSlugFromImage = (image: string) =>

@@ -9,13 +9,22 @@ import { DestroyTask } from '../../tasks/hero-tasks'
 export const FluffyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }), new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party)],
+    steps: [
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.All, destroyable: true },
+        { question: 'Choose the first hero to destroy' },
+      ),
+      new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new DestroyTask(),
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.All, destroyable: true },
+        { question: 'Choose the second hero to destroy' },
+      ),
       new DestroyTask(),
     ],
   },

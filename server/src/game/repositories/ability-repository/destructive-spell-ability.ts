@@ -33,9 +33,15 @@ export const DestructiveSpellAbility: IAbilityRule[] = [
       scope: TriggerScope.SelfCard,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.All, destroyable: true },
+        { question: 'Choose a hero to destroy' },
+      ),
       new DestroyTask(),
     ],
   },

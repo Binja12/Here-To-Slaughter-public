@@ -22,9 +22,16 @@ export const BearyWiseAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardEachTask({ owner: Owner.Others }, { zone: Zone.Hand }),
+      new ChooseCardEachTask(
+        { owner: Owner.Others },
+        { zone: Zone.Hand },
+        'Choose a card to discard',
+      ),
       new DiscardEachTask(),
-      new ChooseCardTask({ zone: Zone.Discard, among: CTX_DISCARDED_CARDS }),
+      new ChooseCardTask(
+        { zone: Zone.Discard, among: CTX_DISCARDED_CARDS },
+        { question: 'Choose a discarded card to add to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

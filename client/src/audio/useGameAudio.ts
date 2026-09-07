@@ -40,4 +40,16 @@ export function useGameAudio(view: PlayerView, log: GameLogEntry[]) {
     }
     cursor.current = { gameId: view.gameId, seq: latest }
   }, [view.gameId, log, playSound])
+
+  // The turn coming ROUND to you, announced once. Read off the view rather
+  // than the log: the turn passing is a state change, and a seat that joins
+  // mid-turn must not hear a turn it did not start. The first view of a game
+  // is silent for the same reason the log's history is (`mine` starts unset).
+  const myTurn = view.currentPlayerId === view.playerId
+  const wasMyTurn = useRef<boolean | null>(null)
+  useEffect(() => {
+    const before = wasMyTurn.current
+    wasMyTurn.current = myTurn
+    if (before === false && myTurn) playSound('turnStart')
+  }, [myTurn, playSound])
 }

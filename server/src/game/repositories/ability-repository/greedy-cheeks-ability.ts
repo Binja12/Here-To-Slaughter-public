@@ -14,7 +14,11 @@ export const GreedyCheeksAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardEachTask({ owner: Owner.Others }, { zone: Zone.Hand }),
+      new ChooseCardEachTask(
+        { owner: Owner.Others },
+        { zone: Zone.Hand },
+        'Choose a card to give away',
+      ),
       new RetrieveEachTask(),
     ],
   },

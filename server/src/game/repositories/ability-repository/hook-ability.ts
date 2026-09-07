@@ -23,11 +23,11 @@ export const HookAbility: IAbilityRule[] = [
     steps: [
       new ChooseCardTask(
         { zone: Zone.Hand, owner: Owner.Self, cardType: CardType.Item },
-        { resultKey: CTX_CHOSEN_ITEM },
+        { resultKey: CTX_CHOSEN_ITEM, question: 'Choose an item to play' },
       ),
       new ChooseCardTask(
         { zone: Zone.Party, owner: Owner.Self, unequipped: true },
-        { requiresKey: CTX_CHOSEN_ITEM },
+        { requiresKey: CTX_CHOSEN_ITEM, question: 'Choose a hero to equip it to' },
       ),
       new PlayItemTask(CTX_CHOSEN_ITEM),
       new DrawTask(1),

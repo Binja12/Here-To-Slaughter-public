@@ -15,30 +15,55 @@ export type BoardSettings = {
    * pressed. Off: the hover fan, which is the board's own behaviour.
    */
   stickyHand: boolean
-  /**
-   * The coloured auras — green playable, gold ask, pink passive, red enemy.
-   * Off, the board says nothing and the player reads it themselves; the
-   * targeting/challenge DIM stays either way, because that is what shows
-   * which half of the table a card is being aimed at.
-   */
-  glowEffects: boolean
+  /** GREEN — a card you may play, a reaction still live under a question. */
+  auraPlay: boolean
+  /** PINK — a card whose standing rule is in force. */
+  auraEffect: boolean
+  /** RED — an opponent acting, and the screen's rim while you are the target. */
+  auraTarget: boolean
+  /** GOLD — the thing the engine is asking you to press, right now. */
+  auraInstant: boolean
 }
 
-const DEFAULTS: BoardSettings = { stickyHand: false, glowEffects: true }
+const DEFAULTS: BoardSettings = {
+  stickyHand: false,
+  auraPlay: true,
+  auraEffect: true,
+  auraTarget: true,
+  auraInstant: true,
+}
 const STORAGE_KEY = 'htsr.boardSettings'
 
 function saved(): BoardSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw === null) return DEFAULTS
-    const stored = JSON.parse(raw) as Partial<BoardSettings>
+    const stored = JSON.parse(raw) as Partial<BoardSettings> & { glowEffects?: boolean }
+    // `glowEffects` was the one switch these four replaced; a board that had it
+    // OFF keeps every aura off rather than silently lighting up again.
+    const legacy = stored.glowEffects
+    const aura = (value: boolean | undefined, fallback: boolean) =>
+      value ?? (legacy === undefined ? fallback : legacy)
     return {
       stickyHand: stored.stickyHand ?? DEFAULTS.stickyHand,
-      glowEffects: stored.glowEffects ?? DEFAULTS.glowEffects,
+      auraPlay: aura(stored.auraPlay, DEFAULTS.auraPlay),
+      auraEffect: aura(stored.auraEffect, DEFAULTS.auraEffect),
+      auraTarget: aura(stored.auraTarget, DEFAULTS.auraTarget),
+      auraInstant: aura(stored.auraInstant, DEFAULTS.auraInstant),
     }
   } catch {
     return DEFAULTS
   }
+}
+
+/** The board-root classes these settings switch on. One per aura, in tone order. */
+export function auraClasses(settings: BoardSettings): string {
+  return [
+    settings.auraPlay ? '' : ' no-aura-play',
+    settings.auraEffect ? '' : ' no-aura-effect',
+    settings.auraTarget ? '' : ' no-aura-target',
+    settings.auraInstant ? '' : ' no-aura-instant',
+  ].join('')
 }
 
 const BoardSettingsContext = createContext<{

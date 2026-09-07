@@ -3,11 +3,10 @@ import React, { useEffect, useRef } from "react";
 import { SMALL_BACK } from "./assets";
 import { useTargetable, TargetKey } from "./targeting";
 
-/** hand-count widget: small card back with the count above its logo.
- *  Used in each seat's cardback frame AND beside the challenge window's roll
- *  panels (an opponent's remaining cards — modifier fuel). `playable` = at
- *  least one card in the hand behind this stack is playable right now, so
- *  the closed stack itself glows as the cue to open the fan. */
+/** hand-count widget: small card back with the count above its logo, one per
+ *  seat's cardback frame. `playable` = at least one card in the hand behind
+ *  this stack is playable right now, so the closed stack itself glows as the
+ *  cue to open the fan. */
 export default function HandCount({
   count,
   playable = false,

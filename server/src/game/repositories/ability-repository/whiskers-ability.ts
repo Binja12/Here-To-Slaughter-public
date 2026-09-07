@@ -9,13 +9,22 @@ import { DestroyTask, StealFromPartyTask } from '../../tasks/hero-tasks'
 export const WhiskersAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChooseCardTask({ zone: Zone.Party, owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party)],
+    steps: [
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Others },
+        { question: 'Choose a hero to steal' },
+      ),
+      new TargetRollTask(CTX_CHOSEN_CARD, Zone.Party),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new StealFromPartyTask(),
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All, destroyable: true }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.All, destroyable: true },
+        { question: 'Choose a hero to destroy' },
+      ),
       new DestroyTask(),
     ],
   },

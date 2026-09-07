@@ -29,6 +29,9 @@ export const ProtectingHornAbility: IAbilityRule[] = [
       on: GameEventType.ModifierPlayed,
       scope: TriggerScope.OwnerEvent,
     },
-    steps: [new ChooseValueTask(HORN_VALUES), new ApplyModifierTask()],
+    steps: [
+      new ChooseValueTask(HORN_VALUES, 'Choose +1 or -1 for the roll'),
+      new ApplyModifierTask(),
+    ],
   },
 ]

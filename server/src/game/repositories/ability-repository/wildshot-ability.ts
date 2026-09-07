@@ -10,7 +10,10 @@ export const WildshotAbility: IAbilityRule[] = [
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new DrawTask(3),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
     ],
   },

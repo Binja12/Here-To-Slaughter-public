@@ -40,7 +40,10 @@ export const CorruptedSabretoothAbility: IAbilityRule[] = [
     // fight-back text on its own).
     trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Self },
+        { question: 'Choose a hero to sacrifice' },
+      ),
       new SacrificeTask(),
     ],
   },

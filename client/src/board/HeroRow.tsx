@@ -186,7 +186,9 @@ export function HeroCardWidget({
 
       <div
         ref={hz.ref}
-        className={`absolute inset-0 ${shadow} rounded-[0.5cqw] transition-transform duration-[120ms] ease-out ${t.className}`}
+        className={`absolute inset-0 ${shadow} rounded-[0.5cqw] transition-transform duration-[120ms] ease-out${
+          heroZoomed ? ' is-zoomed' : ''
+        } ${t.className}`}
         style={{
           transformOrigin: origin,
           transform: heroZoomed ? `scale(${zoom})` : undefined,

@@ -76,6 +76,30 @@ export type AbilityPipeline = {
   system?: boolean
 }
 
+/** Whose look a seat is being shown — the caption's two facts. */
+/**
+ * How a choice window closed when nobody answered it. Only the two outcomes
+ * a player needs telling about: a pick made AT RANDOM on their behalf
+ * (CardChoiceWindow) and one made not at all (MonsterChoice, PlayerChoice).
+ * A fixed default — a value's bias, a confirm's DISMISS — is announced when
+ * the window opens, so it needs no notice.
+ */
+export type ChoiceLapse = {
+  windowId: string
+  respondentId: string
+  type: ReactionWindowType
+  resolution: 'random' | 'forfeited'
+  /** what the window was asking, when its task declared a question */
+  question?: string
+}
+
+export type RevealSource = {
+  /** the seat whose ability is showing the cards */
+  byPlayerId: string
+  /** the seat the cards BELONG to, when the reveal is a look at their hand */
+  ofPlayerId?: string
+}
+
 export class GameState {
   private players: Map<string, Player> = new Map()
   private parties: Map<string, Party> = new Map()
@@ -90,6 +114,17 @@ export class GameState {
    * `revealedCards`; the client decides how to show them.
    */
   private revealed: Map<string, string[]> = new Map()
+  private revealSources = new Map<string, RevealSource>()
+  /**
+   * The last choice that ran out of time, kept so the table can be TOLD.
+   * A lapse is otherwise indistinguishable from an answer — the window is
+   * simply gone from the next snapshot — and a random pick made on your
+   * behalf has to be visible (the owner, 2026-09-08).
+   *
+   * One slot, never cleared: the client shows each windowId once and lets it
+   * fade, the same way it lets the choice banner linger.
+   */
+  private lastLapse?: ChoiceLapse
   private cardsChallengedThisTurn: string[] = []
 
   /**
@@ -505,6 +540,8 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     for (const [id, ids] of this.revealed) copy.revealed.set(id, [...ids])
+    for (const [id, src] of this.revealSources) copy.revealSources.set(id, { ...src })
+    copy.lastLapse = this.lastLapse && { ...this.lastLapse }
     // Not the pipeline stack: it is work in progress ON the board, not the
     // board. A rollback undoes what that work did and drops what was waiting
     // on the frame (restoreFrame); it does not forget the work existed.
@@ -718,13 +755,21 @@ export class GameState {
     this.requirePlayer(playerId).removeEffect(effectId)
   }
 
-  /** Show cards to a seat: onto its `revealedCards` until hideRevealed. */
-  revealTo(playerId: string, cardIds: string[]): void {
+  /**
+   * Show cards to a seat: onto its `revealedCards` until hideRevealed.
+   *
+   * `source` says WHOSE look this is, so the screen can caption it — the seat
+   * whose ability is showing them, and, for a look at a hand, the seat the
+   * cards belong to. Only the latest source is kept: a seat looking at two
+   * things at once has no single caption, and no card does that.
+   */
+  revealTo(playerId: string, cardIds: string[], source?: RevealSource): void {
     const current = this.revealed.get(playerId) ?? []
     this.revealed.set(playerId, [
       ...current,
       ...cardIds.filter((id) => !current.includes(id)),
     ])
+    if (source) this.revealSources.set(playerId, source)
   }
 
   /** The reveal is over: those cards come off the seat's view. */
@@ -733,11 +778,29 @@ export class GameState {
       (id) => !cardIds.includes(id),
     )
     if (left.length) this.revealed.set(playerId, left)
-    else this.revealed.delete(playerId)
+    else {
+      this.revealed.delete(playerId)
+      this.revealSources.delete(playerId)
+    }
   }
 
   getRevealed(playerId: string): string[] {
     return [...(this.revealed.get(playerId) ?? [])]
+  }
+
+  /** Whose look the seat is being shown, when anything is being shown. */
+  getRevealSource(playerId: string): RevealSource | undefined {
+    return this.revealSources.get(playerId)
+  }
+
+  /** A choice ran out of time — ChoiceWindow.resolve reports what became of it. */
+  noteChoiceLapse(lapse: ChoiceLapse): void {
+    this.lastLapse = lapse
+  }
+
+  /** The last choice that ran out, for the view to caption. */
+  getLastLapse(): ChoiceLapse | undefined {
+    return this.lastLapse
   }
 
   /** CardStack.peek on the main deck, through the board. */

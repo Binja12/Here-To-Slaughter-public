@@ -14,7 +14,10 @@ const PLAY_MAGIC = 'ButtonsPlaysMagic'
 export const ButtonsAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [
+      new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to pull a card from'),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
@@ -32,6 +35,7 @@ export const ButtonsAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: PLAY_MAGIC,
+        question: 'Play the magic card you just pulled?',
         subjectKey: CTX_PULLED_CARD_IDS,
       }),
     ],

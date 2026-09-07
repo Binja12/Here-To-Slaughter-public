@@ -14,7 +14,13 @@ const PLAY_THE_HERO = 'LuckyBuckyPlaysHero'
 export const LuckyBuckyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [
+      new ChoosePlayerTask(
+        { owner: Owner.Others },
+        'Choose a player to pull a card from',
+      ),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
@@ -32,6 +38,7 @@ export const LuckyBuckyAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: PLAY_THE_HERO,
+        question: 'Play the hero you just pulled?',
         subjectKey: CTX_PULLED_CARD_IDS,
       }),
     ],

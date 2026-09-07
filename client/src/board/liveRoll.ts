@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PendingWindowView, PlayerView } from '../contract'
 import type { DiceRollState } from './DiceRoll'
-import { slotForPlayer } from './seats'
+import { nameOf, slotForPlayer } from './seats'
 import { cardById } from './viewTargets'
 
 /**
@@ -135,10 +135,8 @@ export function rollOutcome(roll: LiveRoll, view: PlayerView): RollOutcome {
 /** Whether a modifier CARD has landed on the roll — standing effects alone are not "someone applied a modifier". */
 /** The banner text while a roll is open: the total as it stands, against what. */
 export function rollLabel(roll: LiveRoll, view: PlayerView): string {
-  const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
-  const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
   const need = rollNeedLabel(roll, view)
-  return `${who} rolled ${roll.finalRoll}${need ? ` · ${need}` : ''}`
+  return `${nameOf(view, roll.rollerId)} rolled ${roll.finalRoll}${need ? ` · ${need}` : ''}`
 }
 
 /**

@@ -1,10 +1,14 @@
 import AssetImage from '../loading/AssetImage'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CardType, CardView } from '../contract'
 import { artFor } from './assets'
 import { DISCARD_ART, DISCARD_PANEL, inkScale } from './layout'
 import { tkey, useTargetable, useTargeting } from './targeting'
 import { useAudio } from '../audio/AudioProvider'
+import { useHoverZoom } from './useHoverZoom'
+
+/** how much bigger the browsed card is drawn than its cell */
+const ZOOM = 2.2
 
 /** the card types that ever reach the pile — one painted plaque each */
 const DISCARD_TYPES = ['Hero', 'Item', 'Magic', 'Modifier', 'Challenge'] as const satisfies readonly CardType[]
@@ -93,6 +97,7 @@ function DiscardCard({
   top,
   picking,
   onPicked,
+  onZoom,
 }: {
   card: CardView
   /** the card's place in the WHOLE pile — what a discard target is keyed by */
@@ -101,6 +106,10 @@ function DiscardCard({
   /** a pick out of the pile is live: the cards that are not the answer are dark */
   picking: boolean
   onPicked: () => void
+  /** this card's resting box while the cursor is browsing it, or null. The
+   *  ENLARGED copy is drawn by the panel: the grid scrolls, so a card scaled
+   *  where it sits would be clipped by its own scroll box. */
+  onZoom: (card: CardView, rect: DOMRect | null) => void
 }) {
   const key = tkey.discardCard(index)
   const target = useTargetable(key)
@@ -111,15 +120,32 @@ function DiscardCard({
   // answer a hover like a live one
   const dark = picking && !pickable
   const { playSound } = useAudio()
+  // The same browse as the hand and the board: a deliberate hover zooms, and
+  // sweeping on to a neighbour chains straight into it (the owner,
+  // 2026-09-08). The card keeps its cell; only the copy above it grows.
+  const zoom = useHoverZoom<HTMLElement>('discard')
+  const browsing = zoom.active && !dark
+  useEffect(() => {
+    onZoom(card, browsing ? (zoom.ref.current?.getBoundingClientRect() ?? null) : null)
+  }, [browsing, card, onZoom, zoom.ref])
+  useEffect(() => () => onZoom(card, null), [card, onZoom])
 
   return (
     <article
+      ref={zoom.ref}
       title={card.name}
-      onMouseEnter={() => { if (!dark) playSound('discardHover') }}
+      onMouseEnter={() => {
+        if (!dark) playSound('discardHover')
+        zoom.onMouseEnter()
+      }}
+      onMouseLeave={zoom.onMouseLeave}
+      onContextMenu={zoom.onContextMenu}
       role={pickable ? 'button' : undefined}
       tabIndex={pickable ? 0 : -1}
-      className={`relative min-w-0 rounded-[0.4cqw] transition-transform duration-150 ease-out focus:outline-none focus-visible:outline focus-visible:outline-[0.3cqh] focus-visible:outline-offset-[0.35cqh] focus-visible:outline-amber-200 ${
-        dark ? '' : 'hover:-translate-y-[0.5cqh]'
+      // while the enlarged copy is up this cell holds its space but shows
+      // nothing: two of the same card, one over the other, read as a ghost
+      className={`relative min-w-0 rounded-[0.4cqw] transition-opacity duration-100 focus:outline-none focus-visible:outline focus-visible:outline-[0.3cqh] focus-visible:outline-offset-[0.35cqh] focus-visible:outline-amber-200 ${
+        browsing ? 'opacity-0' : ''
       } ${target.className}`}
       onClick={(event) => {
         target.onClick(event)
@@ -160,6 +186,36 @@ export default function DiscardPileModal({
   /** the types the grid is showing — every plaque is its own on/off switch */
   const [shown, setShown] = useState<Set<DiscardType>>(everyType)
   const { active } = useTargeting()
+  // The browsed card, drawn enlarged over the panel. It lives out here rather
+  // than in the cell because the grid scrolls, and a card scaled inside a
+  // scroll box is cut off at its edges.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [zoomed, setZoomed] = useState<{
+    id: string
+    url: string
+    left: number
+    top: number
+    width: number
+    height: number
+  } | null>(null)
+  const onZoom = useCallback((card: CardView, rect: DOMRect | null) => {
+    setZoomed((was) => {
+      // a card only ever clears its OWN zoom: it may unmount (a filter
+      // switch, a scroll) after the next card has already claimed it
+      if (!rect) return was?.id === card.id ? null : was
+      const root = rootRef.current
+      if (!root) return was
+      const origin = root.getBoundingClientRect()
+      return {
+        id: card.id,
+        url: artFor(card).url,
+        left: rect.left - origin.left,
+        top: rect.top - origin.top,
+        width: rect.width,
+        height: rect.height,
+      }
+    })
+  }, [])
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -218,6 +274,7 @@ export default function DiscardPileModal({
       // brightness(0.35) and reads as "the art failed to load". The one dim
       // it keeps is its OWN pick: then the dark is what marks the single card
       // in the pile you may take.
+      ref={rootRef}
       className={`absolute inset-0 z-[240] flex items-center justify-center bg-black/80 backdrop-blur-[0.12cqw]${
         picking ? '' : ' dim-exempt'
       }`}
@@ -318,6 +375,7 @@ export default function DiscardPileModal({
                     top={index === 0}
                     picking={picking}
                     onPicked={onClose}
+                    onZoom={onZoom}
                   />
                 ))}
               </div>
@@ -333,6 +391,27 @@ export default function DiscardPileModal({
           </div>
         </div>
       </section>
+
+      {zoomed && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: `${zoomed.left}px`,
+            top: `${zoomed.top}px`,
+            width: `${zoomed.width}px`,
+            height: `${zoomed.height}px`,
+          }}
+        >
+          <AssetImage
+            src={zoomed.url}
+            alt=""
+            draggable={false}
+            className="h-full w-full select-none rounded-[0.4cqw] object-contain drop-shadow-[0_1cqh_2cqw_rgba(0,0,0,0.95)]"
+            style={{ transform: `scale(${ZOOM})` }}
+          />
+        </div>
+      )}
     </div>
   )
 }

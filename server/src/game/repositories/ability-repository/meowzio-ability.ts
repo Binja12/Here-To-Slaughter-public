@@ -11,12 +11,21 @@ import { PullCardTask } from '../../tasks/tasks'
 export const MeowzioAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others, hasHeroes: true }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Party)],
+    steps: [
+      new ChoosePlayerTask(
+        { owner: Owner.Others, hasHeroes: true },
+        'Choose a player to steal a hero from',
+      ),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Party),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Chosen }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Chosen },
+        { question: 'Choose a hero to steal' },
+      ),
       new StealFromPartyTask(),
       new PullCardTask(),
     ],

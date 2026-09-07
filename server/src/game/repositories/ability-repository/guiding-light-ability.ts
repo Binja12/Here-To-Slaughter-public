@@ -16,7 +16,10 @@ export const GuidingLightAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Discard, cardType: CardType.Hero }),
+      new ChooseCardTask(
+        { zone: Zone.Discard, cardType: CardType.Hero },
+        { question: 'Choose a hero to add to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

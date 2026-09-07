@@ -52,6 +52,9 @@ CLAUDE.md
 # WebP twins the image build writes next to the PNG art (scripts/optimize-art.mjs)
 client/public/**/*.png.webp
 
-# Reproducible delivery assets; originals remain tracked at their existing URLs.
-client/public/generated/
+# The prepared IMAGES are committed: the Docker build must not re-encode 164
+# PNGs on every run (docs/ONLINE_ASSET_PREPARATION.md). Music still needs ffmpeg
+# and is made inside the build; the asset catalog is rebuilt by client prestart.
+client/public/generated/*
+!client/public/generated/online-art/
 client/src/generated/

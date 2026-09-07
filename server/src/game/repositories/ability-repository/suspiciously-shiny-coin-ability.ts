@@ -25,7 +25,10 @@ export const SuspiciouslyShinyCoinAbility: IAbilityRule[] = [
       scope: TriggerScope.CarrierCard,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
     ],
   },
