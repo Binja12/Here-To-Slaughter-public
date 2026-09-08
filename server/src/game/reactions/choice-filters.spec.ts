@@ -289,6 +289,36 @@ describe('filterCards', () => {
     ).toEqual(['hero-2'])
   })
 
+  // Fluffy destroys two heroes and asks twice; the second question must not
+  // offer the first answer again.
+  it('leaves out whatever a context slot already holds', () => {
+    const gs = makeGs()
+    const p1 = seat(gs, 'p1')
+    gs.registerCard(hero('hero-1'))
+    gs.registerCard(hero('hero-2'))
+    p1.addToHand('hero-1')
+    p1.addToHand('hero-2')
+    const ctx = ctxFor('p1')
+    ctx.set('already', ['hero-1'])
+
+    expect(
+      filterCards(gs, ctx, {
+        zone: Zone.Hand,
+        owner: Owner.Self,
+        excludeKey: 'already',
+      }),
+    ).toEqual(['hero-2'])
+
+    // an empty or absent slot excludes nothing
+    expect(
+      filterCards(gs, ctxFor('p1'), {
+        zone: Zone.Hand,
+        owner: Owner.Self,
+        excludeKey: 'never-written',
+      }),
+    ).toEqual(['hero-1', 'hero-2'])
+  })
+
   it('returns an empty list in a solo game with no enemies', () => {
     const gs = makeGs()
     seat(gs, 'p1')

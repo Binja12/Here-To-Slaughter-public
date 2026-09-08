@@ -437,7 +437,10 @@ describe('ModifierWindow — the target is asked while the roll stands', () => {
 
     win.targetChosen(CTX_CHOSEN_PLAYER, ['p2'], Zone.Hand)
 
-    expect(win.getDetail()).toMatchObject({ targetPlayerId: 'p2', targetZone: Zone.Hand, passedBy: [] })
+    expect(win.getDetail()).toMatchObject({
+      targets: [{ playerId: 'p2', zone: Zone.Hand }],
+      passedBy: [],
+    })
     expect(win.getDeadline()).toBeGreaterThan(before)
 
     win.resolve()
@@ -445,10 +448,34 @@ describe('ModifierWindow — the target is asked while the roll stands', () => {
     expect(success.getPayload()).toMatchObject({ cardId: 'hero-1', ctxSeed: { [CTX_CHOSEN_PLAYER]: ['p2'] } })
   })
 
+  // Fluffy names two heroes under one roll: both seats have to know they are
+  // targeted, and both slots have to reach the effect when the roll lands.
+  it('keeps every target it is given, one per slot, and seeds them all', () => {
+    const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5 })
+
+    win.targetChosen(CTX_CHOSEN_CARD, ['their-card'], Zone.Party)
+    win.targetChosen('second', ['p1'], Zone.Party)
+
+    expect(win.getDetail()['targets']).toEqual([
+      { playerId: 'p2', zone: Zone.Party },
+      { playerId: 'p1', zone: Zone.Party },
+    ])
+
+    // choosing into the SAME slot again replaces that one and nothing else
+    win.targetChosen('second', ['p2'], Zone.Party)
+    expect(win.getDetail()['targets']).toEqual([{ playerId: 'p2', zone: Zone.Party }])
+
+    win.resolve()
+    const success = events.find((e) => e.getType() === GameEventType.RollSuccess)!
+    expect(success.getPayload()).toMatchObject({
+      ctxSeed: { [CTX_CHOSEN_CARD]: ['their-card'], second: ['p2'] },
+    })
+  })
+
   it("a card picked from a hand is shown as its owner's seat, never as the card", () => {
     const win = makeWindow({ gs, em, baseRoll: 5, rollReq: 5 })
     win.targetChosen(CTX_CHOSEN_CARD, ['their-card'], Zone.Hand)
-    expect(win.getDetail()['targetPlayerId']).toBe('p2')
+    expect(win.getDetail()['targets']).toEqual([{ playerId: 'p2', zone: Zone.Hand }])
     expect(JSON.stringify(win.getDetail())).not.toContain('their-card')
   })
 

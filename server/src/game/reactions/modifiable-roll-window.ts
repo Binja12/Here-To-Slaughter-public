@@ -43,7 +43,13 @@ export abstract class ModifiableRollWindow
    * card's choose step wrote (TargetRollTask). Shown to the table as the
    * seat it belongs to, and carried to the effect on the settle.
    */
-  private target?: { key: string; picks: unknown[]; zone: Zone }
+  /**
+   * What this roll is aimed at, by the context slot that named it. A MAP, not
+   * one entry: a card that chooses two targets under the same window (Fluffy
+   * destroys two heroes) writes a slot each, and both seats have to see that
+   * they are targeted. Choosing into the same slot twice replaces it.
+   */
+  private readonly targets = new Map<string, { picks: unknown[]; zone: Zone }>()
   /** Seats that gave this roll up; cleared whenever a card lands in it. */
   private readonly passes = new Set<string>()
   private timer?: ReturnType<typeof setTimeout>
@@ -124,7 +130,10 @@ export abstract class ModifiableRollWindow
 
   /** The chosen target as the seed of the effect's fresh context, if one landed. */
   protected targetSeed(): Record<string, unknown> | undefined {
-    return this.target && { [this.target.key]: this.target.picks }
+    if (this.targets.size === 0) return undefined
+    return Object.fromEntries(
+      [...this.targets].map(([key, target]) => [key, target.picks]),
+    )
   }
 
   // --- ITargetedRollWindow ---
@@ -135,7 +144,7 @@ export abstract class ModifiableRollWindow
    * landing does.
    */
   targetChosen(key: string, picks: unknown[], zone: Zone): void {
-    this.target = { key, picks, zone }
+    this.targets.set(key, { picks, zone })
     this.passes.clear()
     this.resetTimer()
   }
@@ -144,10 +153,19 @@ export abstract class ModifiableRollWindow
    * The seat the target belongs to, never the card: a card picked from a
    * hand is that player's secret.
    */
-  private targetPlayerId(): string | undefined {
-    const [pick] = this.target?.picks ?? []
-    if (typeof pick !== 'string') return undefined
-    return this.gs.getPlayer(pick) ? pick : this.gs.getCardOwner(pick)
+  private targetSeats(): { playerId: string; zone: Zone }[] {
+    const seen = new Set<string>()
+    const seats: { playerId: string; zone: Zone }[] = []
+    for (const { picks, zone } of this.targets.values()) {
+      for (const pick of picks) {
+        if (typeof pick !== 'string') continue
+        const playerId = this.gs.getPlayer(pick) ? pick : this.gs.getCardOwner(pick)
+        if (!playerId || seen.has(`${playerId}:${zone}`)) continue
+        seen.add(`${playerId}:${zone}`)
+        seats.push({ playerId, zone })
+      }
+    }
+    return seats
   }
 
   // --- IReactionWindow ---
@@ -168,8 +186,7 @@ export abstract class ModifiableRollWindow
       bonuses: [...this.bonuses],
       finalRoll: this.getFinalRoll(),
       passedBy: [...this.passes],
-      targetPlayerId: this.targetPlayerId(),
-      targetZone: this.target?.zone,
+      targets: this.targetSeats(),
       ...this.detail,
     }
   }

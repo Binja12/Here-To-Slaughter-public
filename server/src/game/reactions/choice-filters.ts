@@ -42,6 +42,12 @@ export type CardFilter = {
    */
   among?: string
   /**
+   * Ids in THIS context slot are not offered — "the second hero to destroy"
+   * must not be the first one again. The slot form of `excludeIds`, the way
+   * `among` is the slot form of a fixed candidate list.
+   */
+  excludeKey?: string
+  /**
    * Who this step runs AS — who answers the choice. The ability owner unless
    * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
    * is the victim's pick over the victim's own hand, which only they can see.
@@ -205,6 +211,9 @@ function keep(
   ids: string[],
 ): string[] {
   const exclude = new Set(filter.excludeIds ?? [])
+  for (const id of (filter.excludeKey ? ctx.get<string[]>(filter.excludeKey) : undefined) ?? []) {
+    exclude.add(id)
+  }
   const among = filter.among
     ? new Set(ctx.get<string[]>(filter.among) ?? [])
     : undefined

@@ -967,7 +967,12 @@ export class GameState {
       return refused(RefusalReason.MonsterNotInRow)
     }
 
-    if (!monster.canBeAttackedBy(this.getHeroClasses(playerId))) {
+    if (
+      !monster.canBeAttackedBy(
+        this.getHeroClasses(playerId),
+        this.getLeaderClass(playerId),
+      )
+    ) {
       return refused(RefusalReason.PartyRequirementUnmet)
     }
     return accepted()
@@ -1044,7 +1049,17 @@ export class GameState {
     return masked ?? hero.getDefaultClass()
   }
 
-  /** One class per hero, a mask included. What a monster's `partyReq` is matched against; never the leader's. */
+  /** The party leader's class, when the seat has one. */
+  getLeaderClass(playerId: string): HeroClass | undefined {
+    const leader = this.getCard(this.getParty(playerId).getLeaderId())
+    return leader instanceof PartyLeaderCard ? leader.getHeroClass() : undefined
+  }
+
+  /**
+   * One class per HERO, a mask included. A monster's `partyReq` is matched
+   * against these plus the leader, which `canBeAttackedBy` takes separately —
+   * the leader may fill a named class but never "a Hero card of any class".
+   */
   getHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
       .getHeroIds()
@@ -1054,11 +1069,9 @@ export class GameState {
 
   /** The leader's class, then the heroes'. What the class win and the `hasClass` filter read. */
   getPartyClasses(playerId: string): HeroClass[] {
-    const leader = this.getCard(this.getParty(playerId).getLeaderId())
+    const leaderClass = this.getLeaderClass(playerId)
     const heroClasses = this.getHeroClasses(playerId)
-    return leader instanceof PartyLeaderCard
-      ? [leader.getHeroClass(), ...heroClasses]
-      : heroClasses
+    return leaderClass === undefined ? heroClasses : [leaderClass, ...heroClasses]
   }
 
   /**
