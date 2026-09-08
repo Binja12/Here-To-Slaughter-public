@@ -180,11 +180,15 @@ function DiscardCard({
 export default function DiscardPileModal({
   cards,
   deadline,
+  question,
   onClose,
 }: {
   cards: CardView[]
   /** when a choice is being ANSWERED in here, when its window lapses */
   deadline?: number
+  /** what that choice is asking, in words — the centre banner stands down
+   *  while the pile is up, so this is where the question is */
+  question?: string
   onClose: () => void
 }) {
   /** the types the grid is showing — every plaque is its own on/off switch */
@@ -320,7 +324,7 @@ export default function DiscardPileModal({
               land straight on the title */}
           <header className="flex shrink-0 items-baseline justify-end gap-[1.1cqh] pr-[4.5cqh]">
             <h2 className="font-heading text-[1.15cqw] uppercase leading-none tracking-[0.16em] text-amber-200 drop-shadow-[0_0.15cqh_0.3cqw_rgba(0,0,0,0.95)]">
-              Discard pile
+              {question ?? 'Discard pile'}
             </h2>
             <p className="font-heading text-[0.62cqw] uppercase leading-none tracking-[0.1em] text-amber-100/50">
               {allOn

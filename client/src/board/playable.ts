@@ -130,6 +130,18 @@ export const equipTargets = (
     )
 }
 
+/**
+ * Whether this seat holds a card the open reaction window can be answered
+ * with. Read by the hand — which force-opens and rises above the dim only
+ * when there is something in it to play (the owner, 2026-09-08) — and by Lazy
+ * Choice, which gives the window up when there is not. One question, so the
+ * fan and the auto-skip can never disagree about whether you can act.
+ */
+export const holdsAnswer = (view: PlayerView): boolean => {
+  const answers = reactionCardType(view)
+  return answers !== null && view.hand.some((card) => card.type === answers)
+}
+
 export function derivePlayable(view: PlayerView): PlayableFlags {
   const mine = view.parties.find((party) => party.playerId === view.playerId)
   // `busy` while the only open window is an optional question of ours does

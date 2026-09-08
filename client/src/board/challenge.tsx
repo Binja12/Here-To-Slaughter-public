@@ -112,6 +112,13 @@ interface ChallengeContextValue {
   /** the open challenge, or null when the game is not paused on one */
   active: ChallengeState | null;
   open: (args: ChallengeOpenArgs) => void;
+  /**
+   * Who is on each side. Known only once somebody has CHALLENGED: the window
+   * opens while the play is merely contestable, so the challenger does not
+   * exist yet and the overlay would otherwise keep whatever it was opened
+   * with (the owner, 2026-09-08: both panels named the same player).
+   */
+  setSides: (challengedId?: string, challengerId?: string) => void;
   /** a side rolled (or re-rolled) — replays its dice, with whatever was
    *  already modifying that roll (standing effects) beside it */
   setRoll: (
@@ -129,6 +136,7 @@ interface ChallengeContextValue {
 const ChallengeContext = createContext<ChallengeContextValue>({
   active: null,
   open: () => {},
+  setSides: () => {},
   setRoll: () => {},
   addModifier: () => {},
   close: () => {},
@@ -159,6 +167,18 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
       },
     });
   }, []);
+
+  const setSides = useCallback((challengedId?: string, challengerId?: string) => {
+    setActive((prev) =>
+      prev === null
+        ? prev
+        : {
+            ...prev,
+            challenged: { ...prev.challenged, playerId: challengedId ?? prev.challenged.playerId },
+            challenger: { ...prev.challenger, playerId: challengerId ?? prev.challenger.playerId },
+          },
+    )
+  }, [])
 
   const setRoll = useCallback(
     (
@@ -215,8 +235,8 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
   const close = useCallback(() => setActive(null), []);
 
   const value = useMemo(
-    () => ({ active, open, setRoll, addModifier, close }),
-    [active, open, setRoll, addModifier, close],
+    () => ({ active, open, setSides, setRoll, addModifier, close }),
+    [active, open, setSides, setRoll, addModifier, close],
   );
   return (
     <ChallengeContext.Provider value={value}>

@@ -23,6 +23,12 @@ export type BoardSettings = {
   auraTarget: boolean
   /** GOLD — the thing the engine is asking you to press, right now. */
   auraInstant: boolean
+  /**
+   * Answer for me, the way I almost always would (lazyChoice.ts). Off by
+   * default: it presses buttons on the player's behalf, and nothing does that
+   * unless it was asked to.
+   */
+  lazyChoice: boolean
 }
 
 const DEFAULTS: BoardSettings = {
@@ -31,6 +37,7 @@ const DEFAULTS: BoardSettings = {
   auraEffect: true,
   auraTarget: true,
   auraInstant: true,
+  lazyChoice: false,
 }
 const STORAGE_KEY = 'htsr.boardSettings'
 
@@ -50,6 +57,7 @@ function saved(): BoardSettings {
       auraEffect: aura(stored.auraEffect, DEFAULTS.auraEffect),
       auraTarget: aura(stored.auraTarget, DEFAULTS.auraTarget),
       auraInstant: aura(stored.auraInstant, DEFAULTS.auraInstant),
+      lazyChoice: stored.lazyChoice ?? DEFAULTS.lazyChoice,
     }
   } catch {
     return DEFAULTS

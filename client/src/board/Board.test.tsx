@@ -413,3 +413,182 @@ test('every card the server calls a passive wears the pink aura, all game long',
   expect(screen.getByAltText('The Fist of Reason').closest('.passive-aura')).not.toBeNull()
   expect(screen.getByAltText('The Divine Arrow').closest('.card-aura')).not.toBeNull()
 })
+
+// Lazy Choice answers for the player, so the way OUT of it is behaviour worth
+// pinning: shift on the action that STARTS a sequence hands that whole
+// exchange back, and it stays handed back until the table is quiet again.
+describe('Lazy Choice, and taking a sequence back from it', () => {
+  /** my own roll, already past its mark and still passable — a lazy skip */
+  const clearing: PlayerView = {
+    ...modifierWindowOpen,
+    pendingWindows: modifierWindowOpen.pendingWindows.map((window) => ({
+      ...window,
+      detail: {
+        ...window.detail,
+        rollerId: modifierWindowOpen.playerId,
+        finalRoll: 12,
+        rollReq: 9,
+        passedBy: [],
+      },
+    })),
+  }
+  const passed = () =>
+    send.mock.calls.some(([command]) => command.type === 'PassWindow')
+
+  beforeEach(() => {
+    localStorage.setItem('htsr.boardSettings', JSON.stringify({ lazyChoice: true }))
+  })
+  afterEach(() => localStorage.removeItem('htsr.boardSettings'))
+
+  it('skips a settled roll of mine on its own, after the delay that hides my hand', () => {
+    render(board(clearing))
+    // nothing yet: an instant pass would announce that I hold no modifier
+    expect(passed()).toBe(false)
+    act(() => { jest.advanceTimersByTime(30_000) })
+    expect(passed()).toBe(true)
+  })
+
+  // A window put up and taken down again in the same beat is a FLASH. The
+  // board decides the lazy answer during the render that would draw the
+  // window, so the window is never drawn at all (the owner, 2026-09-08: the
+  // Protecting Horn's value blinked open over a +1/-3).
+  it('never draws a window it is about to answer', () => {
+    const valueOpen: PlayerView = {
+      ...midGame,
+      busy: true,
+      pendingWindows: [
+        {
+          windowId: 'value',
+          type: 'ValueChoice',
+          respondentId: midGame.playerId,
+          options: [1, -3],
+          detail: { bias: 'highest', sourceCardId: midGame.hand[0].id },
+          deadline: Date.now() + 30_000,
+          isYours: true,
+        },
+      ],
+    }
+    const { unmount } = render(board(valueOpen))
+    expect(screen.queryByText(/choose value/i)).toBeNull()
+    unmount()
+
+    // and it IS the lazy answer doing that: switched off, the window shows
+    localStorage.removeItem('htsr.boardSettings')
+    render(board(valueOpen))
+    expect(screen.getByText(/choose value/i)).toBeInTheDocument()
+  })
+
+  it('answers nothing once an action was pressed with SHIFT', () => {
+    const { rerender } = render(board(midGame))
+    const leader = screen.getByAltText(midGame.parties[0].leader.name)
+    fireEvent.mouseDown(leader, { shiftKey: true })
+    fireEvent.click(leader)
+    send.mockClear()
+
+    rerender(board(clearing))
+    act(() => { jest.advanceTimersByTime(30_000) })
+    expect(passed()).toBe(false)
+  })
+})
+
+// Bloodwing asks the CHALLENGER to discard, so the question arrives while the
+// challenge is on stage. The fan narrows to the cards that answer a reaction
+// window — and that hid every card the discard was offering, leaving a
+// question with no answers on screen (the owner, 2026-09-08).
+test('a discard asked during a challenge shows the cards it offers, not the reaction filter', () => {
+  const [contest] = challengeWindowOpen.pendingWindows
+  // no challenge cards in hand: the fan would otherwise narrow to nothing
+  const hand = midGame.hand.filter((card) => card.type !== 'Challenge')
+  const offered = hand.slice(0, 2).map((card) => card.id)
+  const asked: PlayerView = {
+    ...midGame,
+    hand,
+    busy: true,
+    pendingWindows: [
+      contest,
+      {
+        windowId: 'bloodwing-discard',
+        type: 'CardChoice',
+        respondentId: midGame.playerId,
+        options: offered,
+        detail: { question: 'Choose a card to discard' },
+        deadline: Date.now() + 30_000,
+        isYours: true,
+      },
+    ],
+  }
+
+  render(board(asked))
+  // the fan draws one img per SHOWN card; the two offered are there
+  const shown = screen.getAllByAltText(/^hand card /)
+  expect(shown).toHaveLength(offered.length)
+})
+
+// "Steal it instead of destroying it?" is about a particular hero, and the
+// answer means nothing without knowing which (the owner, 2026-09-08).
+test('a choice of action shows the card asking AND the card it is about', () => {
+  const sabretooth = midGame.parties[0].monsters[0]
+  const victim = midGame.parties[0].heroes[0].card
+  const asked: PlayerView = {
+    ...midGame,
+    busy: true,
+    pendingWindows: [
+      {
+        windowId: 'steal-or-destroy',
+        type: 'TaskChoice',
+        respondentId: midGame.playerId,
+        options: ['Steal it instead', 'Destroy it'],
+        detail: {
+          question: 'Steal it instead of destroying it?',
+          sourceCardId: sabretooth.id,
+          cardId: victim.id,
+        },
+        deadline: Date.now() + 30_000,
+        isYours: true,
+      },
+    ],
+  }
+
+  render(board(asked))
+  // both cards, and the question itself, inside the overlay that offers the
+  // two answers
+  expect(screen.getByRole('button', { name: 'Steal it instead' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Destroy it' })).toBeInTheDocument()
+  expect(screen.getAllByAltText(sabretooth.name).length).toBeGreaterThan(0)
+  expect(screen.getAllByAltText(victim.name).length).toBeGreaterThan(0)
+  expect(
+    screen.getAllByText('Steal it instead of destroying it?').length,
+  ).toBeGreaterThan(0)
+})
+
+// A pick off the pile was asked over a board that did not show the pile, and
+// the centre banner ghosted through its translucent backdrop (the owner,
+// 2026-09-08).
+test('a choice off the discard pile opens the pile, and the banner stands down', () => {
+  // a pile card that is NOT also in hand: the fixture reuses card objects,
+  // and targetKeyForId resolves a hand match first
+  const top = midGame.discardPile.find(
+    (card) => !midGame.hand.some((held) => held.id === card.id),
+  )!
+  const asked: PlayerView = {
+    ...midGame,
+    busy: true,
+    pendingWindows: [
+      {
+        windowId: 'call-of-the-fallen',
+        type: 'CardChoice',
+        respondentId: midGame.playerId,
+        options: [top.id],
+        detail: { question: 'Choose a card to take' },
+        deadline: Date.now() + 30_000,
+        isYours: true,
+      },
+    ],
+  }
+
+  render(board(asked))
+  expect(screen.getByRole('dialog', { name: 'Discard pile' })).toBeInTheDocument()
+  // the question is in the pile, and NOT also on the centre banner behind it
+  expect(screen.getByText('Choose a card to take')).toBeInTheDocument()
+  expect(document.querySelector('.choice-banner')).toBeNull()
+})

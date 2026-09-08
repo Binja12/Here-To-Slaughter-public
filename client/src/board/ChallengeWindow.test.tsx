@@ -4,6 +4,8 @@ import ChallengeWindow from './ChallengeWindow'
 import { ChallengeProvider, useChallenge } from './challenge'
 import { TargetingProvider } from './targeting'
 import { CHALLENGE_LAYOUT } from './layout'
+import { GameProvider } from '../state/game'
+import { threeSeatOpening } from '../fixtures/views'
 import type { PlayerId } from './layout'
 
 // The owner, 2026-09-07: whichever side is MINE takes the left panel, so the
@@ -110,4 +112,71 @@ test('the defender ahead glows green, and a level challenge glows on neither sid
   window_('p1', 'p2', { challenged: [3, 4], challenger: [4, 3] })
   expect(panelOf('challenged')).toMatchObject({ green: false, red: false })
   expect(panelOf('challenger')).toMatchObject({ green: false, red: false })
+})
+
+// The window opens while the play is only contestable — before anyone has
+// challenged — so the challenger is not known yet. It has to be picked up
+// when the challenge starts, or both panels keep whatever the overlay was
+// opened with (the owner, 2026-09-08: both said the same player).
+function Late({ challengedId, challengerId }: { challengedId: string; challengerId: string }) {
+  const challenge = useChallenge()
+  const [started, setStarted] = React.useState(false)
+  React.useEffect(() => {
+    challenge.open({
+      started: false,
+      challengedCardUrl: 'card.png',
+      challengeCardUrl: 'challenge.png',
+      challengedId,
+      // no challengerId: nobody has challenged yet
+      challengedSeat: 'p2',
+      challengerSeat: 'p2',
+    })
+    setStarted(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  React.useEffect(() => {
+    if (!started) return
+    challenge.setSides(challengedId, challengerId)
+    challenge.setRoll('challenged', [3, 4])
+    challenge.setRoll('challenger', [2, 2])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started])
+  return <ChallengeWindow />
+}
+
+const lateChallenge = (challengedId: string, challengerId: string) =>
+  render(
+    <GameProvider view={threeSeatOpening}>
+      <TargetingProvider>
+        <ChallengeProvider>
+          <Late challengedId={challengedId} challengerId={challengerId} />
+        </ChallengeProvider>
+      </TargetingProvider>
+    </GameProvider>,
+  )
+
+test('a challenge that starts after it opened names both sides, and never twice the same', () => {
+  // the viewer is in neither side: two other players, each its own name
+  lateChallenge('player-b', 'player-c')
+  expect(screen.getByText('Mira')).toBeInTheDocument()
+  expect(screen.getByText('Rook')).toBeInTheDocument()
+  expect(screen.queryByText('YOU')).toBeNull()
+})
+
+test('me on the left whichever side I am, and the enemy on the right', () => {
+  const onLeft = (name: string) => {
+    const panel = screen.getByText(name).closest('[data-role]') as HTMLElement
+    return panel.style.left.includes(`-${CHALLENGE_LAYOUT.panel.dx}cqh`)
+  }
+
+  // challenged
+  const first = lateChallenge('player-a', 'player-c')
+  expect(onLeft('YOU')).toBe(true)
+  expect(onLeft('Rook')).toBe(false)
+  first.unmount()
+
+  // challenger
+  lateChallenge('player-c', 'player-a')
+  expect(onLeft('YOU')).toBe(true)
+  expect(onLeft('Rook')).toBe(false)
 })

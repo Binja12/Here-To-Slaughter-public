@@ -2,8 +2,8 @@ import AssetImage from '../loading/AssetImage'
 import CardReactionTimer from './CardReactionTimer';
 import { useOptionalGameView } from '../state/game';
 import React, { useEffect, useState } from "react";
-import { CHALLENGE_LAYOUT, HUD, HUD_ASPECT, PlayerId } from "./layout";
-import { nameOf, slotsFor } from "./seats";
+import { CHALLENGE_LAYOUT, HUD, HUD_ASPECT } from "./layout";
+import { nameOf } from "./seats";
 import type { PlayerView } from "../contract";
 import { NONHERO_CARD_ASPECT } from "./assets";
 import { DicePair, DICE_SETTLE_MS } from "./DiceRoll";
@@ -50,14 +50,14 @@ import {
 /**
  * What to call one side of the challenge, worded for the viewer.
  *
- * The player ID first and the screen seat only as a fallback: a seat is a
- * PLACE, and an unresolved one used to default to the viewer's, which named
- * both sides "YOU" (the owner, 2026-09-08).
+ * The player ID and nothing else. A screen seat is a PLACE; guessing a name
+ * from one named both panels the same player, because the seat it fell back
+ * to was somebody real (the owner, 2026-09-08). Unknown says so.
  */
 const sideName = (view: PlayerView | null, side: ChallengeSide): string => {
   if (view && side.playerId) return nameOf(view, side.playerId)
   if (!view) return side.seat === 'p1' ? 'YOU' : 'PLAYER'
-  return nameOf(view, slotsFor(view)[side.seat] ?? undefined)
+  return 'PLAYER'
 }
 
 export default function ChallengeWindow({
@@ -76,11 +76,14 @@ export default function ChallengeWindow({
   // Only the side that is WINNING glows, so the window says at a glance who
   // is ahead (the owner, 2026-09-08). Level, or either side still rolling,
   // and neither glows — there is no lead to report.
-  // Whichever side is MINE takes the left panel. Read from the player id
-  // when the server has said who is who, and from the screen seat otherwise.
+  // ME on the left, the enemy on the right; with neither side mine the
+  // roles keep their own order (the owner, 2026-09-08). Read from the player
+  // ids — the seat is only what the overlay was opened with, before anyone
+  // had challenged.
+  const mine = view?.playerId;
   const challengerIsMine = active.challenger.playerId
-    ? !!view && active.challenger.playerId === view.playerId
-    : active.challenger.seat === "p1";
+    ? active.challenger.playerId === mine
+    : !view && active.challenger.seat === "p1";
 
   const ahead = rollTotal(active.challenged.roll);
   const behind = rollTotal(active.challenger.roll);

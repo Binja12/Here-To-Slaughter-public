@@ -321,6 +321,7 @@ export abstract class ModifiableRollWindow
     // a modifier's value. The clock runs again instead; the answer landing
     // restarts it anyway, and a question always settles on its own clock.
     if (this.gs.hasOpenFramesAfter(this.frameId)) return this.resetTimer()
+    this.gs.restartWindowsOutside(this.frameId)
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
 
@@ -358,6 +359,12 @@ export abstract class ModifiableRollWindow
   protected abstract settle(finalRoll: number): void
 
   // --- Internal ---
+
+  /** The full wait again — `GameState.restartOpenWindowsExcept`. */
+  restartClock(): void {
+    if (this._resolved) return
+    this.resetTimer()
+  }
 
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)

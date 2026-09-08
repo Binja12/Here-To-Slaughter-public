@@ -47,7 +47,7 @@ import {
 } from './liveRoll'
 import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
-import { derivePlayable, equipTargets, isFreeAction, isOptionalWindow, reactionCardType, reactionRevision } from './playable'
+import { derivePlayable, equipTargets, holdsAnswer, isFreeAction, isOptionalWindow, reactionCardType, reactionRevision } from './playable'
 import {
   TargetingProvider,
   TargetKey,
@@ -76,6 +76,7 @@ import DiscardPileModal from './DiscardPileModal'
 import RevealedCards from './RevealedCards'
 import { useAudio } from '../audio/AudioProvider'
 import { useGameAudio } from '../audio/useGameAudio'
+import { backedRole, lazyModifierValue, lazyMove, useLazyChoice } from './lazyChoice'
 
 function Widget({
   def,
@@ -793,7 +794,16 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   useEffect(() => {
     setOverlayHidden(false)
   }, [liveChallengeId])
-  const challengeOpen = !!challenge.active && !overlayHidden
+  // A question put to THIS seat takes the stage back from BOTH overlays: a
+  // challenge on stage while you are being asked to discard is a window you
+  // cannot act on standing over the one you must (the owner, 2026-09-08 —
+  // Bloodwing asks the challenger for a card mid-contest). The contest comes
+  // back the moment the question is answered; nothing is lost, because the
+  // engine will not settle a challenge while a question stands after it
+  // (ChallengeWindow.resolve) and restarts its clock when one does
+  // (GameState.restartWindowsOutside).
+  const myQuestionOpen = !!openChoice(view)
+  const challengeOpen = !!challenge.active && !overlayHidden && !myQuestionOpen
   const liveRoll = liveRollOf(view)
   const dice = useLiveDice(view, liveRoll)
   // Every roll takes the stage (ModifierWindow) the moment it is made
@@ -804,12 +814,16 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const modifiedRoll = liveRoll
   const [manuallyOpenedRollId, setManuallyOpenedRollId] = useState<string | null>(null)
   const modifierRoll = modifiedRoll ?? (liveRoll?.windowId === manuallyOpenedRollId ? liveRoll : null)
-  // A question of MINE over the roll — its target, a modifier's value —
-  // comes first, and stays first: the roll's window does not open over it at
-  // all until it is answered (the owner, 2026-09-08). `openChoice` is the same
-  // test the question's own banner uses, so the two can never disagree about
-  // whether one is standing.
-  const myQuestionOpen = !!openChoice(view)
+  // A question put to THIS seat outranks the roll it stands over, always
+  // (the owner, 2026-09-08): a choice is the thing the table is waiting on,
+  // and the roll's window does not open over it even when a modifier lands.
+  // The engine agrees — a roll will not settle while a question stands after
+  // it (ModifiableRollWindow.resolve), and every clock outside the frame that
+  // just answered is restarted (GameState.restartWindowsOutside), so nothing
+  // is lost by showing the question first.
+  //
+  // `openChoice` is the same test the question's own banner uses, so the two
+  // can never disagree about whether one is standing.
   // Put away by hand, and brought back by the window button. A question of
   // mine overrides both: it is a gate, not a preference.
   const [modifierHidden, setModifierHidden] = useState(false)
@@ -834,10 +848,12 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // cards that answer it — the modifiers on a roll, the challenges on a play
   // (the owner, 2026-09-07). Indices are untouched: a hidden card keeps its
   // slot in every flag array and its own targeting key.
+  // A reaction window narrows the fan to the cards that answer it — but only
+  // opens it, and only lifts it over the dim, when this seat HOLDS one. An
+  // empty fan floating above a dimmed table says you may act when you cannot
+  // (the owner, 2026-09-08).
+  const canAnswer = holdsAnswer(view)
   const answersWith = reactionCardType(view)
-  const handVisible = answersWith
-    ? view.hand.map((card) => card.type === answersWith)
-    : undefined
   const canPlayModifier = view.hand.some(
     (card, index) => card.type === 'Modifier' && flags.hand[index],
   )
@@ -982,13 +998,20 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
    * A modifier card played on the roll of the moment — the server names the
    * target on a roll; a started challenge has two rolls and `targetPlayerId`
    * says which. One printed value: it lands as it is, nothing to choose
-   * (the owner, 2026-09-05); two: the value dialog.
+   * (the owner, 2026-09-05); two: the value dialog, unless the caller has
+   * already chosen — Lazy Choice decides the number and the side together,
+   * so there is nothing left to ask.
    */
-  const playModifier = (card: ModifierCardData, targetPlayerId?: string) => {
-    if (card.values.length === 1) {
+  const playModifier = (
+    card: ModifierCardData,
+    targetPlayerId?: string,
+    value?: number,
+  ) => {
+    const only = value ?? (card.values.length === 1 ? card.values[0] : undefined)
+    if (only !== undefined) {
       void run({
         type: 'ApplyModifier',
-        payload: { cardId: card.id, value: card.values[0], ...(targetPlayerId ? { targetPlayerId } : {}) },
+        payload: { cardId: card.id, value: only, ...(targetPlayerId ? { targetPlayerId } : {}) },
       })
       return
     }
@@ -1009,6 +1032,26 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // still be standing over the board — an answered question leaves the
   // screen at once (the owner, 2026-09-08). Ids are dropped again as soon as
   // the table stops reporting the window, so this never grows.
+  // SHIFT takes a sequence back from Lazy Choice (the owner, 2026-09-08).
+  // Press an action with shift down and nothing is answered for you until the
+  // table is quiet again — the whole modifier exchange, not the one window,
+  // because a sequence is what a player means to play out by hand.
+  //
+  // The flag is read at mousedown in the CAPTURE phase rather than threaded
+  // through `onActivate`: every board press already goes through one root,
+  // and the alternative is a MouseEvent carried down every targetable.
+  const shiftHeld = useRef(false)
+  const [lazySuspended, setLazySuspended] = useState(false)
+  const tableQuiet = view.pendingWindows.length === 0 && !view.busy
+  useEffect(() => {
+    if (tableQuiet) setLazySuspended(false)
+  }, [tableQuiet])
+
+  // Decided HERE, in the render that would otherwise draw the window: a
+  // question Lazy Choice is about to submit is never put on screen at all.
+  const lazyPlan = settings.lazyChoice && !lazySuspended ? lazyMove(view) : null
+  const lazyAnswering = lazyPlan?.kind === 'submit' ? lazyPlan.windowId : null
+
   const [submitted, setSubmitted] = useState<string[]>([])
   const answeredHere = useCallback(
     (windowId: string) =>
@@ -1024,7 +1067,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     })
   }, [view.pendingWindows])
   /** a window still worth putting on screen — not one we have just answered */
-  const unanswered = (window: PendingWindowView) => !submitted.includes(window.windowId)
+  const unanswered = (window: PendingWindowView) =>
+    !submitted.includes(window.windowId) && window.windowId !== lazyAnswering
 
   // A choice the engine asks of THIS seat, answered by pressing a gold
   // target on the board, no buttons:
@@ -1036,7 +1080,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const boardChoice = useMemo(() => {
     for (const window of view.pendingWindows) {
       if (!window.isYours || !window.options?.length) continue
-      if (submitted.includes(window.windowId)) continue
+      if (!unanswered(window)) continue
       if (BOARD_CHOICES.has(window.type)) {
         const pairs = window.options.flatMap((option) => {
           const key = targetKeyForId(view, option)
@@ -1147,17 +1191,43 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // A card is being chosen FROM the viewer's hand: the fan only opens on
   // hover, so the closed stack wears the gold ask until it is answered
   // (the owner, 2026-09-04: "add a glow to the deck").
-  // A pick answered INSIDE the discard browser has no strip card to carry
-  // its clock — every board choice is hidden from PendingWindows — so the
-  // browser shows the countdown itself (the owner, 2026-09-08: Call of the
-  // Fallen and every other choice off the pile).
-  const discardPickDeadline = boardChoice?.pairs.some((pair) =>
-    pair.key.startsWith('discardCard:'),
-  )
-    ? boardChoice.window.deadline
-    : undefined
+  /**
+   * This choice is answered INSIDE the discard browser — Call of the Fallen
+   * and every other pick off the pile.
+   *
+   * The browser opens itself for one (the owner, 2026-09-08): the cards are
+   * face up but the pile is shut, so a question about them was asked over a
+   * board that did not show them. It also carries the clock and the question,
+   * because every board choice is hidden from the pending-windows strip and
+   * the centre banner stands down while the pile is up.
+   */
+  const discardPick =
+    boardChoice?.pairs.some((pair) => pair.key.startsWith('discardCard:')) === true
+      ? boardChoice
+      : null
+  // A pick off the pile opens the pile. Only on the way IN, so closing it
+  // by hand during a pick does not fight the effect reopening it.
+  const pickingFromPile = !!discardPick
+  useEffect(() => {
+    if (pickingFromPile) setDiscardOpen(true)
+  }, [pickingFromPile])
+
   const handChoiceOpen =
     !!boardChoice && boardChoice.pairs.some((pair) => pair.key.startsWith('handCard:'))
+  /**
+   * What the fan shows. A reaction window narrows it to the cards that answer
+   * that window — but a QUESTION put to this seat wins, and shows the cards
+   * the question is about.
+   *
+   * Bloodwing is why: it asks the challenger to discard while the challenge
+   * is on stage, and narrowing to the cards that answer the challenge hid
+   * every card the discard was offering (the owner, 2026-09-08).
+   */
+  const handVisible = handChoiceOpen
+    ? view.hand.map((card) => boardChoice!.window.options!.includes(card.id))
+    : answersWith
+      ? view.hand.map((card) => card.type === answersWith)
+      : undefined
   // The optional question may be about a card in the HAND — Mellow Dee's
   // "play the hero you just drew?" names the drawn card — so that card
   // wears the gold ask (pressing it says yes: a FREE play, not PlayHero)
@@ -1196,6 +1266,21 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     typeof optionalAsk?.detail?.sourceCardId === 'string' ? optionalAsk.detail.sourceCardId : undefined,
   )
   const askSubject = cardById(view, askedCardId)
+  // A choice of ACTION is about a card too: the Corrupted Sabretooth asks
+  // "steal it instead of destroying it?" about a particular hero, and the
+  // answer is meaningless without knowing which (the owner, 2026-09-08). The
+  // server already names it — `cardId` on the window, from the choice's
+  // `subjectKey` (choose-tasks.ts ChooseActionTask).
+  const actionCard = cardById(
+    view,
+    typeof actionAsk?.detail?.sourceCardId === 'string'
+      ? actionAsk.detail.sourceCardId
+      : undefined,
+  )
+  const actionSubject = cardById(
+    view,
+    typeof actionAsk?.detail?.cardId === 'string' ? actionAsk.detail.cardId : undefined,
+  )
   const askedKey = askedCardId ? targetKeyForId(view, askedCardId) : null
   const askOnBoard =
     !!askedKey &&
@@ -1209,12 +1294,25 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     return handleResult(result)
   }
 
+  // Answers this seat would almost always give, given for it. Through the
+  // very paths a press takes: `run` for a submission, `forfeitWindow` for a
+  // skip — so a lazy answer and a manual one are the same command.
+  const lazyPassing = useLazyChoice(
+    lazyPlan,
+    (windowId, choice) => void run({ type: 'SubmitChoice', payload: { windowId, choice } }),
+    () => void forfeitWindow(),
+  )
+  // A pass already on its way is not an action to offer: the button stands
+  // down for exactly as long as the lazy skip is waiting.
+  const canSkipNow = passableWindows.length > 0 && !lazyPassing
+
   // what the gems' tooltip says while a question is open — the same wording
   // the ChoicePrompt banner puts up, so the two can never disagree
   const asking = boardChoice?.window ?? optionalAsk
   const question = asking ? choiceInstruction(asking) : undefined
 
   const activate = (source: TargetKey) => {
+    if (shiftHeld.current) setLazySuspended(true)
     const [kind, a, b] = source.split(':')
     if (kind === 'mainDeck') {
       void run({ type: 'DrawCard', payload: {} })
@@ -1290,6 +1388,21 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           challenged: liveChallenge.defenderId,
           challenger: liveChallenge.challengerId,
         }
+        // Lazy Choice answers the WHOLE play: the number and the roll it
+        // lands on are one decision, so it picks both and sends it. The
+        // value is not a server window here — a two-valued card is asked
+        // for in a local dialog (playModifier) — which is why watching for
+        // a ValueChoice never answered a challenge (the owner, 2026-09-08).
+        const swing =
+          settings.lazyChoice && !lazySuspended && !shiftHeld.current
+            ? lazyModifierValue(card.values ?? [])
+            : null
+        if (swing !== null) {
+          const backed = backedRole(view, liveChallenge.defenderId, liveChallenge.challengerId)
+          const other: ChallengeRole = backed === 'challenged' ? 'challenger' : 'challenged'
+          playModifier(card, sideOf[swing > 0 ? backed : other], swing)
+          return
+        }
         begin({
           source,
           tone: 'reaction',
@@ -1324,6 +1437,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
 
   return (
     <div
+      onMouseDownCapture={(event) => {
+        shiftHeld.current = event.shiftKey
+      }}
       className={`board-root relative h-screen w-screen overflow-hidden bg-zinc-950${
         active ? ` targeting${active.tone === 'reaction' ? ' reaction-targeting' : ''}` : ''
       }${active?.tone === 'choice' ? ' choice-targeting' : ''}${stageOpen ? ' challenge-open' : ''}${auraClasses(
@@ -1448,7 +1564,11 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                 // the z: an opponent's face-down stack is drawn with the SAME
                 // art as the main deck, so exempting it too read as the decks
                 // floating over the dim (the owner, 2026-09-07).
-                zIndex={stageOpen && isMine ? 170 : undefined}
+                // A discard chosen from the hand is answered in here too —
+                // Bloodwing asks the challenger for one while the challenge
+                // is on stage — so the fan rises for that as well as for a
+                // reaction it can answer (the owner, 2026-09-08).
+                zIndex={stageOpen && isMine && (canAnswer || handChoiceOpen) ? 170 : undefined}
                 dimExempt={stageOpen && isMine}
               >
                 {isMine ? (
@@ -1465,7 +1585,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                     // away — opens the fan on its own: the answer is in
                     // there and the closed stack cannot be pressed
                     // (the owner, 2026-09-08). Same door a reaction opens.
-                    forceOpen={!!answersWith || handChoiceOpen}
+                    forceOpen={(!!answersWith && canAnswer) || handChoiceOpen}
                     sticky={settings.stickyHand}
                     stuckOpen={handHeldOpen}
                     onStickyOpen={() => setHandHeldOpen(true)}
@@ -1549,7 +1669,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : passableWindows.length > 0 && !modifierOpen ? (
+          ) : canSkipNow && !modifierOpen ? (
             // Only while there IS something to give up (the owner,
             // 2026-09-08): a Skip with nothing behind it reads as an action
             // the table is waiting on. The modifier window carries its own
@@ -1597,19 +1717,22 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         />
         {/* what the open choice wants of you, in large type over whatever it
             is answered on — and never in the way of answering it */}
-        <ChoicePrompt view={view} />
+        {/* the pile carries the question in its own header while it is up:
+            its backdrop is translucent, so a banner behind it reads as a
+            ghost plate over the cards (the owner, 2026-09-08) */}
+        {!discardOpen && <ChoicePrompt view={view} />}
         <ReactionPrompt view={view} />
         <DiceRoll roll={dice} outcome={diceOutcome} />
         <ChallengeWindow
-          hidden={overlayHidden}
+          hidden={overlayHidden || myQuestionOpen}
           onHide={() => setOverlayHidden(true)}
         />
         <ModifierWindow
           roll={modifierRoll}
           hidden={modifierHidden || challengeOpen || myQuestionOpen}
           onHide={() => setModifierHidden(true)}
-          canSkip={passableWindows.length > 0}
-          onSkip={passableWindows.length > 0 ? () => void forfeitWindow() : undefined}
+          canSkip={canSkipNow}
+          onSkip={canSkipNow ? () => void forfeitWindow() : undefined}
         />
 
         <RevealedCards view={view} />
@@ -1617,7 +1740,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         {discardOpen && (
           <DiscardPileModal
             cards={discardCards}
-            deadline={discardPickDeadline}
+            deadline={discardPick?.window.deadline}
+            question={discardPick ? choiceInstruction(discardPick.window) : undefined}
             onClose={() => setDiscardOpen(false)}
           />
         )}
@@ -1626,8 +1750,30 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           <div className="dim-exempt absolute inset-0 z-[210] flex items-center justify-center bg-black/60">
             <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
               <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
-                {cardById(view, typeof actionAsk.detail?.sourceCardId === 'string' ? actionAsk.detail.sourceCardId : undefined)?.name ?? 'Choose'}
+                {choiceInstruction(actionAsk)}
               </div>
+              {(actionCard || actionSubject) && (
+                <div className="mb-[.9cqh] flex items-center justify-center gap-[1.2cqw]">
+                  {/* the card ASKING wears the pink of a rule in force… */}
+                  {actionCard && (
+                    <AssetImage
+                      src={artFor(actionCard).url}
+                      alt={actionCard.name}
+                      draggable={false}
+                      className="passive-aura h-[26cqh] rounded-[.35cqw] object-contain"
+                    />
+                  )}
+                  {/* …and the card it is ABOUT the gold of the thing at stake */}
+                  {actionSubject && actionSubject.id !== actionCard?.id && (
+                    <AssetImage
+                      src={artFor(actionSubject).url}
+                      alt={actionSubject.name}
+                      draggable={false}
+                      className="ask-aura h-[26cqh] rounded-[.35cqw] object-contain"
+                    />
+                  )}
+                </div>
+              )}
               <div className="flex justify-center gap-[.8cqw]">
                 {actionAsk.options!.map((option) => (
                   <button

@@ -140,6 +140,9 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
     // takes its place behind the play
     if (live.started && !opened.current.started) {
       opened.current.started = true
+      // Only NOW is there a challenger: the window opened while the play was
+      // merely contestable, so the side it was opened with was a guess.
+      challenge.setSides(live.defenderId || undefined, live.challengerId || undefined)
       challenge.setRoll(
         'challenged',
         facesOf(live.challengedRoll, `${live.windowId}:defender`),

@@ -475,6 +475,34 @@ export class GameState {
     }
   }
 
+  /**
+   * A window has settled, and every window still open ELSEWHERE gets its
+   * clock back (the owner, 2026-09-08: "if ever a window resolves while
+   * another window is open, reset all other windows' timers").
+   *
+   * One rule rather than a list of cases: a player watching another question
+   * be answered was not spending their own time on their own. Bloodwing is
+   * what made it plain — a challenge that asks the challenger to discard used
+   * to settle while the discard was still being chosen.
+   *
+   * Its OWN frame is excluded, and that is the whole subtlety. A frame may
+   * hold one question per seat (ChooseCardEachTask — "each other player must
+   * DISCARD a card"); those are the same question asked in parallel, not
+   * seats watching each other, and restarting them per lapse would let one
+   * silent player stretch a frame to a clock per seat.
+   *
+   * It cannot run for ever either way: a resolution never restarts its own
+   * frame, so every pass strictly shrinks the set of open windows.
+   */
+  restartWindowsOutside(frameId: string): void {
+    for (const [id, frame] of this.frames) {
+      if (id === frameId) continue
+      for (const window of frame.windows) {
+        if (window.isOpen() && canRestartClock(window)) window.restartClock()
+      }
+    }
+  }
+
   /** True while any frame has an open window — used by TurnManager.drain(). */
   hasOpenFrames(): boolean {
     for (const frame of this.frames.values()) {
@@ -835,12 +863,21 @@ export class GameState {
     for (const [playerId, player] of this.players) {
       if (player.getHand().includes(cardId)) return playerId
       const party = this.parties.get(playerId)
-      if (
-        party &&
-        (party.getHeroIds().includes(cardId) || party.getLeaderId() === cardId)
-      ) {
+      if (!party) continue
+      if (party.getLeaderId() === cardId) return playerId
+      const heroes = party.getHeroIds()
+      if (heroes.includes(cardId)) return playerId
+      // Everything else a party HOLDS, not only what stands in its rows: an
+      // equipped item, a slain monster, a magic still in play. An item is
+      // equipped BEFORE its challenge window opens (item-tasks.ts), so a
+      // challenge on a freshly played item asked who owned a card this could
+      // not answer — and Bloodwing, whose whole rule is "each time another
+      // player CHALLENGES you", never fired (the owner, 2026-09-08).
+      if (heroes.some((heroId) => party.getEquippedItem(heroId) === cardId)) {
         return playerId
       }
+      if (party.getMonsterIds().includes(cardId)) return playerId
+      if (party.getInstanceCardIds().includes(cardId)) return playerId
     }
     return undefined
   }

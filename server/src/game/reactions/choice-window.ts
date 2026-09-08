@@ -161,6 +161,8 @@ export abstract class ChoiceWindow implements IRestartableWindow {
     if (this._resolved) return
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
+    // Everyone else watching this get answered gets their own clock back.
+    this.gs.restartWindowsOutside(this.frameId)
 
     // Timed out without a submission — subclasses decide the fallback.
     const lapsed = this.picked === undefined

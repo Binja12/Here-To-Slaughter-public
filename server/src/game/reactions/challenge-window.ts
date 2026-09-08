@@ -213,8 +213,14 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
 
   resolve(): void {
     if (this._resolved) return
+    // Not while a question stands over this challenge — Bloodwing asks the
+    // challenger to discard when they challenge, and the contest cannot be
+    // settled out from under that. The clock runs again instead, exactly as
+    // ModifiableRollWindow does over its own questions.
+    if (this.gs.hasOpenFramesAfter(this.frameId)) return this.resetTimer()
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
+    this.gs.restartWindowsOutside(this.frameId)
 
     if (!this.challenged) {
       // No challenger — card plays uncontested.
@@ -384,6 +390,12 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
 
   getDeadline(): number {
     return this.deadline
+  }
+
+  /** The full wait again — `GameState.restartOpenWindowsExcept`. */
+  restartClock(): void {
+    if (this._resolved || this.clockMs === 0) return
+    this.resetTimer()
   }
 
   private resetTimer(): void {
