@@ -41,6 +41,7 @@ const roll: LiveRoll = {
   finalRoll: 17,
   rollReq: 9,
   subjectId: view.parties[0].leader.id,
+  targetPlayerIds: [],
 }
 
 const modifierWindow = () =>

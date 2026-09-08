@@ -53,6 +53,13 @@ export interface ChallengeRoll extends DiceThrow {
 export interface ChallengeSide {
   seat: PlayerId;
   /** null until this side has rolled — the panel shows a waiting state */
+  /**
+   * Whose side this is. The NAME comes from here, never from `seat`: a seat
+   * is a place on the screen and an unresolved one used to fall back to the
+   * viewer's, which put "YOU" on both panels of a challenge the viewer was
+   * only half of (the owner, 2026-09-08).
+   */
+  playerId: string | null;
   roll: ChallengeRoll | null;
 }
 
@@ -94,6 +101,9 @@ export interface ChallengeOpenArgs {
   /** the hero an ITEM is being played onto — see ChallengeState.carrierCardUrl */
   carrierCardUrl?: string;
   carrierCardAspect?: number;
+  /** who is on each side — absent only before the server has said */
+  challengedId?: string;
+  challengerId?: string;
   challengedSeat: PlayerId;
   challengerSeat: PlayerId;
 }
@@ -137,8 +147,16 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
       challengeCardUrl: args.challengeCardUrl,
       carrierCardUrl: args.carrierCardUrl,
       carrierCardAspect: args.carrierCardAspect,
-      challenged: { seat: args.challengedSeat, roll: null },
-      challenger: { seat: args.challengerSeat, roll: null },
+      challenged: {
+        seat: args.challengedSeat,
+        playerId: args.challengedId ?? null,
+        roll: null,
+      },
+      challenger: {
+        seat: args.challengerSeat,
+        playerId: args.challengerId ?? null,
+        roll: null,
+      },
     });
   }, []);
 

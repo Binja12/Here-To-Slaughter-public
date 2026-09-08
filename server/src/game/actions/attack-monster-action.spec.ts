@@ -228,7 +228,11 @@ describe('AttackMonsterAction', () => {
         expect(canAttack(g)).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
 
-      it('does not answer a partyReq with the LEADER — a bare party attacks nothing', () => {
+      // The printed rule (the owner, 2026-09-08): "you must have a Wizard in
+      // your Party — either a Hero card or the Wizard Party Leader card — in
+      // addition to a Hero card of any class". So the leader answers the
+      // NAMED class and nothing else; `Any` is still a hero.
+      it('does not answer the Any with the LEADER — a bare party attacks nothing', () => {
         const g = kingGs([])
         g.registerCard(
           new PartyLeaderCard({
@@ -248,7 +252,7 @@ describe('AttackMonsterAction', () => {
         })
       })
 
-      it("still refuses when the leader's class is the one hero missing", () => {
+      it("the LEADER answers the named class the party is missing", () => {
         const g = kingGs([HeroClass.Thief])
         g.registerCard(
           new PartyLeaderCard({
@@ -262,7 +266,35 @@ describe('AttackMonsterAction', () => {
           }),
         )
 
+        // Bard leader + one hero of any class: the leader is the Bard, the
+        // Thief is the Any.
+        expect(canAttack(g)).toEqual({ accepted: true })
+      })
+
+      it('a leader of the WRONG class answers nothing', () => {
+        const g = kingGs([HeroClass.Thief])
+        g.registerCard(
+          new PartyLeaderCard({
+            id: 'leader-p1',
+            name: 'The Shadow Claw',
+            type: CardType.Leader,
+            image: '',
+            description: '',
+            set: '',
+            heroClass: HeroClass.Thief,
+          }),
+        )
+
         expect(canAttack(g)).toEqual({
+          accepted: false,
+          reason: RefusalReason.PartyRequirementUnmet,
+        })
+      })
+
+      it('one Bard hero cannot answer both halves, leader or no leader', () => {
+        // "a single Wizard Hero card can fulfil either requirement, but it
+        // cannot fulfil both" — with no leader the lone Bard is short an Any
+        expect(canAttack(kingGs([HeroClass.Bard]))).toEqual({
           accepted: false,
           reason: RefusalReason.PartyRequirementUnmet,
         })

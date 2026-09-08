@@ -43,6 +43,7 @@ import {
   rollOutcome,
   subjectIdOf,
   useLiveDice,
+  targetSeatsOf,
 } from './liveRoll'
 import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
@@ -66,18 +67,15 @@ import {
   PlayerView,
   REFUSAL_MESSAGES,
 } from '../contract'
-import { nameOf, slotForPlayer, slotsFor } from './seats'
+import { nameOf, slotsFor } from './seats'
 import { cardById, discardCardsForView, idForTargetKey, targetKeyForId } from './viewTargets'
 import { useHoverZoom } from './useHoverZoom'
 import PendingWindows, { Countdown } from './PendingWindows'
-import ChoicePrompt, { choiceInstruction, ReactionPrompt } from './choicePrompt'
+import ChoicePrompt, { choiceInstruction, openChoice, ReactionPrompt } from './choicePrompt'
 import DiscardPileModal from './DiscardPileModal'
 import RevealedCards from './RevealedCards'
 import { useAudio } from '../audio/AudioProvider'
 import { useGameAudio } from '../audio/useGameAudio'
-
-/** A roll or a challenge is the table's; everything else is somebody's question. */
-const TABLE_WINDOW_TYPES = new Set(['Modifier', 'Attack', 'Challenge'])
 
 function Widget({
   def,
@@ -85,6 +83,7 @@ function Widget({
   zClass = 'z-20',
   zIndex,
   dimExempt = false,
+  turn = false,
   children,
 }: {
   def: WidgetDef
@@ -94,6 +93,8 @@ function Widget({
   zIndex?: number
   /** keep this widget bright while a challenge dims the board */
   dimExempt?: boolean
+  /** it is this seat's turn: the painted frame glows green */
+  turn?: boolean
   children?: React.ReactNode
 }) {
   const inset = INSET[def.kind]
@@ -114,7 +115,9 @@ function Widget({
         alt=""
         aria-hidden
         draggable={false}
-        className="board-felt dimmable absolute inset-0 h-full w-full object-fill"
+        className={`board-felt dimmable absolute inset-0 h-full w-full object-fill${
+          turn ? ' turn-frame-aura' : ''
+        }`}
       />
       <div
         className="absolute"
@@ -702,17 +705,6 @@ function SeatName({ name, anchor }: { name: string; anchor: Anchor }) {
   )
 }
 
-/**
- * Which edge of the SCREEN each seat sits on — the side its party is drawn on
- * (PLAYERS in layout.ts). The viewer's own turn lights every edge instead.
- */
-const TURN_EDGE: Record<PlayerId, 'all' | 'top' | 'left' | 'right'> = {
-  p1: 'all',
-  p2: 'top',
-  p3: 'left',
-  p4: 'right',
-}
-
 /** Choice windows answered by pressing a glowing card on the board. */
 const BOARD_CHOICES = new Set(['CardChoice', 'PlayerChoice', 'MonsterChoice'])
 
@@ -804,41 +796,29 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const challengeOpen = !!challenge.active && !overlayHidden
   const liveRoll = liveRollOf(view)
   const dice = useLiveDice(view, liveRoll)
-  // A roll takes the stage (ModifierWindow) the moment it is made, put away
-  // and brought back exactly like the challenge overlay; a challenge on stage
-  // takes precedence.
-  //
-  // MY OWN roll is the exception (the owner, 2026-09-08): it only shows itself
-  // when there is something about it to decide — it is not passing, or
-  // somebody has actually played a modifier onto it. A roll of mine that
-  // already succeeds untouched has nothing for me to answer, and its window
-  // was landing on top of the question I was really being asked (Fury
-  // Knuckle: the choose-player window arrived under the roll's). The window
-  // button still brings it up by hand.
-  const rollPlayedOnto =
-    liveRoll?.bonuses.some(
-      (bonus) => cardById(view, bonus.cardSource)?.type === 'Modifier',
-    ) ?? false
-  const worthMyAttention =
-    !liveRoll ||
-    liveRoll.rollerId !== view.playerId ||
-    rollPlayedOnto ||
-    rollOutcome(liveRoll, view) !== 'success'
-  const modifiedRoll = worthMyAttention ? liveRoll : null
+  // Every roll takes the stage (ModifierWindow) the moment it is made
+  // (the owner, 2026-09-06), put away and brought back exactly like the
+  // challenge overlay; a challenge on stage takes precedence. A question of
+  // MINE holds it back (myQuestionOpen, below), which is what keeps a roll's
+  // window off the choice that roll opened (Fury Knuckle).
+  const modifiedRoll = liveRoll
   const [manuallyOpenedRollId, setManuallyOpenedRollId] = useState<string | null>(null)
   const modifierRoll = modifiedRoll ?? (liveRoll?.windowId === manuallyOpenedRollId ? liveRoll : null)
-  // A question of mine over the roll (its target, a modifier's value) comes
-  // FIRST: the window waits until it is answered, and the opener button can
-  // still bring it forward and put it back (the owner, 2026-09-06).
-  const myQuestionOpen = view.pendingWindows.some(
-    (window) => window.isYours && !TABLE_WINDOW_TYPES.has(window.type),
-  )
-  const [modifierHidden, setModifierHidden] = useState(myQuestionOpen)
+  // A question of MINE over the roll — its target, a modifier's value —
+  // comes first, and stays first: the roll's window does not open over it at
+  // all until it is answered (the owner, 2026-09-08). `openChoice` is the same
+  // test the question's own banner uses, so the two can never disagree about
+  // whether one is standing.
+  const myQuestionOpen = !!openChoice(view)
+  // Put away by hand, and brought back by the window button. A question of
+  // mine overrides both: it is a gate, not a preference.
+  const [modifierHidden, setModifierHidden] = useState(false)
   const modifiedRollId = modifiedRoll?.windowId
   useEffect(() => {
-    setModifierHidden(myQuestionOpen)
-  }, [modifiedRollId, myQuestionOpen])
-  const modifierOpen = !!modifierRoll && !modifierHidden && !challengeOpen
+    setModifierHidden(false)
+  }, [modifiedRollId])
+  const modifierOpen =
+    !!modifierRoll && !modifierHidden && !challengeOpen && !myQuestionOpen
   const stageOpen = challengeOpen || modifierOpen
   const [toast, setToast] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -900,21 +880,18 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const targetedParties = new Set<string>()
   for (const window of view.pendingWindows) {
     if (window.type !== 'Modifier' && window.type !== 'Attack') continue
-    const target = window.detail?.targetPlayerId
-    if (typeof target !== 'string') continue
-    if (window.detail?.targetZone === 'Party') targetedParties.add(target)
-    else targetedHands.add(target)
+    for (const seat of targetSeatsOf(window.detail?.targets)) {
+      if (seat.zone === 'Party') targetedParties.add(seat.playerId)
+      else targetedHands.add(seat.playerId)
+    }
   }
   // A roll's effect has chosen YOU: red down both sides of the screen, so it
   // reads even with the modifier window on the stage (the owner, 2026-09-07).
   const targeted =
     targetedHands.has(view.playerId) || targetedParties.has(view.playerId)
-  // Whose turn it is, as a side of the SCREEN: all four edges when it is
-  // yours, the one edge that seat sits on when it is theirs.
-  const turnSide =
-    view.phase === 'Turns' && view.currentPlayerId
-      ? TURN_EDGE[slotForPlayer(view, view.currentPlayerId) ?? 'p1']
-      : null
+  // The screen rim is the VIEWER's turn and nothing else — somebody else's
+  // turn is said by their own frames instead (the owner, 2026-09-08).
+  const myTurn = view.phase === 'Turns' && view.currentPlayerId === view.playerId
   const diceOutcome = liveRoll ? rollOutcome(liveRoll, view) : 'none'
 
   // A value being picked loses its roll when the window lapses
@@ -1170,6 +1147,15 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // A card is being chosen FROM the viewer's hand: the fan only opens on
   // hover, so the closed stack wears the gold ask until it is answered
   // (the owner, 2026-09-04: "add a glow to the deck").
+  // A pick answered INSIDE the discard browser has no strip card to carry
+  // its clock — every board choice is hidden from PendingWindows — so the
+  // browser shows the countdown itself (the owner, 2026-09-08: Call of the
+  // Fallen and every other choice off the pile).
+  const discardPickDeadline = boardChoice?.pairs.some((pair) =>
+    pair.key.startsWith('discardCard:'),
+  )
+    ? boardChoice.window.deadline
+    : undefined
   const handChoiceOpen =
     !!boardChoice && boardChoice.pairs.some((pair) => pair.key.startsWith('handCard:'))
   // The optional question may be about a card in the HAND — Mellow Dee's
@@ -1356,10 +1342,10 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           you, GREEN while the turn is yours. Both are legible from under the
           modifier window's overlay, and both sit outside the stage — it is the
           SCREEN's edge, not the table's. Red wins when both apply. */}
-      {turnSide && (
+      {myTurn && (
         <div
           aria-hidden
-          className={`turn-vignette turn-side-${turnSide} pointer-events-none absolute inset-0 z-[300]`}
+          className="turn-vignette turn-side-all pointer-events-none absolute inset-0 z-[300]"
         />
       )}
       {/* the red rim rides OVER the green one: being the target of a roll is
@@ -1400,9 +1386,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           if (!player || !party) return null
           const layout = PLAYERS[slot]
           const isMine = playerId === view.playerId
+          // Somebody else's turn is said by THEIR corner of the table; the
+          // viewer's own is the screen rim, so the two never both fire.
+          const theirTurn =
+            !isMine && view.phase === 'Turns' && view.currentPlayerId === playerId
           return (
             <React.Fragment key={slot}>
-              <Widget def={layout.heroes} anchor={layout.anchor}>
+              <Widget def={layout.heroes} anchor={layout.anchor} turn={theirTurn}>
                 <HeroRow
                   heroes={party.heroes}
                   seat={HERO_SEAT[slot]}
@@ -1430,7 +1420,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                   onActivateFor={isMine ? (index) => activate(tkey.hero(slot, index)) : undefined}
                 />
               </Widget>
-              <Widget def={layout.leader} anchor={layout.anchor}>
+              <Widget def={layout.leader} anchor={layout.anchor} turn={theirTurn}>
                 {!isMine && <SeatName name={nameOf(view, playerId)} anchor={layout.anchor} />}
                 <LeaderWithCards
                   slot={slot}
@@ -1449,6 +1439,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               <Widget
                 def={layout.cardback}
                 anchor={layout.anchor}
+                turn={theirTurn}
                 zClass="z-40"
                 // during a challenge the LOCAL hand is part of the bright
                 // layer — raised above the overlay's click shield (z-140) and
@@ -1615,7 +1606,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         />
         <ModifierWindow
           roll={modifierRoll}
-          hidden={modifierHidden || challengeOpen}
+          hidden={modifierHidden || challengeOpen || myQuestionOpen}
           onHide={() => setModifierHidden(true)}
           canSkip={passableWindows.length > 0}
           onSkip={passableWindows.length > 0 ? () => void forfeitWindow() : undefined}
@@ -1626,6 +1617,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         {discardOpen && (
           <DiscardPileModal
             cards={discardCards}
+            deadline={discardPickDeadline}
             onClose={() => setDiscardOpen(false)}
           />
         )}

@@ -53,8 +53,11 @@ export default function ModifierWindow({
   const art = artFor(subject)
   const outcome = rollOutcome(roll, view)
   const who = nameOf(view, roll.rollerId)
-  const targetName =
-    roll.targetPlayerId === undefined ? undefined : nameOf(view, roll.targetPlayerId)
+  // every seat the roll is aimed at, not just the first: one card may choose
+  // two (Fluffy), and both need to read their own name here
+  const targetName = roll.targetPlayerIds.length
+    ? roll.targetPlayerIds.map((playerId) => nameOf(view, playerId)).join(' + ')
+    : undefined
   const bonusCards = roll.bonuses.flatMap((bonus) => {
     const card = cardById(view, bonus.cardSource)
     return card ? [{ card, amount: bonus.amount }] : []

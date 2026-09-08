@@ -18,8 +18,11 @@ export function useGameAudio(view: PlayerView, log: GameLogEntry[]) {
     ),
   )
   const musicWindowId = challengeWindow?.windowId ?? modifiedWindow?.windowId
-  const lastModifierSeq = log.reduce((last, entry) => entry.sound === 'modifierPlayed' ? entry.seq : last, 0)
-  const restartKey = musicWindowId ? `${view.gameId}:${musicWindowId}:${lastModifierSeq}` : undefined
+  // ONE start per window (the owner, 2026-09-08). The key was carrying the
+  // last modifier's sequence number, so every card played onto the same roll
+  // restarted the track from the top; the window is the event the music is
+  // about, not each answer to it.
+  const restartKey = musicWindowId ? `${view.gameId}:${musicWindowId}` : undefined
   useEffect(() => {
     setMusic(restartKey ? 'challenge' : 'gameplay', restartKey)
   }, [restartKey, setMusic])

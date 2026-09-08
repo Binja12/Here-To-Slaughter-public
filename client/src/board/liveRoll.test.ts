@@ -14,6 +14,7 @@ const heroRoll = (finalRoll: number, bonuses: LiveRoll['bonuses'] = []): LiveRol
   finalRoll,
   rollReq: 8,
   subjectId: view.parties[0].leader.id,
+  targetPlayerIds: [],
 })
 
 const attack = (finalRoll: number): LiveRoll => ({
@@ -24,6 +25,7 @@ const attack = (finalRoll: number): LiveRoll => ({
   bonuses: [],
   finalRoll,
   subjectId: monster.id,
+  targetPlayerIds: [],
 })
 
 test('a hero roll is green over its requirement and red under it', () => {
@@ -53,14 +55,27 @@ test('the label shows the total, not the arithmetic', () => {
   expect(rollLabel(attack(monster.lowerReq), view)).toContain('hit back −0')
 })
 
-test("the roll carries the seat its effect targets, once the server says so", () => {
+test('the roll carries every seat its effect targets, once the server says so', () => {
   const untargeted = liveRollOf(modifierWindowOpen)
-  expect(untargeted?.targetPlayerId).toBeUndefined()
+  expect(untargeted?.targetPlayerIds).toEqual([])
 
   const [window] = modifierWindowOpen.pendingWindows
-  const targeted = liveRollOf({
-    ...modifierWindowOpen,
-    pendingWindows: [{ ...window, detail: { ...window.detail, targetPlayerId: 'player-b' } }],
-  })
-  expect(targeted?.targetPlayerId).toBe('player-b')
+  const aimedAt = (targets: unknown) =>
+    liveRollOf({
+      ...modifierWindowOpen,
+      pendingWindows: [{ ...window, detail: { ...window.detail, targets } }],
+    })
+
+  expect(aimedAt([{ playerId: 'player-b', zone: 'Party' }])?.targetPlayerIds).toEqual([
+    'player-b',
+  ])
+  // one card may aim at two seats under a single window (Fluffy)
+  expect(
+    aimedAt([
+      { playerId: 'player-b', zone: 'Party' },
+      { playerId: 'player-c', zone: 'Party' },
+    ])?.targetPlayerIds,
+  ).toEqual(['player-b', 'player-c'])
+  // anything malformed is simply not a target
+  expect(aimedAt([{ playerId: 7 }, 'nope'])?.targetPlayerIds).toEqual([])
 })

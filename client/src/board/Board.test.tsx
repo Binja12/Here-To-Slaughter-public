@@ -215,7 +215,10 @@ test("a roll aimed at you is said by the SCREEN's rim and nowhere else — no re
     ...modifierWindowOpen,
     pendingWindows: [{
       ...rolling,
-      detail: { ...rolling.detail, targetPlayerId: modifierWindowOpen.playerId, targetZone },
+      detail: {
+        ...rolling.detail,
+        targets: [{ playerId: modifierWindowOpen.playerId, zone: targetZone }],
+      },
     }],
   })
   const redFrames = (root: HTMLElement) =>
@@ -230,24 +233,30 @@ test("a roll aimed at you is said by the SCREEN's rim and nowhere else — no re
   expect(redFrames(container)).toHaveLength(0)
 })
 
-test('the screen edge says whose turn it is: all four for yours, one for theirs', () => {
+test('the screen rim is YOUR turn, and another seat lights its own frames', () => {
   const [rolling] = modifierWindowOpen.pendingWindows
   const myTurn: PlayerView = { ...midGame, currentPlayerId: midGame.playerId }
   const { container, rerender } = render(board(myTurn))
   expect(container.querySelector('.turn-vignette.turn-side-all')).not.toBeNull()
   expect(container.querySelector('.target-vignette')).toBeNull()
+  // my own frames never wear it: the rim is already saying it
+  expect(container.querySelectorAll('.turn-frame-aura')).toHaveLength(0)
 
-  // an opponent's turn lights only the edge their party sits on. midGame seats
-  // three, so the others take the LEFT and RIGHT sides (seats.ts).
+  // An opponent's turn takes the rim off the screen entirely and lights
+  // that seat instead — leader frame, hero frame and card stack.
   rerender(board({ ...midGame, currentPlayerId: midGame.seats[1].playerId }))
-  expect(container.querySelector('.turn-vignette.turn-side-left')).not.toBeNull()
+  expect(container.querySelector('.turn-vignette')).toBeNull()
+  expect(container.querySelectorAll('.turn-frame-aura')).toHaveLength(3)
   rerender(board({ ...midGame, currentPlayerId: midGame.seats[2].playerId }))
-  expect(container.querySelector('.turn-vignette.turn-side-right')).not.toBeNull()
+  expect(container.querySelectorAll('.turn-frame-aura')).toHaveLength(3)
 
-  // my turn AND a roll aimed at me: the red rim rides over the white one
+  // my turn AND a roll aimed at me: the red rim rides over the green one
   rerender(board({
     ...myTurn,
-    pendingWindows: [{ ...rolling, detail: { ...rolling.detail, targetPlayerId: midGame.playerId } }],
+    pendingWindows: [{
+      ...rolling,
+      detail: { ...rolling.detail, targets: [{ playerId: midGame.playerId, zone: 'Party' }] },
+    }],
   }))
   expect(container.querySelector('.target-vignette')).not.toBeNull()
   expect(container.querySelector('.turn-vignette')).not.toBeNull()
@@ -278,7 +287,7 @@ test('a reaction window narrows the hand to the cards that answer it, and opens 
   expect(shown()).toBe(challenges)
 })
 
-test('every choice this seat is asked puts its instruction up in large type, takes no clicks, and outlives its window', async () => {
+test('every choice this seat is asked puts its instruction up in large type, takes no clicks, and goes with its window', () => {
   const asked: PlayerView = {
     ...midGame,
     busy: true,
@@ -304,16 +313,17 @@ test('every choice this seat is asked puts its instruction up in large type, tak
   expect(screen.getByText('Choose a card')).toBeInTheDocument()
 
   // …and a roll is the table's business, not a question put to this seat.
-  // The words do not vanish in the same frame as the answer, though: they
-  // stay up briefly so you can see what you were just asked.
+  // The words go the moment the question does: an answer is a press, and
+  // the banner must not sit over the board after it (the owner, 2026-09-08).
   rerender(board(modifierWindowOpen))
-  expect(container.querySelector('.choice-banner')).not.toBeNull()
-  await waitFor(() => expect(container.querySelector('.choice-banner')).toBeNull(), {
-    timeout: 3000,
-  })
+  expect(container.querySelector('.choice-banner')).toBeNull()
 })
 
-test("my own question over the roll comes first: the window waits for the answer, and the opener can still bring it forward", () => {
+// The owner, 2026-09-08: a question of this seat's own is a GATE, not a
+// preference. The roll's window does not open over it — not on its own, and
+// not by pressing the opener — and nothing asks a second question on top of
+// the one already waiting.
+test('my own question over the roll comes first: nothing opens over it until it is answered', () => {
   const [rolling] = modifierWindowOpen.pendingWindows
   const asked: PlayerView = {
     ...modifierWindowOpen,
@@ -324,13 +334,13 @@ test("my own question over the roll comes first: the window waits for the answer
   }
   const { container, rerender } = render(board(asked))
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
+  expect(screen.queryByText('Do you want to modify?')).toBeNull()
 
   const opener = screen.getByRole('button', { name: 'Modifier window' })
   fireEvent.click(opener)
-  expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
-  fireEvent.click(opener)
   expect(container.querySelector('.board-root')).not.toHaveClass('challenge-open')
 
+  // answered: the roll takes the stage, and asks its own question again
   rerender(board(modifierWindowOpen))
   expect(container.querySelector('.board-root')).toHaveClass('challenge-open')
 })

@@ -6,6 +6,7 @@ import { DISCARD_ART, DISCARD_PANEL, inkScale } from './layout'
 import { tkey, useTargetable, useTargeting } from './targeting'
 import { useAudio } from '../audio/AudioProvider'
 import { useHoverZoom } from './useHoverZoom'
+import { Countdown } from './PendingWindows'
 
 /** how much bigger the browsed card is drawn than its cell */
 const ZOOM = 2.2
@@ -178,9 +179,12 @@ function DiscardCard({
 
 export default function DiscardPileModal({
   cards,
+  deadline,
   onClose,
 }: {
   cards: CardView[]
+  /** when a choice is being ANSWERED in here, when its window lapses */
+  deadline?: number
   onClose: () => void
 }) {
   /** the types the grid is showing — every plaque is its own on/off switch */
@@ -324,6 +328,11 @@ export default function DiscardPileModal({
                 : `${visible.length} of ${cards.length}`}
               {cards.length > 0 && ' · top card first'}
             </p>
+            {deadline !== undefined && (
+              <div className="w-[9cqh]">
+                <Countdown deadline={deadline} />
+              </div>
+            )}
           </header>
 
           <button

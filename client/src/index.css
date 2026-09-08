@@ -322,25 +322,23 @@ code {
       rgba(120, 10, 10, 0.135);
 }
 
-/* WHOSE TURN IT IS, said by the screen itself (the owner, 2026-09-07): GREEN on
-   all four edges while the turn is YOURS, and on ONLY the edge that seat sits
-   on while it is somebody else's — nothing at all on the other three
-   (the owner, 2026-09-08).
+/* WHOSE TURN IT IS, in two voices (the owner, 2026-09-08).
 
-   Two mechanisms on purpose. Four edges is an inset rim: the red rim's
-   geometry on the same --aura clock, so the two read as one language. One
-   edge cannot be a rim — an inset box-shadow's SPREAD grows on every side at
-   once, so offsetting it toward a side still lights the other three. A
-   gradient has a direction and no spread, so it starts at its edge and fades
-   to nothing without ever touching the perpendicular ones. Both breathe by
-   reaching further inward on the clock.
+   YOURS: a green rim on all four edges of the SCREEN — the red target
+   rim's geometry on the same --aura clock, so the two read as one
+   language. `svw`, not `cqw`: like the red rim this renders outside
+   `.board-stage`.
 
-   `svw`, not `cqw`: like the red rim this renders outside `.board-stage`. */
+   SOMEBODY ELSE'S: nothing on the screen at all. Their own corner of the
+   table lights instead — leader frame, hero frame and card stack — which
+   says WHOSE turn it is rather than merely that it is not yours. A rim
+   could never say that: an inset box-shadow's spread grows on every side
+   at once, so aiming one at a seat also lit three edges it does not sit
+   on. */
 .turn-vignette {
   --turn-glow: 120, 245, 90;
 }
 
-/* the turn is yours: every edge */
 .turn-side-all {
   box-shadow:
     inset 0 0 calc((1.1 + 0.35 * var(--aura)) * 1svw)
@@ -351,27 +349,14 @@ code {
       rgba(var(--turn-glow), 0.16);
 }
 
-/* somebody else's turn: the one edge their party is drawn on. p2 top, p3
-   left, p4 right — TURN_EDGE in Board.tsx, PLAYERS in layout.ts. p1 is the
-   viewer and takes `all` above, so there is no bottom rule. */
-.turn-side-top,
-.turn-side-left,
-.turn-side-right {
-  background-image: linear-gradient(
-    var(--turn-to),
-    rgba(var(--turn-glow), 0.34) 0,
-    rgba(var(--turn-glow), 0.16) calc((0.9 + 0.3 * var(--aura)) * 1svw),
-    rgba(var(--turn-glow), 0) calc((2.6 + 0.9 * var(--aura)) * 1svw)
-  );
-}
-.turn-side-top {
-  --turn-to: to bottom;
-}
-.turn-side-left {
-  --turn-to: to right;
-}
-.turn-side-right {
-  --turn-to: to left;
+/* The active seat's painted frames, WHITE (the owner, 2026-09-08): green is
+   the viewer's own turn and nothing else, so the two can never be confused
+   across the table. On the FRAME art rather than the widget box, so the glow
+   follows the painted edge the way a card's aura follows the card. */
+.turn-frame-aura {
+  filter: drop-shadow(0 0 calc((0.12 + 0.05 * var(--aura)) * 1cqw) rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 calc((0.35 + 0.15 * var(--aura)) * 1cqw) rgba(240, 245, 255, 0.8))
+    drop-shadow(0 0 calc((0.75 + 0.3 * var(--aura)) * 1cqw) rgba(215, 230, 255, 0.55));
 }
 
 /* The fan and a zoomed card come up over the middle of the board. A button

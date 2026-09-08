@@ -65,10 +65,9 @@ const window_ = (
     </TargetingProvider>,
   )
 
-/** the panel carrying a role label, and which half of the stage it sits on */
+/** one side's panel, and which half of the stage it sits on */
 const panelOf = (role: string) => {
-  const label = screen.getByText(role)
-  const panel = label.closest('[style*="left"]') as HTMLElement
+  const panel = document.querySelector(`[data-role="${role}"]`) as HTMLElement
   return {
     onLeft: panel.style.left.includes(`-${CHALLENGE_LAYOUT.panel.dx}cqh`),
     green: panel.className.includes('challenge-glow-green'),

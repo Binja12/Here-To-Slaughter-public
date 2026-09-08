@@ -24,12 +24,31 @@ export type LiveRoll = {
   rollReq?: number
   /** The hero, leader or monster the roll is about. */
   subjectId?: string
-  /** The seat the roll's effect is aimed at, once its owner has chosen. */
-  targetPlayerId?: string
+  /** The seats the roll's effect is aimed at, once its owner has chosen. */
+  targetPlayerIds: string[]
 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value : undefined)
 const num = (value: unknown) => (typeof value === 'number' ? value : undefined)
+
+/** One seat a roll's effect is aimed at, and the zone of theirs it reaches. */
+export type RollTargetView = { playerId: string; zone: string }
+
+/**
+ * Whom a roll is aimed at. A LIST: one card may choose several targets under
+ * a single window (Fluffy destroys two heroes), and every seat named has to
+ * see that it is one of them.
+ */
+export function targetSeatsOf(value: unknown): RollTargetView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { playerId, zone } = entry as Record<string, unknown>
+    return typeof playerId === 'string' && typeof zone === 'string'
+      ? [{ playerId, zone }]
+      : []
+  })
+}
 
 export function bonusesOf(value: unknown): RollBonusView[] {
   if (!Array.isArray(value)) return []
@@ -72,7 +91,7 @@ export function liveRollOf(view: PlayerView): LiveRoll | null {
       finalRoll: num(detail.finalRoll) ?? baseRoll + bonusTotal(bonuses),
       rollReq: num(detail.rollReq),
       subjectId: subjectIdOf(window),
-      targetPlayerId: str(detail.targetPlayerId),
+      targetPlayerIds: targetSeatsOf(detail.targets).map((seat) => seat.playerId),
     }
   }
   return null

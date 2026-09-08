@@ -443,7 +443,7 @@ export const rollTargetsYou: PlayerView = {
       ...modifierWindowOpen.pendingWindows[0],
       detail: {
         ...modifierWindowOpen.pendingWindows[0].detail,
-        targetPlayerId: 'player-a',
+        targets: [{ playerId: 'player-a', zone: 'Hand' }],
       },
     },
   ],

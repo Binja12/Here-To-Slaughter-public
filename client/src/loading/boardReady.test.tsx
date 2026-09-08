@@ -50,7 +50,10 @@ test('a broken image counts as done — one missing file must not lock the game 
 test('gives up on its own if an image never arrives', () => {
   render(<Probe urls={['/never.png']} />)
   expect(screen.getByText('waiting')).toBeInTheDocument()
-  act(() => { jest.advanceTimersByTime(12_000) })
+  // long enough for a cold client to fetch a table's art, and no longer
+  act(() => { jest.advanceTimersByTime(29_000) })
+  expect(screen.getByText('waiting')).toBeInTheDocument()
+  act(() => { jest.advanceTimersByTime(1_000) })
   expect(screen.getByText('ready')).toBeInTheDocument()
 })
 

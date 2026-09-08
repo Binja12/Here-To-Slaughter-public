@@ -109,8 +109,12 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
         challengeCardUrl: boardChallengeUrl(),
         carrierCardUrl: carrierArt?.url,
         carrierCardAspect: carrierArt?.aspect,
+        challengedId: live.defenderId || undefined,
+        challengerId: live.challengerId || undefined,
+        // Layout only, and never 'p1': an unknown seat must not be read as
+        // the viewer's — that is what named both sides "YOU".
         challengedSeat: slotForPlayer(view, live.defenderId) ?? 'p2',
-        challengerSeat: slotForPlayer(view, live.challengerId) ?? 'p1',
+        challengerSeat: slotForPlayer(view, live.challengerId) ?? 'p2',
       })
       if (live.started) {
         challenge.setRoll(

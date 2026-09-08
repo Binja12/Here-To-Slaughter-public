@@ -46,8 +46,12 @@ export function firstBoardImages(view: PlayerView): string[] {
  * is already here, and a URL that never loads must not hold the table for
  * ever: the wait gives up after `timeoutMs` and the board paints anyway, one
  * broken image being better than a game nobody can enter.
+ *
+ * Thirty seconds (the owner, 2026-09-08): long enough for a cold client to
+ * fetch a whole table's art before anyone has to act on it. Nothing counts it
+ * down on screen — the wait is the "dealing the table" line and nothing else.
  */
-export function useImagesReady(urls: string[], timeoutMs = 12_000): boolean {
+export function useImagesReady(urls: string[], timeoutMs = 30_000): boolean {
   const key = urls.join('|')
   const list = useMemo(() => urls, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   const [ready, setReady] = useState(list.length === 0)

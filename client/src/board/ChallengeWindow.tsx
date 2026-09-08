@@ -47,10 +47,17 @@ import {
 
 
 
-/** The name of whoever is in this screen seat, worded for the viewer. */
-const seatName = (view: PlayerView | null, seat: PlayerId): string => {
-  if (!view) return seat === 'p1' ? 'YOU' : 'PLAYER'
-  return nameOf(view, slotsFor(view)[seat] ?? undefined)
+/**
+ * What to call one side of the challenge, worded for the viewer.
+ *
+ * The player ID first and the screen seat only as a fallback: a seat is a
+ * PLACE, and an unresolved one used to default to the viewer's, which named
+ * both sides "YOU" (the owner, 2026-09-08).
+ */
+const sideName = (view: PlayerView | null, side: ChallengeSide): string => {
+  if (view && side.playerId) return nameOf(view, side.playerId)
+  if (!view) return side.seat === 'p1' ? 'YOU' : 'PLAYER'
+  return nameOf(view, slotsFor(view)[side.seat] ?? undefined)
 }
 
 export default function ChallengeWindow({
@@ -69,6 +76,12 @@ export default function ChallengeWindow({
   // Only the side that is WINNING glows, so the window says at a glance who
   // is ahead (the owner, 2026-09-08). Level, or either side still rolling,
   // and neither glows — there is no lead to report.
+  // Whichever side is MINE takes the left panel. Read from the player id
+  // when the server has said who is who, and from the screen seat otherwise.
+  const challengerIsMine = active.challenger.playerId
+    ? !!view && active.challenger.playerId === view.playerId
+    : active.challenger.seat === "p1";
+
   const ahead = rollTotal(active.challenged.roll);
   const behind = rollTotal(active.challenger.roll);
   const lead =
@@ -107,15 +120,15 @@ export default function ChallengeWindow({
           <RollPanel
             role="challenged"
             side={active.challenged}
-            left={active.challenger.seat !== "p1"}
-            name={seatName(view, active.challenged.seat)}
+            left={!challengerIsMine}
+            name={sideName(view, active.challenged)}
             leading={lead === "challenged"}
           />
           <RollPanel
             role="challenger"
             side={active.challenger}
-            left={active.challenger.seat === "p1"}
-            name={seatName(view, active.challenger.seat)}
+            left={challengerIsMine}
+            name={sideName(view, active.challenger)}
             leading={lead === "challenger"}
           />
         </>
@@ -243,6 +256,9 @@ function RollPanel({
               ? "challenge-glow-green border-green-300/60"
               : "challenge-glow-red border-red-300/60"
       }`}
+      // the side this panel is, for anything reading the board rather than
+      // looking at it — the words on it are the player's name now
+      data-role={role}
       style={{
         height: `${L.panel.h}cqh`,
         width: `${L.panel.w}cqh`,
@@ -252,14 +268,14 @@ function RollPanel({
       onClick={t.onClick}
     >
       <div className="challenge-pop relative h-full w-full">
+{/* The seat, not the role: "challenged" and "challenger" are engine words,
+            and the table already knows which side is which from the colour
+            (the owner, 2026-09-08). Green defends, red contests. */}
         <div
-          className={`absolute inset-x-0 top-[4%] text-center font-heading text-[1.15cqw] uppercase tracking-[0.18cqw] ${
+          className={`absolute inset-x-0 top-[8%] truncate px-[0.5cqw] text-center font-heading text-[1.9cqw] uppercase leading-tight drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)] ${
             defending ? "text-green-300" : "text-red-300"
           }`}
         >
-          {role}
-        </div>
-        <div className="absolute inset-x-0 top-[17%] truncate px-[0.5cqw] text-center font-heading text-[1.9cqw] uppercase leading-tight text-amber-100 drop-shadow-[0_0.1cqw_0.2cqw_rgba(0,0,0,0.9)]">
           {name}
         </div>
 
