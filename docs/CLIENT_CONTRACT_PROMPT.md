@@ -164,7 +164,7 @@ Card ids are per physical copy and are the ids you send back. Card images are al
      `currentPlayerId === playerId && !busy && phase === "Turns"`.
    - Pending windows panel: one card per `pendingWindows` entry with its countdown from `deadline`.
      Roll/Attack/Challenge windows show `detail` (dice, bonuses, total vs requirement) to everyone
-     and offer "play a modifier" from your hand. Choice windows with `isYours` show `options` as
+     and offer to play a modifier from your hand. Choice windows with `isYours` show `options` as
      buttons → SubmitChoice. TaskChoice options are "CONFIRM" / "DISMISS" strings.
    - Refusal toast from the ack's `reason`; InternalError toast is generic.
    - Game over overlay when `phase === "Concluded"`, with a Leave button → LeaveGame → lobby.

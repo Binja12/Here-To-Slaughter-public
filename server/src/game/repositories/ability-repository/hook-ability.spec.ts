@@ -48,7 +48,7 @@ const wire = (gs: GameState) => {
 import { HookAbility } from './hook-ability'
 import { CTX_CHOSEN_ITEM } from '../../abilities/ability-context'
 
-// Hook (hero-013): "Play an Item card from your hand immediately and DRAW a card."
+// Hook (hero-013): "Play an item from your hand at no cost, then draw a card."
 
 describe('Hook (hero-013)', () => {
   it('picks an item into its own slot, a hero into the default one, plays the item and draws', () => {

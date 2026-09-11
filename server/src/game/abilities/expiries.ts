@@ -10,12 +10,12 @@ import { HeroCard } from '../cards/hero-card'
 // are not this effect's.
 // ---------------------------------------------------------------------------
 
-/** "...until the end of the turn" — the turn in progress, whoever plays it. */
+/** "...for the rest of this turn" — the turn in progress, whoever plays it. */
 export const untilEndOfTurn: EffectExpiry = {
   on: GameEventType.TurnEnded,
 }
 
-/** "...until your next turn" — measured against the effect's OWNER. */
+/** "...until your next turn begins" — measured against the effect's OWNER. */
 export const untilOwnersNextTurn: EffectExpiry = {
   on: GameEventType.TurnStarted,
   shouldExpire: (_gs, effect, event) =>

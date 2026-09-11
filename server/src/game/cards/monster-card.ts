@@ -35,11 +35,11 @@ export class MonsterCard implements ICard {
    * rather than asking `includes` per entry.
    *
    * The PARTY LEADER counts, for a NAMED class only (the owner, 2026-09-08,
-   * from the printed rule: "you must have a Wizard in your Party — either a
-   * Hero card or the Wizard Party Leader card — in addition to a Hero card of
-   * any class"). So an `'Any'` entry is heroes only, and the one leader can
-   * stand in for at most one named entry. That is also why a single Wizard
-   * hero cannot fill both halves of `[Wizard, 'Any']`.
+   * from the printed rule: the Wizard it names may be a hero or the Wizard
+   * leader, and the other slot takes one more hero of whatever class). So an
+   * `'Any'` entry is heroes only, and the one leader can stand in for at most
+   * one named entry. That is also why one Wizard hero cannot fill both
+   * halves of `[Wizard, 'Any']`.
    *
    * The classes rather than the board: a monster in the row belongs to nobody,
    * so it cannot look a party up — the caller says whose party is asking.

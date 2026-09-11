@@ -6,9 +6,8 @@ import { DestroyTask } from '../../tasks/hero-tasks'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { CTX_DESTROYED_HERO_ITEM, CTX_CHOSEN_CARD } from '../../abilities/ability-context'
 
-// Shurikitty (hero-023): "DESTROY a Hero card. If that Hero card had an Item
-// card equipped to it, add that Item card to your hand instead of moving it
-// to the discard pile."
+// Shurikitty (hero-023): "Destroy one hero. If it was wearing an item, that
+// item goes to your hand instead of the discard pile."
 //
 //   [0] RollPassing → choose a hero, while the roll still stands
 //   [1] RollSuccess → destroy it → its gear, if any, out of the pile into your hand

@@ -34,8 +34,8 @@ const wire = (gs: GameState) => {
 }
 import { SlipperyPawsAbility } from './slippery-paws-ability'
 
-// Slippery Paws (hero-022): "Pull 2 cards from another player's hand, then
-// DISCARD one of those cards."
+// Slippery Paws (hero-022): "Take two random cards from an opponent's hand,
+// then discard one of the two."
 
 describe('Slippery Paws (hero-022)', () => {
   it('pulls two from the chosen hand, then offers exactly those two out of my hand, and discards the pick', () => {

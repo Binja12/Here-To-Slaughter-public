@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Bun Bun (hero-039): "Search the discard pile for a Magic card and add it to
-// your hand."
+// Bun Bun (hero-039): "Take a magic card of your choice from the discard pile
+// into your hand."
 //
 //   [0] RollSuccess on this card → a choice over the discard pile, Magic cards
 //       only → the pick comes to hand

@@ -19,8 +19,9 @@ import { TurnManager } from '../pipelines/turn-manager'
 // ---------------------------------------------------------------------------
 // RollOnLeaderAction — the only way a leader's ability ever runs.
 //
-// Every clause of "once per turn on your turn, you may spend an action point"
-// is a guard here; the declaration in the registry is only what happens next.
+// Every clause of the leader's wording — on your own turn, once per turn, for
+// one action point — is a guard here; the declaration in the registry is only
+// what happens next.
 // ---------------------------------------------------------------------------
 
 const CLAW = 'leader-117'

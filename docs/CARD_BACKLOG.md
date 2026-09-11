@@ -64,7 +64,7 @@ Heroes (roll = `RollSuccess` SelfCard):
 | hero-041 Mellow Dee      | Draw(1) → CardTypeCondition(Hero, DRAWN) → Confirm → PlayHero(DRAWN)                                                                                                                                           |
 | hero-042 Lucky Bucky     | ChoosePlayer(Others) → Pull → CardTypeCondition(Hero, PULLED) → Confirm → PlayHero(PULLED)                                                                                                                     |
 | hero-043 Fuzzy Cheeks    | Draw(1) → ChooseCard(Hand, Self, cardType Hero) → PlayHero                                                                                                                                                     |
-| hero-044 Napping Nibbles | one entry with no steps ("Do nothing")                                                                                                                                                                         |
+| hero-044 Napping Nibbles | one entry with no steps ("No effect")                                                                                                                                                                          |
 | hero-048 Peanut          | Draw(2)                                                                                                                                                                                                        |
 
 Monsters (passive installs on `MonsterSlain` SelfCard; fight-backs are data):
@@ -126,7 +126,7 @@ Grouped by the missing piece; one piece usually unlocks several cards.
    hero-003 Beary Wise, hero-004 Heavy Bear, hero-006 Tough Teddy,
    hero-033 Hopper, hero-035 Spooky, hero-047 Greedy Cheeks,
    monster-127 Bloodwing.
-2. **A loop over "each other player"** (one step per seat, possibly with a
+2. **A loop over "every opponent"** (one step per seat, possibly with a
    party filter): hero-003 Beary Wise, hero-006 Tough Teddy, hero-024
    Smooth Mimimeow, hero-035 Spooky, hero-047 Greedy Cheeks.
 3. **Take a card from the discard pile to hand** (`ChooseCardTask` over
@@ -136,17 +136,17 @@ Grouped by the missing piece; one piece usually unlocks several cards.
    hero-021 Silent Shadow.
 4. **Return an equipped item to a hand** (unequip without discarding):
    hero-026 Holy Curselifter, magic-058 Winds of Change, magic-060
-   Forceful Winds; and the "item to your hand instead of the pile" half of
-   hero-023 Shurikitty.
+   Forceful Winds; and the "item goes to your hand, not the discard pile"
+   half of hero-023 Shurikitty.
 5. **CantBeDestroyed effect + DestroyTask honouring it**: hero-031 Mighty
    Blade, monster-130 Terratuga; the replacement version ("discard the doll
    instead") is item-066 Decoy Doll.
 6. **A class override effect read by party-class checks**: item-067 … 072,
    the six masks.
-7. **A replacement effect on destroy** ("you may STEAL instead"):
+7. **A replacement effect on destroy** ("you may steal it instead"):
    monster-122 Corrupted Sabretooth.
 8. **Reveal / peek** (show hidden cards without moving them — to one player
-   for a peek, to the table for "you may reveal it"): hero-016 Sharp Fox (a
+   for a peek, to the table for "you may show it"): hero-016 Sharp Fox (a
    hand), hero-014 Bullseye (top 3 of the deck, then reorder), hero-008 Pan
    Chucks and monster-132 Rex Major (reveal a drawn card to unlock the rest;
    the rest is Snowball's shape once a reveal step exists).

@@ -4,7 +4,7 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { DiscardTask } from '../../tasks/tasks'
 
-// Wildshot (hero-012): "DRAW 3 cards and DISCARD a card."
+// Wildshot (hero-012): "Draw three cards, then discard one."
 export const WildshotAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },

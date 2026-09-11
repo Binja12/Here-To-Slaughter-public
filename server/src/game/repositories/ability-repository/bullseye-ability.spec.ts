@@ -15,8 +15,8 @@ import {
 } from '../../abilities/ability-context'
 import { BullseyeAbility } from './bullseye-ability'
 
-// Bullseye (hero-014): "Look at the top 3 cards of the deck. Add one to your
-// hand, then return the other two to the top of the deck in any order."
+// Bullseye (hero-014): "Peek at the top three cards of the deck. Keep one and
+// put the other two back on top in the order you choose."
 
 const makeGs = (deck: string[]) => {
   const main = new CardStack('deck', 'main')
@@ -65,7 +65,8 @@ describe('Bullseye (hero-014)', () => {
     expect(gs.peekMainDeck(3)).toEqual(['t1', 't3', 't4']) // the queue closed over the gap
     expect(emitted.filter((e) => e.getType() === GameEventType.CardDrawn)).toHaveLength(1)
 
-    // "in any order": the two left on top, and the question says what is asked
+    // "in the order you choose": the two left on top, and the question says
+    // what is asked
     order.execute(gs, ctx, em, rm)
     const which = openWindow(gs)
     expect(which.getType()).toBe(ReactionWindowType.CardChoice)

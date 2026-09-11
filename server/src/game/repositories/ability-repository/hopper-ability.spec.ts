@@ -49,7 +49,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Hopper (hero-033): "Choose a player. That player must SACRIFICE a Hero card."
+// Hopper (hero-033): "Pick an opponent. They sacrifice one of their own heroes."
 
 describe('Hopper (hero-033)', () => {
   it('offers only players with heroes; the chosen one picks their own hero and sacrifices it', () => {

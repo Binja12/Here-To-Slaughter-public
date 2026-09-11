@@ -3,8 +3,8 @@ import { untilEndOfTurn } from '../../abilities/expiries'
 import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 
-// Iron Resolve (hero-030): cards you play cannot be challenged for the rest
-// of your turn.
+// Iron Resolve (hero-030): nothing you play for the rest of this turn can be
+// challenged.
 export const IronResolveAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },

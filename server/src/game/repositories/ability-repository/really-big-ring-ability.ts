@@ -15,7 +15,7 @@ import { untilUnequipped } from '../../abilities/expiries'
 // on this entry — and it ends with the carrier, which the item's own ability
 // does for free but an installed effect does not (§7).
 //
-// scopedToCarrier is what makes it "the equipped Hero card's" roll and not
+// scopedToCarrier is what makes it "the wearer's" roll and not
 // every roll: the passive is installed naming the carrier, and ModifierWindow
 // asks for the hero it opened over. A challenge roll asks for no hero, so this
 // stays out of one.

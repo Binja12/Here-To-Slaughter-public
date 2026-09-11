@@ -5,7 +5,7 @@ import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 import { ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { TradeHandsTask } from '../../tasks/tasks'
 
-// Dodgy Dealer (hero-046): "Trade hands with another player."
+// Dodgy Dealer (hero-046): "Swap your whole hand with another player's."
 //
 //   [0] RollPassing → choose another player, while the roll still stands
 //   [1] RollSuccess → the two hands change places

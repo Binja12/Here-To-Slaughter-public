@@ -7,8 +7,9 @@ import { DrawTask } from '../../tasks/draw-task'
 import { DiscardTask, RevealTask } from '../../tasks/tasks'
 
 // Rex Major (monster-132)
-//   Passive:    after drawing a Modifier, you may reveal it and draw again.
-//   Fight back: DISCARD 2 cards.
+//   Passive:    Whenever you draw a modifier, you may show it and draw
+//               another card.
+//   Fight back: Discard two cards.
 const DREW_A_MODIFIER = 'RexMajorDrewModifier'
 const DRAW_AGAIN = 'RexMajorDrawsAgain'
 
@@ -32,7 +33,7 @@ export const RexMajorAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: DRAW_AGAIN,
-        question: 'Reveal it and draw a second card?',
+        question: 'Reveal the modifier and draw again?',
         subjectKey: CTX_DRAWN_CARD_IDS,
       }),
     ],
@@ -44,7 +45,7 @@ export const RexMajorAbility: IAbilityRule[] = [
       when: DRAW_AGAIN,
     },
     steps: [
-      // "you may reveal it": the yes shows the drawn card to the table
+      // "you may show it": the yes shows the drawn card to the table
       new RevealTask({ fromKey: CTX_DRAWN_CARD_IDS, to: 'all' }),
       new DrawTask(1),
     ],

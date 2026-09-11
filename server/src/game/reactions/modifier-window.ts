@@ -8,7 +8,7 @@ import { GameEventFactory } from '../events/game-event-factory'
 import { ModifiableRollWindow } from './modifiable-roll-window'
 
 // ---------------------------------------------------------------------------
-// The window over a roll to use a HERO card's effect. The bonus list, the
+// The window over a roll on a HERO card's ability. The bonus list, the
 // clock and everything a modifier card does to them are the base class; this
 // is the two things only a hero roll knows — what the standing bonuses are
 // scoped to, and what beating `rollReq` means.

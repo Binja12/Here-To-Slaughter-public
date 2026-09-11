@@ -228,10 +228,10 @@ describe('AttackMonsterAction', () => {
         expect(canAttack(g)).toEqual({ accepted: false, reason: RefusalReason.PartyRequirementUnmet })
       })
 
-      // The printed rule (the owner, 2026-09-08): "you must have a Wizard in
-      // your Party — either a Hero card or the Wizard Party Leader card — in
-      // addition to a Hero card of any class". So the leader answers the
-      // NAMED class and nothing else; `Any` is still a hero.
+      // The printed rule (the owner, 2026-09-08): the Wizard it names may be a
+      // hero or the Wizard leader, and the other slot takes one more hero of
+      // whatever class. So the leader answers the NAMED class and nothing
+      // else; `Any` is still a hero.
       it('does not answer the Any with the LEADER — a bare party attacks nothing', () => {
         const g = kingGs([])
         g.registerCard(
@@ -292,8 +292,8 @@ describe('AttackMonsterAction', () => {
       })
 
       it('one Bard hero cannot answer both halves, leader or no leader', () => {
-        // "a single Wizard Hero card can fulfil either requirement, but it
-        // cannot fulfil both" — with no leader the lone Bard is short an Any
+        // one Wizard hero counts toward one requirement or the other, never
+        // both — with no leader the lone Bard is short an Any
         expect(canAttack(kingGs([HeroClass.Bard]))).toEqual({
           accepted: false,
           reason: RefusalReason.PartyRequirementUnmet,

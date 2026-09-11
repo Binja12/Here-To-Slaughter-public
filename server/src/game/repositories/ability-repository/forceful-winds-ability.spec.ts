@@ -49,8 +49,8 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Forceful Winds (magic-060): "Return every equipped Item card to its
-// respective player's hand."
+// Forceful Winds (magic-060): "Every equipped item goes back to its owner's
+// hand."
 
 describe('Forceful Winds (magic-060)', () => {
   it('sends every worn item on the table home, no choice asked', () => {

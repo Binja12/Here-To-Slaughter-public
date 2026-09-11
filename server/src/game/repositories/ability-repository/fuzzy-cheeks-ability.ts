@@ -4,8 +4,8 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { PlayHeroTask } from '../../tasks/play-hero-task'
 
-// Fuzzy Cheeks (hero-043): "DRAW a card and play a Hero card from your hand
-// immediately."
+// Fuzzy Cheeks (hero-043): "Draw a card, then play a hero from your hand at
+// no cost."
 export const FuzzyCheeksAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },

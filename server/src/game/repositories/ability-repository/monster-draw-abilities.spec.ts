@@ -28,8 +28,8 @@ import { CONFIRM, DISMISS } from '../../reactions/task-choice-window'
 // ---------------------------------------------------------------------------
 // The two monsters that react to a DRAW.
 //
-//   monster-131 Orthus       DRAW a Magic card → may play it immediately
-//   monster-134 Malamammoth  DRAW an Item card → may play it immediately
+//   monster-131 Orthus       draw a magic card → may play it right away
+//   monster-134 Malamammoth  draw an item → may play it right away
 //
 // Both hang off CardDrawn's ctxSeed: an entry TRIGGERED by a draw runs with a
 // fresh context, so the drawn card has to travel on the event. Snowball is the
@@ -152,7 +152,7 @@ describe('monsters that react to a DRAW', () => {
   // Orthus — monster-131
   // =========================================================================
 
-  describe('Orthus (monster-131) — DRAW a Magic card, may play it', () => {
+  describe('Orthus (monster-131) — draw a magic card, may play it', () => {
     it('is registered, and its first entry listens to any draw its owner makes', () => {
       expect(abilityRegistry.get('monster-131')).toBe(OrthusAbility)
       expect(OrthusAbility[0].trigger).toEqual({
@@ -238,7 +238,7 @@ describe('monsters that react to a DRAW', () => {
   // Malamammoth — monster-134
   // =========================================================================
 
-  describe('Malamammoth (monster-134) — DRAW an Item card, may play it', () => {
+  describe('Malamammoth (monster-134) — draw an item, may play it', () => {
     /** A hero to receive the item, optionally already carrying something. */
     const withHero = (
       ctx: ReturnType<typeof setup>,

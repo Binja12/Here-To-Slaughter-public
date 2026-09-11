@@ -149,7 +149,7 @@ describe('CloakedSageAbility', () => {
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['top'])
   })
 
-  it('draws again on the next play — "each time"', () => {
+  it('draws again on the next play — "whenever"', () => {
     const { gs, em, rm, events } = setup(
       ['top', 'second'],
       ['magic-1', 'magic-2'],

@@ -6,7 +6,7 @@ import { ChooseCardTask, ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { StealFromPartyTask } from '../../tasks/hero-tasks'
 import { PullCardTask } from '../../tasks/tasks'
 
-// Meowzio (hero-019): choose a player, steal one of their heroes, then pull
+// Meowzio (hero-019): pick an opponent, steal one of their heroes, then pull
 // from that same player's hand.
 export const MeowzioAbility: IAbilityRule[] = [
   {

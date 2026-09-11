@@ -4,8 +4,8 @@ import { ConfirmTask, ChooseCardTask } from '../../tasks/choose-tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { SacrificeTask } from '../../tasks/hero-tasks'
 
-// Crowned Serpent (monster-125): "Each time any player (including you) plays
-// a Modifier card, you may DRAW a card."
+// Crowned Serpent (monster-125): "Whenever anyone plays a modifier, you may
+// draw a card."
 //
 //   [0] ModifierPlayed, anyone's → the owner is asked
 //   [1] TaskConfirmed (this card's label) → draw one
@@ -24,8 +24,8 @@ export const CrownedSerpentAbility: IAbilityRule[] = [
     steps: [new DrawTask(1)],
   },
   {
-    // Fight back: SACRIFICE a Hero card — the attacker gives one up (Mega
-    // Slime's shape; declared here because nothing reads the printed
+    // Fight back: Sacrifice one of your heroes — the attacker gives one up
+    // (Mega Slime's shape; declared here because nothing reads the printed
     // fight-back text on its own).
     trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
     steps: [

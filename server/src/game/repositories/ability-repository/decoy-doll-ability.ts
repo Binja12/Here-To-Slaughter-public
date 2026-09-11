@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilUnequipped } from '../../abilities/expiries'
 
-// Decoy Doll (item-066): "If the equipped Hero card would be sacrificed or
-// destroyed, move Decoy Doll to the discard pile instead."
+// Decoy Doll (item-066): "If the wearer would be sacrificed or destroyed,
+// discard this item instead."
 //
 //   [0] equipped → install TakesTheHit on the carrier's owner, scoped to the
 //       carrier, for as long as the doll is worn

@@ -30,7 +30,7 @@ export class DiscardTask implements ITask {
   /**
    * `fromKey`: the slot holding the card, the choice slot by default.
    * `executor`: who runs this step, and so whose hand — the ability owner, or
-   * `'chosen'` for "that player must DISCARD", the seat a ChoosePlayerTask or a per-seat run put in
+   * `'chosen'` for "they discard", the seat a ChoosePlayerTask or a per-seat run put in
    * CTX_CHOSEN_PLAYER (the mirror of a choice's `respondent`).
    */
   constructor(options: string | { fromKey?: string; executor?: Executor } = {}) {
@@ -77,8 +77,8 @@ export class DiscardTask implements ITask {
 //
 // The step behind a ChooseCardEachTask over hands: walks CTX_ASKED_SEATS,
 // discards each seat's pick from that seat's hand (a seat that picked nothing
-// discards nothing) and writes the lot to CTX_DISCARDED_CARDS — "the
-// discarded cards" a card like Beary Wise then chooses among.
+// discards nothing) and writes the lot to CTX_DISCARDED_CARDS — "those
+// discards" a card like Beary Wise then chooses among.
 // ---------------------------------------------------------------------------
 
 export class DiscardEachTask implements ITask {
@@ -166,7 +166,7 @@ export class TradeHandsTask implements ITask {
   }
 }
 
-/** Who a step runs AS: the ability owner, or the chosen seat — the target of a "that player must …". */
+/** Who a step runs AS: the ability owner, or the chosen seat — the "they" in "pick an opponent. They …". */
 export type Executor = 'owner' | 'chosen'
 
 /**
@@ -181,21 +181,23 @@ export function executorOf(ctx: AbilityContext, executor: Executor): string | un
 // ---------------------------------------------------------------------------
 // PullCardTask — take a card out of another player's hand, sight unseen
 //
-// RANDOM, not chosen: "pull a card" is what you do to a hand you cannot see,
-// and Fury Knuckle's "if it is a Challenge card" only means anything if the
-// puller had no say. That is why this is a task and not a ChooseCardTask over
-// Zone.Hand / Owner.Chosen — the card choice belongs to nobody.
+// RANDOM, not chosen: pulling a card is what you do to a hand you cannot see,
+// and Fury Knuckle's "if it turns out to be a challenge card" only means
+// anything if the puller had no say. That is why this is a task and not a
+// ChooseCardTask over Zone.Hand / Owner.Chosen — the card choice belongs to
+// nobody.
 // ---------------------------------------------------------------------------
 
 export type PullSpec = {
   /** Slot naming whose hand to reach into. A ChoosePlayerTask's by default. */
   fromKey?: string
   /**
-   * Instead of a slot: every seat the filter keeps, one pull each — "pull a
-   * card from each other player with a Thief" (Smooth Mimimeow).
+   * Instead of a slot: every seat the filter keeps, one pull each — "take a
+   * random card from the hand of every opponent who has a Thief" (Smooth
+   * Mimimeow).
    */
   from?: PlayerFilter
-  /** How many from the named hand. One by default; "pull 2 cards" (Slippery Paws). */
+  /** How many from the named hand. One by default; "take two random cards" (Slippery Paws). */
   count?: number
 }
 
@@ -274,7 +276,7 @@ export type EffectSpec = {
   expiry?: EffectExpiry | EffectExpiry[]
   /**
    * Narrow the rule to the hero carrying the source card — for an item whose
-   * wording is about "the equipped Hero". Resolved at install time, because a
+   * wording is about "the wearer". Resolved at install time, because a
    * declaration built at module load has no carrier yet.
    */
   scopedToCarrier?: boolean
@@ -323,7 +325,7 @@ export class ApplyEffectTask implements ITask {
 // are shown, and whether at all, is the client's business.
 //
 // \`to: 'owner'\` shows the ability owner (Sharp Fox looks at a hand);
-// \`to: 'all'\` shows every seat ("you may reveal it" — Pan Chucks, Rex Major).
+// \`to: 'all'\` shows every seat ("you may show it" — Pan Chucks, Rex Major).
 // ---------------------------------------------------------------------------
 
 /** How long a reveal stays on the view. */

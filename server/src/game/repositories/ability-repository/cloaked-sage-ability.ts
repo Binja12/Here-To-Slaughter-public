@@ -20,7 +20,7 @@ import { DrawTask } from '../../tasks/draw-task'
 // card with it.
 //
 // Both routes into `playMagic` emit it — a player's PlayMagicAction and an
-// ability's PlayMagicTask — which is what "each time you play" asks for.
+// ability's PlayMagicTask — which is what "whenever you play" asks for.
 export const CloakedSageAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.MagicPlayed, scope: TriggerScope.OwnerEvent },

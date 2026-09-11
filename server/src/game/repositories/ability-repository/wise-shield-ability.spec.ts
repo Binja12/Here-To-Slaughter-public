@@ -484,7 +484,7 @@ describe('Wise Shield — full life cycle', () => {
       expect(latest['bonuses']).toEqual([{ cardSource: WISE_SHIELD, amount: 3 }])
     })
 
-    it('applies to a CHALLENGE roll — "+3 to all of your rolls" means all of them', () => {
+    it('applies to a CHALLENGE roll — "every roll you make" means all of them', () => {
       const { gs, em, rm, tm, events } = armed(10)
 
       // Play a second hero; p2 challenges it.

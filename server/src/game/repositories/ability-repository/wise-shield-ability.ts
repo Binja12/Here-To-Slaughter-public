@@ -18,7 +18,7 @@ export const WiseShieldAbility: IAbilityRule[] = [
       new ApplyEffectTask({
         type: PassiveType.RollBonus,
         value: BONUS,
-        // Card text reads "until the end of your turn" — TurnEnded, no check
+        // Card text reads "for the rest of this turn" — TurnEnded, no check
         // needed, since every TurnEnded ends the turn in progress.
         expiry: untilEndOfTurn,
       }),

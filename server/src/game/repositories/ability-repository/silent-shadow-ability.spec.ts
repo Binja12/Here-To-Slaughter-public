@@ -49,8 +49,8 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Silent Shadow (hero-021): "Look at another player's hand. Choose a card and
-// add it to your hand."
+// Silent Shadow (hero-021): "Look through an opponent's hand and take any one
+// card from it."
 
 describe('Silent Shadow (hero-021)', () => {
   it("the look is a CardChoice over the chosen player's hand, answered by the OWNER; the pick changes hands", () => {

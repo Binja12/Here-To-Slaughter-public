@@ -143,7 +143,7 @@ describe('GameState', () => {
   // A party holds more than the rows it stands in. An item is EQUIPPED
   // before its challenge window opens, so a challenge on a freshly played
   // item asked who owned a card this could not answer — and Bloodwing, whose
-  // rule is "each time another player CHALLENGES you", never fired
+  // rule is "whenever an opponent challenges you", never fired
   // (the owner, 2026-09-08).
   it('should find the owner of an equipped item, a slain monster and a card in play', () => {
     gs.registerPlayer(makePlayer('p1'))

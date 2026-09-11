@@ -8,9 +8,9 @@ import { ChoosePlayerTask } from '../../tasks/choose-tasks'
 //   [0] LeaderActivated on the leader → choose whose hand, take one at random
 //
 // The only ACTIVATED card in the registry, and it declares none of what makes
-// it one: "once per turn", "on your turn" and "spend an action point" are all
-// RollOnLeaderAction's guards. The declaration is only what happens next,
-// which is why it reads like any hero's.
+// it one: the once-per-turn limit, the own-turn restriction and the action
+// point cost are all RollOnLeaderAction's guards. The declaration is only what
+// happens next, which is why it reads like any hero's.
 //
 // SelfCard on LeaderActivated: the action announces the leader's own id, so this
 // matches the same way a hero's ability matches its own successful roll. No

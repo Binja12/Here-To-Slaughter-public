@@ -49,8 +49,8 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Winds of Change (magic-058, magic-059): "Return an Item card equipped to any
-// player's Hero card to that player's hand, then DRAW a card."
+// Winds of Change (magic-058, magic-059): "Return any equipped item to its
+// owner's hand, then draw a card."
 
 describe('Winds of Change (magic-058)', () => {
   it('fires on its settled challenge frame', () => {

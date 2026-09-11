@@ -49,7 +49,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Heavy Bear (hero-004): "Choose a player. That player must DISCARD 2 cards."
+// Heavy Bear (hero-004): "Pick an opponent. They discard two cards."
 // The full run, seat to seat, is in victim-choice.spec.ts.
 
 describe('Heavy Bear (hero-004)', () => {

@@ -408,7 +408,7 @@ export const challengeStarted = withWindow(midGame, {
 })
 
 /**
- * The Crowned Serpent's "you may DRAW", asked of its owner about a monster
+ * The Crowned Serpent's "you may draw", asked of its owner about a monster
  * won into their OWN party while the roll it is watching still stands: the
  * board has nothing for them to press, so the ask takes the stage over the
  * modifier window instead of a strip card under it.

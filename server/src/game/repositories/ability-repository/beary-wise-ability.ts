@@ -5,8 +5,8 @@ import { DiscardEachTask } from '../../tasks/tasks'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { CTX_DISCARDED_CARDS } from '../../abilities/ability-context'
 
-// Beary Wise (hero-003): "Each other player must DISCARD a card. Choose one
-// of the discarded cards and add it to your hand."
+// Beary Wise (hero-003): "Every opponent discards one card. Pick one of those
+// discards and put it in your hand."
 //
 //   [0] RollSuccess → every other seat picks a card of their own hand, all
 //       at once → each discards it → the owner chooses among exactly those,

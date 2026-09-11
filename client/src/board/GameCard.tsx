@@ -93,7 +93,7 @@ export function HeroCardExample({ className = 'w-20' }) {
     <GameCard
       className={className}
       title="Bad Axe"
-      ruleText="Roll 8+: DESTROY an Item card equipped to a Hero."
+      ruleText="Roll 8+: destroy an item worn by a hero."
       badge={<SwordIcon />}
     />
   );
@@ -105,7 +105,7 @@ export function MonsterCardExample({ className = 'w-28' }) {
     <GameCard
       className={className}
       title="Titan Wyvern"
-      ruleText="On slay: +1 Action Point each turn. Fight back: sacrifice a Hero."
+      ruleText="On slay: +1 Action Point each turn. Fight back: sacrifice one of your heroes."
       badge={<span>8+</span>}
     />
   );

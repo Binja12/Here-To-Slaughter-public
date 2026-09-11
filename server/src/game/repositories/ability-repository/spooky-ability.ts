@@ -3,7 +3,7 @@ import { ChooseCardEachTask } from '../../tasks/choose-tasks'
 import { SacrificeEachTask } from '../../tasks/hero-tasks'
 import { IAbilityRule } from '../../interfaces'
 
-// Spooky (hero-035): "Each other player must SACRIFICE a Hero card."
+// Spooky (hero-035): "Every opponent sacrifices one of their own heroes."
 //
 //   [0] RollSuccess → every other seat with heroes picks one of their own,
 //       all at once → each sacrifices it

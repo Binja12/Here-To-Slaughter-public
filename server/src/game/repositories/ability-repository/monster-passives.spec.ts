@@ -23,7 +23,7 @@ import { SacrificeTask } from '../../tasks/hero-tasks'
 // The two monster passives that install on MonsterSlain and never expire.
 //
 //   monster-123 Mega Slime       +1 action point each of your turns
-//   monster-135 Warworn Owlbear  Item cards you play cannot be challenged
+//   monster-135 Warworn Owlbear  Items you play cannot be challenged
 //
 // Both are IEffects rather than entries that fire per turn, for the reason in
 // section 7: the value has to be found at a moment when no ability is running.
@@ -462,10 +462,10 @@ describe('monster fight-back', () => {
   }
 
   // =========================================================================
-  // Warworn Owlbear — DISCARD 2 cards
+  // Warworn Owlbear — discard two cards
   // =========================================================================
 
-  describe('Warworn Owlbear (monster-135) — DISCARD 2 cards', () => {
+  describe('Warworn Owlbear (monster-135) — discard two cards', () => {
     it('declares the fight-back on MonsterFoughtBack, scoped Attacker', () => {
       expect(WarwornOwlbearAbility[1].trigger).toEqual({
         on: GameEventType.MonsterFoughtBack,
@@ -554,10 +554,10 @@ describe('monster fight-back', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Mega Slime fight-back — SACRIFICE a Hero card
+// Mega Slime fight-back — sacrifice one of your heroes
 // ---------------------------------------------------------------------------
 
-describe('Mega Slime (monster-123) — fight back SACRIFICES a Hero', () => {
+describe('Mega Slime (monster-123) — fight back sacrifices a hero', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => {
     jest.useRealTimers()

@@ -37,8 +37,8 @@ import { CorruptedSabretoothAbility } from './corrupted-sabretooth-ability'
 import { BadAxeAbility } from './bad-axe-ability'
 import { DESTROY_ANYWAY, STEAL_INSTEAD } from '../../tasks/hero-tasks'
 
-// Corrupted Sabretooth (monster-122): "Each time you would DESTROY a Hero
-// card, you may STEAL that Hero card instead."
+// Corrupted Sabretooth (monster-122): "Whenever you would destroy a hero, you
+// may steal it instead."
 
 /** p1 slew the Sabretooth and fields Bad Axe; p2 has a hero. Bad Axe rolls. */
 function table() {

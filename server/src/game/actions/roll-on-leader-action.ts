@@ -12,17 +12,17 @@ const COST = 1
 //
 // A player asks for it and nothing else can: no system rule reaches a leader,
 // because a leader is never played, never rolled on by another card and never
-// moves. The wording it serves is "once per turn on your turn, you may spend an
-// action point to …" — the price and the once-per-turn slot are `canExecute`
-// and the `markAbilityUsed` below; "on your turn" is `TurnManager.enqueue`,
-// for every action at once.
+// moves. The ability it serves is used on your own turn, once per turn, by
+// spending one action point — the price and the once-per-turn slot are
+// `canExecute` and the `markAbilityUsed` below; the own-turn part is
+// `TurnManager.enqueue`, for every action at once.
 //
 // Same STRUCTURE as RollOnHeroAction — price, guards, mark, announce — with the
 // dice taken out. There is no roll requirement to beat and no modifier window,
 // and the announcement is the leader's OWN event, `LeaderActivated`, not a
-// RollSuccess: a rule on "each time you successfully roll" (Arctic Aries) must
-// not fire on an activation (the owner, 2026-09-04). The registry entry is
-// matched off it by SelfCard exactly as a hero's is.
+// RollSuccess: a rule on "whenever you succeed on a hero ability roll" (Arctic
+// Aries) must not fire on an activation (the owner, 2026-09-04). The registry
+// entry is matched off it by SelfCard exactly as a hero's is.
 //
 // No base class and no task twin, unlike the other rolls: one caller, and a
 // second one would have to be a system rule, which is the thing this exists to
@@ -61,7 +61,7 @@ export class RollOnLeaderAction implements IAction {
   }
 
   canExecute(gs: GameState): RequestResult {
-    // "spend an action point"
+    // the price: one action point
     if (gs.getActionPoints(this.playerId) < COST) {
       return refused(RefusalReason.NoActionPoints)
     }
@@ -70,13 +70,13 @@ export class RollOnLeaderAction implements IAction {
     if (gs.getParty(this.playerId).getLeaderId() !== this.cardId) {
       return refused(RefusalReason.NotYourLeader)
     }
-    // "you may spend an action point to …" — only a leader with an entry that
+    // The action point buys an ability — only a leader with an entry that
     // fires on the announcement. A passive leader has nothing to activate, so
     // the point would buy nothing (seen live: the Cloaked Sage).
     if (!isActivatable(this.cardId)) {
       return refused(RefusalReason.LeaderNotActivatable)
     }
-    // "once per turn"
+    // the once-per-turn slot
     if (gs.getAbilitiesUsedThisTurn().includes(this.cardId)) {
       return refused(RefusalReason.AbilityAlreadyUsed)
     }

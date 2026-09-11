@@ -152,7 +152,7 @@ before the rest of whatever played it.
 one event matches, those whose `sourceCardId` is the event's own `cardId` are
 pushed first; the rest keep `abilitySources`' position order behind them. A
 modifier card's `ApplyModifierTask` therefore lands its bonus on the roll
-before the Crowned Serpent's "you may DRAW" opens a window and parks the
+before the Crowned Serpent's optional draw opens a window and parks the
 stack — without it, the whole table watched an unchanged number until the
 Serpent's owner answered, on every screen. The Protecting Horn is the visible
 consequence: its bonus now lands second, and a sum does not care.
@@ -352,7 +352,7 @@ it would for any other action.
 **Only the ACTIVE player spends action points; everybody else answers with
 REACTIONS.** Off-turn play is the reaction system in its entirety — a challenge
 card, a modifier, an answer to a window — and every one of those goes to
-`ReactionManager` and never touches the action queue. So "on your turn" is a
+`ReactionManager` and never touches the action queue. So "whose turn is it" is a
 property of the QUEUE, not of any action: `TurnManager.enqueue` refuses an
 action whose `getPlayerId` is not the current player, and no `canExecute`
 mentions the turn at all. Eight copies of one rule is eight chances to forget
@@ -667,8 +667,8 @@ board: `GameState.conclude` cancels every open window and drops the frames
 and pipelines, and `TaskManager` runs nothing on a concluded board — the
 `FrameResolved` that follows a winning slay starts no continuation.
 Before 2026-09-04 only the turn's end asked, so the sixth class stood on the
-table for the rest of that turn (seen live). The printed rulebook words the
-class win as "end your turn with a full party"; the owner's call is on the
+table for the rest of that turn (seen live). The printed rulebook checks the
+class win at the end of the turn; the owner's call is on the
 spot, like the third monster. The last move is
 A win condition is asked of ONE PARTY at a time
 (`IWinCondition.isMetBy(gs, player)`), never "who has won": a table set to
@@ -945,8 +945,8 @@ the board is dimmed for its question (the owner, 2026-09-04: "the source card
 must show big so the players have context"). `PendingWindowView.optionCards`
 is the options that are cards, as printed data, for the respondent only:
 Bullseye's look at the deck's top three offers cards that are in no zone the
-screen draws, and ids alone drew as ids. Fight-backs printed "SACRIFICE a Hero
-card" are declared per monster (Mega Slime's shape, `MonsterFoughtBack` scoped
+screen draws, and ids alone drew as ids. Fight-backs of "Sacrifice one of your
+heroes" are declared per monster (Mega Slime's shape, `MonsterFoughtBack` scoped
 `Attacker`); Terratuga, Corrupted Sabretooth, Crowned Serpent and Bloodwing
 had the text and no entry until 2026-09-04, pinned by a registry test. Mega
 Slime's extra point also lands on the slaying turn (`GainActionPointsTask`):
@@ -989,11 +989,11 @@ against the event:
   takes its owner from the event instead. A monster slain into a party simply
   stops being found in the pile and starts being found above, owned.
 - **Ongoing effects — STORED**, on the owning `Player`. "Your heroes cannot be
-  stolen until your next turn" has no card position to derive from, so it lives
-  on the player until an expiry event removes it (§7).
+  stolen until your next turn begins" has no card position to derive from, so
+  it lives on the player until an expiry event removes it (§7).
 - **Hero rules — UNIVERSAL.** `hero-rules.ts` holds the entries EVERY hero
-  carries, sourced to each hero in a party as if printed on it. "A hero you just
-  played may roll to use its effect" is a rule of the game, not one card's
+  carries, sourced to each hero in a party as if printed on it. "A freshly
+  played hero may roll for its ability" is a rule of the game, not one card's
   behaviour, so it cannot live in a table keyed by card id — it belongs to all 136. Sourcing it to the hero is what makes it need no new machinery: scope,
   context identity and rollback all resolve exactly as a printed ability's do.
 
@@ -1039,7 +1039,7 @@ moment it confirmed a roll on its steal — pinned by a test.
 SelfCard     payload.cardId is this card   — a hero's own successful roll
 CarrierCard  payload.cardId is the hero I am equipped to — a cursed item
 Attacker     payload.cardId is this card AND the event names who swung
-OwnerEvent   the event is my owner's       — "each time YOU roll to CHALLENGE"
+OwnerEvent   the event is my owner's       — "add 2 to YOUR rolls when challenging"
 OwnerTurn    only during my owner's turn
 Anyone       any player's event            — the -1 modifier card
 ```
@@ -1165,25 +1165,25 @@ table.
 
 **Every choice says what it is FOR, and only the task can.** Each
 choice-opening task takes a `question` — "Choose a hero to sacrifice", "Choose
-a player to pull a card from" — which rides in the window's detail and which
+a player to take a card from" — which rides in the window's detail and which
 the board puts up in large type over the choice (the owner, 2026-09-07). The
 client cannot derive it: it receives a list of ids and knows neither the filter
 nor the step that consumes the pick. The task cannot derive it either — a step
 decides about itself, never about its siblings (§2) — so the verb comes from
 the ability author, who is the one who knows the choice feeds a `SacrificeTask`
 rather than a `DestroyTask`. It is DECLARED, in the same place and for the same
-reason the filter is. A window whose task was given none falls back to its type
-("Choose a card"), which is the screen admitting it was not told.
+reason the filter is. A window whose task was given none falls back to a
+generic prompt for its type, which is the screen admitting it was not told.
 
 **A choice must not offer what cannot be carried out.** `PlayerFilter.hasHeroes`
 exists because a wording's next clause can be about the chosen player's party
-(Hopper's "that player SACRIFICES a Hero card"), so an empty seat is a legal
+(Hopper's "They sacrifice one of their own heroes"), so an empty seat is a legal
 pick that leads nowhere. The rule is the one `partyReqMet` follows for
 monsters: an option offered is an option that can be acted on.
 
 **A seat named by a card is a seat that need not be asked for.** Forced
-Exchange is printed "Choose a player. STEAL a Hero card from that player's
-Party…", but `getCardOwner` settles the seat from the hero, so pointing at the
+Exchange is printed "Pick an opponent. Steal one of their heroes…", but
+`getCardOwner` settles the seat from the hero, so pointing at the
 hero chooses both and the reachable outcomes are identical. It therefore runs
 the engine's one steal shape — `ChooseCardTask({ zone: Party, owner: Others })`
 then `StealFromPartyTask`, the two lines Entangling Trap, Kit Napper, Whiskers
@@ -1208,8 +1208,8 @@ player back a full turn's budget on every rollback. Specs pin both.
 
 `trigger` says when a pipeline _starts_. It cannot say how long what the
 pipeline installed should _last_ — "your heroes cannot be stolen until your next
-turn" is one ability run that finishes immediately and leaves something behind.
-So the lifetime belongs to an `IEffect`, not to the entry.
+turn begins" is one ability run that finishes immediately and leaves something
+behind. So the lifetime belongs to an `IEffect`, not to the entry.
 
 **An ability is the one-time run; an `IEffect` is a standing RULE with a
 lifetime.** That split is the whole of it — an effect carries no behaviour of
@@ -1235,7 +1235,7 @@ all, because what it does is choose a card and discard it.
 **The Protecting Horn (`leader-121`) is the same shape, and is deliberately NOT
 an effect** even though it reads as a passive:
 
-- It has to ASK. "+1 or -1" is the player's choice, so it opens a
+- It has to ASK. Whether it is +1 or -1 is the player's choice, so it opens a
   `ValueChoiceWindow` and pauses. An effect has no behaviour and cannot pause.
 - `RollBonus` is the wrong fact. It is seeded at window open and applies to its
   owner's roll; the Horn's number lands on _that_ roll — whichever the modifier
@@ -1261,12 +1261,12 @@ no `removeMonster`).
 
 **A monster's PASSIVE installs on `MonsterSlain`; a monster's TRIGGER installs
 nothing.** Mega Slime and the Warworn Owlbear leave an effect behind, so they
-need the event that puts them in a party. Orthus and Malamammoth do not: "each
-time you DRAW a Magic card" is a live trigger, and entries are re-derived from
-the monster's position on every event (§7), so sitting in the party is the whole
-of what keeps them running. Asking which of the two a wording is — does
-something READ a value, or does something RUN steps — is the same question §7
-asks of every card.
+need the event that puts them in a party. Orthus and Malamammoth do not:
+"whenever you draw a magic card" is a live trigger, and entries are re-derived
+from the monster's position on every event (§7), so sitting in the party is
+the whole of what keeps them running. Asking which of the two a wording is —
+does something READ a value, or does something RUN steps — is the same
+question §7 asks of every card.
 
 **A monster reacting to a draw reads the event's `ctxSeed`.** `CardDrawn` carries
 `{ [CTX_DRAWN_CARD_IDS]: [cardId] }` for the reason `ModifierPlayed` carries its
@@ -1475,10 +1475,10 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   the card decides what it may be, not because the player is asked twice. All
   25 printed copies share one declaration and all 14 challenges share
   another.
-- **The Protecting Horn is why that split pays.** A leader granting "+1 or -1
-  on each Modifier you play" runs the same `ApplyModifier` a card runs, with a
-  `ChooseValueTask` in front of it asking its own two numbers — the one
-  `ValueChoiceWindow` left in the engine. Before it, nothing
+- **The Protecting Horn is why that split pays.** A leader granting a further
+  +1 or -1 on each modifier you play runs the same `ApplyModifier` a card
+  runs, with a `ChooseValueTask` in front of it asking its own two numbers —
+  the one `ValueChoiceWindow` left in the engine. Before it, nothing
   could put a bonus into an open window except the reaction that spent a card.
 - **`ApplyModifierTask` must not park on the roll's frame.** Reading "the card
   is not finished until the roll is" as a pause would deadlock: the pipelines
@@ -1511,7 +1511,7 @@ earned it, so it never boosts its own activation; `ModifierWindow` and
   holds; "if Magic do A, otherwise B" needs two conditions with opposite labels.
 - **A card choice cannot tell a COST from an OFFER.** `CardChoiceWindow`
   defaults to a random option, which is right for a price — Critical Boost's
-  "DISCARD a card" lands whether or not the player answers — and blunt for an
+  "then discard one" lands whether or not the player answers — and blunt for an
   offer: an idle Wiggles steals a hero it was only ever _invited_ to steal.
   Nothing distinguishes the two, so both get the same default. Marking which
   choices are costs is the outstanding design work; the defaults themselves are
@@ -1619,8 +1619,8 @@ Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
   two printed copies sharing one declaration), Really Big Ring (`item-064`,
   `item-065`), Suspiciously Shiny Coin (`item-073`) and all six leaders
   (`leader-116` … `leader-121`). The Shadow Claw (`leader-117`) is the
-  reference ACTIVATED card: it declares none of "once per turn on your turn,
-  you may spend an action point", because every clause of that is a guard in
+  reference ACTIVATED card: it declares none of "once per turn, you may spend
+  an action point", because every clause of that is a guard in
   `RollOnLeaderAction`.
   Critical Boost is the reference MAGIC card: one entry that pauses on a choice
   and finishes as a later step of the same run. The Destructive Spell
@@ -1706,7 +1706,7 @@ table while the last player connects.
 
 **An optional question is the window's own declaration.** Every window
 implements `isOptional` — true for a `TaskChoice` offering DISMISS (the
-"roll on the played hero?" offer, a leader's "draw a card?") — and the view
+"roll on the played hero?" offer, a leader's offer to draw) — and the view
 projects it as `PendingWindowView.optional`. The client dismisses such a
 question before it sends any other action, so the table never waits on an
 offer the player has already walked away from.
@@ -1811,15 +1811,15 @@ declarations in the registry read like the ones before them.
 
 **A choice asked of ANOTHER player.** `CardFilter.executor: 'chosen'` opens
 the CardChoice window for the seat in `CTX_CHOSEN_PLAYER` instead of the
-ability owner, over that seat's own zone (`Owner.Chosen`): "that player must
-DISCARD a card" is the victim's pick over a hand only they can see. The
+ability owner, over that seat's own zone (`Owner.Chosen`): "they discard a
+card" is the victim's pick over a hand only they can see. The
 step that acts then runs as the same seat: `DiscardTask` and `SacrificeTask` take
 `executor: 'chosen'` (`executorOf` in tasks.ts, the mirror of the choice's
 `respondent`), so the card leaves the victim's hand and the hero the
 victim's party, and the announcement names the victim as the loser. Heavy Bear, Hopper. Rejected: a second task class per victim
 variant — the only thing that changes is who answers and who pays.
 
-**"Each other player must …".** An entry's steps run once, in one line. A
+**"Every opponent …".** An entry's steps run once, in one line. A
 per-seat wording runs the same steps once PER seat, each waiting for that
 seat's answer: `ForEachPlayerTask(filter, label)` announces one
 `PlayerTargeted` per matching seat with the seat riding in `ctxSeed` as
@@ -1829,7 +1829,7 @@ CardTypeCondition and ConfirmTask already use. The runs an event starts go on
 top of the stack and finish last-in first-out, so the seats are announced in
 reverse and resolve in seat order; a step after the loop in its own entry
 runs once every per-seat run has finished. `PlayerFilter.hasClass` keeps
-"with a Fighter in their Party". Spooky, Greedy Cheeks, Tough Teddy, Smooth
+"who has a Fighter in their party". Spooky, Greedy Cheeks, Tough Teddy, Smooth
 Mimimeow. Rejected: a repeater task holding sub-steps — a step that
 suspends inside a loop has nowhere to resume from in this pipeline; the
 event hand-off is the pipeline's own way of continuing.
@@ -1865,8 +1865,8 @@ matched against, because a leader is not one of the heroes a monster asks
 for, so a party with no heroes fields nothing and cannot attack even an
 'Any' monster. `GameState.getPartyClasses` is the leader's class first,
 then the heroes': it is what the six-class WIN and the `hasClass` choice
-filter read, because the rulebook counts the Party Leader there ("a Hero or
-Party Leader card of a certain class"). The six masks are registered with an
+filter read, because the rulebook counts the Party Leader there (a class
+can come from a hero or from the leader). The six masks are registered with an
 EMPTY rule list, because the deal is the registry. Rejected: setting the
 hero's class on equip and restoring it on unequip — two mutations to keep
 in step, and a steal carries the gear across parties without either running.
@@ -1875,22 +1875,22 @@ in step, and a steal carries the gear across parties without either running.
 a NEGATIVE count draws "until you hold that many" (`-7` is Wily Red, `-5` is
 the redraw, which now shares the mechanic), one CardDrawn each, and
 `executor: 'chosen'` draws for the chosen seat (Plundering Puma's "that
-player may DRAW"). The chosen seat now RIDES across a condition and a
+opponent may then draw"). The chosen seat now RIDES across a condition and a
 confirm (`carriedSeat` in conditions.ts, added to their `ctxSeed`), so a
 continuation keeps acting on "that player" — Fury Knuckle and Bear Claw pull
-a second card from the same hand, and `ConfirmTask` takes `executor:
+one more card from the same hand, and `ConfirmTask` takes `executor:
 'chosen'` so the victim answers their own "may". `CTX_SOURCE_CARD` is the
 context's own card as a slot, set at birth, so a step that reads "the hero
 to move" from a slot can be pointed at the card itself (Tipsy Tootie joins
 the party it stole from). `TriggerScope.TargetsOwner` is ANOTHER player's
 event aimed at one of my owner's cards (`payload.targetedCardId` is ours,
 the event's player is not); the matched run gets that player as its chosen
-seat, so "that player must DISCARD" reads them (Bloodwing).
+seat, so "they discard a card" reads them (Bloodwing).
 
 **A leader's own event, and two replacement effects (2026-09-04).**
 `RollOnLeaderAction` announces `LeaderActivated`, not a RollSuccess: a rule on
-"each time you successfully roll" (Arctic Aries) must not fire on an
-activation. The Shadow Claw's entry and the activatable-leader predicate
+"whenever you succeed on a hero ability roll" (Arctic Aries) must not fire on
+an activation. The Shadow Claw's entry and the activatable-leader predicate
 (`isActivatable`, was `firesOnOwnRoll`) read the new event. Two effects
 change what a step of the owner's DOES rather than running steps of their
 own: `StealsInsteadOfDestroy` (Corrupted Sabretooth, on its slayer) makes
@@ -1916,11 +1916,11 @@ table on their yes and stop being approximations. Bullseye is two steps
 (the owner's shape): a choice over `Zone.MainDeckTop` with `top: 3` — the
 options are the look, nothing moves — and `DrawTask(CTX_CHOSEN_CARD)`, which
 draws the NAMED card out of wherever it lies (`GameState.drawNamedIntoHand`,
-announced as a draw); the queue closes over the gap by itself, so "the other
-two return to the top" is what the deck already does. Rejected the same hour:
+announced as a draw); the queue closes over the gap by itself, so "put the
+other two back on top" is what the deck already does. Rejected the same hour:
 a peek task writing the top three onto the context and a move-to-top task
 for the leftovers — stored what the deck derives, and put back what never
-left. Half reversed 2026-09-06: "in any order" is the player's call
+left. Half reversed 2026-09-06: "in the order you choose" is the player's call
 (the owner), so two steps follow the draw — a `CardChoice` over the deck's top
 two (`CTX_DECK_TOP_CARD`, its `question` in the detail so the picker says
 what is asked) and `ReturnToDeckTopTask`, which moves the chosen one to the
@@ -1936,8 +1936,8 @@ it is told (the window carries the slot), so Hook keeps its item in
 on its precondition now WRITES an empty pick rather than leaving the
 previous one in the slot. `DiscardTask` says what it discarded
 (`CTX_DISCARDED_CARDS`, written on every run), which is all Qi Bear's "for
-each card discarded" needs: each round's choices hang on the round
-before, and "up to" is picking nothing. "Each other player must DISCARD a card"
+each card you discarded" needs: each round's choices hang on the round
+before, and "up to" is picking nothing. "Every opponent discards one card"
 (Beary Wise) became the PARALLEL CHOICE FRAME, the owner's shape: a frame
 may hold one question per seat. `ChooseCardEachTask` opens one frame with
 one CardChoice window per asked seat, each over that seat's own cards and
@@ -1956,7 +1956,7 @@ the per-seat contexts could not hand back — and the seats had to answer
 one at a time). The four other per-seat cards (Tough Teddy, Spooky, Greedy
 Cheeks, Smooth Mimimeow) still go seat by seat on `ForEachPlayerTask`;
 the same two tasks would let them answer together. `DestroyTask` names the gear that fell (`CTX_DESTROYED_HERO_ITEM`);
-it still drops on the pile silently, and Shurikitty's "to your hand
+it still drops on the pile silently, and Shurikitty's "goes to your hand
 instead" is a retrieve straight after — two moves, no discard announced
 between them, which is the owner's reading of how fallen gear should
 behave. `TradeHandsTask` swaps two whole hands through the hand doors and

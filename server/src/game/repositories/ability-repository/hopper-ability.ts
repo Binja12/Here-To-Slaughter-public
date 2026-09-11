@@ -5,7 +5,7 @@ import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 import { ChooseCardTask, ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { SacrificeTask } from '../../tasks/hero-tasks'
 
-// Hopper (hero-033): "Choose a player. That player must SACRIFICE a Hero card."
+// Hopper (hero-033): "Pick an opponent. They sacrifice one of their own heroes."
 //
 //   [0] RollPassing → I choose a player with heroes, while the roll still stands
 //   [1] RollSuccess → THEY choose one of their heroes → they sacrifice it

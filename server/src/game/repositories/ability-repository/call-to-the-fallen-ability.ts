@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Call to the Fallen (magic-061): "Search the discard pile for a Hero card and add it to
-// your hand."
+// Call to the Fallen (magic-061): "Take a hero of your choice from the discard
+// pile into your hand."
 // A magic card: it fires once its own challenge window settles in its favour.
 //
 //   [0] the settled challenge frame → a choice over the discard pile, Hero cards

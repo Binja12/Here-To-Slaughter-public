@@ -6,7 +6,7 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { DestroyTask } from '../../tasks/hero-tasks'
 
-// Serious Grey (hero-009): "DESTROY a Hero and DRAW a card."
+// Serious Grey (hero-009): "Destroy one hero, then draw a card."
 export const SeriousGreyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },

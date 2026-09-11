@@ -12,7 +12,7 @@ import { ApplyEffectTask, DiscardTask } from '../../tasks/tasks'
 
 // Titan Wyvern (monster-136)
 //   Passive:    +1 when you roll to challenge.
-//   Fight back: DISCARD 2 cards.
+//   Fight back: Discard two cards.
 export const TitanWyvernAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.MonsterSlain, scope: TriggerScope.SelfCard },

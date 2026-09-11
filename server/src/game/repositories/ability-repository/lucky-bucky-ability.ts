@@ -7,7 +7,7 @@ import { CardTypeCondition } from '../../tasks/conditions'
 import { PlayHeroTask } from '../../tasks/play-hero-task'
 import { PullCardTask } from '../../tasks/tasks'
 
-// Lucky Bucky (hero-042): pull a card; if it is a Hero, it may be played.
+// Lucky Bucky (hero-042): pull a card; a pulled hero may be played right away.
 const PULLED_A_HERO = 'LuckyBuckyPulledHero'
 const PLAY_THE_HERO = 'LuckyBuckyPlaysHero'
 

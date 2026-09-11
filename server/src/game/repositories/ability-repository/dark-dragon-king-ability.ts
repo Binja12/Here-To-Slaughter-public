@@ -11,8 +11,8 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { ApplyEffectTask, DiscardTask } from '../../tasks/tasks'
 
 // Dark Dragon King (monster-133)
-//   Passive:    +1 to rolls for Hero card effects.
-//   Fight back: DISCARD 2 cards.
+//   Passive:    Add 1 to every hero ability roll you make.
+//   Fight back: Discard two cards.
 export const DarkDragonKingAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.MonsterSlain, scope: TriggerScope.SelfCard },

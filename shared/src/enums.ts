@@ -147,8 +147,8 @@ export enum GameEventType {
   RollSuccess = "RollSuccess",
   /**
    * A leader's printed ability was activated (RollOnLeaderAction). Its own
-   * event, so a rule on "each time you successfully roll" (Arctic Aries)
-   * does not fire on the Shadow Claw. `cardId` is the leader.
+   * event, so a rule on "whenever you succeed on a hero ability roll"
+   * (Arctic Aries) does not fire on the Shadow Claw. `cardId` is the leader.
    */
   LeaderActivated = "LeaderActivated",
   /**
@@ -288,7 +288,7 @@ export enum TriggerScope {
    * source.
    */
   CarrierCard = "CarrierCard",
-  /** The event belongs to my owner. "Each time YOU roll to CHALLENGE." */
+  /** The event belongs to my owner. "Add 2 to your rolls when challenging." */
   OwnerEvent = "OwnerEvent",
   /** Only while it is my owner's turn. */
   OwnerTurn = "OwnerTurn",
@@ -303,9 +303,9 @@ export enum TriggerScope {
   Anyone = "Anyone",
   /**
    * ANOTHER player's event aimed at one of my owner's cards
-   * (payload.targetedCardId is ours, event.playerId is not). "Each time
-   * another player CHALLENGES you." The matched run gets that player as its
-   * chosen seat, so "that player must DISCARD" reads them.
+   * (payload.targetedCardId is ours, event.playerId is not). "Whenever an
+   * opponent challenges you." The matched run gets that player as its
+   * chosen seat, so "they discard a card" reads them.
    */
   TargetsOwner = "TargetsOwner",
 }

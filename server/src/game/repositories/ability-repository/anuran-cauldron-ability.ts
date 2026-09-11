@@ -5,8 +5,8 @@ import { SacrificeTask } from '../../tasks/hero-tasks'
 import { ApplyEffectTask } from '../../tasks/tasks'
 
 // Anuran Cauldron (monster-124)
-//   Passive:    "Each time you roll, +1 to your roll."
-//   Fight back: SACRIFICE a Hero card.
+//   Passive:    "Add 1 to every roll you make."
+//   Fight back: Sacrifice one of your heroes.
 export const AnuranCauldronAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.MonsterSlain, scope: TriggerScope.SelfCard },

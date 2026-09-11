@@ -49,7 +49,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Guiding Light (hero-025): "Search the discard pile for a Hero card and add it to your hand."
+// Guiding Light (hero-025): "Take a hero of your choice from the discard pile into your hand."
 
 describe('Guiding Light (hero-025)', () => {
   it('fires on its own successful roll', () => {

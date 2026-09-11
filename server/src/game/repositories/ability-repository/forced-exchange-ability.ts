@@ -8,7 +8,7 @@ import { StealFromPartyTask, GiveHeroTask } from '../../tasks/hero-tasks'
 //
 //   [0] FrameResolved on this card → take one from any other party, hand one back
 //
-// The printed text opens with "Choose a player", but pointing at a hero NAMES
+// The card text opens with "Pick an opponent", but pointing at a hero NAMES
 // its player: `getCardOwner` settles the seat, so the reachable (hero taken,
 // seat handed back to) pairs are the same either way. The seat is therefore
 // chosen by the same press that chooses the hero, and this card runs the

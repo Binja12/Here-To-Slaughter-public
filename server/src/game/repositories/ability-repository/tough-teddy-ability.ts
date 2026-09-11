@@ -3,7 +3,7 @@ import { ChooseCardEachTask } from '../../tasks/choose-tasks'
 import { DiscardEachTask } from '../../tasks/tasks'
 import { IAbilityRule } from '../../interfaces'
 
-// Tough Teddy (hero-006): "Each other player with a Fighter in their Party must DISCARD a card."
+// Tough Teddy (hero-006): "Every opponent who has a Fighter in their party discards one card."
 //
 //   [0] RollSuccess → every other seat with a Fighter picks a card of their
 //       own hand, all at once → each discards it

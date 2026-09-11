@@ -170,7 +170,7 @@ describe('ongoing effects', () => {
   // -------------------------------------------------------------------------
 
   describe('turn-boundary expiry', () => {
-    it('"until your next turn" ignores everyone else\'s turn starting', () => {
+    it('"until your next turn begins" ignores everyone else\'s turn starting', () => {
       const { gs, em } = setup()
       seat(gs, 'p1')
       seat(gs, 'p2')
@@ -181,7 +181,7 @@ describe('ongoing effects', () => {
       expect(isProtected(gs)).toBe(true)
     })
 
-    it('"until your next turn" ends when the owner\'s turn starts', () => {
+    it('"until your next turn begins" ends when the owner\'s turn starts', () => {
       const { gs, em, events } = setup()
       seat(gs, 'p1')
       gs.addEffect(anEffect({ expiry: [untilOwnersNextTurn] }))

@@ -14,7 +14,7 @@ import { GainActionPointsTask } from '../../tasks/action-point-tasks'
 
 // Mega Slime (monster-123)
 //   Passive:      "You get one extra action point on each of your turns."
-//   Slay 8+:      Slay this Monster card and Draw two cards.
+//   Slay 8+:      On slaying: draw two cards.
 //   Fight back 7-: Sacrifice one of your heroes.
 //
 //   [0] MonsterSlain on this card   → draw the reward, install the passive

@@ -2,7 +2,7 @@ import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { DrawTask } from '../../tasks/draw-task'
 
-// Wily Red (hero-015): "DRAW cards until you have 7 cards in your hand."
+// Wily Red (hero-015): "Draw until you are holding seven cards."
 //
 //   [0] RollSuccess → draw until seven are held
 //

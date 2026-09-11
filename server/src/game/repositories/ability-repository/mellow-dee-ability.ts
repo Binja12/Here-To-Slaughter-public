@@ -6,7 +6,7 @@ import { CardTypeCondition } from '../../tasks/conditions'
 import { DrawTask } from '../../tasks/draw-task'
 import { PlayHeroTask } from '../../tasks/play-hero-task'
 
-// Mellow Dee (hero-041): draw a card; if it is a Hero, it may be played.
+// Mellow Dee (hero-041): draw a card; a drawn hero may be played right away.
 const DREW_A_HERO = 'MellowDeeDrewHero'
 const PLAY_THE_HERO = 'MellowDeePlaysHero'
 

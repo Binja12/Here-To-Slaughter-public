@@ -45,8 +45,8 @@ const collect = () => {
 const openWindow = (gs: GameState) =>
   [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
-// Bear Claw (hero-005): "Pull a card from another player's hand. If it is a Hero
-// card, pull a second card from that player's hand."
+// Bear Claw (hero-005): "Take a random card from an opponent's hand. If it turns
+// out to be a hero, take one more from the same hand."
 
 describe('Bear Claw (hero-005)', () => {
   it('a pulled Hero card announces the condition WITH the chosen seat riding along', () => {

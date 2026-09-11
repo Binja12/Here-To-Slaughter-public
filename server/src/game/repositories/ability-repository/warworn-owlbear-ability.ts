@@ -12,7 +12,7 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 
 // Warworn Owlbear (monster-135)
 //   Passive:       "Items you play cannot be challenged."
-//   Slay 8+:       Slay this Monster card.
+//   Slay 8+:       On slaying: no extra reward.
 //   Fight back 4-: Discard two cards.
 //
 //   [0] MonsterSlain on this card   → install the protection

@@ -6,8 +6,8 @@ import { ChoosePlayerTask, ConfirmTask } from '../../tasks/choose-tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { PullCardTask } from '../../tasks/tasks'
 
-// Plundering Puma (hero-020): "Pull 2 cards from another player's hand. That
-// player may DRAW a card."
+// Plundering Puma (hero-020): "Take two random cards from an opponent's hand.
+// That opponent may then draw one card."
 //
 //   [0] RollPassing → choose a player, while the roll still stands
 //   [1] RollSuccess → pull → pull → ask THAT player: draw?

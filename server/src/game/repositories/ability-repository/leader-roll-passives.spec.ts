@@ -339,7 +339,7 @@ describe('leader roll passives', () => {
     })
 
     it('does NOT boost the same player while DEFENDING', () => {
-      // p1 holds the Fist and is the one being challenged. "Roll to CHALLENGE"
+      // p1 holds the Fist and is the one being challenged. "When challenging"
       // is the active act; defending is not it.
       expect(challenge(FIST, PLAIN)).toMatchObject({
         challengerFinal: 2,

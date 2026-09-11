@@ -132,7 +132,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // A card holds a LIST of entries — one per stretch of steps that runs
   // without pausing. See wiggles-ability.ts for the split.
   ['hero-001', BadAxeAbility], // Bad Axe — DESTROY a Hero
-  ['hero-002', FuryKnuckleAbility], // Fury Knuckle — pull; a Challenge card pulls a second
+  ['hero-002', FuryKnuckleAbility], // Fury Knuckle — pull; on a Challenge, pull again
   ['hero-008', PanChucksAbility], // Pan Chucks — DRAW 2; Challenge may DESTROY
   ['hero-009', SeriousGreyAbility], // Serious Grey — DESTROY, then DRAW
   ['hero-010', QuickDrawAbility], // Quick Draw — DRAW 2; Item may be played
@@ -143,20 +143,20 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['hero-017', KitNapperAbility], // Kit Napper — STEAL a Hero
   ['hero-018', SlyPickingsAbility], // Sly Pickings — pull; Item may be played
   ['hero-019', MeowzioAbility], // Meowzio — STEAL and pull from one player
-  ['hero-020', PlunderingPumaAbility], // Plundering Puma — pull 2; that player may DRAW
+  ['hero-020', PlunderingPumaAbility], // Plundering Puma — pull 2; that opponent may DRAW
   ['hero-004', HeavyBearAbility], // Heavy Bear — a chosen player DISCARDS 2
-  ['hero-005', BearClawAbility], // Bear Claw — pull; a Hero card pulls a second
-  ['hero-006', ToughTeddyAbility], // Tough Teddy — each other player with a Fighter DISCARDS
+  ['hero-005', BearClawAbility], // Bear Claw — pull; on a Hero, pull again
+  ['hero-006', ToughTeddyAbility], // Tough Teddy — every opponent with a Fighter DISCARDS
   ['hero-011', LookieRookieAbility], // Lookie Rookie — an Item card from the discard pile
   ['hero-021', SilentShadowAbility], // Silent Shadow — look at a hand, take a card
-  ['hero-024', SmoothMimimeowAbility], // Smooth Mimimeow — pull from each other player with a Thief
+  ['hero-024', SmoothMimimeowAbility], // Smooth Mimimeow — pull from every opponent with a Thief
   ['hero-025', GuidingLightAbility], // Guiding Light — a Hero card from the discard pile
   ['hero-026', HolyCurselifterAbility], // Holy Curselifter — a cursed item off your hero, to hand
   ['hero-027', RadiantHornAbility], // Radiant Horn — a Modifier card from the discard pile
-  ['hero-028', WiseShieldAbility], // Wise Shield — +3 to your rolls until end of turn
-  ['hero-031', MightyBladeAbility], // Mighty Blade — your heroes cannot be destroyed until your next turn
+  ['hero-028', WiseShieldAbility], // Wise Shield — +3 to your rolls this turn
+  ['hero-031', MightyBladeAbility], // Mighty Blade — your heroes cannot be destroyed until your next turn begins
   ['hero-033', HopperAbility], // Hopper — a chosen player SACRIFICES a hero
-  ['hero-035', SpookyAbility], // Spooky — each other player SACRIFICES a hero
+  ['hero-035', SpookyAbility], // Spooky — every opponent SACRIFICES a hero
   ['hero-029', VibrantGlowAbility], // Vibrant Glow — +5 to your rolls this turn
   ['hero-030', IronResolveAbility], // Iron Resolve — your plays cannot be challenged
   ['hero-032', CalmingVoiceAbility], // Calming Voice — your Heroes cannot be stolen
@@ -166,11 +166,11 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['hero-037', WhiskersAbility], // Whiskers — STEAL, then DESTROY
   ['hero-038', FluffyAbility], // Fluffy — DESTROY 2 Heroes
   ['hero-040', SnowballAbility], // Snowball — DRAW; if Magic, may play it and DRAW
-  ['hero-047', GreedyCheeksAbility], // Greedy Cheeks — each other player hands you a card
+  ['hero-047', GreedyCheeksAbility], // Greedy Cheeks — every opponent hands you a card
   ['hero-041', MellowDeeAbility], // Mellow Dee — DRAW; Hero may be played
   ['hero-042', LuckyBuckyAbility], // Lucky Bucky — pull; Hero may be played
   ['hero-043', FuzzyCheeksAbility], // Fuzzy Cheeks — DRAW, then play a Hero
-  ['hero-044', NappingNibblesAbility], // Napping Nibbles — do nothing
+  ['hero-044', NappingNibblesAbility], // Napping Nibbles — no effect
   ['hero-045', TipsyTootieAbility], // Tipsy Tootie — STEAL a hero, then join that party
   ['hero-048', PeanutAbility], // Peanut — DRAW 2
 
@@ -187,18 +187,18 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['monster-128', ArcticAriesAbility], // Arctic Aries — may DRAW after a successful roll
   ['monster-129', AbyssQueenAbility], // Abyss Queen — +1 answering a hostile Modifier
   ['monster-130', TerratugaAbility], // Terratuga — your heroes cannot be destroyed
-  ['monster-131', OrthusAbility], // Orthus — DRAW a Magic card, may play it at once
+  ['monster-131', OrthusAbility], // Orthus — drawn Magic may be played at once
   ['monster-132', RexMajorAbility], // Rex Major — drawn Modifier may DRAW again
   // Round five (2026-09-04): the last of what the mechanics were missing.
   ['hero-003', BearyWiseAbility], // Beary Wise — everyone else DISCARDS at once, one of those to your hand
-  ['hero-007', QiBearAbility], // Qi Bear — DISCARD up to 3, a hero DESTROYED per card
+  ['hero-007', QiBearAbility], // Qi Bear — DISCARD at most 3, a hero DESTROYED per card
   ['hero-013', HookAbility], // Hook — play an Item from your hand, DRAW
   ['hero-023', ShurikittyAbility], // Shurikitty — DESTROY; its gear to your hand
   ['hero-046', DodgyDealerAbility], // Dodgy Dealer — trade hands
   ['monster-125', CrownedSerpentAbility], // Crowned Serpent — anyone's Modifier, you may DRAW
   ['hero-022', SlipperyPawsAbility], // Slippery Paws — pull 2, DISCARD one of them
   ['monster-133', DarkDragonKingAbility], // Dark Dragon King — +1 to Hero-effect rolls
-  ['monster-134', MalamammothAbility], // Malamammoth — DRAW an Item card, may play it at once
+  ['monster-134', MalamammothAbility], // Malamammoth — drawn Item may be played at once
   ['monster-135', WarwornOwlbearAbility], // Warworn Owlbear — your Items cannot be challenged
   ['monster-136', TitanWyvernAbility], // Titan Wyvern — +1 to Challenge rolls
 
@@ -227,13 +227,13 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   // =========================================================================
   // MAGIC — magic-049 … magic-061
   // =========================================================================
-  ['magic-049', DestructiveSpellAbility], // Destructive Spell — DISCARD 1, then DESTROY a hero
+  ['magic-049', DestructiveSpellAbility], // Destructive Spell — DISCARD 1, then DESTROY one hero
   ['magic-050', DestructiveSpellAbility],
   ['magic-051', EntanglingTrapAbility], // Entangling Trap — DISCARD 2, then STEAL
   ['magic-052', EntanglingTrapAbility],
   ['magic-053', CriticalBoostAbility], // Critical Boost — DRAW 3, DISCARD 1
   ['magic-054', CriticalBoostAbility],
-  ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to all your rolls this turn
+  ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to every roll this turn
   ['magic-056', EnchantedSpellAbility],
   ['magic-057', ForcedExchangeAbility], // Forced Exchange — STEAL a hero, GIVE one back
   ['magic-058', WindsOfChangeAbility], // Winds of Change — a worn item goes home, then DRAW
@@ -309,7 +309,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['leader-116', DivineArrowAbility], // The Divine Arrow — +1 to your ATTACK rolls
   // The one ACTIVATED leader. RollOnLeaderAction is what prices it, limits it
   // to one a turn and announces the RollSuccess this triggers on.
-  ['leader-117', ShadowClawAbility], // The Shadow Claw — pull a card from a hand
+  ['leader-117', ShadowClawAbility], // The Shadow Claw — pull one card from a hand
   ['leader-118', FistOfReasonAbility], // The Fist of Reason — +2 to your CHALLENGE rolls
   ['leader-119', CharismaticSongAbility], // The Charismatic Song — +1 to your hero-effect rolls
   ['leader-120', CloakedSageAbility], // The Cloaked Sage — DRAW on each Magic card you play

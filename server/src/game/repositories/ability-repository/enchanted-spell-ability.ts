@@ -16,7 +16,7 @@ import { untilEndOfTurn } from '../../abilities/expiries'
 // attempt, and a defeated card is rolled back out of the instance pile, so it
 // is not among the sources this is matched against.
 //
-// "ALL of your rolls" is the absent narrowing — no `cardId`, no `rollContext`,
+// "every roll" is the absent narrowing — no `cardId`, no `rollContext`,
 // so hero rolls, attack rolls and challenge rolls all read it (§7). Contrast
 // Really Big Ring, which names its carrier, and the Divine Arrow, which names
 // a kind.

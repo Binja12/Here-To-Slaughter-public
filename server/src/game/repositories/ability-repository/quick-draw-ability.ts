@@ -9,8 +9,8 @@ import { CardTypeCondition } from '../../tasks/conditions'
 import { DrawTask } from '../../tasks/draw-task'
 import { PlayItemTask } from '../../tasks/item-tasks'
 
-// Quick Draw (hero-010): "DRAW 2 cards. If at least one of those cards is an
-// Item card, you may play one of them immediately."
+// Quick Draw (hero-010): "Draw two cards. If either is an item, you may play
+// it right away."
 const DREW_AN_ITEM = 'QuickDrawDrewItem'
 const PLAY_AN_ITEM = 'QuickDrawPlaysItem'
 

@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Radiant Horn (hero-027): "Search the discard pile for a Modifier card and add it to
-// your hand."
+// Radiant Horn (hero-027): "Take a modifier of your choice from the discard
+// pile into your hand."
 //
 //   [0] RollSuccess on this card → a choice over the discard pile, Modifier cards
 //       only → the pick comes to hand

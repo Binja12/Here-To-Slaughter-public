@@ -5,8 +5,8 @@ import { DrawTask } from '../../tasks/draw-task'
 import { SacrificeTask } from '../../tasks/hero-tasks'
 
 // Dracos (monster-126)
-//   Passive:    each time one of your heroes is destroyed, you may draw.
-//   Fight back: SACRIFICE a Hero card.
+//   Passive:    Whenever one of your heroes is destroyed, you may draw a card.
+//   Fight back: Sacrifice one of your heroes.
 const DRAW_A_CARD = 'DracosDrawsCard'
 
 export const DracosAbility: IAbilityRule[] = [

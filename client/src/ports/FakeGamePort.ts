@@ -234,7 +234,7 @@ export class FakeGamePort implements GamePort {
         this.openRoll('Modifier', command.payload.heroId)
         break
       case 'RollOnLeader':
-        // The Shadow Claw: pick another player to pull a card from — the
+        // The Shadow Claw: pick the opponent whose hand it pulls from — the
         // engine's PlayerChoice, options are player ids
         this.upsertWindow({
           windowId: 'fake-steal-target',

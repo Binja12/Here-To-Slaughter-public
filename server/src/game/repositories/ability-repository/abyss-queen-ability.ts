@@ -25,7 +25,7 @@ import { SacrificeTask } from '../../tasks/hero-tasks'
 // either side of a contest — and each pushes it as its own sourced entry, so
 // the roll UI can name where the number came from.
 //
-// "ANOTHER player" is the readers' `playerId !== target` check. Nothing here
+// "An opponent" is the readers' `playerId !== target` check. Nothing here
 // says it, because a trigger scope cannot: the effect has no trigger at all.
 
 const COUNTER_BONUS = 1

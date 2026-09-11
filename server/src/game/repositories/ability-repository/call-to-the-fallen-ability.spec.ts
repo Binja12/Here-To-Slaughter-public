@@ -49,7 +49,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Call to the Fallen (magic-061): "Search the discard pile for a Hero card and add it to your hand."
+// Call to the Fallen (magic-061): "Take a hero of your choice from the discard pile into your hand."
 
 describe('Call to the Fallen (magic-061)', () => {
   it('fires on its settled challenge frame', () => {

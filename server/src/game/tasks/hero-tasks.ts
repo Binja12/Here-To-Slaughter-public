@@ -24,11 +24,11 @@ export const DESTROY_ANYWAY = 'Destroy it'
 // ---------------------------------------------------------------------------
 
 /**
- * Decoy Doll (item-066): "if the equipped Hero card would be sacrificed or
- * destroyed, move Decoy Doll to the discard pile instead." The doll's
- * TakesTheHit effect names its carrier; when the carrier is the hero about
- * to go, the doll comes off (ItemUnequipped — which also ends the effect) and
- * lands on the pile, and the hero stays. True when it took the hit.
+ * Decoy Doll (item-066): "if the wearer would be sacrificed or destroyed,
+ * discard this item instead." The doll's TakesTheHit effect names its
+ * carrier; when the carrier is the hero about to go, the doll comes off
+ * (ItemUnequipped — which also ends the effect) and lands on the pile, and the
+ * hero stays. True when it took the hit.
  */
 export function decoyTakesTheHit(
   gs: GameState,
@@ -54,8 +54,8 @@ export function decoyTakesTheHit(
 // rather than assumed to be the ability owner's.
 //
 // `playerId` on the announcement is the party that LOST the hero, not the one
-// that caused it — Dracos (monster-126) is printed "each time a Hero card in
-// YOUR Party is destroyed", and that wording needs the loser to scope against.
+// that caused it — Dracos (monster-126) is printed "whenever one of YOUR
+// heroes is destroyed", and that wording needs the loser to scope against.
 // ---------------------------------------------------------------------------
 
 export class DestroyTask implements ITask {
@@ -239,7 +239,7 @@ export class SacrificeTask implements ITask {
   /**
    * `fromKey`: the slot holding the hero to give up, the choice slot by
    * default. `executor`: who runs this step, and so whose party — the owner, or `'chosen'` for
-   * "that player must SACRIFICE", the seat a ChoosePlayerTask or a per-seat
+   * "they sacrifice", the seat a ChoosePlayerTask or a per-seat
    * run put in CTX_CHOSEN_PLAYER (the mirror of a choice's `respondent`).
    */
   constructor(options: string | { fromKey?: string; executor?: Executor } = {}) {

@@ -73,8 +73,8 @@ const serpent = () =>
     rollCompareMode: RollCompareMode.HighToWin,
   })
 
-// Crowned Serpent (monster-125): "Each time any player (including you) plays
-// a Modifier card, you may DRAW a card."
+// Crowned Serpent (monster-125): "Whenever anyone plays a modifier, you may
+// draw a card."
 
 describe('Crowned Serpent (monster-125)', () => {
   it('listens to anyone\'s modifier and asks its owner', () => {

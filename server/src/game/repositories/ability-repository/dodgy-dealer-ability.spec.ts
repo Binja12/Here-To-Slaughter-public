@@ -47,7 +47,7 @@ const wire = (gs: GameState) => {
 }
 import { DodgyDealerAbility } from './dodgy-dealer-ability'
 
-// Dodgy Dealer (hero-046): "Trade hands with another player."
+// Dodgy Dealer (hero-046): "Swap your whole hand with another player's."
 
 describe('Dodgy Dealer (hero-046)', () => {
   it('the two hands change places, announced once', () => {

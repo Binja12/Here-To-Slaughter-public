@@ -2,8 +2,8 @@ import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ReturnAllItemsTask } from '../../tasks/item-tasks'
 
-// Forceful Winds (magic-060): "Return every equipped Item card to its
-// respective player's hand."
+// Forceful Winds (magic-060): "Every equipped item goes back to its owner's
+// hand."
 //
 //   [0] the settled challenge frame → every worn item on the table goes home
 //

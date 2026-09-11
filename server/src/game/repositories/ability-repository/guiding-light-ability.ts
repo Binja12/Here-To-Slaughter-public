@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Guiding Light (hero-025): "Search the discard pile for a Hero card and add it to
-// your hand."
+// Guiding Light (hero-025): "Take a hero of your choice from the discard pile
+// into your hand."
 //
 //   [0] RollSuccess on this card → a choice over the discard pile, Hero cards
 //       only → the pick comes to hand

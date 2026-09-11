@@ -17,7 +17,7 @@ describe('VibrantGlowAbility', () => {
     ])
   })
 
-  it('installs +5 to all rolls until turn end', () => {
+  it('installs +5 to every roll for the rest of the turn', () => {
     const effect = effectInstalledBy('hero-029')
     expect(effect).toEqual(
       expect.objectContaining({

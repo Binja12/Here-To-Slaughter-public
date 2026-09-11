@@ -29,7 +29,7 @@ const collect = () => {
 const openWindow = (gs: GameState) => [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 import { SharpFoxAbility } from './sharp-fox-ability'
 
-// Sharp Fox (hero-016): "Look at another player's hand."
+// Sharp Fox (hero-016): "Look through one opponent's hand."
 
 describe('Sharp Fox (hero-016)', () => {
   beforeEach(() => jest.useFakeTimers())

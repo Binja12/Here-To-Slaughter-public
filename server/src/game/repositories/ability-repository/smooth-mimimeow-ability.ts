@@ -2,7 +2,7 @@ import { GameEventType, HeroClass, Owner, TriggerScope } from 'shared'
 import { PullCardTask } from '../../tasks/tasks'
 import { IAbilityRule } from '../../interfaces'
 
-// Smooth Mimimeow (hero-024): "Pull a card from the hand of each other player with a Thief in their Party."
+// Smooth Mimimeow (hero-024): "Take a random card from the hand of every opponent who has a Thief in their party."
 //
 //   [0] RollSuccess → one blind pull from every other seat with a Thief
 //

@@ -18,8 +18,8 @@ import { ApplyEffectTask } from '../../tasks/tasks'
 //
 // RollContext.Challenge reaches the CHALLENGER's roll only. ChallengeWindow
 // asks with the context for the challenger and with none for the defender,
-// because defending is not challenging — the card is printed "roll to
-// CHALLENGE". An unscoped bonus like Wise Shield still covers both sides.
+// because defending is not challenging — the card says "when challenging".
+// An unscoped bonus like Wise Shield still covers both sides.
 const BONUS = 2
 
 export const FistOfReasonAbility: IAbilityRule[] = [

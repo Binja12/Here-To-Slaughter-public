@@ -486,8 +486,8 @@ export class GameState {
    * to settle while the discard was still being chosen.
    *
    * Its OWN frame is excluded, and that is the whole subtlety. A frame may
-   * hold one question per seat (ChooseCardEachTask — "each other player must
-   * DISCARD a card"); those are the same question asked in parallel, not
+   * hold one question per seat (ChooseCardEachTask — "every opponent discards
+   * one card"); those are the same question asked in parallel, not
    * seats watching each other, and restarting them per lapse would let one
    * silent player stretch a frame to a clock per seat.
    *
@@ -871,8 +871,8 @@ export class GameState {
       // equipped item, a slain monster, a magic still in play. An item is
       // equipped BEFORE its challenge window opens (item-tasks.ts), so a
       // challenge on a freshly played item asked who owned a card this could
-      // not answer — and Bloodwing, whose whole rule is "each time another
-      // player CHALLENGES you", never fired (the owner, 2026-09-08).
+      // not answer — and Bloodwing, whose whole rule is "whenever an opponent
+      // challenges you", never fired (the owner, 2026-09-08).
       if (heroes.some((heroId) => party.getEquippedItem(heroId) === cardId)) {
         return playerId
       }
@@ -1095,7 +1095,7 @@ export class GameState {
   /**
    * One class per HERO, a mask included. A monster's `partyReq` is matched
    * against these plus the leader, which `canBeAttackedBy` takes separately —
-   * the leader may fill a named class but never "a Hero card of any class".
+   * the leader may fill a named class but never an `'Any'` entry.
    */
   getHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
@@ -1246,7 +1246,7 @@ export class GameState {
    * Here rather than in a window because it is a question about the BOARD, and
    * because the two window shapes would otherwise each hold a copy: a plain
    * roll has one bonus list, a challenge has two, and only the pushing differs.
-   * The guard is what "ANOTHER player" means, and it lives in one place.
+   * The guard is what "an opponent" means, and it lives in one place.
    */
   counterBonusesFor(targetPlayerId: string, byPlayerId: string): RollBonus[] {
     if (byPlayerId === targetPlayerId) return []

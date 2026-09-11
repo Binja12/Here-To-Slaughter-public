@@ -8,7 +8,7 @@ import { DestroyTask } from '../../tasks/hero-tasks'
 /** Fluffy's second victim. Its own slot, so both survive to RollSuccess. */
 const CTX_SECOND_HERO = 'fluffy.secondHero'
 
-// Fluffy (hero-038): "DESTROY 2 Hero cards."
+// Fluffy (hero-038): "Destroy two heroes."
 //
 // BOTH heroes are chosen while the roll's window is still open (the owner,
 // 2026-09-08): each choice suspends the window, which clears the passes and

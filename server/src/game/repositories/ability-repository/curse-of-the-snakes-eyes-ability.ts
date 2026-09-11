@@ -16,7 +16,7 @@ import { untilUnequipped } from '../../abilities/expiries'
 // attempt, and a defeated item is un-equipped by the rollback, so it is not a
 // source when this is matched and the penalty is never installed.
 //
-// scopedToCarrier is what makes it "the equipped Hero card's" roll rather than
+// scopedToCarrier is what makes it "the wearer's" roll rather than
 // every roll its owner makes. CURSED, so it is played onto somebody else's
 // hero and the penalty lands on THEM — the ability is derived from the item's
 // position, so ownerId is the hero's owner.

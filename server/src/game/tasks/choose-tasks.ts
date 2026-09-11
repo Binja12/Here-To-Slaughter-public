@@ -146,7 +146,7 @@ export class ChooseCardTask implements ITask {
 // ---------------------------------------------------------------------------
 // ChooseCardEachTask — the same question to several seats, all at once
 //
-// "Each other player must DISCARD a card" is one question per seat, over that
+// "Every opponent discards one card" is one question per seat, over that
 // seat's own cards, and nobody waits for anybody: ONE frame, one CardChoice
 // window per seat, each filed under chosenCardOf(seat). The frame settles
 // when the last window does (ChoiceWindow.resolve) and the pipeline wakes
@@ -300,8 +300,8 @@ export type ConfirmSpec = {
    */
   subjectKey?: string
   /**
-   * Who is asked. The ability owner unless `'chosen'`: "that player MAY draw a
-   * card" is the chosen seat's yes or no (Plundering Puma).
+   * Who is asked. The ability owner unless `'chosen'`: "that opponent may then
+   * draw one card" is the chosen seat's yes or no (Plundering Puma).
    */
   executor?: Executor
 }
@@ -394,7 +394,8 @@ export class ConfirmTask implements ITask {
     if (!respondentId) return
 
     // What the continuation needs: the subject, and the chosen seat when there
-    // is one, so "that player may draw" still knows who "that player" is.
+    // is one, so "that opponent may then draw" still knows who "that opponent"
+    // is.
     const ctxSeed = {
       ...(this.spec.subjectKey && subject && { [this.spec.subjectKey]: subject }),
       ...carriedSeat(ctx),

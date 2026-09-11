@@ -6,7 +6,7 @@ import { RollOnHeroTask } from '../../tasks/roll-on-hero-task'
 import { ChooseCardTask, ConfirmTask } from '../../tasks/choose-tasks'
 import { CTX_STOLEN_HERO_ID, CTX_CHOSEN_CARD } from '../../abilities/ability-context'
 
-// Wiggles (hero-036): "STEAL a Hero card and roll to use its effect immediately"
+// Wiggles (hero-036): "Steal a hero and immediately roll for its ability."
 //
 //   [0] RollPassing on Wiggles     → choose a target, while the roll still stands
 //   [1] RollSuccess on Wiggles     → steal it, ask about rolling

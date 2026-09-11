@@ -34,8 +34,8 @@ const wire = (gs: GameState) => {
   return { em, emitted, rm: new ReactionManager(gs, em) }
 }
 
-// Beary Wise (hero-003): "Each other player must DISCARD a card. Choose one
-// of the discarded cards and add it to your hand."
+// Beary Wise (hero-003): "Every opponent discards one card. Pick one of those
+// discards and put it in your hand."
 
 describe('Beary Wise (hero-003)', () => {
   it('asks every other seat at once, in one frame; each pick lands in its own slot', () => {

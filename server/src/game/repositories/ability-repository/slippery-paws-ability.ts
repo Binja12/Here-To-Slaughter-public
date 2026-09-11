@@ -5,14 +5,14 @@ import { ChooseCardTask, ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { DiscardTask, PullCardTask } from '../../tasks/tasks'
 import { CTX_PULLED_CARD_IDS, CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 
-// Slippery Paws (hero-022): "Pull 2 cards from another player's hand, then
-// DISCARD one of those cards."
+// Slippery Paws (hero-022): "Take two random cards from an opponent's hand,
+// then discard one of the two."
 //
 //   [0] RollPassing → choose a player, while the roll still stands
 //   [1] RollSuccess → pull two, blind → choose one of the two out of my hand →
 //       discard it
 //
-// "One of those cards": the hand LIMITED to what was pulled (`among` over
+// "One of the two": the hand LIMITED to what was pulled (`among` over
 // CTX_PULLED_CARD_IDS), not the hand's last two — a hand has no order the
 // rules know of. A hand that ran dry after one pull offers that one.
 export const SlipperyPawsAbility: IAbilityRule[] = [

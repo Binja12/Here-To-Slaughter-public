@@ -4,8 +4,8 @@ import { ApplyEffectTask } from '../../tasks/tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { SacrificeTask } from '../../tasks/hero-tasks'
 
-// Terratuga (monster-130): "Your Hero cards cannot be destroyed."
-//   Fight back (7 and under): SACRIFICE a Hero card — entry [1].
+// Terratuga (monster-130): "Your heroes cannot be destroyed."
+//   Fight back (7 and under): Sacrifice one of your heroes — entry [1].
 //
 //   [0] MonsterSlain on this card → install CantBeDestroyed on the slayer
 //
@@ -19,8 +19,8 @@ export const TerratugaAbility: IAbilityRule[] = [
     steps: [new ApplyEffectTask({ type: PassiveType.CantBeDestroyed })],
   },
   {
-    // Fight back: SACRIFICE a Hero card — the attacker gives one up (Mega
-    // Slime's shape; declared here because nothing reads the printed
+    // Fight back: Sacrifice one of your heroes — the attacker gives one up
+    // (Mega Slime's shape; declared here because nothing reads the printed
     // fight-back text on its own).
     trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
     steps: [

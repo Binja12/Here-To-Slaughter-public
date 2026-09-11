@@ -5,7 +5,7 @@ import { PlayItemTask } from '../../tasks/item-tasks'
 import { DrawTask } from '../../tasks/draw-task'
 import { CTX_CHOSEN_ITEM } from '../../abilities/ability-context'
 
-// Hook (hero-013): "Play an Item card from your hand immediately and DRAW a
+// Hook (hero-013): "Play an item from your hand at no cost, then draw a
 // card."
 //
 //   [0] RollSuccess → choose an Item of your hand (→ CTX_CHOSEN_ITEM) →

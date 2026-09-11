@@ -80,7 +80,7 @@ const stubRm = null as unknown as ReactionManager
 // DestroyTask
 // ---------------------------------------------------------------------------
 
-describe('SacrificeTask with an actor — "that player must SACRIFICE"', () => {
+describe('SacrificeTask with an actor — "they sacrifice one of their own heroes"', () => {
   it("removes the chosen hero from the ACTOR's party and announces the actor as the loser", () => {
     const gs = makeGs()
     gs.registerPlayer(makePlayer('p1'))
@@ -316,7 +316,7 @@ describe('DestroyTask', () => {
 
     new DestroyTask().execute(gs, chose('victim'), emitter, stubRm)
 
-    // Dracos is printed "a Hero card in YOUR Party is destroyed" and needs the
+    // Dracos is printed "one of YOUR heroes is destroyed" and needs the
     // loser to scope against.
     expect(emitted[1].getPlayerId()).toBe('p2')
   })

@@ -5,9 +5,9 @@ import { DestroyTask, DESTROY_ANYWAY, STEAL_INSTEAD, StealFromPartyTask, Sacrifi
 import { CTX_WOULD_DESTROY } from '../../abilities/ability-context'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Corrupted Sabretooth (monster-122): "Each time you would DESTROY a Hero
-// card, you may STEAL that Hero card instead."
-//   Fight back (6 and under): SACRIFICE a Hero card — data, on the card.
+// Corrupted Sabretooth (monster-122): "Whenever you would destroy a hero, you
+// may steal it instead."
+//   Fight back (6 and under): Sacrifice one of your heroes — data, on the card.
 //
 //   [0] MonsterSlain on this card → install StealsInsteadOfDestroy on the slayer
 //   [1] "Steal it instead" → the steal, of the hero the destroy was about
@@ -35,8 +35,8 @@ export const CorruptedSabretoothAbility: IAbilityRule[] = [
     steps: [new DestroyTask({ fromKey: CTX_WOULD_DESTROY, replaceable: false })],
   },
   {
-    // Fight back: SACRIFICE a Hero card — the attacker gives one up (Mega
-    // Slime's shape; declared here because nothing reads the printed
+    // Fight back: Sacrifice one of your heroes — the attacker gives one up
+    // (Mega Slime's shape; declared here because nothing reads the printed
     // fight-back text on its own).
     trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
     steps: [

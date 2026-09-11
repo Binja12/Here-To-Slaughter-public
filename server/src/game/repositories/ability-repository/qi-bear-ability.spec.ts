@@ -47,8 +47,8 @@ const wire = (gs: GameState) => {
 }
 import { QiBearAbility } from './qi-bear-ability'
 
-// Qi Bear (hero-007): "DISCARD up to 3 cards. For each card discarded,
-// DESTROY a Hero card."
+// Qi Bear (hero-007): "Discard up to three cards, then destroy one hero for
+// each card you discarded."
 
 /** Runs the whole entry, answering each window from `picks` in order (undefined = picked nothing). */
 function play(gs: GameState, ctx: AbilityContext, picks: (string | undefined)[]) {

@@ -17,7 +17,7 @@ import { DestroyTask } from '../../tasks/hero-tasks'
 // price is paid before the payoff, so a player who ends up destroying nothing
 // has still discarded.
 //
-// Owner.All on the second choice, because "a Hero card" names no side — this
+// Owner.All on the second choice, because "one hero" names no side — this
 // reaches across the table, and DestroyTask finds the party from the hero
 // rather than assuming the caster's. Destroying your own is legal and printed.
 //

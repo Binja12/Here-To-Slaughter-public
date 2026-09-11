@@ -1,7 +1,7 @@
 import { IAbilityRule } from '../../interfaces'
 
-// The six class masks (item-067 … item-072): "The equipped Hero card is
-// considered a <class> instead of its original class."
+// The six class masks (item-067 … item-072): "The wearer counts as a <class>,
+// whatever its printed class."
 //
 // No entry at all: the class a mask confers is DATA (`ItemCardData.heroClass`)
 // and the board DERIVES a hero's class from what it wears

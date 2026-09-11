@@ -21,12 +21,12 @@ export type PlayerFilter = {
   owner?: Owner
   /**
    * Keep only players fielding at least one hero. For a wording whose next
-   * clause is about that player's party — Hopper's "that player SACRIFICES a
-   * Hero card" — offering an empty seat would offer a choice that cannot be
-   * carried out.
+   * clause is about that player's party — Hopper's "they sacrifice one of
+   * their own heroes" — offering an empty seat would offer a choice that
+   * cannot be carried out.
    */
   hasHeroes?: boolean
-  /** Keep only players with a hero of this class standing — "each other player with a Fighter". */
+  /** Keep only players with a hero of this class standing — "every opponent who has a Fighter". */
   hasClass?: HeroClass
   excludeIds?: string[]
 }
@@ -37,8 +37,8 @@ export type CardFilter = {
   top?: number
   /**
    * Only cards a slot names, of those in the zone — a LIMIT, not a source:
-   * the zone still has to hold them. Beary Wise chooses among "the
-   * discarded cards" (CTX_DISCARDED_CARDS) off the pile.
+   * the zone still has to hold them. Beary Wise chooses among "those
+   * discards" (CTX_DISCARDED_CARDS) off the pile.
    */
   among?: string
   /**
@@ -49,7 +49,7 @@ export type CardFilter = {
   excludeKey?: string
   /**
    * Who this step runs AS — who answers the choice. The ability owner unless
-   * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
+   * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "they discard a card"
    * is the victim's pick over the victim's own hand, which only they can see.
    */
   executor?: 'owner' | 'chosen'

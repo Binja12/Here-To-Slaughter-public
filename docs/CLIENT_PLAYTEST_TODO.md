@@ -324,7 +324,7 @@ challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
     - **Choosing from the hand** (item 5): the closed hand stack wears the
       gold ask (`HandCount asked`) while a CardChoice over the viewer's hand
       is open, since the fan only opens on hover.
-    - **"Cannot be destroyed" picks** (item 6): the server never offers a
+    - **CantBeDestroyed picks** (item 6): the server never offers a
       shielded hero (`CardFilter.destroyable`), and a pick the window never
       offered is refused with `NotAnOption` AND settles the window on a
       random offered card. Nothing to change on the client: it only sends
@@ -332,10 +332,10 @@ challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
     - **Six classes, game not over** (item 7, pictures 2-3): the engine
       checked the win conditions at the END of the turn only. It now checks
       every time a frame settles on an idle board, so the sixth class (or
-      the third monster) ends the game on the spot. The rulebook words the
-      class win as "end your turn with a full party" and counts the party
-      LEADER's class among the six; the engine counts heroes only — both
-      are the owner's calls, flagged in the report.
+      the third monster) ends the game on the spot. The rulebook grants the
+      class win only when a turn ends with all six classes in the party, and
+      counts the party LEADER's class among the six; the engine counts heroes
+      only — both are the owner's calls, flagged in the report.
     - **Mellow Dee "no window"** (2026-09-04, after the rebuild): the
       engine's "play the hero you just drew?" is a TaskChoice whose subject
       (`detail.cardId`) is a card in the HAND, and the board only knew how to
@@ -346,8 +346,8 @@ challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
       (`PlayerHand asked`), pressing it sends `confirm` (the free play), and
       the closed stack shows the ask too. Pinned on the wire by
       `server/src/game/setup/mellow-dee.spec.ts`.
-    - **Plundering Puma "no draw window"** (2026-09-04): the victim's "you
-      may DRAW" is a ConfirmTask asked of the CHOSEN seat and its subject is
+    - **Plundering Puma "no draw window"** (2026-09-04): the victim's optional
+      draw is a ConfirmTask asked of the CHOSEN seat and its subject is
       the Puma itself, in the thief's party — so the victim's board hid the
       strip window (a subject on the board hides it) and glowed nothing (only
       the viewer's own cards take the ask). Now a yes/no keeps its strip
@@ -375,9 +375,9 @@ challengerRoll / challengedRoll / *Bonuses`, LeaveGame on a live table
       monster choice names its `sourceCardId`, and the asking card is drawn
       big in the pink aura above the dimmed table (and inside the picker).
       Mega Slime grants its point on the slaying turn too. Terratuga,
-      Corrupted Sabretooth, Crowned Serpent and Bloodwing had "SACRIFICE a
-      Hero card" as text only — now entries, pinned by a registry test and
-      `setup/terratuga.spec.ts`. The Party Leader's class counts for the
+      Corrupted Sabretooth, Crowned Serpent and Bloodwing had "Sacrifice one
+      of your heroes" as text only — now entries, pinned by a registry test
+      and `setup/terratuga.spec.ts`. The Party Leader's class counts for the
       six-class win and for monster requirements (`getPartyClasses`).
 
 Verified live in this order: register → lobby → three ready → Start →

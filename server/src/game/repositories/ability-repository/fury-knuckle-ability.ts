@@ -6,8 +6,8 @@ import { CardTypeCondition } from '../../tasks/conditions'
 import { PullCardTask } from '../../tasks/tasks'
 import { CTX_CHOSEN_PLAYER, CTX_PULLED_CARD_IDS } from '../../abilities/ability-context'
 
-// Fury Knuckle (hero-002): "Pull a card from another player's hand. If it is
-// a Challenge card, pull a second card from that player's hand."
+// Fury Knuckle (hero-002): "Take a random card from an opponent's hand. If it
+// turns out to be a challenge card, take one more from the same hand."
 //
 //   [0] RollPassing → choose a player, while the roll still stands
 //   [1] RollSuccess → pull → is the pulled card a Challenge?

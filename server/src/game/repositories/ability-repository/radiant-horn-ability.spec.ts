@@ -50,7 +50,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Radiant Horn (hero-027): "Search the discard pile for a Modifier card and add it to your hand."
+// Radiant Horn (hero-027): "Take a modifier of your choice from the discard pile into your hand."
 
 describe('Radiant Horn (hero-027)', () => {
   it('fires on its own successful roll', () => {

@@ -5,7 +5,7 @@ import { CTX_CHOSEN_CARD } from '../../abilities/ability-context'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { StealFromPartyTask } from '../../tasks/hero-tasks'
 
-// Kit Napper (hero-017): "STEAL a Hero card."
+// Kit Napper (hero-017): "Steal one hero from another party."
 export const KitNapperAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },

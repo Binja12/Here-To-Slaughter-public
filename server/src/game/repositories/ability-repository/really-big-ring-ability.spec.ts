@@ -153,7 +153,7 @@ describe('ReallyBigRingAbility', () => {
     expect(ctx.gs.hasOpenFrames()).toBe(true)
   })
 
-  // --- Scope: "the equipped Hero card's" roll, not every roll ---
+  // --- Scope: "the wearer's" roll, not every roll ---
 
   it('does NOT lift a roll on a different hero', () => {
     const { gs } = equipTo('hero-1')

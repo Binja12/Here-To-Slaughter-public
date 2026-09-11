@@ -5,7 +5,7 @@ import { ChooseCardTask, ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { DiscardTask } from '../../tasks/tasks'
 import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 
-// Heavy Bear (hero-004): "Choose a player. That player must DISCARD 2 cards."
+// Heavy Bear (hero-004): "Pick an opponent. They discard two cards."
 //
 //   [0] RollPassing → I choose a player, while the roll still stands
 //   [1] RollSuccess → THEY choose a card of their hand → they discard it →

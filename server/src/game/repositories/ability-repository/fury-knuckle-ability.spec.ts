@@ -45,8 +45,8 @@ const collect = () => {
 const openWindow = (gs: GameState) =>
   [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
-// Fury Knuckle (hero-002): "Pull a card from another player's hand. If it is a Challenge
-// card, pull a second card from that player's hand."
+// Fury Knuckle (hero-002): "Take a random card from an opponent's hand. If it
+// turns out to be a challenge card, take one more from the same hand."
 
 describe('Fury Knuckle (hero-002)', () => {
   it('a pulled Challenge card announces the condition WITH the chosen seat riding along', () => {

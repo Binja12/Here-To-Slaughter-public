@@ -119,7 +119,7 @@ export class TaskManager implements IGameEventListener {
         for (const [key, value] of Object.entries(ctxSeed)) ctx.set(key, value)
       }
       // The seat that acted on us IS the chosen seat for this run (Bloodwing:
-      // "each time another player challenges you, THAT player discards").
+      // "whenever an opponent challenges you, they discard a card").
       if (source.trigger.scope === TriggerScope.TargetsOwner) {
         ctx.set(CTX_CHOSEN_PLAYER, [event.getPlayerId()])
       }
@@ -133,7 +133,7 @@ export class TaskManager implements IGameEventListener {
 
     // The named card finishes its OWN behaviour before anything watching it
     // reacts: a modifier's bonus is on the roll before the Crowned Serpent's
-    // "you may DRAW" parks the stack, so the table sees the number it is
+    // optional draw parks the stack, so the table sees the number it is
     // answering (the owner, 2026-09-07). Order INSIDE each group is
     // abilitySources' — position order.
     this.add([...own, ...matched])

@@ -1796,7 +1796,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
         )}
 
         {/* A yes/no about a card the viewer cannot press — the Crowned
-            Serpent's "you may DRAW", asked of its owner about a monster in
+            Serpent's "you may draw", asked of its owner about a monster in
             their own party — takes the stage instead of the strip card it
             used to get, which sat UNDER the modifier window (the owner,
             2026-09-07): the card that asks beside the two painted answers. */}

@@ -130,7 +130,8 @@ triggered by the answer's event. "No" is the absence of an event, so nothing
 has to be cancelled:
 
 ```ts
-// Snowball: draw a card; if it is a magic card, you may play it and draw again.
+// Snowball: draw a card. If it is a magic card, you may play it right away
+// and then draw again.
 [
   { trigger: { on: RollSuccess,   scope: SelfCard },
     steps: [Draw(1), CardTypeCondition(Magic, CTX_DRAWN_CARD_IDS, DREW_A_MAGIC)] },

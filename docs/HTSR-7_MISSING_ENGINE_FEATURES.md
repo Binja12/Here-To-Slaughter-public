@@ -7,9 +7,9 @@ chooses an Item from the two cards it drew before playing it.
 
 The remaining known gaps are:
 
-- **Bullseye (`hero-014`) does not ask for the order of the two cards returned
-  to the top of the deck.** It lets the player inspect the top three and draw
-  one, but the other two keep their existing relative order. The engine has no
+- **Bullseye (`hero-014`) does not ask for the order of the two cards it puts
+  back on top.** It lets the player inspect the top three and draw one,
+  but the other two keep their existing relative order. The engine has no
   task or window for reordering cards on a deck.
 - **Call to the Fallen (`magic-061`) has no edited board scan.** Its mechanics
   are implemented, but the client intentionally falls back to the generic

@@ -5,7 +5,7 @@ import { CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 import { ChoosePlayerTask } from '../../tasks/choose-tasks'
 import { RevealTask } from '../../tasks/tasks'
 
-// Sharp Fox (hero-016): "Look at another player's hand."
+// Sharp Fox (hero-016): "Look through one opponent's hand."
 //
 //   [0] RollPassing → choose a player, while the roll still stands
 //   [1] RollSuccess → their hand is shown to me for a while

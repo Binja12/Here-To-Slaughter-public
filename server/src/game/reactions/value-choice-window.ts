@@ -7,7 +7,7 @@ import { CTX_CHOSEN_VALUE, NO_CONTEXT_RESULT } from '../abilities/ability-contex
 // ---------------------------------------------------------------------------
 // ValueChoiceWindow — pick one number from a printed list.
 //
-// A modifier card reads "+2 or -2 to that roll": the two numbers are card
+// A modifier card reads "adjust that roll by +2 or -2": the two numbers are card
 // data, so the choice between them belongs in a window like any other pick,
 // not in a value the client sends. This is what stops a submitted modifier
 // being worth whatever the caller says it is.

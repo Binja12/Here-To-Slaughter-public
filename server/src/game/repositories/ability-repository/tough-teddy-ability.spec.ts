@@ -34,7 +34,7 @@ const wire = (gs: GameState) => {
 }
 import { ToughTeddyAbility } from './tough-teddy-ability'
 
-// Tough Teddy (hero-006): "Each other player with a Fighter in their Party must DISCARD a card."
+// Tough Teddy (hero-006): "Every opponent who has a Fighter in their party discards one card."
 
 describe('Tough Teddy (hero-006)', () => {
   it('asks every Fighter seat at once, and each discards its own pick', () => {

@@ -34,7 +34,7 @@ const wire = (gs: GameState) => {
 }
 import { GreedyCheeksAbility } from './greedy-cheeks-ability'
 
-// Greedy Cheeks (hero-047): "Each other player must give you a card from their hand."
+// Greedy Cheeks (hero-047): "Every opponent hands you one card from their hand."
 
 describe('Greedy Cheeks (hero-047)', () => {
   it('asks every other seat at once, over its own hand, and every pick lands in mine', () => {

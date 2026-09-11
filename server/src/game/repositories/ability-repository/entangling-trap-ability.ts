@@ -5,8 +5,8 @@ import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { StealFromPartyTask } from '../../tasks/hero-tasks'
 import { DiscardTask } from '../../tasks/tasks'
 
-// Entangling Trap (magic-051, magic-052): "DISCARD 2 cards, then STEAL a Hero
-// card."
+// Entangling Trap (magic-051, magic-052): "Discard two cards, then steal one
+// hero."
 //
 // "THEN" is a price, so the steal is conditional on it being paid: the hero
 // choice hangs off CTX_DISCARDED_CARDS, which the SECOND DiscardTask writes on

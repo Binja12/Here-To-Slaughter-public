@@ -316,13 +316,13 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
 
   /**
    * Standing RollBonus effects a player carries into a roll, as sourced
-   * entries. "+3 to all of your rolls" means all of them — a challenge roll is
-   * a roll, and each side brings its own.
+   * entries. "Add 3 to every roll you make" means all of them — a challenge
+   * roll is a roll, and each side brings its own.
    *
    * Only the CHALLENGER's roll is a roll to challenge, so only that side is
    * asked with the context; the defender is asked about no kind at all and so
    * gets the unscoped effects alone. Defending is not challenging — the Fist
-   * of Reason (leader-118) is printed "each time you roll to CHALLENGE".
+   * of Reason (leader-118) is printed "Add 2 to your rolls when challenging".
    * A bonus for defending would be a fourth RollContext, and no card wants one
    * yet.
    */

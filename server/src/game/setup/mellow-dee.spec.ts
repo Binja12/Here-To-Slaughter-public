@@ -14,8 +14,8 @@ import {
   windowFor,
 } from './play-through-helpers'
 
-// Mellow Dee (hero-041) through the real doors: "DRAW a card. If that card
-// is a Hero card, you may play it immediately." The question the screen
+// Mellow Dee (hero-041) through the real doors: "Draw a card. If it is a
+// hero, you may play it right away." The question the screen
 // gets is a TaskChoice whose subject is the DRAWN card, which sits in the
 // hand — not in the party — and a yes plays it for free.
 describe('Mellow Dee over the doors', () => {

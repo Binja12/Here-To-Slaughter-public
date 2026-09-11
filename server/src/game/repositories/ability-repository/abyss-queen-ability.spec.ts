@@ -29,7 +29,7 @@ import { ChallengeWindow } from '../../reactions/challenge-window'
 //
 // An IEffect, not an entry triggered on ModifierPlayed: the +1 has to land in a
 // window that is already open, and no pipeline is running at the moment a bonus
-// arrives (section 7). The windows read it; "another player" is their own
+// arrives (section 7). The windows read it; "an opponent" is their own
 // playerId check, because a trigger scope could not say it.
 // ---------------------------------------------------------------------------
 

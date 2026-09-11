@@ -6,10 +6,10 @@ import { SacrificeTask } from '../../tasks/hero-tasks'
 
 // Arctic Aries (monster-128)
 //   Passive:    after a successful hero-effect roll, you may draw.
-//   Fight back: SACRIFICE a Hero card.
-// OwnerEvent on RollSuccess is exactly "you successfully roll": a leader's
-// activation announces LeaderActivated, its own event, so it never fires this
-// (2026-09-04; before that it also drew on the Shadow Claw).
+//   Fight back: Sacrifice one of your heroes.
+// OwnerEvent on RollSuccess is exactly "you succeed on a hero ability roll":
+// a leader's activation announces LeaderActivated, its own event, so it never
+// fires this (2026-09-04; before that it also drew on the Shadow Claw).
 const DRAW_A_CARD = 'ArcticAriesDrawsCard'
 
 export const ArcticAriesAbility: IAbilityRule[] = [

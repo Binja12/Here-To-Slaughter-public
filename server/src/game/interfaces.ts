@@ -160,13 +160,14 @@ export interface IEffect {
   /**
    * Narrows it to one KIND of roll — absent means every kind. Independent of
    * `cardId`: that says which card the roll is about, this says what the roll
-   * is FOR. "+1 when you roll to ATTACK" needs the second and not the first.
+   * is FOR. "Add 1 to your rolls when attacking a monster" needs the second
+   * and not the first.
    */
   rollContext?: RollContext
   /**
    * Narrows it to plays of these card types — absent means every type. The
    * third narrowing, and the only one about a CARD BEING PLAYED rather than a
-   * roll: "Item cards you play cannot be challenged" is this and nothing else.
+   * roll: "Items you play cannot be challenged" is this and nothing else.
    */
   cardTypes?: CardType[]
   /** Absent = permanent. Multiple entries = first match ends it. */

@@ -22,10 +22,9 @@ const makeGs = () =>
 
 const stubRm = {} as ReactionManager
 
-// Decoy Doll (item-066): "If the equipped Hero card would be sacrificed or
-// destroyed, move Decoy Doll to the discard pile instead." What the effect
-// DOES is the destroy and sacrifice steps' business (hero-tasks.spec.ts);
-// this checks the declaration.
+// Decoy Doll (item-066): "If the wearer would be sacrificed or destroyed,
+// discard this item instead." What the effect DOES is the destroy and
+// sacrifice steps' business (hero-tasks.spec.ts); this checks the declaration.
 
 describe('Decoy Doll (item-066)', () => {
   it('fires when equipped and installs TakesTheHit scoped to its carrier, until unequipped', () => {

@@ -49,8 +49,8 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Holy Curselifter (hero-026): "Return a Cursed Item card equipped to a Hero
-// card in your Party to your hand."
+// Holy Curselifter (hero-026): "Return a cursed item worn by one of your
+// heroes to your hand."
 
 describe('Holy Curselifter (hero-026)', () => {
   it('offers only the CURSED items worn in the owner\'s own party, and the pick comes to hand', () => {

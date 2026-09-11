@@ -34,7 +34,7 @@ const wire = (gs: GameState) => {
 }
 import { SmoothMimimeowAbility } from './smooth-mimimeow-ability'
 
-// Smooth Mimimeow (hero-024): "Pull a card from the hand of each other player with a Thief in their Party."
+// Smooth Mimimeow (hero-024): "Take a random card from the hand of every opponent who has a Thief in their party."
 
 describe('Smooth Mimimeow (hero-024)', () => {
   it('one blind pull from every other Thief seat, nobody asked, no window', () => {

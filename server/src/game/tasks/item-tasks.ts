@@ -177,19 +177,20 @@ export class PlayItemTask extends PlayItem implements ITask {
 //
 // Where the card IS decides how it comes off, and the task finds out for
 // itself rather than being told:
-//   - the discard pile: "search the discard pile for X and add it to your hand"
-//     (Lookie Rookie, Guiding Light, Radiant Horn, Bun Bun, Call to the Fallen);
-//   - a hero's gear: "return an Item card equipped to a Hero to a hand" (Holy
-//     Curselifter, Winds of Change) — the hero stays, the item comes off through
+//   - the discard pile: "take an X of your choice from the discard pile into
+//     your hand" (Lookie Rookie, Guiding Light, Radiant Horn, Bun Bun, Call to
+//     the Fallen);
+//   - a hero's gear: "return an equipped item to a hand" (Holy Curselifter,
+//     Winds of Change) — the hero stays, the item comes off through
 //     Party.unequipItem and announces ItemUnequipped, so an effect the item
 //     granted expires the way `untilUnequipped` expects;
-//   - another player's hand: "look at a hand, choose a card and add it to
-//     yours" (Silent Shadow) — a CHOSEN card, which is the whole difference from
+//   - another player's hand: "look through a hand and take any one card from
+//     it" (Silent Shadow) — a CHOSEN card, which is the whole difference from
 //     PullCardTask's blind draw, so it is announced as CardPulled all the same:
 //     a card left one hand for another.
 //
 // Whose hand it lands in: the ability owner's, unless the declaration says
-// `to: 'cardOwner'` — Winds of Change returns the item "to that player's hand",
+// `to: 'cardOwner'` — Winds of Change returns the item "to its owner's hand",
 // the player whose hero wore it. A card that is nowhere the task knows of
 // (already in the recipient's hand, in a party as a hero) is left alone.
 // ---------------------------------------------------------------------------
@@ -225,8 +226,8 @@ export class RetrieveCardTask implements ITask {
 
 /**
  * RetrieveEachTask — every asked seat's pick comes to the owner's hand.
- * The step behind a ChooseCardEachTask over hands (Greedy Cheeks: "each
- * other player must give you a card"). Each move is announced as a pull, as
+ * The step behind a ChooseCardEachTask over hands (Greedy Cheeks: "every
+ * opponent hands you one card"). Each move is announced as a pull, as
  * RetrieveCardTask announces a card that left a hand for another.
  */
 export class RetrieveEachTask implements ITask {

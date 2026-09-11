@@ -48,9 +48,8 @@ const wire = (gs: GameState) => {
 import { ShurikittyAbility } from './shurikitty-ability'
 import { CTX_DESTROYED_HERO_ITEM } from '../../abilities/ability-context'
 
-// Shurikitty (hero-023): "DESTROY a Hero card. If that Hero card had an Item
-// card equipped to it, add that Item card to your hand instead of moving it
-// to the discard pile."
+// Shurikitty (hero-023): "Destroy one hero. If it was wearing an item, that
+// item goes to your hand instead of the discard pile."
 
 describe('Shurikitty (hero-023)', () => {
   it('the destroyed hero\'s gear ends in the owner\'s hand, not on the pile, and no discard is announced for it', () => {

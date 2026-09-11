@@ -14,8 +14,8 @@ import { ApplyModifierTask } from '../../tasks/modifier-tasks'
 // except the reaction that spends a card.
 //
 // OwnerEvent, not SelfCard: the event names the MODIFIER card, and this entry
-// belongs to the leader watching it be played. "On a roll" needs no test —
-// ModifierPlayed only happens into an open roll.
+// belongs to the leader watching it be played. That a roll is being made needs
+// no test — ModifierPlayed only happens into an open roll.
 //
 // Both entries match the same event, and TaskManager runs the card the event
 // NAMES before anything watching it, so the card's own bonus lands first and

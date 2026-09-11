@@ -47,8 +47,8 @@ const collect = () => {
 const openWindow = (gs: GameState) =>
   [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
-// Bloodwing (monster-127): "Each time another player CHALLENGES you, that
-// player must DISCARD a card."
+// Bloodwing (monster-127): "Whenever an opponent challenges you, they
+// discard a card."
 
 describe('Bloodwing (monster-127)', () => {
   it("fires on a challenge aimed at the owner's card by somebody else, and on nothing else", () => {

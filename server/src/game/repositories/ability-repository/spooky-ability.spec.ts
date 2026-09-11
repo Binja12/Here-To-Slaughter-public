@@ -34,7 +34,7 @@ const wire = (gs: GameState) => {
 }
 import { SpookyAbility } from './spooky-ability'
 
-// Spooky (hero-035): "Each other player must SACRIFICE a Hero card."
+// Spooky (hero-035): "Every opponent sacrifices one of their own heroes."
 
 describe('Spooky (hero-035)', () => {
   it('asks every seat with heroes at once, over its own party, and each sacrifices its pick', () => {

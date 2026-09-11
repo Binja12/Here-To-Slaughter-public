@@ -9,8 +9,8 @@ import {
   CTX_STOLEN_FROM_PLAYER,
 } from '../../abilities/ability-context'
 
-// Tipsy Tootie (hero-045): "Choose a player. STEAL a Hero card from that
-// player's Party and move Tipsy Tootie to that player's Party."
+// Tipsy Tootie (hero-045): "Pick an opponent. Steal a hero from their party,
+// and this card moves into their party in exchange."
 //
 //   [0] RollPassing → choose a player with heroes, while the roll still stands
 //   [1] RollSuccess → choose one of their heroes → steal it → give THIS card to

@@ -732,7 +732,7 @@ describe('a game played through', () => {
   // --- Magic --------------------------------------------------------------
 
   it('runs a magic card and leaves it in the discard, not on the table', async () => {
-    // Critical Boost: DRAW 3 and DISCARD a card.
+    // Critical Boost: Draw three cards, then discard one.
     const t = stacked({
       deck: [
         'magic-053',
@@ -1168,7 +1168,7 @@ describe('forfeiting a window — every seat passing settles it and the table pl
 })
 
 describe("a roll's target is asked while the roll stands, and modifiers may follow it", () => {
-  const SLY_PICKINGS = 'hero-018' // pull a card from another player's hand, rollReq 6
+  const SLY_PICKINGS = 'hero-018' // take a random card from an opponent's hand, rollReq 6
   const modifierWorth = (value: number) =>
     (baseGameCards.find(
       (card) => card.type === CardType.Modifier && (card as ModifierCardData).values.join() === String(value),

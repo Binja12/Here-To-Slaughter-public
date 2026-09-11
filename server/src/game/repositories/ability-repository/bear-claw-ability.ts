@@ -6,8 +6,8 @@ import { CardTypeCondition } from '../../tasks/conditions'
 import { PullCardTask } from '../../tasks/tasks'
 import { CTX_PULLED_CARD_IDS, CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 
-// Bear Claw (hero-005): "Pull a card from another player's hand. If it is a
-// Hero card, pull a second card from that player's hand."
+// Bear Claw (hero-005): "Take a random card from an opponent's hand. If it
+// turns out to be a hero, take one more from the same hand."
 //
 //   [0] RollPassing → choose a player, while the roll still stands
 //   [1] RollSuccess → pull → is the pulled card a Hero?

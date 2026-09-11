@@ -5,8 +5,8 @@ import { DiscardTask } from '../../tasks/tasks'
 import { DestroyTask } from '../../tasks/hero-tasks'
 import { CTX_DISCARDED_CARDS } from '../../abilities/ability-context'
 
-// Qi Bear (hero-007): "DISCARD up to 3 cards. For each card discarded,
-// DESTROY a Hero card."
+// Qi Bear (hero-007): "Discard up to three cards, then destroy one hero for
+// each card you discarded."
 //
 //   [0] RollSuccess → (choose a card of your hand → discard it → choose a
 //       hero → destroy it) × 3

@@ -44,8 +44,8 @@ const collect = () => {
 const openWindow = (gs: GameState) =>
   [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
-// Plundering Puma (hero-020): "Pull 2 cards from another player's hand. That
-// player may DRAW a card."
+// Plundering Puma (hero-020): "Take two random cards from an opponent's hand.
+// That opponent may then draw one card."
 
 describe('Plundering Puma (hero-020)', () => {
   it('pulls twice from the chosen seat, then asks THAT seat whether to draw, seat riding along', () => {

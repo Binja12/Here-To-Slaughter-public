@@ -48,7 +48,7 @@ const keyOf = (window: PendingWindowView) => `${window.windowId}:${window.deadli
 
 /**
  * A choice of ACTION whose answer is never in doubt. The Corrupted
- * Sabretooth's "you may STEAL that Hero card instead" is a strictly better
+ * Sabretooth's "you may steal it instead" is a strictly better
  * destroy — the hero leaves their party either way, and stealing keeps it
  * (the owner, 2026-09-08). Silence takes the printed destroy, so this is one
  * more answer no engine default could give.
@@ -59,7 +59,7 @@ const keyOf = (window: PendingWindowView) => `${window.windowId}:${window.deadli
 const PREFERRED_ACTION = 'Steal it instead'
 
 /**
- * Whether a confirm is the "you may DRAW" kind. The engine has no flag for
+ * Whether a confirm is the "you may draw" kind. The engine has no flag for
  * it, so this reads the label the ability declared — `ArcticAriesDrawsCard`,
  * `CrownedSerpentDraws`, `PlunderingPumaVictimDraws`. A free card is a free
  * card whoever is drawing it.

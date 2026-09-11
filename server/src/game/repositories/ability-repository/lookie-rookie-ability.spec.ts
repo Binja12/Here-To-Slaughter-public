@@ -49,7 +49,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Lookie Rookie (hero-011): "Search the discard pile for a Item card and add it to your hand."
+// Lookie Rookie (hero-011): "Take an item of your choice from the discard pile into your hand."
 
 describe('Lookie Rookie (hero-011)', () => {
   it('fires on its own successful roll', () => {

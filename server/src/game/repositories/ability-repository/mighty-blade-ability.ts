@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { ApplyEffectTask } from '../../tasks/tasks'
 import { untilOwnersNextTurn } from '../../abilities/expiries'
 
-// Mighty Blade (hero-031): "Hero cards in your Party cannot be destroyed until
-// your next turn."
+// Mighty Blade (hero-031): "Your heroes cannot be destroyed until your next
+// turn begins."
 //
 //   [0] RollSuccess on this card → install CantBeDestroyed on the owner
 //

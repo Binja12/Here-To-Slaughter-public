@@ -3,7 +3,7 @@ import { ChooseCardEachTask } from '../../tasks/choose-tasks'
 import { IAbilityRule } from '../../interfaces'
 import { RetrieveEachTask } from '../../tasks/item-tasks'
 
-// Greedy Cheeks (hero-047): "Each other player must give you a card from their hand."
+// Greedy Cheeks (hero-047): "Every opponent hands you one card from their hand."
 //
 //   [0] RollSuccess → every other seat picks a card of their own hand, all
 //       at once → each pick comes to my hand

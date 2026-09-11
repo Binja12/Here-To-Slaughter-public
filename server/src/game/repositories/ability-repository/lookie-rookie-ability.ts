@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Lookie Rookie (hero-011): "Search the discard pile for an Item card and add it to
-// your hand."
+// Lookie Rookie (hero-011): "Take an item of your choice from the discard pile
+// into your hand."
 //
 //   [0] RollSuccess on this card → a choice over the discard pile, Item cards
 //       only → the pick comes to hand

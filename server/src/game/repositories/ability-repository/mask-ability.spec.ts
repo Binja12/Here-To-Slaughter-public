@@ -10,8 +10,8 @@ import { MaskAbility } from './mask-ability'
 import { abilityRegistry } from './index'
 import { baseGameCards } from '../../../data/base-game-cards'
 
-// The six class masks (item-067 … item-072): "The equipped Hero card is
-// considered a <class> instead of its original class." No rules: the class is
+// The six class masks (item-067 … item-072): "The wearer counts as a <class>,
+// whatever its printed class." No rules: the class is
 // data, and the board derives it (GameState.getHeroClass, game-state.spec.ts).
 
 describe('the class masks (item-067 … item-072)', () => {

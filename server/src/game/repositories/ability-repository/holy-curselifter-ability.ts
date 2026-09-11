@@ -3,8 +3,8 @@ import { IAbilityRule } from '../../interfaces'
 import { RetrieveCardTask } from '../../tasks/item-tasks'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 
-// Holy Curselifter (hero-026): "Return a Cursed Item card equipped to a Hero
-// card in your Party to your hand."
+// Holy Curselifter (hero-026): "Return a cursed item worn by one of your
+// heroes to your hand."
 //
 //   [0] RollSuccess → a choice over the cursed items worn in MY party → to my hand
 //

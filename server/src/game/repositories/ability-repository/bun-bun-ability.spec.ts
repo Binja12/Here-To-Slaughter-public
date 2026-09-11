@@ -50,7 +50,7 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
-// Bun Bun (hero-039): "Search the discard pile for a Magic card and add it to your hand."
+// Bun Bun (hero-039): "Take a magic card of your choice from the discard pile into your hand."
 
 describe('Bun Bun (hero-039)', () => {
   it('fires on its own successful roll', () => {

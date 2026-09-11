@@ -29,8 +29,8 @@ import { IReactionWindow } from '../../interfaces'
 // ---------------------------------------------------------------------------
 // Three magic cards, three shapes.
 //
-//   magic-049/050 Destructive Spell  DISCARD 1, then DESTROY a hero anywhere
-//   magic-055/056 Enchanted Spell    +2 to ALL your rolls until end of turn
+//   magic-049/050 Destructive Spell  DISCARD 1, then DESTROY one hero anywhere
+//   magic-055/056 Enchanted Spell    +2 to every roll until end of turn
 //   magic-057     Forced Exchange    STEAL one from any other party, GIVE one back
 //
 // All three trigger on the SETTLED frame, never on MagicPlayed: a defeated card
@@ -345,7 +345,7 @@ describe('magic abilities', () => {
       expect(ctx.gs.getParty('p1').getHeroIds()).toContain('p2-hero')
     })
 
-    // "DISCARD 2 cards, THEN steal" — the steal is what the discards buy, so
+    // "Discard two cards, then steal" — the steal is what the discards buy, so
     // a hand that cannot pay does not get the hero (the owner, 2026-09-07).
     it('steals nothing when the hand cannot pay both discards', () => {
       const ctx = setup(SPELL, ['pay-1'])

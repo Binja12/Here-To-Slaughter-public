@@ -5,7 +5,7 @@ import { CTX_CHOSEN_CARD } from '../../abilities/ability-context'
 import { ChooseCardTask } from '../../tasks/choose-tasks'
 import { DestroyTask } from '../../tasks/hero-tasks'
 
-// Bad Axe (hero-001): "DESTROY a Hero card."
+// Bad Axe (hero-001): "Destroy one hero in any party."
 export const BadAxeAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
