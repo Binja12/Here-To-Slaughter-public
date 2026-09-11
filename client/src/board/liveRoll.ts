@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PendingWindowView, PlayerView } from '../contract'
 import type { DiceRollState } from './DiceRoll'
-import { slotForPlayer } from './seats'
+import { nameOf, slotForPlayer } from './seats'
 import { cardById } from './viewTargets'
 
 /**
@@ -24,12 +24,31 @@ export type LiveRoll = {
   rollReq?: number
   /** The hero, leader or monster the roll is about. */
   subjectId?: string
-  /** The seat the roll's effect is aimed at, once its owner has chosen. */
-  targetPlayerId?: string
+  /** The seats the roll's effect is aimed at, once its owner has chosen. */
+  targetPlayerIds: string[]
 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value : undefined)
 const num = (value: unknown) => (typeof value === 'number' ? value : undefined)
+
+/** One seat a roll's effect is aimed at, and the zone of theirs it reaches. */
+export type RollTargetView = { playerId: string; zone: string }
+
+/**
+ * Whom a roll is aimed at. A LIST: one card may choose several targets under
+ * a single window (Fluffy destroys two heroes), and every seat named has to
+ * see that it is one of them.
+ */
+export function targetSeatsOf(value: unknown): RollTargetView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { playerId, zone } = entry as Record<string, unknown>
+    return typeof playerId === 'string' && typeof zone === 'string'
+      ? [{ playerId, zone }]
+      : []
+  })
+}
 
 export function bonusesOf(value: unknown): RollBonusView[] {
   if (!Array.isArray(value)) return []
@@ -72,7 +91,7 @@ export function liveRollOf(view: PlayerView): LiveRoll | null {
       finalRoll: num(detail.finalRoll) ?? baseRoll + bonusTotal(bonuses),
       rollReq: num(detail.rollReq),
       subjectId: subjectIdOf(window),
-      targetPlayerId: str(detail.targetPlayerId),
+      targetPlayerIds: targetSeatsOf(detail.targets).map((seat) => seat.playerId),
     }
   }
   return null
@@ -135,10 +154,8 @@ export function rollOutcome(roll: LiveRoll, view: PlayerView): RollOutcome {
 /** Whether a modifier CARD has landed on the roll — standing effects alone are not "someone applied a modifier". */
 /** The banner text while a roll is open: the total as it stands, against what. */
 export function rollLabel(roll: LiveRoll, view: PlayerView): string {
-  const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
-  const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
   const need = rollNeedLabel(roll, view)
-  return `${who} rolled ${roll.finalRoll}${need ? ` · ${need}` : ''}`
+  return `${nameOf(view, roll.rollerId)} rolled ${roll.finalRoll}${need ? ` · ${need}` : ''}`
 }
 
 /**

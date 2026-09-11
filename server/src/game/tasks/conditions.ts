@@ -11,6 +11,11 @@ import { GameEventFactory } from '../events/game-event-factory'
 // separate registry entry triggered by that event. No match emits nothing.
 //
 // True when ANY card in the slot matches. An absent or empty slot is false.
+//
+// The slot it hands on holds the MATCHING cards, not everything it tested:
+// "if at least one of those cards is an Item card, you may play one of them"
+// offers the items, and the continuation is what the wording says it is
+// (Quick Draw drew a Challenge first and the ask pointed at the Challenge).
 // ---------------------------------------------------------------------------
 
 export class CardTypeCondition implements ITask {
@@ -29,10 +34,10 @@ export class CardTypeCondition implements ITask {
     _rm: IReactionManager,
   ): void {
     const cardIds = ctx.get<string[]>(this.sourceKey) ?? []
-    const held = cardIds.some(
+    const held = cardIds.filter(
       (cardId) => gs.getCard(cardId)?.getType() === this.cardType,
     )
-    if (!held) return
+    if (held.length === 0) return
 
     // The tested slot rides along: the entry this unlocks runs with a fresh
     // context and cannot see this one. So does the chosen seat, when there is
@@ -40,7 +45,7 @@ export class CardTypeCondition implements ITask {
     // hand" needs the same player on the far side (Fury Knuckle, Bear Claw).
     em.emit(
       GameEventFactory.conditionMet(ctx.ownerId, ctx.sourceCardId, this.label, {
-        [this.sourceKey]: cardIds,
+        [this.sourceKey]: held,
         ...carriedSeat(ctx),
       }),
     )

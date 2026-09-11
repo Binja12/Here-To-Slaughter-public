@@ -86,10 +86,10 @@ export abstract class PlayItem {
   /**
    * Whether this item may go on this hero.
    *
-   * A CURSED item is played at somebody — any hero on the table is a legal
-   * target; a plain one only ever helps its own side. Either way the hero must
-   * be empty-handed: one item per hero, and a second does not replace the
-   * first.
+   * Ownership decides the side (the owner, 2026-09-08): a plain item helps its
+   * own side and goes on a hero in the player's OWN party, a CURSED one is
+   * played AT somebody and goes on an ENEMY hero. Either way the hero must be
+   * empty-handed: one item per hero, and a second does not replace the first.
    *
    * Shared because the action checks it in `canExecute` and the task checks it
    * when it discovers its target.
@@ -108,6 +108,11 @@ export abstract class PlayItem {
 
     const heroOwnerId = gs.getCardOwner(heroId)
     if (!heroOwnerId) return refused(RefusalReason.HeroNotInParty)
+    if (item.isCursed()) {
+      if (heroOwnerId === playerId) return refused(RefusalReason.NotAnEnemyHero)
+    } else if (heroOwnerId !== playerId) {
+      return refused(RefusalReason.NotYourHero)
+    }
     if (gs.getEquippedItem(heroId)) {
       return refused(RefusalReason.HeroAlreadyEquipped)
     }

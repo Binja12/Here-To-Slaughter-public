@@ -15,7 +15,9 @@ export const DracosAbility: IAbilityRule[] = [
       on: GameEventType.HeroDestroyed,
       scope: TriggerScope.OwnerEvent,
     },
-    steps: [new ConfirmTask({ confirms: DRAW_A_CARD })],
+    steps: [
+      new ConfirmTask({ confirms: DRAW_A_CARD, question: 'Draw a card?' }),
+    ],
   },
   {
     trigger: {
@@ -31,7 +33,10 @@ export const DracosAbility: IAbilityRule[] = [
       scope: TriggerScope.Attacker,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Self },
+        { question: 'Choose a hero to sacrifice' },
+      ),
       new SacrificeTask(),
     ],
   },

@@ -16,14 +16,13 @@ export function musicPlaylist(source: string): MusicSegment[] | undefined {
   return catalog.music[source]?.filter((part) => part.startSeconds < MUSIC_SECONDS)
 }
 
-export function deliveryPixelHeight() {
-  return deliverySettings.stagePixelHeight ?? stagePixelHeight()
-}
-
-export function selectImage(entry: ImageEntry, stagePixels: number): string {
-  return entry.variants.find(([height]) => height >= stagePixels)?.[1] ?? entry.full
-}
-
-export function stagePixelHeight() {
-  return Math.min(window.innerHeight, window.innerWidth * 9 / 16) * (window.devicePixelRatio || 1)
+/**
+ * The one export the catalog holds for an image — a 720p-stage copy, and for a
+ * background the master's own size (scripts/online-art-sizes.mjs). It does NOT
+ * depend on the viewport: the profile IS the default, so a 4K screen gets the
+ * same file a laptop does and nothing re-picks on resize (the owner,
+ * 2026-09-08).
+ */
+export function selectImage(entry: ImageEntry): string {
+  return entry.variants[0]?.[1] ?? entry.full
 }

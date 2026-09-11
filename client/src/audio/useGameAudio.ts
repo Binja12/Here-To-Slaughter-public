@@ -18,8 +18,11 @@ export function useGameAudio(view: PlayerView, log: GameLogEntry[]) {
     ),
   )
   const musicWindowId = challengeWindow?.windowId ?? modifiedWindow?.windowId
-  const lastModifierSeq = log.reduce((last, entry) => entry.sound === 'modifierPlayed' ? entry.seq : last, 0)
-  const restartKey = musicWindowId ? `${view.gameId}:${musicWindowId}:${lastModifierSeq}` : undefined
+  // ONE start per window (the owner, 2026-09-08). The key was carrying the
+  // last modifier's sequence number, so every card played onto the same roll
+  // restarted the track from the top; the window is the event the music is
+  // about, not each answer to it.
+  const restartKey = musicWindowId ? `${view.gameId}:${musicWindowId}` : undefined
   useEffect(() => {
     setMusic(restartKey ? 'challenge' : 'gameplay', restartKey)
   }, [restartKey, setMusic])
@@ -40,4 +43,16 @@ export function useGameAudio(view: PlayerView, log: GameLogEntry[]) {
     }
     cursor.current = { gameId: view.gameId, seq: latest }
   }, [view.gameId, log, playSound])
+
+  // The turn coming ROUND to you, announced once. Read off the view rather
+  // than the log: the turn passing is a state change, and a seat that joins
+  // mid-turn must not hear a turn it did not start. The first view of a game
+  // is silent for the same reason the log's history is (`mine` starts unset).
+  const myTurn = view.currentPlayerId === view.playerId
+  const wasMyTurn = useRef<boolean | null>(null)
+  useEffect(() => {
+    const before = wasMyTurn.current
+    wasMyTurn.current = myTurn
+    if (before === false && myTurn) playSound('turnStart')
+  }, [myTurn, playSound])
 }

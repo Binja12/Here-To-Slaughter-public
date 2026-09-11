@@ -149,7 +149,7 @@ test('music crossfades in both directions and pauses the outgoing track only aft
   expect(jest.getTimerCount()).toBe(0)
 })
 
-test('each confirmed modifier restarts challenge music while gameplay keeps its paused position', async () => {
+test('challenge music starts once per window while gameplay keeps its paused position', async () => {
   jest.useFakeTimers()
   const idle = { ...midGame, pendingWindows: [] }
   const rolling = { ...midGame, pendingWindows: modifierWindowOpen.pendingWindows }
@@ -172,9 +172,11 @@ test('each confirmed modifier restarts challenge music while gameplay keeps its 
   challenge.currentTime = 8
   await act(async () => { rerender(ui({ ...rolling }, [...firstPlay])) })
   expect(challenge.currentTime).toBe(8)
+  // A SECOND card into the same window does not start the track again: one
+  // start per window, not one per answer (the owner, 2026-09-08).
   const secondPlay = [...firstPlay, modifier(2, windowId)]
   await act(async () => { rerender(ui(rolling, secondPlay)) })
-  expect(challenge.currentTime).toBe(0)
+  expect(challenge.currentTime).toBe(8)
   expect(gameplay.currentTime).toBe(42)
   expect(gameplay.paused).toBe(true)
 
@@ -188,7 +190,7 @@ test('each confirmed modifier restarts challenge music while gameplay keeps its 
   expect(challenge.currentTime).toBe(0)
 })
 
-test('a modifier restarts an existing challenge even when muted, but gestures and volume do not', async () => {
+test('a modifier leaves the running challenge track alone, and so do gestures and volume', async () => {
   jest.useFakeTimers()
   const ui = (log: GameLogEntry[]) => <AudioProvider><GameAudio view={challengeStarted} log={log} /></AudioProvider>
   const { rerender } = render(ui([]))
@@ -198,7 +200,8 @@ test('a modifier restarts an existing challenge even when muted, but gestures an
   challenge.currentTime = 11
   fireEvent.click(screen.getByRole('button', { name: 'Mute sound' }))
   await act(async () => { rerender(ui([modifier(1, challengeStarted.pendingWindows[0].windowId)])) })
-  expect(challenge.currentTime).toBe(0)
+  // the window is what the music is about; a card played into it is not
+  expect(challenge.currentTime).toBe(11)
   expect(challenge.volume).toBe(0)
   challenge.currentTime = 3
   fireEvent.click(screen.getByRole('button', { name: 'Unmute sound' }))

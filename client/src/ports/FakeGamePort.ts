@@ -71,18 +71,7 @@ const makeInitialView = (): PlayerView => {
     copyOf(discardSeed[index % discardSeed.length], `fake-discard-stub-${index}`),
   )
 
-  return {
-    ...threeSeatOpening,
-    gameId: 'fake-game',
-    seats: [
-      ...threeSeatOpening.seats.map((seat, index) => ({
-        ...seat,
-        seat: index,
-        handCount: index === 0 ? threeSeatOpening.hand.length : 5 + index,
-      })),
-      fourthSeat,
-    ],
-    parties: [
+  const parties: PlayerView['parties'] = [
       {
         ...mine,
         // the viewer always leads with The Shadow Claw (the owner wants to
@@ -128,6 +117,35 @@ const makeInitialView = (): PlayerView => {
         ...partyExtras(mine, 'fake-d'),
         canRollOnLeader: false,
       },
+  ]
+
+  return {
+    ...threeSeatOpening,
+    gameId: 'fake-game',
+    seats: [
+      ...threeSeatOpening.seats.map((seat, index) => ({
+        ...seat,
+        seat: index,
+        handCount: index === 0 ? threeSeatOpening.hand.length : 5 + index,
+      })),
+      fourthSeat,
+    ],
+    parties,
+    // What the real projection says (server/src/game/views/player-view.ts):
+    // every leader but the ACTIVATED Shadow Claw, every monster won into a
+    // party, and every item standing an effect up.
+    passiveCardIds: [
+      ...parties
+        .filter((party) => party.leader.name !== shadowClaw.name)
+        .map((party) => party.leader.id),
+      ...parties.flatMap((party) => party.monsters.map((monster) => monster.id)),
+      ...parties.flatMap((party) =>
+        party.heroes.flatMap((hero) =>
+          hero.equippedItem && hero.equippedItem.name === ring?.name
+            ? [hero.equippedItem.id]
+            : [],
+        ),
+      ),
     ],
     hand: threeSeatOpening.hand,
     discardPile: [...discardSeed, ...discardStubs],
@@ -225,7 +243,7 @@ export class FakeGamePort implements GamePort {
           options: this.view.seats
             .filter((seat) => seat.playerId !== this.view.playerId)
             .map((seat) => seat.playerId),
-          detail: { question: 'Pull a card from whose hand?' },
+          detail: { question: 'Choose a player to pull a card from' },
           deadline: freshDeadline(10_000),
           isYours: true,
         })
@@ -559,7 +577,7 @@ export class FakeGamePort implements GamePort {
       respondentId: this.view.playerId,
       options,
       optionCards: this.view.hand.slice(0, 3),
-      detail: { question: 'Choose a card to discard.', sourceCardId: leader?.id },
+      detail: { question: 'Choose a card to discard', sourceCardId: leader?.id },
       deadline: freshDeadline(),
       isYours: true,
     })

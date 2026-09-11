@@ -46,7 +46,11 @@ export const OrthusAbility: IAbilityRule[] = [
       when: DREW_A_MAGIC,
     },
     steps: [
-      new ConfirmTask({ confirms: PLAY_IT, subjectKey: CTX_DRAWN_CARD_IDS }),
+      new ConfirmTask({
+        confirms: PLAY_IT,
+        question: 'Play the magic card you just drew?',
+        subjectKey: CTX_DRAWN_CARD_IDS,
+      }),
     ],
   },
   {
@@ -63,9 +67,15 @@ export const OrthusAbility: IAbilityRule[] = [
       scope: TriggerScope.Attacker,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose the first card to discard' },
+      ),
       new DiscardTask(),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose the second card to discard' },
+      ),
       new DiscardTask(),
     ],
   },

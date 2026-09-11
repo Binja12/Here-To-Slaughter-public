@@ -289,8 +289,211 @@ code {
   animation: challenge-pop 0.25s ease-out both;
 }
 
+/* Skipping a reaction costs no action point, so it is gold like every other
+   free action (the owner, 2026-09-08) — this is the one glow on the board with
+   an animation of its own rather than the shared --aura clock. */
 .skip-glow {
-  filter: drop-shadow(0 0 0.5cqw #4ade80) drop-shadow(0 0 0.2cqw #86efac);
+  filter: drop-shadow(0 0 0.5cqw #fbbf24) drop-shadow(0 0 0.2cqw #fde68a);
   animation: skip-pulse 1.4s ease-in-out infinite alternate;
 }
-@keyframes skip-pulse { to { filter: drop-shadow(0 0 0.8cqw #4ade80) drop-shadow(0 0 0.35cqw #86efac); } }
+@keyframes skip-pulse { to { filter: drop-shadow(0 0 0.8cqw #fbbf24) drop-shadow(0 0 0.35cqw #fcd34d); } }
+
+/* A red rim at the SCREEN's edge while a roll's
+   effect is aimed at the viewer, breathing on the same global --aura clock.
+   Sits over the board's own overlays and takes no clicks.
+
+   `svw`, not `cqw`: this rule is the only length in the file measured against
+   the WINDOW rather than the board stage, and it renders outside `.board-stage`
+   (the file's one container). Spelling it svw states that, instead of leaving
+   it resting on there happening to be no container in between.
+
+   Spread is held at or just above blur/2 on both layers, so the colour is at
+   full strength AT the edge and ramps to nothing about 2.7svw in — a rim with
+   a soft inner falloff. Alphas composite to ~0.36 at the edge, 30% under what
+   this rule shipped with (the owner, 2026-09-07: "30% less, and only on the
+   screen border"). To brighten it, raise both together — 0.42 / 0.19 is the
+   old intensity on the new geometry; anything above that is brighter than
+   before. */
+.target-vignette {
+  box-shadow:
+    inset 0 0 calc((0.9 + 0.3 * var(--aura)) * 1svw) calc((0.65 + 0.2 * var(--aura)) * 1svw)
+      rgba(180, 20, 20, 0.3),
+    inset 0 0 calc((2 + 0.7 * var(--aura)) * 1svw) calc((1 + 0.3 * var(--aura)) * 1svw)
+      rgba(120, 10, 10, 0.135);
+}
+
+/* WHOSE TURN IT IS, in two voices (the owner, 2026-09-08).
+
+   YOURS: a green rim on all four edges of the SCREEN — the red target
+   rim's geometry on the same --aura clock, so the two read as one
+   language. `svw`, not `cqw`: like the red rim this renders outside
+   `.board-stage`.
+
+   SOMEBODY ELSE'S: nothing on the screen at all. Their own corner of the
+   table lights instead — leader frame, hero frame and card stack — which
+   says WHOSE turn it is rather than merely that it is not yours. A rim
+   could never say that: an inset box-shadow's spread grows on every side
+   at once, so aiming one at a seat also lit three edges it does not sit
+   on. */
+.turn-vignette {
+  --turn-glow: 120, 245, 90;
+}
+
+.turn-side-all {
+  box-shadow:
+    inset 0 0 calc((1.1 + 0.35 * var(--aura)) * 1svw)
+      calc((0.5 + 0.15 * var(--aura)) * 1svw)
+      rgba(var(--turn-glow), 0.34),
+    inset 0 0 calc((2.4 + 0.8 * var(--aura)) * 1svw)
+      calc((0.9 + 0.25 * var(--aura)) * 1svw)
+      rgba(var(--turn-glow), 0.16);
+}
+
+/* The active seat's painted frames, WHITE (the owner, 2026-09-08): green is
+   the viewer's own turn and nothing else, so the two can never be confused
+   across the table. On the FRAME art rather than the widget box, so the glow
+   follows the painted edge the way a card's aura follows the card. */
+.turn-frame-aura {
+  filter: drop-shadow(0 0 calc((0.12 + 0.05 * var(--aura)) * 1cqw) rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 calc((0.35 + 0.15 * var(--aura)) * 1cqw) rgba(240, 245, 255, 0.8))
+    drop-shadow(0 0 calc((0.75 + 0.3 * var(--aura)) * 1cqw) rgba(215, 230, 255, 0.55));
+}
+
+/* The fan and a zoomed card come up over the middle of the board. A button
+   under them must not be what the eye lands on while you are reaching for a
+   card, and must not take a press meant for one (the owner, 2026-09-08):
+   Redraw and the reaction-window button stand down while either is up.
+
+   Three states, one rule: a fan following the cursor (`.hand-group:hover`,
+   the same test the aura rule above uses), a fan the PLAYER opened
+   (`.hand-open`, set by PlayerHand), and any card lifted into the zoom band
+   (`.is-zoomed`).
+
+   A fan the TABLE forced open is deliberately not one of them: a reaction
+   window opens it, and the button that brings that window back is one of the
+   two that would be standing down. */
+.board-stage:has(.hand-group:hover) .hud-yield,
+.board-stage:has(.hand-open) .hud-yield,
+.board-stage:has(.is-zoomed) .hud-yield {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A CHOICE is a question with a shortlist, and while one is open the board
+   shows only the answers (the owner, 2026-09-08). Every other glow goes out —
+   playable green, a passive's pink, an opponent's red, the gold of a free
+   action — so nothing competes with the cards you may actually press. The
+   target auras and the asking card's own aura are the choice, and stay.
+
+   Not merged with the `.targeting` rules above: those keep a reaction live
+   under a question, which is exactly what this turns off. */
+.choice-targeting .card-aura:not(.target-aura),
+.choice-targeting .passive-aura:not(.target-aura),
+.choice-targeting .ask-aura:not(.target-aura),
+.choice-targeting .enemy-aura:not(.target-aura),
+.choice-targeting .live-aura:not(.target-aura) {
+  filter: none;
+}
+.choice-targeting .skip-glow {
+  filter: none;
+  animation: none;
+}
+.choice-targeting .dice-glow,
+.choice-targeting .dice-glow-green {
+  box-shadow: none;
+}
+
+/* A card that has just arrived in the hand grows and settles back, so the
+   fan says WHICH card is new and not merely that one is (the owner,
+   2026-09-07). On the fan card's own wrapper, whose only other transform is
+   the hover zoom — the fan's placement lives on the cell above it.
+
+   Each card runs its OWN copy and retires its own id on `animationend`, so a
+   second card arriving mid-pop never cuts the first short; cards that arrive
+   together (Peanut's DRAW 2) are staggered by an inline `animation-delay` so
+   each pop is seen on its own. */
+@keyframes hand-arrival {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* No fill mode: the keyframes start and end at the resting scale, so the
+   card's own inline transform (the hover zoom) takes over the instant the
+   animation is done rather than being pinned by it. */
+.hand-arrival {
+  animation: hand-arrival 0.75s ease-out;
+}
+
+/* ---------------------------------------------------------------------------
+   AURAS OFF, one TONE at a time (settings). The board speaks in four colours
+   and the player switches off the ones they do not want read to them
+   (the owner, 2026-09-07):
+
+     PLAY    green — a card you may play for action points
+     EFFECT  pink  — a card whose standing rule is in force
+     TARGET  red   — an opponent acting, and the screen's rim aimed at you
+     INSTANT gold  — anything that costs NO action point: the thing the engine
+                     is asking you to press, and every reaction — modifiers,
+                     challenges, the skip button (the owner, 2026-09-08)
+
+   The targeting / challenge DIM is not a tone and stays either way: it says
+   which half of the table a card is being aimed at, not what any one card is
+   worth. Nor are the action-point gems, which are HUD chrome.
+
+   `filter` only. `animation` belongs to `.skip-glow` alone: every other glow
+   here reads the one `:root` clock and animates nothing of its own, so
+   cancelling animations wholesale also killed `hand-arrival`, which sits on
+   the same element as a hand card's aura — a drawn card that was PLAYABLE
+   stopped popping the moment auras went off.
+
+   Last in the file so each wins its tie. */
+
+/* --- PLAY (green) --- */
+.no-aura-play .card-aura {
+  filter: none;
+}
+.no-aura-play .dice-glow-green,
+.no-aura-play .challenge-glow-green {
+  box-shadow: none;
+}
+
+/* --- EFFECT (pink) --- */
+.no-aura-effect .passive-aura,
+.no-aura-effect .choice-source-aura {
+  filter: none;
+}
+
+/* --- TARGET (red) --- */
+.no-aura-target .enemy-aura {
+  filter: none;
+}
+.no-aura-target .dice-glow,
+.no-aura-target .challenge-glow-red,
+.no-aura-target .target-vignette {
+  box-shadow: none;
+}
+
+/* `.turn-vignette` is deliberately in NONE of the four: whose turn it is is not
+   a claim about a card, and a player who has switched every aura off still has
+   to know when to move. */
+
+/* --- INSTANT (gold) --- */
+.no-aura-instant .skip-glow {
+  animation: none;
+}
+.no-aura-instant .ask-aura,
+.no-aura-instant .live-aura,
+.no-aura-instant .skip-glow,
+.no-aura-instant .target-aura {
+  filter: none;
+}
+.no-aura-instant .challenge-glow-pick {
+  box-shadow: none;
+}

@@ -31,7 +31,11 @@ for await (const source of pngs(root)) {
   const version = createHash('sha256').update(sha256 + JSON.stringify(settings)).digest('hex').slice(0, 16);
   const dir = path.join(output, file, version);
   await mkdir(dir, { recursive: true });
-  const widths = [...new Set([...STAGE_PIXEL_HEIGHTS.map((h) => exportWidth(metadata, bounds, h)), width])];
+  // One export per image: the profile width, which for a background (no
+  // bounds) already IS the source width. The full-size copy is the PNG master
+  // sitting next to it — a second full-size webp would be 48 MB of duplicate
+  // (the owner, 2026-09-08).
+  const widths = [...new Set(STAGE_PIXEL_HEIGHTS.map((h) => exportWidth(metadata, bounds, h)))];
   const exports = new Map();
   for (const exportWidth of widths) {
     const name = `${exportWidth}w.webp`;
@@ -57,7 +61,9 @@ for await (const source of pngs(root)) {
   assets[`/${file}`] = {
     original: { url: `/${file}`, width, height, bytes: bytes.length, sha256 },
     largestViewAt1080: bounds,
-    fullSizeWebp: exports.get(width),
+    // What a client falls back to when it wants more than the profile: the
+    // profile itself when that is all there is, and the PNG master beyond it.
+    fullSizeWebp: exports.get(width) ?? variants[variants.length - 1],
     variants,
   };
   originalBytes += bytes.length;

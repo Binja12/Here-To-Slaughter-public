@@ -1,0 +1,4822 @@
+{
+  "schemaVersion": 1,
+  "settings": {
+    "quality": 90,
+    "effort": 5,
+    "kernel": "lanczos3",
+    "sharp": {
+      "aom": "3.14.1",
+      "archive": "3.8.9",
+      "cairo": "1.18.4",
+      "cgif": "0.5.3",
+      "exif": "0.6.26",
+      "expat": "2.8.3",
+      "ffi": "3.8.0",
+      "fontconfig": "2.18.3",
+      "freetype": "2.14.3",
+      "fribidi": "1.0.16",
+      "glib": "2.89.4",
+      "harfbuzz": "14.3.1",
+      "heif": "1.23.2",
+      "highway": "1.4.0",
+      "imagequant": "2.4.1",
+      "lcms": "2.19.1",
+      "mozjpeg": "0826579",
+      "pango": "1.58.2",
+      "pixman": "0.46.4",
+      "png": "1.6.58",
+      "proxy-libintl": "0.5",
+      "rsvg": "2.62.91",
+      "tiff": "4.7.2",
+      "uhdr": "2.0.2",
+      "vips": "8.18.6",
+      "webp": "1.6.0",
+      "xml2": "2.15.3",
+      "zlib-ng": "2.3.3",
+      "sharp": "0.35.4"
+    }
+  },
+  "selection": "stagePixelHeight = min(viewport CSS height, viewport CSS width * 9/16) * devicePixelRatio; choose the first profile >= this value; above 2160 use fullSizeWebp/original. Keep the chosen resolution during hover and overlays.",
+  "assets": {
+    "/board/Big Card Back.png": {
+      "original": {
+        "url": "/board/Big Card Back.png",
+        "width": 946,
+        "height": 1626,
+        "bytes": 3501968,
+        "sha256": "d999977096dd82c5b9c9c9a73d1ae4323a100a107de62fe232e28fbe17c2724d"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand stacks, deck piles and card overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Big Card Back.png/244e88ed81eec827/320w.webp",
+        "width": 320,
+        "height": 550,
+        "bytes": 74392
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Big Card Back.png/244e88ed81eec827/320w.webp",
+          "width": 320,
+          "height": 550,
+          "bytes": 74392
+        }
+      ]
+    },
+    "/board/Border Widgets/Action Point Gem.png": {
+      "original": {
+        "url": "/board/Border Widgets/Action Point Gem.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 1100911,
+        "sha256": "18e728b39cfb1c62a3f40056120d85917003be9c341d249cec08c64a802a2b68"
+      },
+      "largestViewAt1080": {
+        "width": 48,
+        "height": 48,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Action Point Gem.png/34035e3440371cd1/64w.webp",
+        "width": 64,
+        "height": 64,
+        "bytes": 2508
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Action Point Gem.png/34035e3440371cd1/64w.webp",
+          "width": 64,
+          "height": 64,
+          "bytes": 2508
+        }
+      ]
+    },
+    "/board/Border Widgets/Action Pointer Border.png": {
+      "original": {
+        "url": "/board/Border Widgets/Action Pointer Border.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 1208315,
+        "sha256": "cc70ea1d43552a54943a964f3dc950255d248369875959d076d912b052ba6824"
+      },
+      "largestViewAt1080": {
+        "width": 224,
+        "height": 56,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Action Pointer Border.png/ae0b4f8216c55ea3/192w.webp",
+        "width": 192,
+        "height": 48,
+        "bytes": 3272
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Action Pointer Border.png/ae0b4f8216c55ea3/192w.webp",
+          "width": 192,
+          "height": 48,
+          "bytes": 3272
+        }
+      ]
+    },
+    "/board/Border Widgets/Big Card Frame.png": {
+      "original": {
+        "url": "/board/Border Widgets/Big Card Frame.png",
+        "width": 956,
+        "height": 1645,
+        "bytes": 988145,
+        "sha256": "a56f567f1a5b2d36a568739be191624fea6baaf998b44a9da84a39cba92f6491"
+      },
+      "largestViewAt1080": {
+        "width": 192,
+        "height": 324,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Big Card Frame.png/c20afbdf1ce1802a/128w.webp",
+        "width": 128,
+        "height": 220,
+        "bytes": 8064
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Big Card Frame.png/c20afbdf1ce1802a/128w.webp",
+          "width": 128,
+          "height": 220,
+          "bytes": 8064
+        }
+      ]
+    },
+    "/board/Border Widgets/Center Border Frame.png": {
+      "original": {
+        "url": "/board/Border Widgets/Center Border Frame.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 2082727,
+        "sha256": "d2ba79825498791f0c948b8c9723319df71ebb72b8d0e83e4b05e3b285700128"
+      },
+      "largestViewAt1080": {
+        "width": 704,
+        "height": 704,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Center Border Frame.png/1199c2237ef322b0/512w.webp",
+        "width": 512,
+        "height": 512,
+        "bytes": 63888
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Center Border Frame.png/1199c2237ef322b0/512w.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 63888
+        }
+      ]
+    },
+    "/board/Border Widgets/Challenge Window Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Challenge Window Button.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 1156361,
+        "sha256": "f7ec5a667da711b53bde2a1f0100bd29ca6fe9f3903738e1265a6bac0d4ae1e2"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Challenge Window Button.png/725d3a6864c8d540/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 186228
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Challenge Window Button.png/725d3a6864c8d540/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 186228
+        }
+      ]
+    },
+    "/board/Border Widgets/Destroy Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Destroy Button.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1719220,
+        "sha256": "2b6569157e13110726260e507703e1e7179c6fcab4e2000633f6b891de8f97c6"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Destroy Button.png/6fce088381377c57/2172w.webp",
+        "width": 2172,
+        "height": 724,
+        "bytes": 281788
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Destroy Button.png/6fce088381377c57/2172w.webp",
+          "width": 2172,
+          "height": 724,
+          "bytes": 281788
+        }
+      ]
+    },
+    "/board/Border Widgets/Draw Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Draw Button.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 1132337,
+        "sha256": "0de3580a0fa9558ee74bcbf3030c2d1ee34f44651beb27e52d0244ccc6a709ef"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Draw Button.png/970e5c5f8867745d/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 179272
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Draw Button.png/970e5c5f8867745d/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 179272
+        }
+      ]
+    },
+    "/board/Border Widgets/End Turn Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/End Turn Button.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1528644,
+        "sha256": "0e3eac76790c984b3a8eb809c567bddb6b936e786935f1cc89b0aac07e0fbcf8"
+      },
+      "largestViewAt1080": {
+        "width": 180,
+        "height": 60,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/End Turn Button.png/858f57f824e3174b/128w.webp",
+        "width": 128,
+        "height": 43,
+        "bytes": 3696
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/End Turn Button.png/858f57f824e3174b/128w.webp",
+          "width": 128,
+          "height": 43,
+          "bytes": 3696
+        }
+      ]
+    },
+    "/board/Border Widgets/Forfeit Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Forfeit Button.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 1116058,
+        "sha256": "86818f117e4e059dd4107c20c5ce3ff1a5fa05998d21b7f3cb58760e03bb2966"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Forfeit Button.png/3c45a18d4b4937f4/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 176416
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Forfeit Button.png/3c45a18d4b4937f4/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 176416
+        }
+      ]
+    },
+    "/board/Border Widgets/Heroes Frame.png": {
+      "original": {
+        "url": "/board/Border Widgets/Heroes Frame.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1787084,
+        "sha256": "c0482875b8b8647d92f34cd2b9c4e7c1603992fd59dc6221252490722b5e1748"
+      },
+      "largestViewAt1080": {
+        "width": 1152,
+        "height": 384,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Heroes Frame.png/44af18153dd12b18/768w.webp",
+        "width": 768,
+        "height": 256,
+        "bytes": 25354
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Heroes Frame.png/44af18153dd12b18/768w.webp",
+          "width": 768,
+          "height": 256,
+          "bytes": 25354
+        }
+      ]
+    },
+    "/board/Border Widgets/Leader Card Frame.png": {
+      "original": {
+        "url": "/board/Border Widgets/Leader Card Frame.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 1934411,
+        "sha256": "918804ce602c8d6bc8fad861651f9dc3a995249d40b3a6ef3828d449be5af4ae"
+      },
+      "largestViewAt1080": {
+        "width": 336,
+        "height": 504,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Leader Card Frame.png/a71f9b34c3ac1e20/256w.webp",
+        "width": 256,
+        "height": 384,
+        "bytes": 12906
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Leader Card Frame.png/a71f9b34c3ac1e20/256w.webp",
+          "width": 256,
+          "height": 384,
+          "bytes": 12906
+        }
+      ]
+    },
+    "/board/Border Widgets/Modifier Window Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Modifier Window Button.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 1140194,
+        "sha256": "6fb5d85383c5adb4b90492da46861431ffd2264495600e8c54bcf8bccde07fe4"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Modifier Window Button.png/d279ee1c544e5073/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 185456
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Modifier Window Button.png/d279ee1c544e5073/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 185456
+        }
+      ]
+    },
+    "/board/Border Widgets/Redraw Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Redraw Button.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1376163,
+        "sha256": "12629e1c8ab10d4a7fbe15be1c56f09b242ff5f4081138d6cf893867aa6ca36e"
+      },
+      "largestViewAt1080": {
+        "width": 180,
+        "height": 60,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Redraw Button.png/aaa9ffeb885bedc3/128w.webp",
+        "width": 128,
+        "height": 43,
+        "bytes": 3504
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Redraw Button.png/aaa9ffeb885bedc3/128w.webp",
+          "width": 128,
+          "height": 43,
+          "bytes": 3504
+        }
+      ]
+    },
+    "/board/Border Widgets/settings button.png": {
+      "original": {
+        "url": "/board/Border Widgets/settings button.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 1584067,
+        "sha256": "98679dc51db802d4eec7aa4440c0e09ce213eda34608bb88e41dcc1fff58ede6"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/settings button.png/cced3d34e32ba928/1254w.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 226422
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/settings button.png/cced3d34e32ba928/1254w.webp",
+          "width": 1254,
+          "height": 1254,
+          "bytes": 226422
+        }
+      ]
+    },
+    "/board/Border Widgets/Skip Reaction Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Skip Reaction Button.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1701499,
+        "sha256": "a51965856ef09361f716135170b3d54b0edd58fe5ff0e0bf2cc69770110c6e7e"
+      },
+      "largestViewAt1080": {
+        "width": 180,
+        "height": 60,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Skip Reaction Button.png/4c6b11ac81f2e455/128w.webp",
+        "width": 128,
+        "height": 43,
+        "bytes": 3876
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Skip Reaction Button.png/4c6b11ac81f2e455/128w.webp",
+          "width": 128,
+          "height": 43,
+          "bytes": 3876
+        }
+      ]
+    },
+    "/board/Border Widgets/Small Card Back Frame.png": {
+      "original": {
+        "url": "/board/Border Widgets/Small Card Back Frame.png",
+        "width": 1060,
+        "height": 1484,
+        "bytes": 1660087,
+        "sha256": "493e7b698b991a4f7ff5a862ca0c745aec62df85a04e1e4b7a4617e662edfb97"
+      },
+      "largestViewAt1080": {
+        "width": 288,
+        "height": 400,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Small Card Back Frame.png/c1f1c93a071c797c/192w.webp",
+        "width": 192,
+        "height": 269,
+        "bytes": 10214
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Small Card Back Frame.png/c1f1c93a071c797c/192w.webp",
+          "width": 192,
+          "height": 269,
+          "bytes": 10214
+        }
+      ]
+    },
+    "/board/Border Widgets/Steal Button.png": {
+      "original": {
+        "url": "/board/Border Widgets/Steal Button.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1652205,
+        "sha256": "a2c59c32c31b331d9ea8167a5b9d904d87d929861b02e420dab3c72332d76bff"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Steal Button.png/8413f447998803f6/2172w.webp",
+        "width": 2172,
+        "height": 724,
+        "bytes": 264200
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Steal Button.png/8413f447998803f6/2172w.webp",
+          "width": 2172,
+          "height": 724,
+          "bytes": 264200
+        }
+      ]
+    },
+    "/board/Border Widgets/Table Background.png": {
+      "original": {
+        "url": "/board/Border Widgets/Table Background.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 1787417,
+        "sha256": "e0704e6bf29828bd1041705c77112c036ee64256fe20b76e41193df7880371a8"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Border Widgets/Table Background.png/d018d4d7fc830a41/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 149772
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Table Background.png/d018d4d7fc830a41/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 149772
+        }
+      ]
+    },
+    "/board/Border Widgets/Your Turn Show.png": {
+      "original": {
+        "url": "/board/Border Widgets/Your Turn Show.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 1019554,
+        "sha256": "153664eae016f6248d43d4b1e131288de9972e48af9b1a4dafdb4d5639a4e29b"
+      },
+      "largestViewAt1080": {
+        "width": 272,
+        "height": 68,
+        "reason": "layout.ts widget envelope, including button hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Border Widgets/Your Turn Show.png/9e69151f6ea6d13d/192w.webp",
+        "width": 192,
+        "height": 48,
+        "bytes": 3468
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Border Widgets/Your Turn Show.png/9e69151f6ea6d13d/192w.webp",
+          "width": 192,
+          "height": 48,
+          "bytes": 3468
+        }
+      ]
+    },
+    "/board/card-back.png": {
+      "original": {
+        "url": "/board/card-back.png",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 163817,
+        "sha256": "e6338cb67cf0c35e0bac04af6c040fcb92d8d6eed80b2f03fcfa4a08c3c5d3e9"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand stacks, deck piles and card overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/card-back.png/a9f103828f48f5fc/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 5972
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/card-back.png/a9f103828f48f5fc/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 5972
+        }
+      ]
+    },
+    "/board/challenge/Challenge Basic.png": {
+      "original": {
+        "url": "/board/challenge/Challenge Basic.png",
+        "width": 1064,
+        "height": 1430,
+        "bytes": 4529494,
+        "sha256": "2859ed0650ab34649d7fdf5b1cf5ac356b77de2d5a724980a58cbb69c0ddab36"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/challenge/Challenge Basic.png/e4978c3a6dead42c/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 68956
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/challenge/Challenge Basic.png/e4978c3a6dead42c/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 68956
+        }
+      ]
+    },
+    "/board/Dice/dice_face_1.png": {
+      "original": {
+        "url": "/board/Dice/dice_face_1.png",
+        "width": 351,
+        "height": 356,
+        "bytes": 267956,
+        "sha256": "7d3e05166fdb62138c38635867e706f1fdc12f267d36f45c95ca72a9ec76935a"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "dice toss, perspective and 1.04x bounce"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Dice/dice_face_1.png/36b206730904e061/128w.webp",
+        "width": 128,
+        "height": 130,
+        "bytes": 7444
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Dice/dice_face_1.png/36b206730904e061/128w.webp",
+          "width": 128,
+          "height": 130,
+          "bytes": 7444
+        }
+      ]
+    },
+    "/board/Dice/dice_face_2.png": {
+      "original": {
+        "url": "/board/Dice/dice_face_2.png",
+        "width": 351,
+        "height": 356,
+        "bytes": 267906,
+        "sha256": "847f76022f07551dac97954cee765dee3da96a9c0597bac60c0eb51c2ae4e204"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "dice toss, perspective and 1.04x bounce"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Dice/dice_face_2.png/dbaf50a3ca840f96/128w.webp",
+        "width": 128,
+        "height": 130,
+        "bytes": 7462
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Dice/dice_face_2.png/dbaf50a3ca840f96/128w.webp",
+          "width": 128,
+          "height": 130,
+          "bytes": 7462
+        }
+      ]
+    },
+    "/board/Dice/dice_face_3.png": {
+      "original": {
+        "url": "/board/Dice/dice_face_3.png",
+        "width": 351,
+        "height": 356,
+        "bytes": 266237,
+        "sha256": "742e67c0e5fed8b0ec3c7d927d9625c575d2ce06c9adcff8066ec7b0b753e237"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "dice toss, perspective and 1.04x bounce"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Dice/dice_face_3.png/313e40fc13df84db/128w.webp",
+        "width": 128,
+        "height": 130,
+        "bytes": 7556
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Dice/dice_face_3.png/313e40fc13df84db/128w.webp",
+          "width": 128,
+          "height": 130,
+          "bytes": 7556
+        }
+      ]
+    },
+    "/board/Dice/dice_face_4.png": {
+      "original": {
+        "url": "/board/Dice/dice_face_4.png",
+        "width": 351,
+        "height": 356,
+        "bytes": 266720,
+        "sha256": "77da24707157e544163687b3ddd683d39c84ed24f8faa61e3555be0d2a10f28a"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "dice toss, perspective and 1.04x bounce"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Dice/dice_face_4.png/319176b73ece51eb/128w.webp",
+        "width": 128,
+        "height": 130,
+        "bytes": 7804
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Dice/dice_face_4.png/319176b73ece51eb/128w.webp",
+          "width": 128,
+          "height": 130,
+          "bytes": 7804
+        }
+      ]
+    },
+    "/board/Dice/dice_face_5.png": {
+      "original": {
+        "url": "/board/Dice/dice_face_5.png",
+        "width": 351,
+        "height": 356,
+        "bytes": 265863,
+        "sha256": "941a6e4948246cfd8287a839f735bb9d32f5bf525cca3e30f6e812766880af8d"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "dice toss, perspective and 1.04x bounce"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Dice/dice_face_5.png/f97b2ce39eec621f/128w.webp",
+        "width": 128,
+        "height": 130,
+        "bytes": 7914
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Dice/dice_face_5.png/f97b2ce39eec621f/128w.webp",
+          "width": 128,
+          "height": 130,
+          "bytes": 7914
+        }
+      ]
+    },
+    "/board/Dice/dice_face_6.png": {
+      "original": {
+        "url": "/board/Dice/dice_face_6.png",
+        "width": 351,
+        "height": 356,
+        "bytes": 265896,
+        "sha256": "159de96ac04d3467055a89d97d77760fb6dd6ca1fc7660c3f6967c70ee6d40f9"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "dice toss, perspective and 1.04x bounce"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Dice/dice_face_6.png/74138bb95f096eed/128w.webp",
+        "width": 128,
+        "height": 130,
+        "bytes": 8002
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Dice/dice_face_6.png/74138bb95f096eed/128w.webp",
+          "width": 128,
+          "height": 130,
+          "bytes": 8002
+        }
+      ]
+    },
+    "/board/Discard Pile/All Button.png": {
+      "original": {
+        "url": "/board/Discard Pile/All Button.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 864681,
+        "sha256": "0b26c6df6079943de299a1f20e42a6699ae12c4d991be1dec380e45d647a148a"
+      },
+      "largestViewAt1080": {
+        "width": 384,
+        "height": 96,
+        "reason": "discard plaque canvas, inkScale and 1.06x hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Discard Pile/All Button.png/f1db4a261184935b/256w.webp",
+        "width": 256,
+        "height": 64,
+        "bytes": 3402
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/All Button.png/f1db4a261184935b/256w.webp",
+          "width": 256,
+          "height": 64,
+          "bytes": 3402
+        }
+      ]
+    },
+    "/board/Discard Pile/Challenge Button.png": {
+      "original": {
+        "url": "/board/Discard Pile/Challenge Button.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 906899,
+        "sha256": "3d53be7f64c4d95f7f4633a6a10fbef08d3de099fe3419ec23ac49811a982203"
+      },
+      "largestViewAt1080": {
+        "width": 384,
+        "height": 96,
+        "reason": "discard plaque canvas, inkScale and 1.06x hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Discard Pile/Challenge Button.png/ae99d8a60c6dfc05/256w.webp",
+        "width": 256,
+        "height": 64,
+        "bytes": 5294
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/Challenge Button.png/ae99d8a60c6dfc05/256w.webp",
+          "width": 256,
+          "height": 64,
+          "bytes": 5294
+        }
+      ]
+    },
+    "/board/Discard Pile/Hero Button.png": {
+      "original": {
+        "url": "/board/Discard Pile/Hero Button.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 1028707,
+        "sha256": "97aa91c347a26c1fcf209e42eef401d3e4913fcd395f905a41cdaf42bf7ca7f4"
+      },
+      "largestViewAt1080": {
+        "width": 384,
+        "height": 96,
+        "reason": "discard plaque canvas, inkScale and 1.06x hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Discard Pile/Hero Button.png/b641c993cb448a79/256w.webp",
+        "width": 256,
+        "height": 64,
+        "bytes": 4092
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/Hero Button.png/b641c993cb448a79/256w.webp",
+          "width": 256,
+          "height": 64,
+          "bytes": 4092
+        }
+      ]
+    },
+    "/board/Discard Pile/Item Button.png": {
+      "original": {
+        "url": "/board/Discard Pile/Item Button.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 973278,
+        "sha256": "2f9832171ae543606b52e869cd3fe8a31e7c290f93f5f05e6dcc39c8c5501f7c"
+      },
+      "largestViewAt1080": {
+        "width": 384,
+        "height": 96,
+        "reason": "discard plaque canvas, inkScale and 1.06x hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Discard Pile/Item Button.png/3027d16d7ed5fb3b/256w.webp",
+        "width": 256,
+        "height": 64,
+        "bytes": 3598
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/Item Button.png/3027d16d7ed5fb3b/256w.webp",
+          "width": 256,
+          "height": 64,
+          "bytes": 3598
+        }
+      ]
+    },
+    "/board/Discard Pile/Magic Button.png": {
+      "original": {
+        "url": "/board/Discard Pile/Magic Button.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 934251,
+        "sha256": "07b1680b32b675c7840c8100589ba54d086002d9335c23511f5c5485c03ee01b"
+      },
+      "largestViewAt1080": {
+        "width": 384,
+        "height": 96,
+        "reason": "discard plaque canvas, inkScale and 1.06x hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Discard Pile/Magic Button.png/56e326ba94d5f707/256w.webp",
+        "width": 256,
+        "height": 64,
+        "bytes": 4068
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/Magic Button.png/56e326ba94d5f707/256w.webp",
+          "width": 256,
+          "height": 64,
+          "bytes": 4068
+        }
+      ]
+    },
+    "/board/Discard Pile/Modifier Button.png": {
+      "original": {
+        "url": "/board/Discard Pile/Modifier Button.png",
+        "width": 2508,
+        "height": 627,
+        "bytes": 865599,
+        "sha256": "57fcd346bac70fd6177bd4ee89a19595953cb3ed1e68b24661cd770b4594d553"
+      },
+      "largestViewAt1080": {
+        "width": 384,
+        "height": 96,
+        "reason": "discard plaque canvas, inkScale and 1.06x hover"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Discard Pile/Modifier Button.png/a39f643f538ca8b2/256w.webp",
+        "width": 256,
+        "height": 64,
+        "bytes": 4334
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/Modifier Button.png/a39f643f538ca8b2/256w.webp",
+          "width": 256,
+          "height": 64,
+          "bytes": 4334
+        }
+      ]
+    },
+    "/board/Discard Pile/Pile Border.png": {
+      "original": {
+        "url": "/board/Discard Pile/Pile Border.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 2024519,
+        "sha256": "364a4d40cde2ce165f30eefdde190d69d80fe5be056a68277d4aa2fc2438c8c4"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/board/Discard Pile/Pile Border.png/e741333eecfe2e3e/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 181366
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Discard Pile/Pile Border.png/e741333eecfe2e3e/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 181366
+        }
+      ]
+    },
+    "/board/heroes/Hero Bad Axe.png": {
+      "original": {
+        "url": "/board/heroes/Hero Bad Axe.png",
+        "width": 1076,
+        "height": 1434,
+        "bytes": 4191873,
+        "sha256": "56abeb08ddc6b8cb7b643d667c0a317d44e0a05b5924a268f798ee63c2b5734b"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Bad Axe.png/f1b6c156cc597225/320w.webp",
+        "width": 320,
+        "height": 426,
+        "bytes": 58132
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Bad Axe.png/f1b6c156cc597225/320w.webp",
+          "width": 320,
+          "height": 426,
+          "bytes": 58132
+        }
+      ]
+    },
+    "/board/heroes/Hero Bear Claw.png": {
+      "original": {
+        "url": "/board/heroes/Hero Bear Claw.png",
+        "width": 1066,
+        "height": 1432,
+        "bytes": 4250628,
+        "sha256": "8060fb595f6c61c9cd361b3c506db5a2d44fa4df051aaec415208c905b24a52b"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Bear Claw.png/77cacd3196d2dd65/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 64548
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Bear Claw.png/77cacd3196d2dd65/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 64548
+        }
+      ]
+    },
+    "/board/heroes/Hero Breay Wise.png": {
+      "original": {
+        "url": "/board/heroes/Hero Breay Wise.png",
+        "width": 1069,
+        "height": 1434,
+        "bytes": 4300706,
+        "sha256": "542cc5c8077443f181f53ad27d15ac1ec781a702c9bc4af743ab99ca058b78d9"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Breay Wise.png/aa17c4568f01d431/320w.webp",
+        "width": 320,
+        "height": 429,
+        "bytes": 63556
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Breay Wise.png/aa17c4568f01d431/320w.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 63556
+        }
+      ]
+    },
+    "/board/heroes/Hero Bullseye.png": {
+      "original": {
+        "url": "/board/heroes/Hero Bullseye.png",
+        "width": 1065,
+        "height": 1431,
+        "bytes": 4140586,
+        "sha256": "84bf9c68325feb28d4e2a5525089d002302f655de6dda6eb2b3ca9ddc732fa08"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Bullseye.png/e75b8431885f634b/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 60564
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Bullseye.png/e75b8431885f634b/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 60564
+        }
+      ]
+    },
+    "/board/heroes/Hero Bun Bun.png": {
+      "original": {
+        "url": "/board/heroes/Hero Bun Bun.png",
+        "width": 1052,
+        "height": 1425,
+        "bytes": 4188339,
+        "sha256": "a4322647e51b0dce4884e9fdf5eb1af0f3747016376e9d1e059410b639457c56"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Bun Bun.png/3f311fa234f9fad1/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 59320
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Bun Bun.png/3f311fa234f9fad1/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 59320
+        }
+      ]
+    },
+    "/board/heroes/Hero Buttons.png": {
+      "original": {
+        "url": "/board/heroes/Hero Buttons.png",
+        "width": 1056,
+        "height": 1428,
+        "bytes": 4352019,
+        "sha256": "d35389efea68ba4decb8d483acb60a323fd5dc73a583114056ee293cb941b9de"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Buttons.png/b54f1ebd801cee36/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 62254
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Buttons.png/b54f1ebd801cee36/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 62254
+        }
+      ]
+    },
+    "/board/heroes/Hero Calming Voice.png": {
+      "original": {
+        "url": "/board/heroes/Hero Calming Voice.png",
+        "width": 1047,
+        "height": 1473,
+        "bytes": 4267128,
+        "sha256": "235eb9928fb957bc838e636433b0a2f3be1835a2b0e761a959509832256e66c8"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Calming Voice.png/61cb39b427ea3339/320w.webp",
+        "width": 320,
+        "height": 450,
+        "bytes": 63840
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Calming Voice.png/61cb39b427ea3339/320w.webp",
+          "width": 320,
+          "height": 450,
+          "bytes": 63840
+        }
+      ]
+    },
+    "/board/heroes/Hero Dodgy Dealer.png": {
+      "original": {
+        "url": "/board/heroes/Hero Dodgy Dealer.png",
+        "width": 1041,
+        "height": 1471,
+        "bytes": 3957002,
+        "sha256": "11dce2141e3af030b162af1681700c66087792abbe067d594e31af39038efd94"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Dodgy Dealer.png/f61deb60a580e9be/320w.webp",
+        "width": 320,
+        "height": 452,
+        "bytes": 52598
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Dodgy Dealer.png/f61deb60a580e9be/320w.webp",
+          "width": 320,
+          "height": 452,
+          "bytes": 52598
+        }
+      ]
+    },
+    "/board/heroes/Hero Fluffy.png": {
+      "original": {
+        "url": "/board/heroes/Hero Fluffy.png",
+        "width": 1055,
+        "height": 1427,
+        "bytes": 4382748,
+        "sha256": "b4ada5bc6f5509c05cf37d1b7321d869334e157e4a2e620bdc398080258c8182"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Fluffy.png/95bbcb49422dfe6c/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 57380
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Fluffy.png/95bbcb49422dfe6c/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 57380
+        }
+      ]
+    },
+    "/board/heroes/Hero Fury Knuckle.png": {
+      "original": {
+        "url": "/board/heroes/Hero Fury Knuckle.png",
+        "width": 1075,
+        "height": 1434,
+        "bytes": 4443689,
+        "sha256": "6679b6960b6c710b665f9f3eed19ef9b15c96120007809e4ff94160fea1b5829"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Fury Knuckle.png/3077ffe01f16c3b0/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 64772
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Fury Knuckle.png/3077ffe01f16c3b0/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 64772
+        }
+      ]
+    },
+    "/board/heroes/Hero Fuzzy Cheeks.png": {
+      "original": {
+        "url": "/board/heroes/Hero Fuzzy Cheeks.png",
+        "width": 1042,
+        "height": 1471,
+        "bytes": 4114587,
+        "sha256": "2356d8a1883b4e669e396be7a268a31b53942522ace19b55a3a85684d7a28bea"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Fuzzy Cheeks.png/5d00b3c3bc18543d/320w.webp",
+        "width": 320,
+        "height": 452,
+        "bytes": 57572
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Fuzzy Cheeks.png/5d00b3c3bc18543d/320w.webp",
+          "width": 320,
+          "height": 452,
+          "bytes": 57572
+        }
+      ]
+    },
+    "/board/heroes/Hero Greedy Cheeks.png": {
+      "original": {
+        "url": "/board/heroes/Hero Greedy Cheeks.png",
+        "width": 1042,
+        "height": 1473,
+        "bytes": 4159904,
+        "sha256": "b4e4297acb45f321d818bfc202f7c1c1af34e613289ae6751208d719e198dc6d"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Greedy Cheeks.png/c108157a33118d8c/320w.webp",
+        "width": 320,
+        "height": 452,
+        "bytes": 58294
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Greedy Cheeks.png/c108157a33118d8c/320w.webp",
+          "width": 320,
+          "height": 452,
+          "bytes": 58294
+        }
+      ]
+    },
+    "/board/heroes/Hero Guardian Light.png": {
+      "original": {
+        "url": "/board/heroes/Hero Guardian Light.png",
+        "width": 1043,
+        "height": 1479,
+        "bytes": 4381324,
+        "sha256": "0b93bdb321e18541cc93dc4a10b6bdabecfe98fb848f7caafa0d29c60a6b6658"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Guardian Light.png/32a94777a93da857/320w.webp",
+        "width": 320,
+        "height": 454,
+        "bytes": 66510
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Guardian Light.png/32a94777a93da857/320w.webp",
+          "width": 320,
+          "height": 454,
+          "bytes": 66510
+        }
+      ]
+    },
+    "/board/heroes/Hero Heavy Bear.png": {
+      "original": {
+        "url": "/board/heroes/Hero Heavy Bear.png",
+        "width": 1076,
+        "height": 1436,
+        "bytes": 4409276,
+        "sha256": "a6e32fd977a3ea05c97be5db5553113e3178991d4b37a30eabe31eba755d1c43"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Heavy Bear.png/665c1a9210b822e6/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 63128
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Heavy Bear.png/665c1a9210b822e6/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 63128
+        }
+      ]
+    },
+    "/board/heroes/Hero Holy Curselifter.png": {
+      "original": {
+        "url": "/board/heroes/Hero Holy Curselifter.png",
+        "width": 1048,
+        "height": 1472,
+        "bytes": 4266444,
+        "sha256": "f094333418c92e5e6c55069404581202afc2478ce434c37d2e4772a9384a4c6e"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Holy Curselifter.png/6c22d16d2434b33e/320w.webp",
+        "width": 320,
+        "height": 449,
+        "bytes": 62098
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Holy Curselifter.png/6c22d16d2434b33e/320w.webp",
+          "width": 320,
+          "height": 449,
+          "bytes": 62098
+        }
+      ]
+    },
+    "/board/heroes/Hero Hook.png": {
+      "original": {
+        "url": "/board/heroes/Hero Hook.png",
+        "width": 1048,
+        "height": 1415,
+        "bytes": 4054111,
+        "sha256": "4eaf9c27f1af759902fd3bbddbd41c9417c2242fff55a3a1aae4ea17bda94b07"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Hook.png/209010fa81a559b1/320w.webp",
+        "width": 320,
+        "height": 432,
+        "bytes": 58786
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Hook.png/209010fa81a559b1/320w.webp",
+          "width": 320,
+          "height": 432,
+          "bytes": 58786
+        }
+      ]
+    },
+    "/board/heroes/Hero Hopper.png": {
+      "original": {
+        "url": "/board/heroes/Hero Hopper.png",
+        "width": 1052,
+        "height": 1424,
+        "bytes": 4226969,
+        "sha256": "ce093742cd2aaeaf9cf503ad906e202bfe9f6bd6f4d7796ba8907957ebbeff87"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Hopper.png/6537a99780704535/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 58090
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Hopper.png/6537a99780704535/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 58090
+        }
+      ]
+    },
+    "/board/heroes/Hero Iron Resolve.png": {
+      "original": {
+        "url": "/board/heroes/Hero Iron Resolve.png",
+        "width": 1047,
+        "height": 1473,
+        "bytes": 4247318,
+        "sha256": "43dcd9dc812032c665802e7f794e24406f3a3101d254097dd3cdf0e0fb0a7dd9"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Iron Resolve.png/6a552ca11e82d721/320w.webp",
+        "width": 320,
+        "height": 450,
+        "bytes": 60642
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Iron Resolve.png/6a552ca11e82d721/320w.webp",
+          "width": 320,
+          "height": 450,
+          "bytes": 60642
+        }
+      ]
+    },
+    "/board/heroes/Hero Kit Napper.png": {
+      "original": {
+        "url": "/board/heroes/Hero Kit Napper.png",
+        "width": 991,
+        "height": 1520,
+        "bytes": 3969449,
+        "sha256": "dc40489cba79c3244cd42611efe05c1f9b9bfbda73de73014a3327f6824350ca"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Kit Napper.png/433b5253c4cc9ca3/320w.webp",
+        "width": 320,
+        "height": 491,
+        "bytes": 67014
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Kit Napper.png/433b5253c4cc9ca3/320w.webp",
+          "width": 320,
+          "height": 491,
+          "bytes": 67014
+        }
+      ]
+    },
+    "/board/heroes/Hero Lookie Rookie.png": {
+      "original": {
+        "url": "/board/heroes/Hero Lookie Rookie.png",
+        "width": 1058,
+        "height": 1426,
+        "bytes": 4041376,
+        "sha256": "08dc01bebd81bd2ba669b28f08fa50677e62136a1ab9df36bd642f1a38fb0fab"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Lookie Rookie.png/b6441650149442b7/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 55898
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Lookie Rookie.png/b6441650149442b7/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 55898
+        }
+      ]
+    },
+    "/board/heroes/Hero Lucky Bucky.png": {
+      "original": {
+        "url": "/board/heroes/Hero Lucky Bucky.png",
+        "width": 1031,
+        "height": 1458,
+        "bytes": 4271517,
+        "sha256": "f6d8008562507109ed6d86445a777b214adbc6f14c16a77e04817cb6cafdc132"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Lucky Bucky.png/604b87c604d9f841/320w.webp",
+        "width": 320,
+        "height": 453,
+        "bytes": 62570
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Lucky Bucky.png/604b87c604d9f841/320w.webp",
+          "width": 320,
+          "height": 453,
+          "bytes": 62570
+        }
+      ]
+    },
+    "/board/heroes/Hero Mellow Dee.png": {
+      "original": {
+        "url": "/board/heroes/Hero Mellow Dee.png",
+        "width": 1043,
+        "height": 1474,
+        "bytes": 4306107,
+        "sha256": "e9bebe511172cdaa0f1c8f3153e968a9c9b933fcf69dc45c88a0ab33e22a0c1d"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Mellow Dee.png/688fc2d163aca1ab/320w.webp",
+        "width": 320,
+        "height": 452,
+        "bytes": 59294
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Mellow Dee.png/688fc2d163aca1ab/320w.webp",
+          "width": 320,
+          "height": 452,
+          "bytes": 59294
+        }
+      ]
+    },
+    "/board/heroes/Hero Meowzio.png": {
+      "original": {
+        "url": "/board/heroes/Hero Meowzio.png",
+        "width": 989,
+        "height": 1520,
+        "bytes": 3948153,
+        "sha256": "1ae5efbe65510c47429fdb9b9fd9012d290b6cc4cc9031e5b26c64eae649cb00"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Meowzio.png/11f62b6be52b7daf/320w.webp",
+        "width": 320,
+        "height": 492,
+        "bytes": 63876
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Meowzio.png/11f62b6be52b7daf/320w.webp",
+          "width": 320,
+          "height": 492,
+          "bytes": 63876
+        }
+      ]
+    },
+    "/board/heroes/Hero Mighty Blade.png": {
+      "original": {
+        "url": "/board/heroes/Hero Mighty Blade.png",
+        "width": 1046,
+        "height": 1477,
+        "bytes": 4147975,
+        "sha256": "fdbd0c795a73ddf2360a32c7b7c97cae5b8101701c422ca80b065fdfd174aa2b"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Mighty Blade.png/459710c87364cb84/320w.webp",
+        "width": 320,
+        "height": 452,
+        "bytes": 62584
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Mighty Blade.png/459710c87364cb84/320w.webp",
+          "width": 320,
+          "height": 452,
+          "bytes": 62584
+        }
+      ]
+    },
+    "/board/heroes/Hero Napping Nibbles.png": {
+      "original": {
+        "url": "/board/heroes/Hero Napping Nibbles.png",
+        "width": 1044,
+        "height": 1475,
+        "bytes": 3951830,
+        "sha256": "b8bc9adf315b0645e0757b67c28933c14a33f2b525b9798e9e8d59ac0a7cae4e"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Napping Nibbles.png/9427c32ff6027878/320w.webp",
+        "width": 320,
+        "height": 452,
+        "bytes": 50312
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Napping Nibbles.png/9427c32ff6027878/320w.webp",
+          "width": 320,
+          "height": 452,
+          "bytes": 50312
+        }
+      ]
+    },
+    "/board/heroes/Hero Pan Chucks.png": {
+      "original": {
+        "url": "/board/heroes/Hero Pan Chucks.png",
+        "width": 1066,
+        "height": 1438,
+        "bytes": 4398999,
+        "sha256": "7249fcfa47fc8132c7b2a0ea04b2bf0470cb7f3b33dd760df492d700f6513b2e"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Pan Chucks.png/7314426f77568921/320w.webp",
+        "width": 320,
+        "height": 432,
+        "bytes": 64342
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Pan Chucks.png/7314426f77568921/320w.webp",
+          "width": 320,
+          "height": 432,
+          "bytes": 64342
+        }
+      ]
+    },
+    "/board/heroes/Hero Peanut.png": {
+      "original": {
+        "url": "/board/heroes/Hero Peanut.png",
+        "width": 1044,
+        "height": 1467,
+        "bytes": 4223623,
+        "sha256": "5fa65582dcc2925c79de6b7cdec1335fcca32dca01e0d85135e3b5c722875d6f"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Peanut.png/78e6aebaa1367428/320w.webp",
+        "width": 320,
+        "height": 450,
+        "bytes": 56896
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Peanut.png/78e6aebaa1367428/320w.webp",
+          "width": 320,
+          "height": 450,
+          "bytes": 56896
+        }
+      ]
+    },
+    "/board/heroes/Hero Plundering Puma.png": {
+      "original": {
+        "url": "/board/heroes/Hero Plundering Puma.png",
+        "width": 991,
+        "height": 1520,
+        "bytes": 3981770,
+        "sha256": "c0064b3faf6fa368fecd9e121c207ccda52ff202bb2339097e742a28e4de59a4"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Plundering Puma.png/a85092201102339d/320w.webp",
+        "width": 320,
+        "height": 491,
+        "bytes": 65406
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Plundering Puma.png/a85092201102339d/320w.webp",
+          "width": 320,
+          "height": 491,
+          "bytes": 65406
+        }
+      ]
+    },
+    "/board/heroes/Hero Qi Bear.png": {
+      "original": {
+        "url": "/board/heroes/Hero Qi Bear.png",
+        "width": 1068,
+        "height": 1425,
+        "bytes": 4184103,
+        "sha256": "de662f47f6eb5523c32f14089f14da63a55a23dc546dbce3add1f004b47e4e84"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Qi Bear.png/fc6472fb77bb0e33/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 59498
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Qi Bear.png/fc6472fb77bb0e33/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 59498
+        }
+      ]
+    },
+    "/board/heroes/Hero Quick Draw.png": {
+      "original": {
+        "url": "/board/heroes/Hero Quick Draw.png",
+        "width": 1062,
+        "height": 1430,
+        "bytes": 4150622,
+        "sha256": "219f6236a29ba17316abf02bffbeefe1f9b33bcce227b690dca85ed0506ac763"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Quick Draw.png/ec04799124510db7/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 60782
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Quick Draw.png/ec04799124510db7/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 60782
+        }
+      ]
+    },
+    "/board/heroes/Hero Radiant Horn.png": {
+      "original": {
+        "url": "/board/heroes/Hero Radiant Horn.png",
+        "width": 1046,
+        "height": 1473,
+        "bytes": 4066715,
+        "sha256": "dd25590339a710cdbcd3e5cc7f3ddfe47cf4d52e85dd931d003710cb8d55527f"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Radiant Horn.png/807529e20c41f70d/320w.webp",
+        "width": 320,
+        "height": 451,
+        "bytes": 56812
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Radiant Horn.png/807529e20c41f70d/320w.webp",
+          "width": 320,
+          "height": 451,
+          "bytes": 56812
+        }
+      ]
+    },
+    "/board/heroes/Hero Serious Grey.png": {
+      "original": {
+        "url": "/board/heroes/Hero Serious Grey.png",
+        "width": 1065,
+        "height": 1432,
+        "bytes": 4017694,
+        "sha256": "cd56f5bbc944342592f3455f2797b9a3650e968f5c16719e20b34d53febee1fc"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Serious Grey.png/ae9d239454dad546/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 55736
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Serious Grey.png/ae9d239454dad546/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 55736
+        }
+      ]
+    },
+    "/board/heroes/Hero Sharp Fox.png": {
+      "original": {
+        "url": "/board/heroes/Hero Sharp Fox.png",
+        "width": 1064,
+        "height": 1432,
+        "bytes": 4018782,
+        "sha256": "6f58dbbca49d8fe76b8ea3eda54ad6be150b4f0c9931804f64a4d3f118fa7cec"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Sharp Fox.png/30e4f9b4a6e1406a/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 57096
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Sharp Fox.png/30e4f9b4a6e1406a/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 57096
+        }
+      ]
+    },
+    "/board/heroes/Hero Shurikitty.png": {
+      "original": {
+        "url": "/board/heroes/Hero Shurikitty.png",
+        "width": 994,
+        "height": 1518,
+        "bytes": 4279443,
+        "sha256": "29ecf6953bc3648bb94b818a303e2d1645517f4dd17d5dd64ee1aea7d1c817a9"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Shurikitty.png/fbeae0f113cee869/320w.webp",
+        "width": 320,
+        "height": 489,
+        "bytes": 74946
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Shurikitty.png/fbeae0f113cee869/320w.webp",
+          "width": 320,
+          "height": 489,
+          "bytes": 74946
+        }
+      ]
+    },
+    "/board/heroes/Hero Silent Shadow.png": {
+      "original": {
+        "url": "/board/heroes/Hero Silent Shadow.png",
+        "width": 991,
+        "height": 1520,
+        "bytes": 3998059,
+        "sha256": "1b0875e2fe8e9eabf8afb152be7cbacaabd1d538e0d0fd82a4974a0126e1bf19"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Silent Shadow.png/8a77db33c2ec42b3/320w.webp",
+        "width": 320,
+        "height": 491,
+        "bytes": 64922
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Silent Shadow.png/8a77db33c2ec42b3/320w.webp",
+          "width": 320,
+          "height": 491,
+          "bytes": 64922
+        }
+      ]
+    },
+    "/board/heroes/Hero Slippery Paws.png": {
+      "original": {
+        "url": "/board/heroes/Hero Slippery Paws.png",
+        "width": 993,
+        "height": 1520,
+        "bytes": 3877249,
+        "sha256": "3b1c7e1e56cf29ad212c0f7e4d6b10fda281de4088151747c51ab64d3da74182"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Slippery Paws.png/5738f7562e2d4422/320w.webp",
+        "width": 320,
+        "height": 490,
+        "bytes": 66342
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Slippery Paws.png/5738f7562e2d4422/320w.webp",
+          "width": 320,
+          "height": 490,
+          "bytes": 66342
+        }
+      ]
+    },
+    "/board/heroes/Hero Sly Pickings.png": {
+      "original": {
+        "url": "/board/heroes/Hero Sly Pickings.png",
+        "width": 991,
+        "height": 1520,
+        "bytes": 3846486,
+        "sha256": "337c29a6bba91790f9ce65ff97a8f27ad8eda1fc4a25be0816f5de4ea8d27afd"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Sly Pickings.png/32dd76c5d7a2770e/320w.webp",
+        "width": 320,
+        "height": 491,
+        "bytes": 61504
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Sly Pickings.png/32dd76c5d7a2770e/320w.webp",
+          "width": 320,
+          "height": 491,
+          "bytes": 61504
+        }
+      ]
+    },
+    "/board/heroes/Hero Smooth Mimimeow.png": {
+      "original": {
+        "url": "/board/heroes/Hero Smooth Mimimeow.png",
+        "width": 994,
+        "height": 1517,
+        "bytes": 4192850,
+        "sha256": "ec1a854982cb69d7a89125f7b2db49f37c91aeb2eddf65a3cc7342b2af7c2621"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Smooth Mimimeow.png/f5f7d81eceb8e8ab/320w.webp",
+        "width": 320,
+        "height": 488,
+        "bytes": 63662
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Smooth Mimimeow.png/f5f7d81eceb8e8ab/320w.webp",
+          "width": 320,
+          "height": 488,
+          "bytes": 63662
+        }
+      ]
+    },
+    "/board/heroes/Hero Snowball.png": {
+      "original": {
+        "url": "/board/heroes/Hero Snowball.png",
+        "width": 1054,
+        "height": 1429,
+        "bytes": 4419189,
+        "sha256": "e3b1957f04c56174d69c43acffce19893c4dce8d8cf47a3565b1b7d4c2996406"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Snowball.png/b09a1e5d05a6d228/320w.webp",
+        "width": 320,
+        "height": 434,
+        "bytes": 64416
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Snowball.png/b09a1e5d05a6d228/320w.webp",
+          "width": 320,
+          "height": 434,
+          "bytes": 64416
+        }
+      ]
+    },
+    "/board/heroes/Hero Spooky.png": {
+      "original": {
+        "url": "/board/heroes/Hero Spooky.png",
+        "width": 1054,
+        "height": 1427,
+        "bytes": 4222486,
+        "sha256": "deda66fd6b235630d9f611657f959c933b5fda92494107483da998b799229683"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Spooky.png/6474d9c936cfed03/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 59718
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Spooky.png/6474d9c936cfed03/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 59718
+        }
+      ]
+    },
+    "/board/heroes/Hero Tipsy Tootie.png": {
+      "original": {
+        "url": "/board/heroes/Hero Tipsy Tootie.png",
+        "width": 1036,
+        "height": 1467,
+        "bytes": 4130018,
+        "sha256": "454e11e2a9ab0b8415b972304e1c48e1ead09dd48669ab95477c63c5daaec98a"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Tipsy Tootie.png/9372f13520e213f1/320w.webp",
+        "width": 320,
+        "height": 453,
+        "bytes": 60346
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Tipsy Tootie.png/9372f13520e213f1/320w.webp",
+          "width": 320,
+          "height": 453,
+          "bytes": 60346
+        }
+      ]
+    },
+    "/board/heroes/Hero Tough Teddy.png": {
+      "original": {
+        "url": "/board/heroes/Hero Tough Teddy.png",
+        "width": 1076,
+        "height": 1434,
+        "bytes": 4192975,
+        "sha256": "6fd1e04234a831bf1ef6b855e802a727f90d0414ba2319605e79648918b87a87"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Tough Teddy.png/45ea1b610c5b5ade/320w.webp",
+        "width": 320,
+        "height": 426,
+        "bytes": 60670
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Tough Teddy.png/45ea1b610c5b5ade/320w.webp",
+          "width": 320,
+          "height": 426,
+          "bytes": 60670
+        }
+      ]
+    },
+    "/board/heroes/Hero Vibrant Glow.png": {
+      "original": {
+        "url": "/board/heroes/Hero Vibrant Glow.png",
+        "width": 1046,
+        "height": 1473,
+        "bytes": 4400841,
+        "sha256": "cad1cbb5a6896c75047b8fbd7d0879f4b4fcf46f707c29a45af9dcb9c77df734"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Vibrant Glow.png/57c083437ab87ff5/320w.webp",
+        "width": 320,
+        "height": 451,
+        "bytes": 65580
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Vibrant Glow.png/57c083437ab87ff5/320w.webp",
+          "width": 320,
+          "height": 451,
+          "bytes": 65580
+        }
+      ]
+    },
+    "/board/heroes/Hero Whiskers.png": {
+      "original": {
+        "url": "/board/heroes/Hero Whiskers.png",
+        "width": 1057,
+        "height": 1429,
+        "bytes": 4419395,
+        "sha256": "ee98441c49da9e1f869532bd38af5d957abbaf13772d2083eca6eba3ec8bf3df"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Whiskers.png/69a349269c669d3a/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 62986
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Whiskers.png/69a349269c669d3a/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 62986
+        }
+      ]
+    },
+    "/board/heroes/Hero Wiggles.png": {
+      "original": {
+        "url": "/board/heroes/Hero Wiggles.png",
+        "width": 1054,
+        "height": 1427,
+        "bytes": 4260638,
+        "sha256": "803399815d3d0793c6f69077037e2ee999cc0f40466b5ec863b18057b7fedad3"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Wiggles.png/0fa6fba9bde41aee/320w.webp",
+        "width": 320,
+        "height": 433,
+        "bytes": 60826
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Wiggles.png/0fa6fba9bde41aee/320w.webp",
+          "width": 320,
+          "height": 433,
+          "bytes": 60826
+        }
+      ]
+    },
+    "/board/heroes/Hero Wildshot.png": {
+      "original": {
+        "url": "/board/heroes/Hero Wildshot.png",
+        "width": 1059,
+        "height": 1426,
+        "bytes": 4192635,
+        "sha256": "c77a66c2bcff6537e68fbcb935f83917a9004ec1ea01452d002cb14554de0749"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Wildshot.png/25d134d234930b12/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 58520
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Wildshot.png/25d134d234930b12/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 58520
+        }
+      ]
+    },
+    "/board/heroes/Hero Wily Red.png": {
+      "original": {
+        "url": "/board/heroes/Hero Wily Red.png",
+        "width": 1065,
+        "height": 1433,
+        "bytes": 4277911,
+        "sha256": "1371916339db44fbaccc672584ead4d2fc3fa1262d16e56c3cc293281e6f1255"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Wily Red.png/205f374aac67c981/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 62940
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Wily Red.png/205f374aac67c981/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 62940
+        }
+      ]
+    },
+    "/board/heroes/Hero Wise Shield.png": {
+      "original": {
+        "url": "/board/heroes/Hero Wise Shield.png",
+        "width": 1050,
+        "height": 1480,
+        "bytes": 4380115,
+        "sha256": "2d74409d9f682eda0b3613856a153c48c5d1ae8a7991aee8fd8f8c4d9e0395ef"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/heroes/Hero Wise Shield.png/d9de63438f3e119c/320w.webp",
+        "width": 320,
+        "height": 451,
+        "bytes": 62970
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/heroes/Hero Wise Shield.png/d9de63438f3e119c/320w.webp",
+          "width": 320,
+          "height": 451,
+          "bytes": 62970
+        }
+      ]
+    },
+    "/board/Items/Item Bad Mask.png": {
+      "original": {
+        "url": "/board/Items/Item Bad Mask.png",
+        "width": 1047,
+        "height": 1435,
+        "bytes": 3818865,
+        "sha256": "832f2ca7c7a49be4878319b19f73481efa2504166d4571fe053aff1330b83bcf"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Bad Mask.png/5f0e8bcc7f2bdcaf/320w.webp",
+        "width": 320,
+        "height": 439,
+        "bytes": 61800
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Bad Mask.png/5f0e8bcc7f2bdcaf/320w.webp",
+          "width": 320,
+          "height": 439,
+          "bytes": 61800
+        }
+      ]
+    },
+    "/board/Items/Item Curse Of The Snake's Eyes.png": {
+      "original": {
+        "url": "/board/Items/Item Curse Of The Snake's Eyes.png",
+        "width": 1061,
+        "height": 1432,
+        "bytes": 4099181,
+        "sha256": "f6130885b092f0bf808ef977593dbf8a5e891cb86a2622ede347e478fbcdf7da"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Curse Of The Snake's Eyes.png/8a4059739d038009/320w.webp",
+        "width": 320,
+        "height": 432,
+        "bytes": 61988
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Curse Of The Snake's Eyes.png/8a4059739d038009/320w.webp",
+          "width": 320,
+          "height": 432,
+          "bytes": 61988
+        }
+      ]
+    },
+    "/board/Items/Item Decoy Doll.png": {
+      "original": {
+        "url": "/board/Items/Item Decoy Doll.png",
+        "width": 1065,
+        "height": 1436,
+        "bytes": 4139103,
+        "sha256": "a915f5f803aea2e364168c2e6896974ed03450a7074a917a730c3965a0be0f24"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Decoy Doll.png/07b7bdb066b1b3d0/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 65212
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Decoy Doll.png/07b7bdb066b1b3d0/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 65212
+        }
+      ]
+    },
+    "/board/Items/Item Fighter Mask.png": {
+      "original": {
+        "url": "/board/Items/Item Fighter Mask.png",
+        "width": 1047,
+        "height": 1435,
+        "bytes": 3812139,
+        "sha256": "2f4ec0e935223c5dcbc1eab742f2fb653223fbe3a301e62cc7ec36988b005156"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Fighter Mask.png/7ee2146fd04899ad/320w.webp",
+        "width": 320,
+        "height": 439,
+        "bytes": 60206
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Fighter Mask.png/7ee2146fd04899ad/320w.webp",
+          "width": 320,
+          "height": 439,
+          "bytes": 60206
+        }
+      ]
+    },
+    "/board/Items/Item Guardian Mask.png": {
+      "original": {
+        "url": "/board/Items/Item Guardian Mask.png",
+        "width": 1066,
+        "height": 1427,
+        "bytes": 4082926,
+        "sha256": "9db8e582b644338d101496f5e371b9287de43b2dec3e8925c3f305bb9322a6e4"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Guardian Mask.png/fd5a3787ddc63679/320w.webp",
+        "width": 320,
+        "height": 428,
+        "bytes": 62142
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Guardian Mask.png/fd5a3787ddc63679/320w.webp",
+          "width": 320,
+          "height": 428,
+          "bytes": 62142
+        }
+      ]
+    },
+    "/board/Items/Item Particularly Rusty Coin.png": {
+      "original": {
+        "url": "/board/Items/Item Particularly Rusty Coin.png",
+        "width": 1063,
+        "height": 1427,
+        "bytes": 4147261,
+        "sha256": "7a64f02abbaa685debbbe187846789ed3257091e5be44fa090ceb21ff57b0d41"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Particularly Rusty Coin.png/d673f8e2f86c12e7/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 62772
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Particularly Rusty Coin.png/d673f8e2f86c12e7/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 62772
+        }
+      ]
+    },
+    "/board/Items/Item Ranger Mask.png": {
+      "original": {
+        "url": "/board/Items/Item Ranger Mask.png",
+        "width": 1069,
+        "height": 1436,
+        "bytes": 4139099,
+        "sha256": "e65889c466e3e4966d7045d524d3d289fef6889db0dda090739c4dfe9ad17a33"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Ranger Mask.png/27cca3586d110bd5/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 64978
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Ranger Mask.png/27cca3586d110bd5/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 64978
+        }
+      ]
+    },
+    "/board/Items/Item Really Big Ring.png": {
+      "original": {
+        "url": "/board/Items/Item Really Big Ring.png",
+        "width": 1065,
+        "height": 1445,
+        "bytes": 4325079,
+        "sha256": "85928fb7af611b25ba6fd5390f820f8939019a727fb97a85834f741c8c5bd4d1"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Really Big Ring.png/3c0f78861545c035/320w.webp",
+        "width": 320,
+        "height": 434,
+        "bytes": 64820
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Really Big Ring.png/3c0f78861545c035/320w.webp",
+          "width": 320,
+          "height": 434,
+          "bytes": 64820
+        }
+      ]
+    },
+    "/board/Items/Item Sealing Key.png": {
+      "original": {
+        "url": "/board/Items/Item Sealing Key.png",
+        "width": 1069,
+        "height": 1435,
+        "bytes": 4091919,
+        "sha256": "63903b9e05d3c1e2a1873e946daf31da46fd8090aa13a798b195e510806aa296"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Sealing Key.png/6bee8ed4a3dd370b/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 60902
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Sealing Key.png/6bee8ed4a3dd370b/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 60902
+        }
+      ]
+    },
+    "/board/Items/Item Suspiciously Shiny Coin.png": {
+      "original": {
+        "url": "/board/Items/Item Suspiciously Shiny Coin.png",
+        "width": 1070,
+        "height": 1429,
+        "bytes": 4012619,
+        "sha256": "af34e397bdd22bbcfe86bcb4d2bff229d55ac753e4b2e6e8efc9bec1486a55a6"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Suspiciously Shiny Coin.png/1949dc66f8598e54/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 61334
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Suspiciously Shiny Coin.png/1949dc66f8598e54/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 61334
+        }
+      ]
+    },
+    "/board/Items/Item Thief Mask.png": {
+      "original": {
+        "url": "/board/Items/Item Thief Mask.png",
+        "width": 1055,
+        "height": 1430,
+        "bytes": 3986630,
+        "sha256": "c881c5e86bac571711b2118c6bd9640293981b3836064235adddef7dc0a283c3"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Thief Mask.png/4d60ab8467883920/320w.webp",
+        "width": 320,
+        "height": 434,
+        "bytes": 59286
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Thief Mask.png/4d60ab8467883920/320w.webp",
+          "width": 320,
+          "height": 434,
+          "bytes": 59286
+        }
+      ]
+    },
+    "/board/Items/Item Wizard Mask.png": {
+      "original": {
+        "url": "/board/Items/Item Wizard Mask.png",
+        "width": 1077,
+        "height": 1448,
+        "bytes": 4374284,
+        "sha256": "0a95c37581f670b58acef67ef09fb221e05f20f71ce9ab29eaaae742e29d2e4e"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Items/Item Wizard Mask.png/14d975f7bfedadd7/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 64272
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Items/Item Wizard Mask.png/14d975f7bfedadd7/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 64272
+        }
+      ]
+    },
+    "/board/Leaders/Leader The Charismatic Song.png": {
+      "original": {
+        "url": "/board/Leaders/Leader The Charismatic Song.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 3170704,
+        "sha256": "279baee8a73e58b6f4173e5219d35f7b25d53c0f8d6853ec71bbb25693b1087b"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 640,
+        "reason": "leader hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Leaders/Leader The Charismatic Song.png/e5b45bbce61fa38f/320w.webp",
+        "width": 320,
+        "height": 480,
+        "bytes": 76542
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Leaders/Leader The Charismatic Song.png/e5b45bbce61fa38f/320w.webp",
+          "width": 320,
+          "height": 480,
+          "bytes": 76542
+        }
+      ]
+    },
+    "/board/Leaders/Leader The Cloacked Sage.png": {
+      "original": {
+        "url": "/board/Leaders/Leader The Cloacked Sage.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 3133412,
+        "sha256": "040f59cfa6e8d2bd590b8041a48faa62b0e2846032faec6e21b57fb48ded2060"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 640,
+        "reason": "leader hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Leaders/Leader The Cloacked Sage.png/21fe1a8848569d81/320w.webp",
+        "width": 320,
+        "height": 480,
+        "bytes": 73484
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Leaders/Leader The Cloacked Sage.png/21fe1a8848569d81/320w.webp",
+          "width": 320,
+          "height": 480,
+          "bytes": 73484
+        }
+      ]
+    },
+    "/board/Leaders/Leader The Divine Arrow.png": {
+      "original": {
+        "url": "/board/Leaders/Leader The Divine Arrow.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 3346545,
+        "sha256": "42cbf4f620302e3fe9c39577e3f41146cb6dd2a098d50d6fd6aacc55cf7914c7"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 640,
+        "reason": "leader hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Leaders/Leader The Divine Arrow.png/36dcfb27f889854b/320w.webp",
+        "width": 320,
+        "height": 480,
+        "bytes": 80154
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Leaders/Leader The Divine Arrow.png/36dcfb27f889854b/320w.webp",
+          "width": 320,
+          "height": 480,
+          "bytes": 80154
+        }
+      ]
+    },
+    "/board/Leaders/Leader The Fist Of Reason.png": {
+      "original": {
+        "url": "/board/Leaders/Leader The Fist Of Reason.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 3138156,
+        "sha256": "897298086d91c24276f3dc73fa0034e707ce44a1405312fca5bd20669210d91d"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 640,
+        "reason": "leader hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Leaders/Leader The Fist Of Reason.png/5edc92e89011bb24/320w.webp",
+        "width": 320,
+        "height": 480,
+        "bytes": 70436
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Leaders/Leader The Fist Of Reason.png/5edc92e89011bb24/320w.webp",
+          "width": 320,
+          "height": 480,
+          "bytes": 70436
+        }
+      ]
+    },
+    "/board/Leaders/Leader The Protecting Horn.png": {
+      "original": {
+        "url": "/board/Leaders/Leader The Protecting Horn.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 3087150,
+        "sha256": "743d0c811c87e2946ec97cfb697f44f194e92b052a1812d0dd5c721d72c62d89"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 640,
+        "reason": "leader hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Leaders/Leader The Protecting Horn.png/a1b9fa30822ac0a6/320w.webp",
+        "width": 320,
+        "height": 480,
+        "bytes": 68878
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Leaders/Leader The Protecting Horn.png/a1b9fa30822ac0a6/320w.webp",
+          "width": 320,
+          "height": 480,
+          "bytes": 68878
+        }
+      ]
+    },
+    "/board/Leaders/Leader The Shadow Claw.png": {
+      "original": {
+        "url": "/board/Leaders/Leader The Shadow Claw.png",
+        "width": 1024,
+        "height": 1536,
+        "bytes": 3101888,
+        "sha256": "d345c046461b93fef614f14bff6d953d1b8b7e9bbb130ff4a75b1ec85967fa9d"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 640,
+        "reason": "leader hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Leaders/Leader The Shadow Claw.png/86f690164f94b9f7/320w.webp",
+        "width": 320,
+        "height": 480,
+        "bytes": 76646
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Leaders/Leader The Shadow Claw.png/86f690164f94b9f7/320w.webp",
+          "width": 320,
+          "height": 480,
+          "bytes": 76646
+        }
+      ]
+    },
+    "/board/Magics/Magic Call Of The Fallen.png": {
+      "original": {
+        "url": "/board/Magics/Magic Call Of The Fallen.png",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 2817441,
+        "sha256": "9c204a7bf58132c498b6cf8d2f62daccb5eeaf931b8b0e1f1dc2701dce5346e0"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Call Of The Fallen.png/b79ab4e5780b0ab4/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 64522
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Call Of The Fallen.png/b79ab4e5780b0ab4/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 64522
+        }
+      ]
+    },
+    "/board/Magics/Magic Critical Boost.png": {
+      "original": {
+        "url": "/board/Magics/Magic Critical Boost.png",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 2843881,
+        "sha256": "81a514a6343a91a583288bca0677d8c850bbd1b54a7a77d3dd5f8dedb6391383"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Critical Boost.png/45ef388b32d28a69/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 58660
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Critical Boost.png/45ef388b32d28a69/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 58660
+        }
+      ]
+    },
+    "/board/Magics/Magic Destructive Spell.png": {
+      "original": {
+        "url": "/board/Magics/Magic Destructive Spell.png",
+        "width": 1070,
+        "height": 1434,
+        "bytes": 4265629,
+        "sha256": "3646fd142e5e7ddbb81b59bf3846a379a5bd8a4ce4698c95a0038052bbdfaca7"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Destructive Spell.png/2631dfecc08946e0/320w.webp",
+        "width": 320,
+        "height": 429,
+        "bytes": 68312
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Destructive Spell.png/2631dfecc08946e0/320w.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 68312
+        }
+      ]
+    },
+    "/board/Magics/Magic Enchanted Spell.png": {
+      "original": {
+        "url": "/board/Magics/Magic Enchanted Spell.png",
+        "width": 1070,
+        "height": 1435,
+        "bytes": 4399134,
+        "sha256": "34fc4f37f2755c090262b5f268c373b16b8c9f5f8c0df4c036aeae35401d1e5c"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Enchanted Spell.png/cd06658d6c40acf3/320w.webp",
+        "width": 320,
+        "height": 429,
+        "bytes": 61464
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Enchanted Spell.png/cd06658d6c40acf3/320w.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 61464
+        }
+      ]
+    },
+    "/board/Magics/Magic Entangeling Trap.png": {
+      "original": {
+        "url": "/board/Magics/Magic Entangeling Trap.png",
+        "width": 1067,
+        "height": 1434,
+        "bytes": 4316434,
+        "sha256": "9c930ba2df1e2b01df2329f56f616c53d71ecc7c60d0233b79d3addebf1fc4ce"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Entangeling Trap.png/b3ee41dd8741d132/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 68832
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Entangeling Trap.png/b3ee41dd8741d132/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 68832
+        }
+      ]
+    },
+    "/board/Magics/Magic Entangling Trap.png": {
+      "original": {
+        "url": "/board/Magics/Magic Entangling Trap.png",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 2997845,
+        "sha256": "95f1faeaf8c7b358d181cfeeca5020c4b458c7d6ff2cfbb7b26d1f64797308a9"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Entangling Trap.png/432ab538a0cf8526/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 65188
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Entangling Trap.png/432ab538a0cf8526/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 65188
+        }
+      ]
+    },
+    "/board/Magics/Magic Forced Exchange.png": {
+      "original": {
+        "url": "/board/Magics/Magic Forced Exchange.png",
+        "width": 1074,
+        "height": 1434,
+        "bytes": 4354632,
+        "sha256": "942c47f1af4618787ae8f1ecf9a5cb63cd0fad04d8ebf9ef1ba88bed6150da79"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Forced Exchange.png/b1a1cd33f8e0046d/320w.webp",
+        "width": 320,
+        "height": 427,
+        "bytes": 67190
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Forced Exchange.png/b1a1cd33f8e0046d/320w.webp",
+          "width": 320,
+          "height": 427,
+          "bytes": 67190
+        }
+      ]
+    },
+    "/board/Magics/Magic Forceful Winds.png": {
+      "original": {
+        "url": "/board/Magics/Magic Forceful Winds.png",
+        "width": 1067,
+        "height": 1434,
+        "bytes": 4536757,
+        "sha256": "edce8c929e21b843ded1de9f1218a53378fb38b930c0d21b0c30ac235c2a1069"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Forceful Winds.png/19b7ceeba857ea4c/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 68628
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Forceful Winds.png/19b7ceeba857ea4c/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 68628
+        }
+      ]
+    },
+    "/board/Magics/Magic Winds Of Change.png": {
+      "original": {
+        "url": "/board/Magics/Magic Winds Of Change.png",
+        "width": 1069,
+        "height": 1435,
+        "bytes": 4471590,
+        "sha256": "739017d3e3db51945aef8642d598c6790186f630e414d2f3015498aa8de946c8"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Magics/Magic Winds Of Change.png/f12212bd5aa5faac/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 68220
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Magics/Magic Winds Of Change.png/f12212bd5aa5faac/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 68220
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier -1.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier -1.png",
+        "width": 1066,
+        "height": 1434,
+        "bytes": 4355957,
+        "sha256": "16faa73471d9b5295e5f172f5c862bdf396d266d3cbd09aa468662629d25ef33"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier -1.png/53aa2716b45d9752/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 56626
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier -1.png/53aa2716b45d9752/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 56626
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier -2.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier -2.png",
+        "width": 1067,
+        "height": 1432,
+        "bytes": 4417870,
+        "sha256": "fa8597450eceaa88a765ccc011c5692248aa2dd45b6b42e31d76cb423fabc03c"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier -2.png/127228c3f8b8c53a/320w.webp",
+        "width": 320,
+        "height": 429,
+        "bytes": 60304
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier -2.png/127228c3f8b8c53a/320w.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 60304
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier -3.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier -3.png",
+        "width": 1065,
+        "height": 1433,
+        "bytes": 4486236,
+        "sha256": "523067d91918dff77fad2484150f953f2922f63fc0e9c52dd0f3c1310efa3d18"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier -3.png/923ea010a1f4af11/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 59090
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier -3.png/923ea010a1f4af11/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 59090
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier -4.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier -4.png",
+        "width": 1064,
+        "height": 1438,
+        "bytes": 4174873,
+        "sha256": "a41d9f48b0a8c3bdb465c0d2cc612496ac5ee7a80dd84b514f9b02b119e9fbd1"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier -4.png/336136c6e28a8563/320w.webp",
+        "width": 320,
+        "height": 432,
+        "bytes": 58366
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier -4.png/336136c6e28a8563/320w.webp",
+          "width": 320,
+          "height": 432,
+          "bytes": 58366
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +1-3.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +1-3.png",
+        "width": 1067,
+        "height": 1433,
+        "bytes": 4558713,
+        "sha256": "fc0b411618bec4fe9996b7ea1240fb68780e1e6bae27725f0c49422241e41001"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +1-3.png/e4b170cb731e3449/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 61138
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +1-3.png/e4b170cb731e3449/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 61138
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +1.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +1.png",
+        "width": 1071,
+        "height": 1440,
+        "bytes": 4521903,
+        "sha256": "29e85c5a7f4671923bf050e335483758daafa7400178fa6d5638580f8bfc6902"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +1.png/513c4820a2b41a8e/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 59602
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +1.png/513c4820a2b41a8e/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 59602
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +2-2.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +2-2.png",
+        "width": 1067,
+        "height": 1432,
+        "bytes": 4439385,
+        "sha256": "113d833be53a226ef409b270c97f31b2cc223224fe095fc2b86aad03e1d62a1c"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +2-2.png/11e95a2825f3c78b/320w.webp",
+        "width": 320,
+        "height": 429,
+        "bytes": 61170
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +2-2.png/11e95a2825f3c78b/320w.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 61170
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +2.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +2.png",
+        "width": 1069,
+        "height": 1438,
+        "bytes": 4420522,
+        "sha256": "f3bf1cf78b6fe7c8e1d8b18fc6b8b1f60bb4a890c1bfec10611e1c69a42a473b"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +2.png/7d16256bf04d6244/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 59344
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +2.png/7d16256bf04d6244/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 59344
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +3-1.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +3-1.png",
+        "width": 1065,
+        "height": 1431,
+        "bytes": 4369112,
+        "sha256": "94a90485db60a29320a40e84ecf5636731fbaaf849a5cc34c51a7703f8f008b4"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +3-1.png/ea0699210592f5b0/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 58030
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +3-1.png/ea0699210592f5b0/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 58030
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +3.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +3.png",
+        "width": 1065,
+        "height": 1434,
+        "bytes": 4361951,
+        "sha256": "fd387e0ff728e4e7107b65496dc5622d473b4c66716fa3412cd2b186433328e8"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +3.png/49925a0a59cb2b25/320w.webp",
+        "width": 320,
+        "height": 431,
+        "bytes": 57018
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +3.png/49925a0a59cb2b25/320w.webp",
+          "width": 320,
+          "height": 431,
+          "bytes": 57018
+        }
+      ]
+    },
+    "/board/Modifiers/Modifier +4.png": {
+      "original": {
+        "url": "/board/Modifiers/Modifier +4.png",
+        "width": 1066,
+        "height": 1431,
+        "bytes": 4538124,
+        "sha256": "ce2cae61b735d852431a54a9abef6a6e61cc66514fe961779630462cb9abda96"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand, hero hover, challenge, modifier, discard and choice views"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Modifiers/Modifier +4.png/f287ab7c2f6b645e/320w.webp",
+        "width": 320,
+        "height": 430,
+        "bytes": 62504
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Modifiers/Modifier +4.png/f287ab7c2f6b645e/320w.webp",
+          "width": 320,
+          "height": 430,
+          "bytes": 62504
+        }
+      ]
+    },
+    "/board/Monsters/Monster Abyss Queen.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Abyss Queen.png",
+        "width": 1010,
+        "height": 1524,
+        "bytes": 3627358,
+        "sha256": "33e58303853edf7291a855acc90b550ad10d342518e66c80c89161c08b90d0e9"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Abyss Queen.png/f4b7a71118ac31ef/384w.webp",
+        "width": 384,
+        "height": 579,
+        "bytes": 101332
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Abyss Queen.png/f4b7a71118ac31ef/384w.webp",
+          "width": 384,
+          "height": 579,
+          "bytes": 101332
+        }
+      ]
+    },
+    "/board/Monsters/Monster Anuran Cauldron.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Anuran Cauldron.png",
+        "width": 956,
+        "height": 1639,
+        "bytes": 3904385,
+        "sha256": "403f0ce4470cf056ccb1dd6a662d5b60b220864eff3e0c323a270f0c31815df6"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Anuran Cauldron.png/9736840569003065/384w.webp",
+        "width": 384,
+        "height": 658,
+        "bytes": 110100
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Anuran Cauldron.png/9736840569003065/384w.webp",
+          "width": 384,
+          "height": 658,
+          "bytes": 110100
+        }
+      ]
+    },
+    "/board/Monsters/Monster Arctic Aries.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Arctic Aries.png",
+        "width": 1015,
+        "height": 1520,
+        "bytes": 3959140,
+        "sha256": "26dfda950cb84e450e980baeb46c2d3bcc0377806cf79e56dc543dbccf5272f9"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Arctic Aries.png/42340e1ecba557a1/384w.webp",
+        "width": 384,
+        "height": 575,
+        "bytes": 104358
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Arctic Aries.png/42340e1ecba557a1/384w.webp",
+          "width": 384,
+          "height": 575,
+          "bytes": 104358
+        }
+      ]
+    },
+    "/board/Monsters/Monster Bloodwing.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Bloodwing.png",
+        "width": 947,
+        "height": 1624,
+        "bytes": 3559040,
+        "sha256": "8212c3b150ee7c8d59ef32cf81c9643bcccaa4f282060709e7c1efed8e934f7c"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Bloodwing.png/6861590e95f8c78d/384w.webp",
+        "width": 384,
+        "height": 659,
+        "bytes": 100208
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Bloodwing.png/6861590e95f8c78d/384w.webp",
+          "width": 384,
+          "height": 659,
+          "bytes": 100208
+        }
+      ]
+    },
+    "/board/Monsters/Monster Corrupted Sabertooth.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Corrupted Sabertooth.png",
+        "width": 949,
+        "height": 1629,
+        "bytes": 3564745,
+        "sha256": "ee51781a16bde373913fb7920fb77bde2f306d14157a673b64b4d4ba77d35577"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Corrupted Sabertooth.png/562c1c2f09b3c2a3/384w.webp",
+        "width": 384,
+        "height": 659,
+        "bytes": 106244
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Corrupted Sabertooth.png/562c1c2f09b3c2a3/384w.webp",
+          "width": 384,
+          "height": 659,
+          "bytes": 106244
+        }
+      ]
+    },
+    "/board/Monsters/Monster Crowned Serpent.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Crowned Serpent.png",
+        "width": 956,
+        "height": 1636,
+        "bytes": 3859709,
+        "sha256": "7c0e543bdab0ef8955f220f2b78e8d02bad55251c4e107f50bc54aedcb143bad"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Crowned Serpent.png/bd874e019f4c8e19/384w.webp",
+        "width": 384,
+        "height": 657,
+        "bytes": 112526
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Crowned Serpent.png/bd874e019f4c8e19/384w.webp",
+          "width": 384,
+          "height": 657,
+          "bytes": 112526
+        }
+      ]
+    },
+    "/board/Monsters/Monster Dark Dragon King.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Dark Dragon King.png",
+        "width": 1010,
+        "height": 1528,
+        "bytes": 3899876,
+        "sha256": "8c2f18ec4e32a29b978e3209f9093cb9a8441463f14fe6b59073db7d734c3d6d"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Dark Dragon King.png/e4a9936f305c1df3/384w.webp",
+        "width": 384,
+        "height": 581,
+        "bytes": 104008
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Dark Dragon King.png/e4a9936f305c1df3/384w.webp",
+          "width": 384,
+          "height": 581,
+          "bytes": 104008
+        }
+      ]
+    },
+    "/board/Monsters/Monster Dracos.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Dracos.png",
+        "width": 951,
+        "height": 1634,
+        "bytes": 3801302,
+        "sha256": "850b9756e468eded15d13c7c616ff30cb7244f8b5bb6fafbf2b414150ab96d95"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Dracos.png/b69c385c3ea87a55/384w.webp",
+        "width": 384,
+        "height": 660,
+        "bytes": 111278
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Dracos.png/b69c385c3ea87a55/384w.webp",
+          "width": 384,
+          "height": 660,
+          "bytes": 111278
+        }
+      ]
+    },
+    "/board/Monsters/Monster Malamammoth.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Malamammoth.png",
+        "width": 1017,
+        "height": 1526,
+        "bytes": 3662028,
+        "sha256": "c89335dc9eeda7048fc970905c6a77a962e836004b42dca804f9c0ae3ed2e8cf"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Malamammoth.png/a69fc0c973dec4ce/384w.webp",
+        "width": 384,
+        "height": 576,
+        "bytes": 99946
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Malamammoth.png/a69fc0c973dec4ce/384w.webp",
+          "width": 384,
+          "height": 576,
+          "bytes": 99946
+        }
+      ]
+    },
+    "/board/Monsters/Monster Mega Slime.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Mega Slime.png",
+        "width": 952,
+        "height": 1640,
+        "bytes": 3851724,
+        "sha256": "2a1994ca9cb13971b1e2082f6909532c0edf9148602b33fe714e19e969672169"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Mega Slime.png/f607ceb72b2d40c1/384w.webp",
+        "width": 384,
+        "height": 662,
+        "bytes": 113956
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Mega Slime.png/f607ceb72b2d40c1/384w.webp",
+          "width": 384,
+          "height": 662,
+          "bytes": 113956
+        }
+      ]
+    },
+    "/board/Monsters/Monster Orthus.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Orthus.png",
+        "width": 1015,
+        "height": 1536,
+        "bytes": 3626612,
+        "sha256": "6be2e83d888d08c06fcd6865179fae836db0241d21ecf176aa82bf467ccef6b5"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Orthus.png/5d289f8f1f46d3cb/384w.webp",
+        "width": 384,
+        "height": 581,
+        "bytes": 91506
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Orthus.png/5d289f8f1f46d3cb/384w.webp",
+          "width": 384,
+          "height": 581,
+          "bytes": 91506
+        }
+      ]
+    },
+    "/board/Monsters/Monster Rex Major.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Rex Major.png",
+        "width": 1015,
+        "height": 1536,
+        "bytes": 3804283,
+        "sha256": "3dd10db73dc2d835caf9e1bb763ee3c53f6139e2f929fa3fb0d415a45d1629a2"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Rex Major.png/f58afee7892777fc/384w.webp",
+        "width": 384,
+        "height": 581,
+        "bytes": 98406
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Rex Major.png/f58afee7892777fc/384w.webp",
+          "width": 384,
+          "height": 581,
+          "bytes": 98406
+        }
+      ]
+    },
+    "/board/Monsters/Monster Terratuga.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Terratuga.png",
+        "width": 1016,
+        "height": 1522,
+        "bytes": 3906013,
+        "sha256": "5bcc9ecde5c681a9cd96b31feb60bba6cc88121d36284df07e2d213769290d1a"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Terratuga.png/f5a8b5efcfbb1a17/384w.webp",
+        "width": 384,
+        "height": 575,
+        "bytes": 101050
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Terratuga.png/f5a8b5efcfbb1a17/384w.webp",
+          "width": 384,
+          "height": 575,
+          "bytes": 101050
+        }
+      ]
+    },
+    "/board/Monsters/Monster Titan Wyvern.png": {
+      "original": {
+        "url": "/board/Monsters/Monster Titan Wyvern.png",
+        "width": 1024,
+        "height": 1529,
+        "bytes": 3706832,
+        "sha256": "628a6269212315a83e0144a1ead8ced362b4b98226992a26867eeb176731be34"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Monster Titan Wyvern.png/05e12e2cca031f8d/384w.webp",
+        "width": 384,
+        "height": 573,
+        "bytes": 99834
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Monster Titan Wyvern.png/05e12e2cca031f8d/384w.webp",
+          "width": 384,
+          "height": 573,
+          "bytes": 99834
+        }
+      ]
+    },
+    "/board/Monsters/Warworn Owlbear.png": {
+      "original": {
+        "url": "/board/Monsters/Warworn Owlbear.png",
+        "width": 1006,
+        "height": 1529,
+        "bytes": 3600456,
+        "sha256": "79e63dabd182680ba7e49331777e230df5ea71a5a4814e29a9b530e78738ca48"
+      },
+      "largestViewAt1080": {
+        "width": 500,
+        "height": 850,
+        "reason": "3x monster hover, trophies and roll overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Monsters/Warworn Owlbear.png/fc497ffeff463e4b/384w.webp",
+        "width": 384,
+        "height": 584,
+        "bytes": 94762
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Monsters/Warworn Owlbear.png/fc497ffeff463e4b/384w.webp",
+          "width": 384,
+          "height": 584,
+          "bytes": 94762
+        }
+      ]
+    },
+    "/board/Small Card Back.png": {
+      "original": {
+        "url": "/board/Small Card Back.png",
+        "width": 1041,
+        "height": 1467,
+        "bytes": 4526311,
+        "sha256": "75d937346bdf13c779142341a5681f21f3be9ed30c027ed28c9360843d82c70d"
+      },
+      "largestViewAt1080": {
+        "width": 400,
+        "height": 560,
+        "reason": "hand stacks, deck piles and card overlays"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/board/Small Card Back.png/aa597701b3d7737d/320w.webp",
+        "width": 320,
+        "height": 451,
+        "bytes": 67446
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/board/Small Card Back.png/aa597701b3d7737d/320w.webp",
+          "width": 320,
+          "height": 451,
+          "bytes": 67446
+        }
+      ]
+    },
+    "/lobby/add player Tilted Left.png": {
+      "original": {
+        "url": "/lobby/add player Tilted Left.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 25974,
+        "sha256": "32c4bf7924a7d64a3c33d993c4732c6e5d7f4d3f6f5619b304044652c96498ed"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/add player Tilted Left.png/fd1e939490d09b83/1254w.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 7218
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/add player Tilted Left.png/fd1e939490d09b83/1254w.webp",
+          "width": 1254,
+          "height": 1254,
+          "bytes": 7218
+        }
+      ]
+    },
+    "/lobby/add player Tilted Right.png": {
+      "original": {
+        "url": "/lobby/add player Tilted Right.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 25762,
+        "sha256": "a94ddd965c844715cd22b9246b42d94473365bd3db3c298813ce98cc191483ae"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/add player Tilted Right.png/7ee8141cb73f2d5e/1254w.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 7204
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/add player Tilted Right.png/7ee8141cb73f2d5e/1254w.webp",
+          "width": 1254,
+          "height": 1254,
+          "bytes": 7204
+        }
+      ]
+    },
+    "/lobby/add player.png": {
+      "original": {
+        "url": "/lobby/add player.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 1413268,
+        "sha256": "16a9a1ad525a42f37a5db1d04049c36a50280b9523f37b5b5e0b8754a4b2c131"
+      },
+      "largestViewAt1080": {
+        "width": 160,
+        "height": 160,
+        "reason": "lobbyLayout/lobbyAssets full canvas after CSS crop"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/lobby/add player.png/d7918f5c5376feb6/128w.webp",
+        "width": 128,
+        "height": 128,
+        "bytes": 6962
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/add player.png/d7918f5c5376feb6/128w.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 6962
+        }
+      ]
+    },
+    "/lobby/Background Empty.png": {
+      "original": {
+        "url": "/lobby/Background Empty.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 2295793,
+        "sha256": "30a216a94da6287cf5a8ae0927407a2002fbc6bccca33ac731865828e9b54f1e"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Background Empty.png/a13431cca1a6f8b2/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 321856
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Background Empty.png/a13431cca1a6f8b2/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 321856
+        }
+      ]
+    },
+    "/lobby/Background.png": {
+      "original": {
+        "url": "/lobby/Background.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 2364996,
+        "sha256": "56969b2e15a4cad2023b271dc27c69dd054b5cf80b454d697a85193e5d278883"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Background.png/15e517d04049f979/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 318134
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Background.png/15e517d04049f979/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 318134
+        }
+      ]
+    },
+    "/lobby/Background219.png": {
+      "original": {
+        "url": "/lobby/Background219.png",
+        "width": 1915,
+        "height": 821,
+        "bytes": 2332412,
+        "sha256": "a123ed4a0f47c29f41beeb689604dfd2c2901c5e6fb4b18d43c221604b75afac"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Background219.png/4c41d1830590da73/1915w.webp",
+        "width": 1915,
+        "height": 821,
+        "bytes": 291668
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Background219.png/4c41d1830590da73/1915w.webp",
+          "width": 1915,
+          "height": 821,
+          "bytes": 291668
+        }
+      ]
+    },
+    "/lobby/Button Start Game Tilted.png": {
+      "original": {
+        "url": "/lobby/Button Start Game Tilted.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 812589,
+        "sha256": "cd910b6a57424b6f621e0bf1b8b444ad6aa9ca2ecfd8a6331e86469e132025ce"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Button Start Game Tilted.png/931d3a6f1974d33e/2172w.webp",
+        "width": 2172,
+        "height": 724,
+        "bytes": 112036
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Button Start Game Tilted.png/931d3a6f1974d33e/2172w.webp",
+          "width": 2172,
+          "height": 724,
+          "bytes": 112036
+        }
+      ]
+    },
+    "/lobby/Button Start Game.png": {
+      "original": {
+        "url": "/lobby/Button Start Game.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1209296,
+        "sha256": "6982f3ad49f6a4e465b6a6e8e5c044cc3ab0620b7cd5d577f418b95647323865"
+      },
+      "largestViewAt1080": {
+        "width": 640,
+        "height": 214,
+        "reason": "lobbyLayout/lobbyAssets full canvas after CSS crop"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/lobby/Button Start Game.png/ad08328145325492/448w.webp",
+        "width": 448,
+        "height": 149,
+        "bytes": 18490
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Button Start Game.png/ad08328145325492/448w.webp",
+          "width": 448,
+          "height": 149,
+          "bytes": 18490
+        }
+      ]
+    },
+    "/lobby/Center Frame.png": {
+      "original": {
+        "url": "/lobby/Center Frame.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 460613,
+        "sha256": "2e022323325645a55bd5ef30821382b0063c1be91ff3ffd568df20b82970062a"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Center Frame.png/c56e28b9f944f898/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 81772
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Center Frame.png/c56e28b9f944f898/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 81772
+        }
+      ]
+    },
+    "/lobby/Player Frame Tilted Left.png": {
+      "original": {
+        "url": "/lobby/Player Frame Tilted Left.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 503643,
+        "sha256": "e1f3918e00237f54e4d5cd18d7cbe3caa957034b2b4709f77481c7b91c32898b"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Player Frame Tilted Left.png/63e5f0e35a32e9c2/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 72300
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Player Frame Tilted Left.png/63e5f0e35a32e9c2/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 72300
+        }
+      ]
+    },
+    "/lobby/Player Frame Tilted Right.png": {
+      "original": {
+        "url": "/lobby/Player Frame Tilted Right.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 499850,
+        "sha256": "737aac64a2ee9cbc88dd4972a2b6110466ab4c90f00346593223ad74aa2bd26e"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Player Frame Tilted Right.png/f9c44ad010bc0109/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 72844
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Player Frame Tilted Right.png/f9c44ad010bc0109/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 72844
+        }
+      ]
+    },
+    "/lobby/Player Frame.png": {
+      "original": {
+        "url": "/lobby/Player Frame.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 937101,
+        "sha256": "28a9921900f92ac08c8a2a070c20ca6a047f94b1fa6c09713aada2262464d662"
+      },
+      "largestViewAt1080": {
+        "width": 672,
+        "height": 379,
+        "reason": "lobbyLayout/lobbyAssets full canvas after CSS crop"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/lobby/Player Frame.png/eeb67190cf6ddb9d/512w.webp",
+        "width": 512,
+        "height": 288,
+        "bytes": 21624
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Player Frame.png/eeb67190cf6ddb9d/512w.webp",
+          "width": 512,
+          "height": 288,
+          "bytes": 21624
+        }
+      ]
+    },
+    "/lobby/remove player Tilted Left.png": {
+      "original": {
+        "url": "/lobby/remove player Tilted Left.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 26330,
+        "sha256": "bb5e45ea3e8673d010db98f2c65edb009634a6515ba3a992723327595ba41393"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/remove player Tilted Left.png/b5c10e465abe04f5/1254w.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 7348
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/remove player Tilted Left.png/b5c10e465abe04f5/1254w.webp",
+          "width": 1254,
+          "height": 1254,
+          "bytes": 7348
+        }
+      ]
+    },
+    "/lobby/remove player Tilted Right.png": {
+      "original": {
+        "url": "/lobby/remove player Tilted Right.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 26185,
+        "sha256": "6469ebfe7179fb7195adb9833c3695646ac9451a3af44f37c02e7266827ca529"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/remove player Tilted Right.png/a5c7cb326c69dbd9/1254w.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 7218
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/remove player Tilted Right.png/a5c7cb326c69dbd9/1254w.webp",
+          "width": 1254,
+          "height": 1254,
+          "bytes": 7218
+        }
+      ]
+    },
+    "/lobby/remove player.png": {
+      "original": {
+        "url": "/lobby/remove player.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 1078119,
+        "sha256": "200aff8dec662fde8e96ece68e77ebd0ba1a7135d3e15955aa4e96d4ae61dcb6"
+      },
+      "largestViewAt1080": {
+        "width": 176,
+        "height": 176,
+        "reason": "lobbyLayout/lobbyAssets full canvas after CSS crop"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/lobby/remove player.png/f55a3bf481035f6b/128w.webp",
+        "width": 128,
+        "height": 128,
+        "bytes": 5480
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/remove player.png/f55a3bf481035f6b/128w.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 5480
+        }
+      ]
+    },
+    "/lobby/Settings Tilted.png": {
+      "original": {
+        "url": "/lobby/Settings Tilted.png",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 1753756,
+        "sha256": "dc096458bf4b05a8b35fa8f041f7e9f90d21d303d97e3eb6f5fd7e4b646b531e"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Settings Tilted.png/435b01b8aef96d39/1086w.webp",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 211632
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Settings Tilted.png/435b01b8aef96d39/1086w.webp",
+          "width": 1086,
+          "height": 1448,
+          "bytes": 211632
+        }
+      ]
+    },
+    "/lobby/Settings.png": {
+      "original": {
+        "url": "/lobby/Settings.png",
+        "width": 1086,
+        "height": 1448,
+        "bytes": 1883027,
+        "sha256": "45cd66ec79aef99054dc6796807debe3b601881148dfe02c81b512a6a3dd5568"
+      },
+      "largestViewAt1080": {
+        "width": 640,
+        "height": 854,
+        "reason": "lobbyLayout/lobbyAssets full canvas after CSS crop"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/lobby/Settings.png/e8f455885d254556/448w.webp",
+        "width": 448,
+        "height": 597,
+        "bytes": 70852
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Settings.png/e8f455885d254556/448w.webp",
+          "width": 448,
+          "height": 597,
+          "bytes": 70852
+        }
+      ]
+    },
+    "/lobby/side Bar Left.png": {
+      "original": {
+        "url": "/lobby/side Bar Left.png",
+        "width": 321,
+        "height": 814,
+        "bytes": 399183,
+        "sha256": "b1e8336cfe775845cdf0fa68b1277bdb7ddf395975b3ecfe3103c42cfa7d7c98"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/side Bar Left.png/1144acb809668f8e/321w.webp",
+        "width": 321,
+        "height": 814,
+        "bytes": 55834
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/side Bar Left.png/1144acb809668f8e/321w.webp",
+          "width": 321,
+          "height": 814,
+          "bytes": 55834
+        }
+      ]
+    },
+    "/lobby/Side Bar Right.png": {
+      "original": {
+        "url": "/lobby/Side Bar Right.png",
+        "width": 321,
+        "height": 814,
+        "bytes": 398072,
+        "sha256": "b8be054203f3acbcc9335b2c974acedfa1b5c7c8deae196087447685b800540c"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Side Bar Right.png/206934d55a4b018b/321w.webp",
+        "width": 321,
+        "height": 814,
+        "bytes": 53434
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Side Bar Right.png/206934d55a4b018b/321w.webp",
+          "width": 321,
+          "height": 814,
+          "bytes": 53434
+        }
+      ]
+    },
+    "/lobby/Side Bar s.png": {
+      "original": {
+        "url": "/lobby/Side Bar s.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 487707,
+        "sha256": "7951ec7c42da93f957ef2cab2010ba382579e1f95f95f2a1bab06d4bc278af26"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Side Bar s.png/afb3ae0ad4feb02c/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 57496
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Side Bar s.png/afb3ae0ad4feb02c/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 57496
+        }
+      ]
+    },
+    "/lobby/Side Bards Frames.png": {
+      "original": {
+        "url": "/lobby/Side Bards Frames.png",
+        "width": 1672,
+        "height": 941,
+        "bytes": 896052,
+        "sha256": "299b1f85fecdd803268dd151cfa4495527816232dc9e158045ebd28b637c9753"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/lobby/Side Bards Frames.png/14f4810fdc6edc10/1672w.webp",
+        "width": 1672,
+        "height": 941,
+        "bytes": 110812
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/lobby/Side Bards Frames.png/14f4810fdc6edc10/1672w.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 110812
+        }
+      ]
+    },
+    "/logo192.png": {
+      "original": {
+        "url": "/logo192.png",
+        "width": 192,
+        "height": 192,
+        "bytes": 5347,
+        "sha256": "c386396ec70db3608075b5fbfaac4ab1ccaa86ba05a68ab393ec551eb66c3e00"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/logo192.png/4e82cd09e4eacaad/192w.webp",
+        "width": 192,
+        "height": 192,
+        "bytes": 9012
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/logo192.png/4e82cd09e4eacaad/192w.webp",
+          "width": 192,
+          "height": 192,
+          "bytes": 9012
+        }
+      ]
+    },
+    "/logo512.png": {
+      "original": {
+        "url": "/logo512.png",
+        "width": 512,
+        "height": 512,
+        "bytes": 9664,
+        "sha256": "9ea4f4da7050c0cc408926f6a39c253624e9babb1d43c7977cd821445a60b461"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/logo512.png/0eb9dd5a761e25e2/512w.webp",
+        "width": 512,
+        "height": 512,
+        "bytes": 19332
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/logo512.png/0eb9dd5a761e25e2/512w.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 19332
+        }
+      ]
+    },
+    "/music/Volume Bar.png": {
+      "original": {
+        "url": "/music/Volume Bar.png",
+        "width": 1916,
+        "height": 821,
+        "bytes": 245735,
+        "sha256": "bc3b4d3935cec7e51484058dd2711e7a66a0adda3fdc464f8f3314b7facb9c20"
+      },
+      "largestViewAt1080": {
+        "width": 256,
+        "height": 110,
+        "reason": "volume.css sprite scaling and HUD volume widget"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/music/Volume Bar.png/5c75632094c71610/192w.webp",
+        "width": 192,
+        "height": 82,
+        "bytes": 1294
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/music/Volume Bar.png/5c75632094c71610/192w.webp",
+          "width": 192,
+          "height": 82,
+          "bytes": 1294
+        }
+      ]
+    },
+    "/music/volume example.png": {
+      "original": {
+        "url": "/music/volume example.png",
+        "width": 2172,
+        "height": 724,
+        "bytes": 1480238,
+        "sha256": "82e6f7d286e5df7796d74f6f35ccae80f747036e808b4385e7c13efcc160bf2f"
+      },
+      "largestViewAt1080": null,
+      "fullSizeWebp": {
+        "url": "/generated/online-art/music/volume example.png/8d420d65c4f558e0/2172w.webp",
+        "width": 2172,
+        "height": 724,
+        "bytes": 200256
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/music/volume example.png/8d420d65c4f558e0/2172w.webp",
+          "width": 2172,
+          "height": 724,
+          "bytes": 200256
+        }
+      ]
+    },
+    "/music/Volume Knob.png": {
+      "original": {
+        "url": "/music/Volume Knob.png",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 315222,
+        "sha256": "81f3ad667752c0e14f0a7b27ba3cd7d0a682a8e2010881d5383d4a55b0df23b3"
+      },
+      "largestViewAt1080": {
+        "width": 64,
+        "height": 64,
+        "reason": "volume.css sprite scaling and HUD volume widget"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/music/Volume Knob.png/174a37b7c3dcce2d/64w.webp",
+        "width": 64,
+        "height": 64,
+        "bytes": 1110
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/music/Volume Knob.png/174a37b7c3dcce2d/64w.webp",
+          "width": 64,
+          "height": 64,
+          "bytes": 1110
+        }
+      ]
+    },
+    "/music/Volume outline.png": {
+      "original": {
+        "url": "/music/Volume outline.png",
+        "width": 1916,
+        "height": 821,
+        "bytes": 929825,
+        "sha256": "fb546c870f856d16a87dd6200791d21bc62b3b9dbbd41e3b81a41e546fdd96fa"
+      },
+      "largestViewAt1080": {
+        "width": 304,
+        "height": 131,
+        "reason": "volume.css sprite scaling and HUD volume widget"
+      },
+      "fullSizeWebp": {
+        "stagePixelHeight": 720,
+        "url": "/generated/online-art/music/Volume outline.png/36322df3df3972cf/256w.webp",
+        "width": 256,
+        "height": 110,
+        "bytes": 7600
+      },
+      "variants": [
+        {
+          "stagePixelHeight": 720,
+          "url": "/generated/online-art/music/Volume outline.png/36322df3df3972cf/256w.webp",
+          "width": 256,
+          "height": 110,
+          "bytes": 7600
+        }
+      ]
+    }
+  }
+}

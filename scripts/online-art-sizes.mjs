@@ -1,11 +1,17 @@
 // Full image canvas bounds at a 1920x1080 CSS viewport, including the largest
 // hover/overlay transform. Keep these in sync with the layouts cited below.
-export const STAGE_PIXEL_HEIGHTS = [480, 1080, 1440, 2160];
+//
+// ONE profile: a 720p stage, plus each image's own full size. The exports are
+// committed (client/public/generated/online-art), so the build encodes nothing
+// — that is the whole point of there being one profile rather than four
+// (the owner, 2026-09-08). Adding art means running `npm run assets:art` and
+// committing what it writes.
+export const STAGE_PIXEL_HEIGHTS = [720];
 
 export function largestView(file) {
-  if (['board/Border Widgets/Table Background.png', 'lobby/Background Empty.png', 'lobby/Center Frame.png'].includes(file)) {
-    return { width: 1920, height: 1080, reason: 'full-stage background or lobby canvas' };
-  }
+  // Backgrounds and the lobby canvas are sent at FULL size (a null bound):
+  // they already stretch past their masters at 1080p, and a 720p copy of the
+  // felt is the one downscale the eye catches (the owner, 2026-09-08).
   // HeroRow: 35cqh * .65 inset * .92 card * 2.3 hover = 520px high.
   // PlayerHand: 28cqh * 1.6 = 484px; challenge/modifier: 42cqh = 454px.
   // The 400x560 envelope includes headroom and the differing scan aspects.

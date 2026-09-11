@@ -27,6 +27,7 @@ export const MellowDeeAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: PLAY_THE_HERO,
+        question: 'Play the hero you just drew?',
         subjectKey: CTX_DRAWN_CARD_IDS,
       }),
     ],

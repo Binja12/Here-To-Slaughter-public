@@ -16,7 +16,10 @@ export const LookieRookieAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Discard, cardType: CardType.Item }),
+      new ChooseCardTask(
+        { zone: Zone.Discard, cardType: CardType.Item },
+        { question: 'Choose an item to add to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

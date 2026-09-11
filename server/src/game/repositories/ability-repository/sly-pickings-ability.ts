@@ -18,7 +18,10 @@ const PLAY_THE_ITEM = 'SlyPickingsPlaysItem'
 export const SlyPickingsAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [
+      new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to pull a card from'),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
@@ -36,6 +39,7 @@ export const SlyPickingsAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: PLAY_THE_ITEM,
+        question: 'Play the item you just pulled?',
         subjectKey: CTX_PULLED_CARD_IDS,
       }),
     ],
@@ -47,11 +51,14 @@ export const SlyPickingsAbility: IAbilityRule[] = [
       when: PLAY_THE_ITEM,
     },
     steps: [
-      new ChooseCardTask({
-        zone: Zone.Party,
-        owner: Owner.Self,
-        unequipped: true,
-      }),
+      new ChooseCardTask(
+        {
+          zone: Zone.Party,
+          owner: Owner.Self,
+          unequipped: true,
+        },
+        { question: 'Choose a hero to equip it to' },
+      ),
       new PlayItemTask(CTX_PULLED_CARD_IDS),
     ],
   },

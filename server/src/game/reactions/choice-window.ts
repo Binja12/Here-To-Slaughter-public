@@ -161,13 +161,31 @@ export abstract class ChoiceWindow implements IRestartableWindow {
     if (this._resolved) return
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
+    // Everyone else watching this get answered gets their own clock back.
+    this.gs.restartWindowsOutside(this.frameId)
 
     // Timed out without a submission — subclasses decide the fallback.
-    if (this.picked === undefined) this.picked = this.defaultChoice()
+    const lapsed = this.picked === undefined
+    if (lapsed) this.picked = this.defaultChoice()
 
     // The option may have gone stale while the window was open.
     if (this.picked !== undefined && !this.isStillValid(this.picked)) {
       this.picked = undefined
+    }
+
+    // Nobody answered: the table is told what became of it. A fixed default
+    // says nothing here — a value's bias and a confirm's DISMISS are already
+    // announced when the window opens.
+    if (lapsed && (this.picked === undefined || this.picksAtRandom())) {
+      this.gs.noteChoiceLapse({
+        windowId: this.id,
+        respondentId: this.respondentId,
+        type: this.getType(),
+        resolution: this.picked === undefined ? 'forfeited' : 'random',
+        question: typeof this.openDetail['question'] === 'string'
+          ? this.openDetail['question']
+          : undefined,
+      })
     }
 
     // A frame may hold one question per seat (ChooseCardEachTask), and it
@@ -232,6 +250,15 @@ export abstract class ChoiceWindow implements IRestartableWindow {
    */
   protected defaultChoice(): unknown {
     return undefined
+  }
+
+  /**
+   * Whether `defaultChoice` draws at RANDOM. Only CardChoiceWindow does, and
+   * only that is worth telling the table about: a value's bias and a
+   * confirm's DISMISS are fixed, and announced when the window opens.
+   */
+  protected picksAtRandom(): boolean {
+    return false
   }
 
   /** Emit what this outcome means elsewhere. See TaskChoiceWindow. */

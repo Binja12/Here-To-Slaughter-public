@@ -29,7 +29,11 @@ import { carriedSeat } from './conditions'
 // ---------------------------------------------------------------------------
 
 export class ChoosePlayerTask implements ITask {
-  constructor(private readonly filter: PlayerFilter = {}) {}
+  constructor(
+    private readonly filter: PlayerFilter = {},
+    /** What is being asked, for the screen — see `question` on ChooseCardTask. */
+    private readonly question?: string,
+  ) {}
 
   execute(
     gs: GameState,
@@ -43,6 +47,7 @@ export class ChoosePlayerTask implements ITask {
     rm.openWindow(frameId, ReactionWindowType.PlayerChoice, ctx.ownerId, {
       options,
       sourceCardId: ctx.sourceCardId,
+      ...(this.question && { question: this.question }),
     })
 
     return frameId
@@ -69,8 +74,12 @@ export type ChooseCardOptions = {
    */
   resultKey?: string
   /**
-   * What is being asked, for the screen (`detail.question`), when the cards
-   * alone do not say — Bullseye's second look asks which goes on TOP.
+   * What is being asked, for the screen (`detail.question`) — the board puts
+   * it up in large type over the choice, so it is what tells the player WHY
+   * they are picking: "Choose a hero to sacrifice", not "Choose a card".
+   * Write it as an instruction, sentence case, no trailing full stop. Only a
+   * choice whose own cards say the whole thing may leave it out; the screen
+   * then falls back to the window type.
    */
   question?: string
 }
@@ -155,6 +164,8 @@ export class ChooseCardEachTask implements ITask {
     private readonly seats: PlayerFilter,
     /** What each seat picks from — its OWN cards in the zone; owner is the seat. */
     private readonly filter: Omit<CardFilter, 'owner' | 'executor'>,
+    /** What is being asked, for the screen — see `question` on ChooseCardTask. */
+    private readonly question?: string,
   ) {}
 
   execute(
@@ -175,6 +186,7 @@ export class ChooseCardEachTask implements ITask {
         options: cardsOf(gs, ctx, this.filter, seatId),
         resultKey: chosenCardOf(seatId),
         sourceCardId: ctx.sourceCardId,
+        ...(this.question && { question: this.question }),
       })
     }
     return frameId
@@ -194,6 +206,11 @@ export class ChooseCardEachTask implements ITask {
  * on the empty slot — "the task just ends" needs no branch here.
  */
 export class ChooseMonsterTask implements ITask {
+  constructor(
+    /** What is being asked, for the screen — see `question` on ChooseCardTask. */
+    private readonly question?: string,
+  ) {}
+
   execute(
     gs: GameState,
     ctx: AbilityContext,
@@ -209,6 +226,7 @@ export class ChooseMonsterTask implements ITask {
     rm.openWindow(frameId, ReactionWindowType.MonsterChoice, ctx.ownerId, {
       options,
       sourceCardId: ctx.sourceCardId,
+      ...(this.question && { question: this.question }),
     })
 
     return frameId
@@ -224,8 +242,12 @@ export class ChooseMonsterTask implements ITask {
  * Protecting Horn's "+1 or -1" — passes its own list instead.
  */
 export class ChooseValueTask implements ITask {
-  /** Values to offer — an ability's own numbers, the Protecting Horn's `[1, -1]`. */
-  constructor(private readonly values: number[]) {}
+  constructor(
+    /** Values to offer — an ability's own numbers, the Protecting Horn's `[1, -1]`. */
+    private readonly values: number[],
+    /** What is being asked, for the screen — see `question` on ChooseCardTask. */
+    private readonly question?: string,
+  ) {}
 
   execute(
     gs: GameState,
@@ -248,6 +270,7 @@ export class ChooseValueTask implements ITask {
       options,
       bias,
       sourceCardId: ctx.sourceCardId,
+      ...(this.question && { question: this.question }),
     })
 
     // Suspends even on an empty list, for the reason ChooseCardTask does.
@@ -266,6 +289,11 @@ export class ChooseValueTask implements ITask {
 export type ConfirmSpec = {
   /** The follow-up offered. Becomes the event's `label`, matched by `when`. */
   confirms: string
+  /**
+   * What is being asked, in words, for the screen. Without it the board
+   * humanises `confirms`, which reads like an engine label ("play an item?").
+   */
+  question?: string
   /**
    * Slot holding the subject: names it for the client, skips the prompt when
    * empty, and rides to the continuation as ctxSeed.
@@ -375,6 +403,7 @@ export class ConfirmTask implements ITask {
     const frameId = rm.openFrame()
     rm.openWindow(frameId, ReactionWindowType.TaskChoice, respondentId, {
       confirms: this.spec.confirms,
+      ...(this.spec.question && { question: this.spec.question }),
       // Routes the answer back via TriggerScope.SelfCard.
       sourceCardId: ctx.sourceCardId,
       ...(this.spec.subjectKey && subject && { cardId: subject[0] }),

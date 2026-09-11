@@ -14,7 +14,10 @@ import { TradeHandsTask } from '../../tasks/tasks'
 export const DodgyDealerAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [
+      new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to trade hands with'),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },

@@ -91,6 +91,24 @@ export type GameConfigView = {
   winConditions: { type: string; value: number }[];
 };
 
+/**
+ * The last choice on this table that ran out of time. A lapse is otherwise
+ * invisible — the window is simply gone from the next snapshot — so a pick
+ * made AT RANDOM on somebody's behalf, or an offer nobody took, is reported
+ * here for the screen to say out loud. Kept until the next one replaces it;
+ * the client shows each `windowId` once.
+ */
+export type ChoiceLapseView = {
+  windowId: string
+  /** the seat that was asked */
+  respondentId: string
+  type: ReactionWindowType
+  /** `random`: the engine drew one of the options. `forfeited`: nothing was chosen. */
+  resolution: 'random' | 'forfeited'
+  /** what the window was asking, when its task declared a question */
+  question?: string
+}
+
 export type PlayerView = {
   gameId: string
   playerId: string
@@ -106,8 +124,16 @@ export type PlayerView = {
   discardPile: CardView[]
   monsterRow: CardView[]
   attackableMonsterIds: string[]
+  /** every card on the table whose rule works with nobody playing anything — the pink aura */
+  passiveCardIds: string[]
   /** cards the engine is showing you right now, for its reveal clock (5 s) */
   revealedCards: CardView[]
+  /** the seat whose ability is showing them */
+  revealedBy?: string
+  /** the seat the cards belong to — a look at somebody's hand */
+  revealedOf?: string
+  /** the last choice that ran out of time — see ChoiceLapseView */
+  lastLapse?: ChoiceLapseView
   pendingWindows: PendingWindowView[]
   /** absent on a table played without a clock */
   turnClock?: TurnClockView

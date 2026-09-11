@@ -20,9 +20,9 @@ import { ItemCard } from '../cards/item-card'
 export type PlayerFilter = {
   owner?: Owner
   /**
-   * Keep only players fielding at least one hero. For a wording whose SECOND
-   * clause is about that player's party — Forced Exchange takes one and hands
-   * one back — offering an empty seat would offer a choice that cannot be
+   * Keep only players fielding at least one hero. For a wording whose next
+   * clause is about that player's party — Hopper's "that player SACRIFICES a
+   * Hero card" — offering an empty seat would offer a choice that cannot be
    * carried out.
    */
   hasHeroes?: boolean
@@ -41,6 +41,12 @@ export type CardFilter = {
    * discarded cards" (CTX_DISCARDED_CARDS) off the pile.
    */
   among?: string
+  /**
+   * Ids in THIS context slot are not offered — "the second hero to destroy"
+   * must not be the first one again. The slot form of `excludeIds`, the way
+   * `among` is the slot form of a fixed candidate list.
+   */
+  excludeKey?: string
   /**
    * Who this step runs AS — who answers the choice. The ability owner unless
    * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
@@ -205,6 +211,9 @@ function keep(
   ids: string[],
 ): string[] {
   const exclude = new Set(filter.excludeIds ?? [])
+  for (const id of (filter.excludeKey ? ctx.get<string[]>(filter.excludeKey) : undefined) ?? []) {
+    exclude.add(id)
+  }
   const among = filter.among
     ? new Set(ctx.get<string[]>(filter.among) ?? [])
     : undefined

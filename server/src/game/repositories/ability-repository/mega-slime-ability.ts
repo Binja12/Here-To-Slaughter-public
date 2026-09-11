@@ -60,7 +60,10 @@ export const MegaSlimeAbility: IAbilityRule[] = [
       scope: TriggerScope.Attacker,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Self },
+        { question: 'Choose a hero to sacrifice' },
+      ),
       new SacrificeTask(),
     ],
   },

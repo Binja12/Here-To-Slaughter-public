@@ -11,11 +11,14 @@ export const FuzzyCheeksAbility: IAbilityRule[] = [
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new DrawTask(1),
-      new ChooseCardTask({
-        zone: Zone.Hand,
-        owner: Owner.Self,
-        cardType: CardType.Hero,
-      }),
+      new ChooseCardTask(
+        {
+          zone: Zone.Hand,
+          owner: Owner.Self,
+          cardType: CardType.Hero,
+        },
+        { question: 'Choose a hero to play from your hand' },
+      ),
       new PlayHeroTask(),
     ],
   },

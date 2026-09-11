@@ -14,6 +14,8 @@ import { cardById } from './viewTargets'
  */
 export type LiveChallenge = {
   windowId: string
+  /** false while the play is only contestable — no challenger, no rolls yet */
+  started: boolean
   cardId?: string
   defenderId: string
   challengerId: string
@@ -27,14 +29,23 @@ const str = (value: unknown) => (typeof value === 'string' ? value : undefined)
 const num = (value: unknown) => (typeof value === 'number' ? value : 0)
 
 export function liveChallengeOf(view: PlayerView): LiveChallenge | null {
-  const window = view.pendingWindows.find(
-    (candidate) =>
-      candidate.type === 'Challenge' && candidate.detail?.challenged === true,
-  )
+  // A started challenge wins: it is the one with rolls to show. Otherwise the
+  // window is a play still open to contest, and the overlay shows the card by
+  // itself — the only way an ITEM tucked behind its hero can be seen at all
+  // (the owner, 2026-09-07).
+  const window =
+    view.pendingWindows.find(
+      (candidate) =>
+        candidate.type === 'Challenge' && candidate.detail?.challenged === true,
+    ) ??
+    view.pendingWindows.find(
+      (candidate) => candidate.type === 'Challenge' && !!candidate.cardId,
+    )
   if (!window?.detail) return null
   const detail = window.detail
   return {
     windowId: window.windowId,
+    started: detail.challenged === true,
     cardId: window.cardId ?? str(detail.cardId),
     defenderId: str(detail.defenderId) ?? window.respondentId,
     challengerId: str(detail.challengerId) ?? '',
@@ -59,10 +70,12 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
   const live = liveChallengeOf(view)
   const opened = useRef<{
     windowId: string
+    started: boolean
     shown: Record<ChallengeRole, number>
   } | null>(null)
 
   const windowId = live?.windowId ?? null
+  const started = live?.started ?? false
   const challengerCount = live?.challengerBonuses.length ?? 0
   const challengedCount = live?.challengedBonuses.length ?? 0
 
@@ -82,13 +95,54 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
     if (opened.current?.windowId !== live.windowId) {
       const card = cardById(view, live.cardId)
       const art = card ? artFor(card) : null
+      // An item is equipped BEFORE its challenge opens, so the hero it went
+      // onto is already in the view — no server field needed, the party walk
+      // is the same reverse lookup viewTargets.ts does for an item's key.
+      const carrier = view.parties
+        .flatMap((party) => party.heroes)
+        .find((hero) => hero.equippedItem?.id === live.cardId)?.card
+      const carrierArt = carrier ? artFor(carrier) : null
       challenge.open({
+        started: live.started,
         challengedCardUrl: art?.url ?? SMALL_BACK,
         challengedCardAspect: art?.aspect,
         challengeCardUrl: boardChallengeUrl(),
+        carrierCardUrl: carrierArt?.url,
+        carrierCardAspect: carrierArt?.aspect,
+        challengedId: live.defenderId || undefined,
+        challengerId: live.challengerId || undefined,
+        // Layout only, and never 'p1': an unknown seat must not be read as
+        // the viewer's — that is what named both sides "YOU".
         challengedSeat: slotForPlayer(view, live.defenderId) ?? 'p2',
-        challengerSeat: slotForPlayer(view, live.challengerId) ?? 'p1',
+        challengerSeat: slotForPlayer(view, live.challengerId) ?? 'p2',
       })
+      if (live.started) {
+        challenge.setRoll(
+          'challenged',
+          facesOf(live.challengedRoll, `${live.windowId}:defender`),
+          live.challengedBonuses.map((bonus) => ({ url: sourceArt(bonus), amount: bonus.amount })),
+        )
+        challenge.setRoll(
+          'challenger',
+          facesOf(live.challengerRoll, `${live.windowId}:challenger`),
+          live.challengerBonuses.map((bonus) => ({ url: sourceArt(bonus), amount: bonus.amount })),
+        )
+      }
+      opened.current = {
+        windowId: live.windowId,
+        started: live.started,
+        shown: { challenged: challengedCount, challenger: challengerCount },
+      }
+      return
+    }
+
+    // the same window, now CHALLENGED: the rolls arrive and the challenge card
+    // takes its place behind the play
+    if (live.started && !opened.current.started) {
+      opened.current.started = true
+      // Only NOW is there a challenger: the window opened while the play was
+      // merely contestable, so the side it was opened with was a guess.
+      challenge.setSides(live.defenderId || undefined, live.challengerId || undefined)
       challenge.setRoll(
         'challenged',
         facesOf(live.challengedRoll, `${live.windowId}:defender`),
@@ -99,10 +153,7 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
         facesOf(live.challengerRoll, `${live.windowId}:challenger`),
         live.challengerBonuses.map((bonus) => ({ url: sourceArt(bonus), amount: bonus.amount })),
       )
-      opened.current = {
-        windowId: live.windowId,
-        shown: { challenged: challengedCount, challenger: challengerCount },
-      }
+      opened.current.shown = { challenged: challengedCount, challenger: challengerCount }
       return
     }
 
@@ -118,7 +169,7 @@ export function useChallengeSync(view: PlayerView): LiveChallenge | null {
     // The three primitives are what can change between snapshots; `view`
     // and `live` are re-read from the render that changed them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowId, challengerCount, challengedCount])
+  }, [windowId, started, challengerCount, challengedCount])
 
   return live
 }

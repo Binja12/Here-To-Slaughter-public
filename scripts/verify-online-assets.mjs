@@ -44,8 +44,14 @@ for (const entry of Object.values(art.assets)) {
       assert.ok(image.height + 1 >= entry.largestViewAt1080.height * scale, `Zoom height: ${image.url}`);
     }
   }
-  assert.equal(entry.fullSizeWebp.width, entry.original.width);
-  assert.equal(entry.fullSizeWebp.height, entry.original.height);
+  // The biggest export the catalog holds — the master's own size for an image
+  // with no display bound (backgrounds), the single profile for the rest.
+  const biggest = entry.variants[entry.variants.length - 1];
+  assert.equal(entry.fullSizeWebp.url, biggest.url, entry.original.url);
+  assert.ok(entry.fullSizeWebp.width <= entry.original.width, entry.original.url);
+  if (!entry.largestViewAt1080) {
+    assert.equal(entry.fullSizeWebp.width, entry.original.width, entry.original.url);
+  }
 }
 
 let segments = 0;

@@ -76,6 +76,30 @@ export type AbilityPipeline = {
   system?: boolean
 }
 
+/** Whose look a seat is being shown — the caption's two facts. */
+/**
+ * How a choice window closed when nobody answered it. Only the two outcomes
+ * a player needs telling about: a pick made AT RANDOM on their behalf
+ * (CardChoiceWindow) and one made not at all (MonsterChoice, PlayerChoice).
+ * A fixed default — a value's bias, a confirm's DISMISS — is announced when
+ * the window opens, so it needs no notice.
+ */
+export type ChoiceLapse = {
+  windowId: string
+  respondentId: string
+  type: ReactionWindowType
+  resolution: 'random' | 'forfeited'
+  /** what the window was asking, when its task declared a question */
+  question?: string
+}
+
+export type RevealSource = {
+  /** the seat whose ability is showing the cards */
+  byPlayerId: string
+  /** the seat the cards BELONG to, when the reveal is a look at their hand */
+  ofPlayerId?: string
+}
+
 export class GameState {
   private players: Map<string, Player> = new Map()
   private parties: Map<string, Party> = new Map()
@@ -90,6 +114,17 @@ export class GameState {
    * `revealedCards`; the client decides how to show them.
    */
   private revealed: Map<string, string[]> = new Map()
+  private revealSources = new Map<string, RevealSource>()
+  /**
+   * The last choice that ran out of time, kept so the table can be TOLD.
+   * A lapse is otherwise indistinguishable from an answer — the window is
+   * simply gone from the next snapshot — and a random pick made on your
+   * behalf has to be visible (the owner, 2026-09-08).
+   *
+   * One slot, never cleared: the client shows each windowId once and lets it
+   * fade, the same way it lets the choice banner linger.
+   */
+  private lastLapse?: ChoiceLapse
   private cardsChallengedThisTurn: string[] = []
 
   /**
@@ -440,6 +475,34 @@ export class GameState {
     }
   }
 
+  /**
+   * A window has settled, and every window still open ELSEWHERE gets its
+   * clock back (the owner, 2026-09-08: "if ever a window resolves while
+   * another window is open, reset all other windows' timers").
+   *
+   * One rule rather than a list of cases: a player watching another question
+   * be answered was not spending their own time on their own. Bloodwing is
+   * what made it plain — a challenge that asks the challenger to discard used
+   * to settle while the discard was still being chosen.
+   *
+   * Its OWN frame is excluded, and that is the whole subtlety. A frame may
+   * hold one question per seat (ChooseCardEachTask — "each other player must
+   * DISCARD a card"); those are the same question asked in parallel, not
+   * seats watching each other, and restarting them per lapse would let one
+   * silent player stretch a frame to a clock per seat.
+   *
+   * It cannot run for ever either way: a resolution never restarts its own
+   * frame, so every pass strictly shrinks the set of open windows.
+   */
+  restartWindowsOutside(frameId: string): void {
+    for (const [id, frame] of this.frames) {
+      if (id === frameId) continue
+      for (const window of frame.windows) {
+        if (window.isOpen() && canRestartClock(window)) window.restartClock()
+      }
+    }
+  }
+
   /** True while any frame has an open window — used by TurnManager.drain(). */
   hasOpenFrames(): boolean {
     for (const frame of this.frames.values()) {
@@ -505,6 +568,8 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     for (const [id, ids] of this.revealed) copy.revealed.set(id, [...ids])
+    for (const [id, src] of this.revealSources) copy.revealSources.set(id, { ...src })
+    copy.lastLapse = this.lastLapse && { ...this.lastLapse }
     // Not the pipeline stack: it is work in progress ON the board, not the
     // board. A rollback undoes what that work did and drops what was waiting
     // on the frame (restoreFrame); it does not forget the work existed.
@@ -718,13 +783,21 @@ export class GameState {
     this.requirePlayer(playerId).removeEffect(effectId)
   }
 
-  /** Show cards to a seat: onto its `revealedCards` until hideRevealed. */
-  revealTo(playerId: string, cardIds: string[]): void {
+  /**
+   * Show cards to a seat: onto its `revealedCards` until hideRevealed.
+   *
+   * `source` says WHOSE look this is, so the screen can caption it — the seat
+   * whose ability is showing them, and, for a look at a hand, the seat the
+   * cards belong to. Only the latest source is kept: a seat looking at two
+   * things at once has no single caption, and no card does that.
+   */
+  revealTo(playerId: string, cardIds: string[], source?: RevealSource): void {
     const current = this.revealed.get(playerId) ?? []
     this.revealed.set(playerId, [
       ...current,
       ...cardIds.filter((id) => !current.includes(id)),
     ])
+    if (source) this.revealSources.set(playerId, source)
   }
 
   /** The reveal is over: those cards come off the seat's view. */
@@ -733,11 +806,29 @@ export class GameState {
       (id) => !cardIds.includes(id),
     )
     if (left.length) this.revealed.set(playerId, left)
-    else this.revealed.delete(playerId)
+    else {
+      this.revealed.delete(playerId)
+      this.revealSources.delete(playerId)
+    }
   }
 
   getRevealed(playerId: string): string[] {
     return [...(this.revealed.get(playerId) ?? [])]
+  }
+
+  /** Whose look the seat is being shown, when anything is being shown. */
+  getRevealSource(playerId: string): RevealSource | undefined {
+    return this.revealSources.get(playerId)
+  }
+
+  /** A choice ran out of time — ChoiceWindow.resolve reports what became of it. */
+  noteChoiceLapse(lapse: ChoiceLapse): void {
+    this.lastLapse = lapse
+  }
+
+  /** The last choice that ran out, for the view to caption. */
+  getLastLapse(): ChoiceLapse | undefined {
+    return this.lastLapse
   }
 
   /** CardStack.peek on the main deck, through the board. */
@@ -772,12 +863,21 @@ export class GameState {
     for (const [playerId, player] of this.players) {
       if (player.getHand().includes(cardId)) return playerId
       const party = this.parties.get(playerId)
-      if (
-        party &&
-        (party.getHeroIds().includes(cardId) || party.getLeaderId() === cardId)
-      ) {
+      if (!party) continue
+      if (party.getLeaderId() === cardId) return playerId
+      const heroes = party.getHeroIds()
+      if (heroes.includes(cardId)) return playerId
+      // Everything else a party HOLDS, not only what stands in its rows: an
+      // equipped item, a slain monster, a magic still in play. An item is
+      // equipped BEFORE its challenge window opens (item-tasks.ts), so a
+      // challenge on a freshly played item asked who owned a card this could
+      // not answer — and Bloodwing, whose whole rule is "each time another
+      // player CHALLENGES you", never fired (the owner, 2026-09-08).
+      if (heroes.some((heroId) => party.getEquippedItem(heroId) === cardId)) {
         return playerId
       }
+      if (party.getMonsterIds().includes(cardId)) return playerId
+      if (party.getInstanceCardIds().includes(cardId)) return playerId
     }
     return undefined
   }
@@ -904,7 +1004,12 @@ export class GameState {
       return refused(RefusalReason.MonsterNotInRow)
     }
 
-    if (!monster.canBeAttackedBy(this.getHeroClasses(playerId))) {
+    if (
+      !monster.canBeAttackedBy(
+        this.getHeroClasses(playerId),
+        this.getLeaderClass(playerId),
+      )
+    ) {
       return refused(RefusalReason.PartyRequirementUnmet)
     }
     return accepted()
@@ -981,7 +1086,17 @@ export class GameState {
     return masked ?? hero.getDefaultClass()
   }
 
-  /** One class per hero, a mask included. What a monster's `partyReq` is matched against; never the leader's. */
+  /** The party leader's class, when the seat has one. */
+  getLeaderClass(playerId: string): HeroClass | undefined {
+    const leader = this.getCard(this.getParty(playerId).getLeaderId())
+    return leader instanceof PartyLeaderCard ? leader.getHeroClass() : undefined
+  }
+
+  /**
+   * One class per HERO, a mask included. A monster's `partyReq` is matched
+   * against these plus the leader, which `canBeAttackedBy` takes separately —
+   * the leader may fill a named class but never "a Hero card of any class".
+   */
   getHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
       .getHeroIds()
@@ -991,11 +1106,9 @@ export class GameState {
 
   /** The leader's class, then the heroes'. What the class win and the `hasClass` filter read. */
   getPartyClasses(playerId: string): HeroClass[] {
-    const leader = this.getCard(this.getParty(playerId).getLeaderId())
+    const leaderClass = this.getLeaderClass(playerId)
     const heroClasses = this.getHeroClasses(playerId)
-    return leader instanceof PartyLeaderCard
-      ? [leader.getHeroClass(), ...heroClasses]
-      : heroClasses
+    return leaderClass === undefined ? heroClasses : [leaderClass, ...heroClasses]
   }
 
   /**

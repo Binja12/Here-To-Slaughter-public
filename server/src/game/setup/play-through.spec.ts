@@ -1205,7 +1205,10 @@ describe("a roll's target is asked while the roll stands, and modifiers may foll
     expect(answer(t, question, bob)).toEqual({ accepted: true })
     const targeted = windows(t, ReactionWindowType.Modifier)[0]
     // a pull reaches the hand: the table points at Bob's cards
-    expect(targeted.detail).toMatchObject({ targetPlayerId: bob, targetZone: 'Hand', passedBy: [] })
+    expect(targeted.detail).toMatchObject({
+      targets: [{ playerId: bob, zone: 'Hand' }],
+      passedBy: [],
+    })
 
     // Bob sinks the roll now that he knows he is the target: 8 - 4 = 4.
     expect(react(t, new PlayModifierReaction(actionId(), bob, MINUS_4, -4))).toEqual({ accepted: true })

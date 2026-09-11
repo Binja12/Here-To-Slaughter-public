@@ -31,7 +31,7 @@ import { IReactionWindow } from '../../interfaces'
 //
 //   magic-049/050 Destructive Spell  DISCARD 1, then DESTROY a hero anywhere
 //   magic-055/056 Enchanted Spell    +2 to ALL your rolls until end of turn
-//   magic-057     Forced Exchange    STEAL one from a chosen player, GIVE one back
+//   magic-057     Forced Exchange    STEAL one from any other party, GIVE one back
 //
 // All three trigger on the SETTLED frame, never on MagicPlayed: a defeated card
 // is rolled back out of the instance pile and is not a source when this fires.
@@ -325,20 +325,69 @@ describe('magic abilities', () => {
   })
 
   // =========================================================================
+  // Entangling Trap — magic-051 / magic-052
+  // =========================================================================
+
+  describe('Entangling Trap (magic-051)', () => {
+    const SPELL = 'magic-051'
+
+    it('pays both discards, then takes a hero', () => {
+      const ctx = setup(SPELL, ['pay-1', 'pay-2'])
+      cast(ctx, SPELL)
+
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'pay-1' })
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'pay-2' })
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2-hero' })
+
+      expect(ctx.gs.getDiscardPile().getAll()).toEqual(
+        expect.arrayContaining(['pay-1', 'pay-2']),
+      )
+      expect(ctx.gs.getParty('p1').getHeroIds()).toContain('p2-hero')
+    })
+
+    // "DISCARD 2 cards, THEN steal" — the steal is what the discards buy, so
+    // a hand that cannot pay does not get the hero (the owner, 2026-09-07).
+    it('steals nothing when the hand cannot pay both discards', () => {
+      const ctx = setup(SPELL, ['pay-1'])
+      cast(ctx, SPELL)
+
+      cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'pay-1' })
+      // the second discard has nothing to offer: it settles on its own 0ms
+      // timer, and the steal is never asked
+      jest.advanceTimersByTime(1)
+
+      expect(cardChoice(ctx.gs)).toBeUndefined()
+      expect(ctx.gs.getDiscardPile().getAll()).toContain('pay-1')
+      expect(ctx.gs.getParty('p1').getHeroIds()).toEqual(['p1-hero'])
+      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
+      expect(ctx.gs.hasOpenFrames()).toBe(false)
+    })
+
+    it('asks nobody at all with an empty hand', () => {
+      const ctx = setup(SPELL)
+      cast(ctx, SPELL)
+      jest.advanceTimersByTime(1)
+      jest.advanceTimersByTime(1)
+
+      expect(cardChoice(ctx.gs)).toBeUndefined()
+      expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
+      expect(ctx.gs.hasOpenFrames()).toBe(false)
+    })
+  })
+
+  // =========================================================================
   // Forced Exchange — magic-057
   // =========================================================================
 
   describe('Forced Exchange (magic-057)', () => {
     const SPELL = 'magic-057'
 
-    /** Runs the whole exchange: pick a player, take one, hand one back. */
+    /** Runs the whole exchange: take one, hand one back. */
     const exchange = (
       ctx: ReturnType<typeof setup>,
-      withPlayer: string,
       take: string,
       give: string,
     ) => {
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: withPlayer })
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: take })
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: give })
     }
@@ -347,39 +396,27 @@ describe('magic abilities', () => {
       expect(abilityRegistry.get(SPELL)).toBe(ForcedExchangeAbility)
     })
 
-    it('offers the OPPONENTS, never the caster', () => {
+    it('asks for the HERO, not the seat — every other party at once', () => {
       const ctx = setup(SPELL)
       ctx.events.length = 0
       cast(ctx, SPELL)
 
-      expect(playerChoice(ctx.gs)).toBeDefined()
+      // No player prompt: pointing at a hero names its owner (getCardOwner),
+      // so the seat is chosen by the same press.
+      expect(playerChoice(ctx.gs)).toBeUndefined()
       const [offered] = optionsOffered(
-        ctx.gs,
-        ReactionWindowType.PlayerChoice,
-        ctx.events,
-      )
-      expect(offered!.sort()).toEqual(['p2', 'p3'])
-    })
-
-    it('then offers only the CHOSEN player party — Owner.Chosen late-binds', () => {
-      const ctx = setup(SPELL)
-      cast(ctx, SPELL)
-
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p3' })
-
-      const offered = optionsOffered(
         ctx.gs,
         ReactionWindowType.CardChoice,
         ctx.events,
       )
-      expect(offered[offered.length - 1]).toEqual(['p3-hero'])
+      expect(offered!.sort()).toEqual(['p2-hero', 'p3-hero'])
     })
 
     it('swaps both ways: their hero comes, one of yours goes', () => {
       const ctx = setup(SPELL)
       cast(ctx, SPELL)
 
-      exchange(ctx, 'p3', 'p3-hero', 'p1-hero')
+      exchange(ctx, 'p3-hero', 'p1-hero')
 
       expect(ctx.gs.getParty('p1').getHeroIds()).toEqual(['p3-hero'])
       expect(ctx.gs.getParty('p3').getHeroIds()).toEqual(['p1-hero'])
@@ -388,7 +425,6 @@ describe('magic abilities', () => {
     it('announces the steal, naming both sides', () => {
       const ctx = setup(SPELL)
       cast(ctx, SPELL)
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2' })
       ctx.events.length = 0
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2-hero' })
 
@@ -405,7 +441,6 @@ describe('magic abilities', () => {
     it('announces the give as the canonical pair, reason Given', () => {
       const ctx = setup(SPELL)
       cast(ctx, SPELL)
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p3' })
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p3-hero' })
       ctx.events.length = 0
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p1-hero' })
@@ -462,7 +497,7 @@ describe('magic abilities', () => {
         gear(ctx, 'p3-hero', 'their-item', 'p3')
         cast(ctx, SPELL)
 
-        exchange(ctx, 'p3', 'p3-hero', 'p1-hero')
+        exchange(ctx, 'p3-hero', 'p1-hero')
 
         expect(ctx.gs.getParty('p1').getEquippedItem('p3-hero')).toBe(
           'their-item',
@@ -474,7 +509,7 @@ describe('magic abilities', () => {
         gear(ctx, 'p1-hero', 'my-item', 'p1')
         cast(ctx, SPELL)
 
-        exchange(ctx, 'p3', 'p3-hero', 'p1-hero')
+        exchange(ctx, 'p3-hero', 'p1-hero')
 
         expect(ctx.gs.getParty('p3').getEquippedItem('p1-hero')).toBe('my-item')
       })
@@ -485,7 +520,7 @@ describe('magic abilities', () => {
         gear(ctx, 'p1-hero', 'my-item', 'p1')
         cast(ctx, SPELL)
 
-        exchange(ctx, 'p3', 'p3-hero', 'p1-hero')
+        exchange(ctx, 'p3-hero', 'p1-hero')
 
         expect(ctx.gs.getDiscardPile().getAll()).not.toContain('their-item')
         expect(ctx.gs.getDiscardPile().getAll()).not.toContain('my-item')
@@ -494,42 +529,38 @@ describe('magic abilities', () => {
 
     // --- edges ---
 
-    it('never OFFERS a player with an empty party', () => {
+    it('never offers a hero from an empty party — there is none to offer', () => {
       const ctx = setup(SPELL)
       ctx.gs.getParty('p2').removeHero('p2-hero', ctx.em, 'Destroyed')
       ctx.events.length = 0
 
       cast(ctx, SPELL)
 
-      // Both clauses are about that player's party, so a seat with nobody in
-      // it is a choice that could not be carried out.
       const [offered] = optionsOffered(
         ctx.gs,
-        ReactionWindowType.PlayerChoice,
+        ReactionWindowType.CardChoice,
         ctx.events,
       )
-      expect(offered).toEqual(['p3'])
+      expect(offered).toEqual(['p3-hero'])
     })
 
-    it('offers nobody at all when every opponent party is empty', () => {
+    it('does nothing at all when no other party fields a hero', () => {
       const ctx = setup(SPELL)
       ctx.gs.getParty('p2').removeHero('p2-hero', ctx.em, 'Destroyed')
       ctx.gs.getParty('p3').removeHero('p3-hero', ctx.em, 'Destroyed')
       ctx.events.length = 0
 
       cast(ctx, SPELL)
-      // Two empty choices settle back to back, each on its own 0ms timer, and
-      // the second is scheduled from inside the first one's callback.
-      jest.advanceTimersByTime(1)
+      // One empty choice, settling on its own 0ms timer.
       jest.advanceTimersByTime(1)
 
       const [offered] = optionsOffered(
         ctx.gs,
-        ReactionWindowType.PlayerChoice,
+        ReactionWindowType.CardChoice,
         ctx.events,
       )
       expect(offered).toEqual([])
-      // Nothing was taken, so nothing is handed back.
+      // Nothing was taken, so nothing is handed back and nobody is asked.
       expect(ctx.gs.getParty('p1').getHeroIds()).toEqual(['p1-hero'])
       expect(ctx.gs.hasOpenFrames()).toBe(false)
     })
@@ -546,7 +577,6 @@ describe('magic abilities', () => {
       })
 
       cast(ctx, SPELL)
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2' })
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2-hero' })
 
       // "you may give" is only reachable through "you stole": both the prompt
@@ -561,7 +591,6 @@ describe('magic abilities', () => {
     it('offers the just-stolen hero back — it is in your party by then', () => {
       const ctx = setup(SPELL)
       cast(ctx, SPELL)
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p3' })
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p3-hero' })
 
       const offered = optionsOffered(
@@ -575,11 +604,11 @@ describe('magic abilities', () => {
       ])
     })
 
-    it('hands back to the player it STOLE from, not merely the one chosen', () => {
+    it('hands back to the party it STOLE from, whichever one that was', () => {
       const ctx = setup(SPELL)
       cast(ctx, SPELL)
 
-      exchange(ctx, 'p3', 'p3-hero', 'p1-hero')
+      exchange(ctx, 'p3-hero', 'p1-hero')
 
       expect(ctx.gs.getParty('p3').getHeroIds()).toEqual(['p1-hero'])
       expect(ctx.gs.getParty('p2').getHeroIds()).toEqual(['p2-hero'])
@@ -590,7 +619,6 @@ describe('magic abilities', () => {
       ctx.gs.getParty('p1').removeHero('p1-hero', ctx.em, 'Destroyed')
       cast(ctx, SPELL)
 
-      playerChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2' })
       cardChoice(ctx.gs)!.submitReaction('p1', { choice: 'p2-hero' })
 
       // The steal already stood, so the only hero the caster fields is the one

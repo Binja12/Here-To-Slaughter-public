@@ -155,6 +155,24 @@ export type GameConfigView = {
   winConditions: { type: string; value: number }[];
 };
 
+/**
+ * The last choice on this table that ran out of time. A lapse is otherwise
+ * invisible — the window is simply gone from the next snapshot — so a pick
+ * made AT RANDOM on somebody's behalf, or an offer nobody took, is reported
+ * here for the screen to say out loud. Kept until the next one replaces it;
+ * the client shows each `windowId` once.
+ */
+export type ChoiceLapseView = {
+  windowId: string;
+  /** the seat that was asked */
+  respondentId: string;
+  type: ReactionWindowType;
+  /** `random`: the engine drew one of the options. `forfeited`: nothing was chosen. */
+  resolution: "random" | "forfeited";
+  /** what the window was asking, when its task declared a question */
+  question?: string;
+};
+
 export type PlayerView = {
   gameId: string;
   /** Whose view this is. The one player whose hand is named below. */
@@ -176,9 +194,17 @@ export type PlayerView = {
   /**
    * Cards being SHOWN to you right now — a look at a hand, a revealed draw —
    * without moving. The engine puts them here (RevealTask) and takes them off
-   * when its clock runs out; how to show them is the client's.
+   * when its clock runs out; how to show them is the client's. `revealedBy` /
+   * `revealedOf` are the caption: whose ability is showing them, and, for a
+   * look at a hand, whose hand it is. Both absent when nothing is shown.
    */
   revealedCards: CardView[];
+  /** The seat whose ability is showing the cards. */
+  revealedBy?: string;
+  /** The seat the cards BELONG to — set only for a look at somebody's hand. */
+  revealedOf?: string;
+  /** The last choice that ran out of time — see ChoiceLapseView. */
+  lastLapse?: ChoiceLapseView;
   /** The face-up monster row. Refilled from the monster deck as it empties. */
   monsterRow: CardView[];
   /**
@@ -186,6 +212,14 @@ export type PlayerView = {
    * the same question the action and the choice window ask.
    */
   attackableMonsterIds: string[];
+  /**
+   * Every card on the table whose rule works with nobody playing anything —
+   * what the board glows pink. A standing effect names its own card, a leader
+   * that is not ACTIVATED is a passive by elimination, and a monster won into
+   * a party carries the rule it was won for; only the server can say which,
+   * because behaviour lives in the ability registry and never in card data.
+   */
+  passiveCardIds: string[];
   pendingWindows: PendingWindowView[];
   /** Absent on a table played without a clock. */
   turnClock?: TurnClockView;

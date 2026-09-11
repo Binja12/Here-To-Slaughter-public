@@ -1,4 +1,4 @@
-import { PendingWindowView, PlayerView } from '../contract'
+import { CardView, PendingWindowView, PlayerView } from '../contract'
 
 export interface PlayableFlags {
   monsters: boolean[]
@@ -31,6 +31,14 @@ export interface PlayableFlags {
  * refused, and no roll ever opened). Legality still belongs to the server;
  * this only stops the glow from lying.
  */
+/**
+ * A card that costs NO action point — a reaction. Gold says free and green
+ * says paid (the owner, 2026-09-08), so this also picks a playable hand card's
+ * colour; the cost mirror below covers everything that is paid for.
+ */
+export const isFreeAction = (card: CardView): boolean =>
+  card.type === 'Modifier' || card.type === 'Challenge'
+
 export const AP_COST = {
   attack: 2,
   draw: 1,
@@ -61,6 +69,79 @@ export const onlyOptionalWindows = (view: PlayerView): boolean =>
   view.pendingWindows.length > 0 &&
   view.pendingWindows.every((window) => window.isYours && isOptionalWindow(window))
 
+/** A window a modifier may currently land in. */
+export const takesModifier = (view: PlayerView): boolean =>
+  view.pendingWindows.some(
+    (window) =>
+      window.type === 'Modifier' ||
+      window.type === 'Attack' ||
+      (window.type === 'Challenge' && window.detail?.challenged === true),
+  )
+
+/**
+ * A play this seat could still contest. Never the defender's own: the window's
+ * respondent is whoever played the card (the server refuses
+ * CannotChallengeOwnCard), and only before somebody has challenged.
+ */
+export const takesChallenge = (view: PlayerView): boolean =>
+  view.pendingWindows.some(
+    (window) =>
+      window.type === 'Challenge' &&
+      !!window.cardId &&
+      window.respondentId !== view.playerId &&
+      window.detail?.challenged !== true &&
+      window.detail?.challengeable !== false,
+  )
+
+/**
+ * Which card type the open reaction window is answered with — what the hand
+ * narrows to while it is up (the owner, 2026-09-07). A started challenge takes
+ * MODIFIERS, so that reading wins when both are somehow open.
+ */
+export function reactionCardType(view: PlayerView): 'Modifier' | 'Challenge' | null {
+  if (view.phase !== 'Turns') return null
+  if (takesModifier(view)) return 'Modifier'
+  if (takesChallenge(view)) return 'Challenge'
+  return null
+}
+
+/**
+ * Where THIS item may go — a MIRROR of the engine's equip rule (server
+ * item-tasks.ts canEquip): a bare hero, in your OWN party for a plain item
+ * and in somebody ELSE's for a cursed one (the owner, 2026-09-08).
+ *
+ * Board.tsx turns these into targeting keys and derivePlayable asks only
+ * whether there are any, because an item with nowhere to go must neither glow
+ * nor take a press. `cursed` is optional on the client's card view, so an
+ * absent flag reads as plain — the same way the server's required boolean
+ * defaults.
+ */
+export const equipTargets = (
+  view: PlayerView,
+  item: CardView,
+): { playerId: string; index: number }[] => {
+  const cursed = item.type === 'Item' && item.cursed === true
+  return view.parties
+    .filter((party) => (cursed ? party.playerId !== view.playerId : party.playerId === view.playerId))
+    .flatMap((party) =>
+      party.heroes.flatMap((hero, index) =>
+        hero.equippedItem ? [] : [{ playerId: party.playerId, index }],
+      ),
+    )
+}
+
+/**
+ * Whether this seat holds a card the open reaction window can be answered
+ * with. Read by the hand — which force-opens and rises above the dim only
+ * when there is something in it to play (the owner, 2026-09-08) — and by Lazy
+ * Choice, which gives the window up when there is not. One question, so the
+ * fan and the auto-skip can never disagree about whether you can act.
+ */
+export const holdsAnswer = (view: PlayerView): boolean => {
+  const answers = reactionCardType(view)
+  return answers !== null && view.hand.some((card) => card.type === answers)
+}
+
 export function derivePlayable(view: PlayerView): PlayableFlags {
   const mine = view.parties.find((party) => party.playerId === view.playerId)
   // `busy` while the only open window is an optional question of ours does
@@ -80,22 +161,9 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
   // A challenge takes modifiers only once somebody has actually challenged
   // (both sides rolled); before that the server refuses ChallengeNotStarted.
   // Conversely a challenge card can only be played while nobody has.
-  const modifiable = view.pendingWindows.some(
-    (window) =>
-      window.type === 'Modifier' ||
-      window.type === 'Attack' ||
-      (window.type === 'Challenge' && window.detail?.challenged === true),
-  )
-  // ... and never by the defender: the window's respondent is whoever played
-  // the card (the server refuses CannotChallengeOwnCard).
-  const challengeable = view.pendingWindows.some(
-    (window) =>
-      window.type === 'Challenge' &&
-      !!window.cardId &&
-      window.respondentId !== view.playerId &&
-      window.detail?.challenged !== true &&
-      window.detail?.challengeable !== false,
-  )
+  const modifiable = takesModifier(view)
+  const challengeable = takesChallenge(view)
+
   const me = view.playerId
   const mayActOn = (window: PendingWindowView): boolean => window.canPass === true
   const passedByMe = (window: PendingWindowView): boolean => {
@@ -119,7 +187,9 @@ export function derivePlayable(view: PlayerView): PlayableFlags {
     hand: view.hand.map((card) => {
       if (card.type === 'Modifier') return reactionWindow && modifiable
       if (card.type === 'Challenge') return reactionWindow && challengeable
-      return afford(AP_COST.playCard) && ['Hero', 'Item', 'Magic'].includes(card.type)
+      if (card.type === 'Item')
+        return afford(AP_COST.playCard) && equipTargets(view, card).length > 0
+      return afford(AP_COST.playCard) && ['Hero', 'Magic'].includes(card.type)
     }),
     heroes: mine?.heroes.map((hero) => afford(AP_COST.rollOnHero) && hero.canRollOn) ?? [],
     leader: !!mine && afford(AP_COST.rollOnLeader) && mine.canRollOnLeader,

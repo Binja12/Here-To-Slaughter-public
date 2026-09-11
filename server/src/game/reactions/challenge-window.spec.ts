@@ -2,6 +2,7 @@ import { GameEventType, IGameEvent, PassiveType, ReactionWindowType, RefusalReas
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { ChallengeWindow } from './challenge-window'
+import { PlayerChoiceWindow } from './player-choice-window'
 import { GameState } from '../pipelines/game-state'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { CardStack } from '../state-structures/card-stack'
@@ -475,5 +476,52 @@ describe('ChallengeWindow', () => {
     jest.runAllTimers()
     const count = events.filter((e) => e.getType() === GameEventType.ReactionWindowClosed).length
     expect(count).toBe(1)
+  })
+})
+
+// Bloodwing asks the challenger to DISCARD each time a player challenges it.
+// That question is a frame of its own, opened after the challenge — and the
+// contest cannot be settled out from under it (the owner, 2026-09-08).
+describe('a question standing over the challenge', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  it('does not settle while it is open; the clock runs again instead', () => {
+    const em = new GameEventEmitter()
+    const gs = makeGs()
+    const win = makeWindow({ gs, em, timeoutMs: 5000 })
+    gs.addFrame('frame-2', gs.clone(), [])
+    const discard = new PlayerChoiceWindow('w-q', 'p2', ['p1'], 60_000, gs, 'frame-2', em)
+    gs.addWindow('frame-2', discard)
+
+    jest.advanceTimersByTime(5000)
+    expect(win.isOpen()).toBe(true)
+    win.resolve()
+    expect(win.isOpen()).toBe(true)
+
+    // answered: the contest settles on its own clock, from the top
+    discard.submitReaction('p2', { choice: 'p1' })
+    jest.advanceTimersByTime(5000)
+    expect(win.isOpen()).toBe(false)
+  })
+
+  it('gives the challenge its full clock back when the question is answered', () => {
+    const em = new GameEventEmitter()
+    const gs = makeGs()
+    const win = makeWindow({ gs, em, timeoutMs: 5000 })
+    gs.addFrame('frame-2', gs.clone(), [])
+    const discard = new PlayerChoiceWindow('w-q', 'p2', ['p1'], 60_000, gs, 'frame-2', em)
+    gs.addWindow('frame-2', discard)
+
+    jest.advanceTimersByTime(4000)
+    const before = win.getDeadline()
+    discard.submitReaction('p2', { choice: 'p1' })
+
+    // the whole wait again, not the second that was left of it
+    expect(win.getDeadline()).toBeGreaterThan(before)
+    jest.advanceTimersByTime(4000)
+    expect(win.isOpen()).toBe(true)
+    jest.advanceTimersByTime(1500)
+    expect(win.isOpen()).toBe(false)
   })
 })

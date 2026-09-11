@@ -18,13 +18,13 @@ import { CTX_PULLED_CARD_IDS, CTX_CHOSEN_PLAYER } from '../../abilities/ability-
 export const SlipperyPawsAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to pull 2 cards from'), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new PullCardTask({ count: 2 }),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self, among: CTX_PULLED_CARD_IDS }),
+      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self, among: CTX_PULLED_CARD_IDS }, { question: 'Choose a pulled card to discard' }),
       new DiscardTask(),
     ],
   },

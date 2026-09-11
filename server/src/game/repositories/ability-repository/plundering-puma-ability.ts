@@ -22,14 +22,24 @@ const MAY_DRAW = 'PlunderingPumaVictimDraws'
 export const PlunderingPumaAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
-    steps: [new ChoosePlayerTask({ owner: Owner.Others }), new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand)],
+    steps: [
+      new ChoosePlayerTask(
+        { owner: Owner.Others },
+        'Choose a player to pull 2 cards from',
+      ),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand),
+    ],
   },
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
       new PullCardTask(),
       new PullCardTask(),
-      new ConfirmTask({ confirms: MAY_DRAW, executor: 'chosen' }),
+      new ConfirmTask({
+        confirms: MAY_DRAW,
+        question: 'Draw a card?',
+        executor: 'chosen',
+      }),
     ],
   },
   {

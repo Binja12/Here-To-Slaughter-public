@@ -398,6 +398,10 @@ export enum RefusalReason {
   NotAnItem = "NotAnItem",
   NotAHero = "NotAHero",
   HeroAlreadyEquipped = "HeroAlreadyEquipped",
+  /** A plain item helps its own side: it goes on a hero in YOUR party. */
+  NotYourHero = "NotYourHero",
+  /** A cursed item is played AT somebody: it goes on somebody else's hero. */
+  NotAnEnemyHero = "NotAnEnemyHero",
   // AttackMonster — the halves of `GameState.canAttackMonster`
   MonsterNotInRow = "MonsterNotInRow",
   PartyRequirementUnmet = "PartyRequirementUnmet",

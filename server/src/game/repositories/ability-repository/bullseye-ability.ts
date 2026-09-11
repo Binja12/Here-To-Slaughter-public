@@ -20,11 +20,14 @@ export const BullseyeAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.MainDeckTop, top: 3 }),
+      new ChooseCardTask(
+        { zone: Zone.MainDeckTop, top: 3 },
+        { question: 'Choose a card to add to your hand' },
+      ),
       new DrawTask(CTX_CHOSEN_CARD),
       new ChooseCardTask(
         { zone: Zone.MainDeckTop, top: 2 },
-        { resultKey: CTX_DECK_TOP_CARD, question: 'Bullseye: which card goes on top of the deck?' },
+        { resultKey: CTX_DECK_TOP_CARD, question: 'Choose a card to put on top of the deck' },
       ),
       new ReturnToDeckTopTask(CTX_DECK_TOP_CARD),
     ],

@@ -47,7 +47,31 @@ const wire = (gs: GameState) => {
 }
 import { CrownedSerpentAbility } from './crowned-serpent-ability'
 import { CONFIRM } from '../../reactions/task-choice-window'
-import { TriggerScope } from 'shared'
+import { RollCompareMode, TriggerScope } from 'shared'
+import { MonsterCard } from '../../cards/monster-card'
+import { ModifierCard } from '../../cards/modifier-card'
+import { TaskManager } from '../../pipelines/task-manager'
+import { RollOnHeroAction } from '../../actions/roll-on-hero-action'
+import { PlayModifierReaction } from '../../reactions/play-modifier-reaction'
+import { abilityRegistry } from './index'
+
+const SERPENT = 'monster-125'
+const MOD = 'modifier-077'
+const HERO = 'hero-serpent-roll'
+
+const serpent = () =>
+  new MonsterCard({
+    id: SERPENT,
+    name: SERPENT,
+    type: CardType.Monster,
+    image: '',
+    description: '',
+    set: 'base',
+    partyReq: { classes: ['Any', 'Any'] },
+    higherReq: 10,
+    lowerReq: 7,
+    rollCompareMode: RollCompareMode.HighToWin,
+  })
 
 // Crowned Serpent (monster-125): "Each time any player (including you) plays
 // a Modifier card, you may DRAW a card."
@@ -76,5 +100,58 @@ describe('Crowned Serpent (monster-125)', () => {
     const { em, rm } = wire(gs)
     CrownedSerpentAbility[1].steps[0].execute(gs, ctx, em, rm)
     expect(gs.getPlayer('p1')!.getHand()).toEqual(['top'])
+  })
+
+  // The bug this covers: the Serpent's question parked the stack before the
+  // modifier card's own ApplyModifierTask had run, so the roll on every screen
+  // still showed the number the modifier was meant to change until the
+  // Serpent's owner answered (the owner, 2026-09-07).
+  it('asks only AFTER the modifier it is watching has landed on the roll', () => {
+    jest.useFakeTimers()
+    try {
+      const gs = makeGs()
+      seat(gs, 'p1', [MOD], [HERO])
+      seat(gs, 'p2', [])
+      gs.getParty('p2').addMonster(SERPENT)
+      gs.registerCard(hero(HERO, HeroClass.Guardian))
+      gs.registerCard(serpent())
+      gs.registerCard(
+        new ModifierCard({
+          id: MOD,
+          name: 'Modifier',
+          type: CardType.Modifier,
+          image: '',
+          description: '',
+          set: 'base',
+          values: [2, -2],
+        }),
+      )
+      gs.setCurrentPlayerId('p1')
+
+      const em = new GameEventEmitter()
+      const rm = new ReactionManager(gs, em)
+      new TaskManager(gs, em, rm, abilityRegistry)
+
+      jest.spyOn(Math, 'random').mockReturnValue(0) // baseRoll 1
+      new RollOnHeroAction('a1', 'p1', HERO, em, rm).execute(gs)
+      rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD, 2))
+
+      // The Serpent is asking...
+      const ask = gs
+        .openWindows()
+        .find((w) => w.getType() === ReactionWindowType.TaskChoice)!
+      expect(ask.getRespondentId()).toBe('p2')
+
+      // ...and the roll the whole table is watching already counts the card.
+      const roll = gs
+        .openWindows()
+        .find((w) => w.getType() === ReactionWindowType.Modifier)!
+      const detail = roll.getDetail()
+      expect(detail['bonuses']).toEqual([{ cardSource: MOD, amount: 2 }])
+      expect(detail['finalRoll']).toBe((detail['baseRoll'] as number) + 2)
+    } finally {
+      jest.restoreAllMocks()
+      jest.useRealTimers()
+    }
   })
 })

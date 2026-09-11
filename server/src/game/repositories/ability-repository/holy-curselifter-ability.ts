@@ -15,7 +15,10 @@ export const HolyCurselifterAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.EquippedItem, owner: Owner.Self, cursed: true }),
+      new ChooseCardTask(
+        { zone: Zone.EquippedItem, owner: Owner.Self, cursed: true },
+        { question: 'Choose a cursed item to return to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

@@ -12,7 +12,7 @@ import {
 import type { Game } from '../setup/create-game'
 import { GameState } from '../pipelines/game-state'
 import { IEffect, IReactionWindow, isPassable } from '../interfaces'
-import { isActivatable } from '../repositories/ability-repository'
+import { hasStandingRule, isActivatable } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // The projection layer of §5: one player's screen, built from the board. The
@@ -50,6 +50,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .getAll()
       .map((id) => cardOf(gs, id)),
     revealedCards: gs.getRevealed(playerId).map((id) => cardOf(gs, id)),
+    ...revealCaption(gs, playerId),
     monsterRow: gs
       .getMonsterPile()
       .getAll()
@@ -58,6 +59,7 @@ export function playerView(game: Game, playerId: string): PlayerView {
       .getMonsterPile()
       .getAll()
       .filter((monsterId) => gs.canAttackMonster(playerId, monsterId).accepted),
+    passiveCardIds: passiveCardIds(gs, game.playerOrder),
     pendingWindows: gs
       .openWindows()
       .map((window) => pendingWindowView(gs, window, playerId)),
@@ -70,6 +72,42 @@ export function playerView(game: Game, playerId: string): PlayerView {
 // Internals
 // ---------------------------------------------------------------------------
 
+/**
+ * Every card on the table whose rule works with nobody playing anything.
+ *
+ * Three sources, and they may name the same card twice — a leader that grants
+ * a roll bonus is both an installed effect and a passive leader — so the set
+ * is what is returned:
+ *
+ *  - the source card of every standing effect at every seat (the item, hero or
+ *    magic that installed it);
+ *  - each party's leader, when it is not the ACTIVATED one and still declares
+ *    something (`isActivatable` is the same test RollOnLeaderAction uses);
+ *  - each party's won monsters, whose printed rule is the passive they were
+ *    won for — a fight-back only fires from the pile (`hasStandingRule`).
+ *
+ * A HERO's printed effect is rolled for, not standing, so heroes are here only
+ * through the effects they installed.
+ */
+function passiveCardIds(gs: GameState, playerOrder: string[]): string[] {
+  const ids = new Set<string>()
+
+  for (const player of gs.getPlayers()) {
+    for (const effect of player.getAllEffects()) ids.add(effect.sourceCardId)
+  }
+
+  for (const seatId of playerOrder) {
+    const party = gs.getParty(seatId)
+    const leaderId = party.getLeaderId()
+    if (!isActivatable(leaderId) && hasStandingRule(leaderId)) ids.add(leaderId)
+    for (const monsterId of party.getMonsterIds()) {
+      if (hasStandingRule(monsterId)) ids.add(monsterId)
+    }
+  }
+
+  return [...ids]
+}
+
 /** Absent on a table without a clock. A deadline while running, the frozen remainder while held. */
 function turnClockView(game: Game): TurnClockView | undefined {
   const { turnManager } = game
@@ -81,6 +119,19 @@ function turnClockView(game: Game): TurnClockView | undefined {
   return deadline === undefined
     ? { turnTimeMs, heldMs: remainingMs }
     : { turnTimeMs, deadline }
+}
+
+/** The two facts the reveal strip captions itself with; nothing when idle. */
+function revealCaption(
+  gs: GameState,
+  playerId: string,
+): { revealedBy?: string; revealedOf?: string } {
+  const source = gs.getRevealSource(playerId)
+  if (!source || gs.getRevealed(playerId).length === 0) return {}
+  return {
+    revealedBy: source.byPlayerId,
+    ...(source.ofPlayerId && { revealedOf: source.ofPlayerId }),
+  }
 }
 
 /** THROWS: a zone holding an unregistered id is a broken board (§11.2). */

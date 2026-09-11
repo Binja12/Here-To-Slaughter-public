@@ -1,29 +1,26 @@
 import React, { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { assetUrl } from '../assetUrl'
-import { catalog, selectImage, sourcePath, deliveryPixelHeight } from './catalog'
+import { catalog, selectImage, sourcePath } from './catalog'
 import { backgroundTraffic } from './traffic'
 
 const failed = new Set<string>()
 const listeners = new Set<() => void>()
 let revision = 0
 const notify = () => { revision++; listeners.forEach((listener) => listener()) }
-const snapshot = () => `${deliveryPixelHeight()}:${revision}`
+// Only a FAILED url changes what an image resolves to now — the export does
+// not depend on the viewport, so nothing re-picks on resize.
+const snapshot = () => String(revision)
 function subscribe(listener: () => void) {
   listeners.add(listener)
-  window.addEventListener('resize', listener)
-  const resolution = window.matchMedia?.(`(resolution: ${window.devicePixelRatio}dppx)`)
-  resolution?.addEventListener('change', listener)
   return () => {
     listeners.delete(listener)
-    window.removeEventListener('resize', listener)
-    resolution?.removeEventListener('change', listener)
   }
 }
 
 export function imageUrl(source: string): string {
   const entry = catalog.images[sourcePath(source)]
   if (!entry) return assetUrl(source)
-  return [selectImage(entry, deliveryPixelHeight()), entry.full, assetUrl(source)]
+  return [selectImage(entry), entry.full, assetUrl(source)]
     .find((url) => !failed.has(url)) ?? assetUrl(source)
 }
 

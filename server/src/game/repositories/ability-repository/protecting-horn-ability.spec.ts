@@ -156,8 +156,8 @@ describe('ProtectingHornAbility', () => {
   it('asks its own two numbers; the card\'s value came with the play', () => {
     const { gs, events } = rollAndPlayModifier(HORN)
 
-    // The leader is scanned before the instance pile, so the Horn goes first
-    // and the card's own choice follows once the Horn's has settled.
+    // The card lands its own value first (TaskManager runs the event's named
+    // card before the onlookers), then the Horn asks for its own.
     expect(openedValueChoices(events)).toHaveLength(1)
     expect(openedValueChoices(events)[0]['options']).toEqual([1, -1])
 
@@ -174,10 +174,11 @@ describe('ProtectingHornAbility', () => {
 
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
     expect(applied).toHaveLength(2)
-    // Each names its own source, so the roll can be shown broken down.
+    // Each names its own source, so the roll can be shown broken down. The
+    // card the event names goes first; the Horn is watching it.
     expect(applied.map((p) => [p['cardId'], p['value']])).toEqual([
-      [HORN, 1],
       [MOD, 2],
+      [HORN, 1],
     ])
     expect(applied[1]['finalRoll']).toBe(5) // 1 base + 1 Horn + 2 card
   })

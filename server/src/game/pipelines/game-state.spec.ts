@@ -140,6 +140,24 @@ describe('GameState', () => {
     expect(gs.getCardOwner('hero-7')).toBe('p1')
   })
 
+  // A party holds more than the rows it stands in. An item is EQUIPPED
+  // before its challenge window opens, so a challenge on a freshly played
+  // item asked who owned a card this could not answer — and Bloodwing, whose
+  // rule is "each time another player CHALLENGES you", never fired
+  // (the owner, 2026-09-08).
+  it('should find the owner of an equipped item, a slain monster and a card in play', () => {
+    gs.registerPlayer(makePlayer('p1'))
+    const party = makeParty('p1', 'leader-1', ['hero-7'])
+    party.equipItem('hero-7', 'item-9')
+    party.addMonster('monster-127')
+    party.addInstanceCard('magic-3')
+    gs.registerParty(party)
+
+    expect(gs.getCardOwner('item-9')).toBe('p1')
+    expect(gs.getCardOwner('monster-127')).toBe('p1')
+    expect(gs.getCardOwner('magic-3')).toBe('p1')
+  })
+
   it('should return undefined for unowned card', () => {
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', 'leader-1'))

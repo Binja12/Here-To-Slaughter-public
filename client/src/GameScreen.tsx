@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import Board from './board/Board'
 import { AudioProvider } from './audio/AudioProvider'
 import type { GameAssigned } from './contract'
@@ -9,12 +9,18 @@ import { GameProvider } from './state/game'
 import { useGameState } from './state/useGameState'
 import { backgroundTraffic } from './loading/traffic'
 import { useAssetWarmup } from './loading/warmup'
+import { firstBoardImages, useImagesReady } from './loading/boardReady'
 import PendingCommandNotice from './loading/PendingCommandNotice'
 
 export default function GameScreen({ assignment, onLeave }: { assignment: GameAssigned; onLeave: () => void }) {
   const port = useMemo(() => process.env.REACT_APP_FAKE_SERVER === '1' ? new FakeGamePort() : new RealGamePort(), [])
   const game = useGameState(port, assignment)
-  const ready = !!game.snapshot
+  // The FIRST view's images, computed once: a later snapshot must not re-arm
+  // the wait and blink the table away mid-game.
+  const first = useRef(game.snapshot?.state ?? null)
+  if (!first.current && game.snapshot) first.current = game.snapshot.state
+  const painted = useImagesReady(first.current ? firstBoardImages(first.current) : [])
+  const ready = !!game.snapshot && painted
   useAssetWarmup(ready ? 'game' : 'game-connecting')
   useEffect(() => {
     if (!ready) return
@@ -29,9 +35,16 @@ export default function GameScreen({ assignment, onLeave }: { assignment: GameAs
     const frame = requestAnimationFrame(measure)
     return () => { cancelAnimationFrame(frame); unsubscribe() }
   }, [ready])
-  if (!game.snapshot) return (
+  // Held until the felt, the frames and every card of the opening view have
+  // decoded — a table that paints in pieces reads as broken (the owner,
+  // 2026-09-08). The wait gives up on its own if an image never arrives.
+  if (!game.snapshot || !painted) return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 font-heading text-xl text-amber-200">
-      {game.connected ? 'Waiting for the table…' : 'Connecting to the table…'}
+      {!game.connected
+        ? 'Connecting to the table…'
+        : game.snapshot
+          ? 'Dealing the table…'
+          : 'Waiting for the table…'}
     </main>
   )
   return <><CommandProvider send={game.send}>

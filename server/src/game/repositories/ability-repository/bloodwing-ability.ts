@@ -19,7 +19,10 @@ export const BloodwingAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.ChallengePlayed, scope: TriggerScope.TargetsOwner },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Chosen, executor: 'chosen' },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask({ executor: 'chosen' }),
     ],
   },
@@ -29,7 +32,10 @@ export const BloodwingAbility: IAbilityRule[] = [
     // fight-back text on its own).
     trigger: { on: GameEventType.MonsterFoughtBack, scope: TriggerScope.Attacker },
     steps: [
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.Self },
+        { question: 'Choose a hero to sacrifice' },
+      ),
       new SacrificeTask(),
     ],
   },
