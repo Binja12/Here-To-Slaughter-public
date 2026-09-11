@@ -229,6 +229,10 @@ export default function PlayerHand({
   const ON_HOVER =
     'group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100';
   const held = !forcedClosed && (forceOpen || peekOpen || (sticky && stuckOpen));
+  // What the fan tells the REST of the board. The player's own doing only:
+  // a fan the TABLE holds open is exactly when the reaction-window button is
+  // needed, and hiding it there left no way to bring a closed window back.
+  const openedByMe = !forcedClosed && (peekOpen || (sticky && stuckOpen));
   const fanState = forcedClosed
     ? SHUT
     : held
@@ -239,10 +243,10 @@ export default function PlayerHand({
 
   return (
     <div
-      // `hand-open` is for the REST of the board: index.css moves the centre
-      // buttons out from under a fan that is being held open, the way
-      // `:has(.hand-group:hover)` does for one that is merely hovered.
-      className={`group hand-group relative h-full w-full${held ? ' hand-open' : ''}${pressToOpen ? ' cursor-pointer' : ''}`}
+      // `hand-open`: index.css moves the centre buttons out from under a fan
+      // the PLAYER opened, the way `:has(.hand-group:hover)` does for one that
+      // is merely hovered.
+      className={`group hand-group relative h-full w-full${openedByMe ? ' hand-open' : ''}${pressToOpen ? ' cursor-pointer' : ''}`}
       onMouseEnter={() => setPeeking(false)}
       // sticky mode: pressing anywhere on the stack opens the fan, and only a
       // press on the felt closes it again (the board owns that half)

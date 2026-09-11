@@ -215,3 +215,31 @@ test('click-to-open: a card arriving holds the fan open rather than peeking', ()
   // and it never opens itself on a timer the felt press cannot beat
   expect(fanIsOpen(container)).toBe(false)
 })
+
+// `hand-open` is what index.css reads to move the centre buttons out from
+// under the fan. A fan the TABLE forced open must not claim it: a reaction
+// window opens the fan, and the button that reopens a closed reaction window
+// is one of the two that would stand down — leaving no way back (the owner,
+// 2026-09-08).
+test('only a fan the PLAYER opened tells the board to stand its buttons down', () => {
+  const group = (container: HTMLElement) => container.querySelector('.hand-group')!
+
+  // the table holding it open: fan open, board untouched
+  const forced = render(
+    <PlayerHand cards={['a.png']} anchorCenterCqw={82} forceOpen>
+      <div>stack</div>
+    </PlayerHand>,
+  )
+  expect(fanIsOpen(forced.container)).toBe(true)
+  expect(group(forced.container).className).not.toContain('hand-open')
+  forced.unmount()
+
+  // the player pressing it open: fan open, and the board is told
+  const pressed = render(
+    <PlayerHand cards={['a.png']} anchorCenterCqw={82} sticky stuckOpen>
+      <div>stack</div>
+    </PlayerHand>,
+  )
+  expect(fanIsOpen(pressed.container)).toBe(true)
+  expect(group(pressed.container).className).toContain('hand-open')
+})

@@ -365,9 +365,13 @@ code {
    Redraw and the reaction-window button stand down while either is up.
 
    Three states, one rule: a fan following the cursor (`.hand-group:hover`,
-   the same test the aura rule above uses), a fan being HELD open
+   the same test the aura rule above uses), a fan the PLAYER opened
    (`.hand-open`, set by PlayerHand), and any card lifted into the zoom band
-   (`.is-zoomed`). */
+   (`.is-zoomed`).
+
+   A fan the TABLE forced open is deliberately not one of them: a reaction
+   window opens it, and the button that brings that window back is one of the
+   two that would be standing down. */
 .board-stage:has(.hand-group:hover) .hud-yield,
 .board-stage:has(.hand-open) .hud-yield,
 .board-stage:has(.is-zoomed) .hud-yield {
