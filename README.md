@@ -1,15 +1,17 @@
 # Here to Slaughter
 
 A server-authoritative, event-driven state engine for a real-time multiplayer
-application, in TypeScript on Node.js. The domain is a card game; the problems
-are backend problems: **interruptible transactions over shared state,
+application, in TypeScript on Node.js, with the services around it: a
+lobby/auth server, a Socket.IO game server running many tables at once,
+PostgreSQL persistence and a React client. The domain is a card game; the
+problems are backend problems: **interruptible transactions over shared state,
 atomic rollback, rules as data, and information hiding enforced by types.**
 
 [![Engine tests](https://github.com/Binja12/Here-To-Slaughter-public/actions/workflows/engine-tests.yml/badge.svg)](https://github.com/Binja12/Here-To-Slaughter-public/actions/workflows/engine-tests.yml)
 
 ```
-Test Suites: 75 passed, 75 total
-Tests:       1162 passed, 1162 total
+Test Suites: 1 skipped, 168 passed, 168 of 169 total
+Tests:       7 skipped, 1588 passed, 1595 total
 ```
 
 ## What this demonstrates
@@ -37,16 +39,31 @@ Tests:       1162 passed, 1162 total
   implementation. Type-only cycles were measured and removed. Every design
   decision, and every alternative that was tried and deleted, is written down
   in [docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md).
+- **A typed service boundary.** Two NestJS processes: the lobby/auth server
+  (HTTP plus Server-Sent Events) and the game server (Socket.IO), talking to
+  each other over Nest's TCP microservice transport. The wire contract lives
+  in `shared/src/contracts`; commands are zod schemas parsed where they enter,
+  so a request that reaches the engine is already well formed.
+- **Sessions without trusting the client.** Passwords are Argon2id hashes;
+  a session is an opaque random token in an `HttpOnly` cookie, stored only as
+  a hash. The game server resolves the cookie to an account itself, so no
+  command carries a player id.
+- **Persistence behind interfaces.** PostgreSQL when `DATABASE_URL` is set,
+  in-memory stores otherwise, chosen once at boot; every spec runs in memory.
+  Each game keeps two logs: every engine event verbatim, and a player-facing
+  story projected per seat, so a line names a card only to the seats that saw
+  it.
 - **Testing as a design constraint.** Unit specs sit beside their subject. A
   real-clock integration test drives whole sessions through the same four
   entry points a client has and never touches internal state, so any case it
-  cannot express is a case no client can reach. CI runs typecheck and suite
-  on every push.
+  cannot express is a case no client can reach. A socket spec plays a whole
+  game through real Socket.IO clients. CI runs typecheck and suite on every
+  push.
 
 > **Unofficial, non-commercial implementation of the *Here to Slay* ruleset.**
 > Not affiliated with, endorsed by, or connected to the game's publisher or
-> designers. This repository contains **no original artwork and no original
-> card text**; every rule description is written in the author's own words.
+> designers. This repository contains **no original artwork**, and the card
+> text in the current tree is written in the author's own words.
 > *Here to Slay* is a trademark of its respective owner.
 
 ---
@@ -153,6 +170,16 @@ built by one function. A visible object is *named*; a hidden one is *counted*.
 There is no shared "table view", because a function that built one would be
 the thing that leaked.
 
+**From the engine to the network.** The engine takes player ids and nothing
+else; how a request arrived is not its business. The game server owns the
+rest: a registry of running tables, a dispatcher that turns a socket command
+into an action, a reaction or a choice, and a publisher that listens to each
+table's events and, once per burst, pushes every seat its own view with a
+version number. Commands carry a `commandId`, so a resend after a reconnect
+is answered from a ledger instead of being played twice, and a reconnecting
+browser is sent the live table. The lobby hands the seated accounts to the
+game server over TCP and hears back when the game ends.
+
 **Principles the code is held to** (from section 12 of the design record):
 delete anything with no readers; fail loudly at the point of the mistake;
 derive rather than pass; data over closures; one mechanism, not two; a step
@@ -173,16 +200,21 @@ server/src/game/
   actions/  tasks/          the two pipelines' units of work
   reactions/                the window classes
   state-structures/         player, party, face-down stack, face-up pile
-  views/                    the per-user projection
-  setup/                    createGame, plus the real-clock integration test
+  views/                    the per-user projection and the per-seat game log
+  setup/                    createGame, plus the real-clock integration tests
   conditions/ events/ config/ cards/
-server/src/data/            the domain records
-shared/                     types shared with any client
-docs/ENGINE_ARCHITECTURE.md the design record
-client/                     placeholder on this branch; see Branches
+server/src/
+  game-server/              Socket.IO gateway, table registry, command dispatch, snapshot publisher
+  lobby/  auth/             the lobby (HTTP + SSE) and registration, login, sessions
+  persistence/  stores/     PostgreSQL stores and their in-memory counterparts
+  data/                     the domain records
+shared/src/                 the wire contract and the types every process shares
+client/                     React lobby and board, coded against the contract
+Dockerfile  compose.yaml    the whole stack in containers, for a local playtest
+docs/                       design records: engine, wire contract, database and logs
 ```
 
-## Running the tests
+## Running it
 
 ```bash
 npm install
@@ -197,33 +229,49 @@ npx tsc --noEmit -p server/tsconfig.json
 ```
 
 The Jest config runs with type diagnostics off, so the typecheck is a separate
-step.
+step. The PostgreSQL store spec is skipped unless `HTSR_TEST_DATABASE_URL`
+points at a database.
 
-## Branches
+To play a table locally, start the stack and open http://localhost:3002 in two
+to four separate browser profiles (each one is a player):
 
-| Branch | What it holds |
-|---|---|
-| `main` | The engine. This README describes it. |
-| `HTSR-6-Auth-And-Lobby` | Registration, sessions, and the lobby service, per `docs/API_AND_SOCKETS_CONTRACT.md` on that branch. |
-| `HTSR-5-Frontend` | A React board and a thin Socket.IO gateway used to exercise the engine by hand. **The client on this branch was generated with AI tooling as a reference harness**; it is not part of the engine and is not representative of the design work above. Its image assets have been removed from the repository, so it renders without card art. |
+```bash
+docker compose up --build
+```
 
 ## About this repository
 
-This is a public mirror of a private development repository. The development
-repository's frontend branch contains AI-generated card images derived from
-the published game's artwork. Those images were stripped from the history
-before publishing, which is why the client on `HTSR-5-Frontend` renders
-without card art and why the two repositories do not share commit ids on that
-branch. The engine branch and its full history are identical in both.
+This is a public mirror of a private development repository, and its history
+was rewritten before publishing. The development history contains
+AI-generated card images derived from the published game's artwork, and a
+copy of the publisher's rules reference; both were removed from every commit
+here, so the client renders without card art. The music tracks were removed
+too, so the client plays only its sound effects. Commit messages were
+rewritten for clarity as well, so commit ids differ from the private
+repository.
 
 The card descriptions in `server/src/data/base-game-cards.ts` are the
-author's own paraphrases of the rules, written so that no printed card text is
-reproduced here.
+author's own paraphrases of the rules. Commits older than the one that
+introduced them still carry the printed wording.
+
+The React client began as an AI-generated harness for playing the engine by
+hand, coded against the wire contract; the design work this README describes
+is in the engine and the servers.
+
+The project was built with [Claude Code](https://claude.com/claude-code) as a
+pair programmer.
+
+## A note on the engine's `GameState`
+
+`server/src/game/pipelines/game-state.ts` is the engine's one big class by
+design: since 2026-09-04 it is the only place that mutates the board, so every
+structure's mutator has a thin one-to-one door on it. Most of the file is
+those setters and getters, which is why it is long. Grouping the doors by zone
+is a later pass — see `docs/ENGINE_ARCHITECTURE.md` §8.
 
 ## Status
 
-Work in progress. The reaction system, both pipelines, effects, projection and
-setup are complete and tested. Remaining gaps (an end-turn action, deck
-reshuffle, ten of the fifteen monster abilities, the transport layer) are
-listed in [docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md),
-section 10.
+Every card in the base set has its behaviour in the registry, and whole games
+have been played through the lobby, the game server and the client in
+playtests. Known limitations are listed in
+[docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md), section 8.
