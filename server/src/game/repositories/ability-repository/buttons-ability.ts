@@ -1,6 +1,7 @@
-import { CardType, GameEventType, Owner, TriggerScope } from 'shared'
-import { CTX_PULLED_CARD_IDS } from '../../abilities/ability-context'
+import { CardType, GameEventType, Owner, TriggerScope, Zone } from 'shared'
+import { CTX_PULLED_CARD_IDS, CTX_CHOSEN_PLAYER } from '../../abilities/ability-context'
 import { IAbilityRule } from '../../interfaces'
+import { TargetRollTask } from '../../tasks/target-roll-task'
 import { ChoosePlayerTask, ConfirmTask } from '../../tasks/choose-tasks'
 import { CardTypeCondition } from '../../tasks/conditions'
 import { PlayMagicTask } from '../../tasks/magic-tasks'
@@ -12,9 +13,15 @@ const PLAY_MAGIC = 'ButtonsPlaysMagic'
 
 export const ButtonsAbility: IAbilityRule[] = [
   {
+    trigger: { on: GameEventType.RollPassing, scope: TriggerScope.SelfCard },
+    steps: [
+      new ChoosePlayerTask({ owner: Owner.Others }, 'Choose a player to pull a card from'),
+      new TargetRollTask(CTX_CHOSEN_PLAYER, Zone.Hand),
+    ],
+  },
+  {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChoosePlayerTask({ owner: Owner.Others }),
       new PullCardTask(),
       new CardTypeCondition(CardType.Magic, CTX_PULLED_CARD_IDS, PULLED_MAGIC),
     ],
@@ -28,6 +35,7 @@ export const ButtonsAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: PLAY_MAGIC,
+        question: 'Play the magic card you just pulled?',
         subjectKey: CTX_PULLED_CARD_IDS,
       }),
     ],

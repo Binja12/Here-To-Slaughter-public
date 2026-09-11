@@ -149,7 +149,7 @@ describe('PlayHeroTask', () => {
       GameEventType.HeroAddedToParty,
       GameEventType.ReactionWindowOpened,
     ])
-    expect(gs.frames.get(frameId as string)).toBeDefined()
+    expect(gs.getFrames().get(frameId as string)).toBeDefined()
   })
 
   it('returns the frameId, so the declaring entry waits on the challenge', () => {
@@ -163,7 +163,7 @@ describe('PlayHeroTask', () => {
 
     const frameId = new PlayHeroTask().execute(gs, ctxWith(['hero-1']), emitter, rm)
 
-    const { snapshot } = gs.frames.get(frameId as string)!
+    const { snapshot } = gs.getFrames().get(frameId as string)!
     // A challenged card is spent either way, so the rollback must not give it
     // back; the party arrival is inside the frame, so the rollback undoes it.
     expect(snapshot.getPlayer('p1')!.getHand()).not.toContain('hero-1')

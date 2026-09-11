@@ -1,0 +1,99 @@
+name: htsr-internet-playtest
+
+# Internet playtest stack. Unlike compose.yaml, the application containers do
+# not publish their ports. Caddy is the single same-origin entrance and is
+# reachable locally only; the optional Cloudflare Tunnel reaches it over this
+# Compose network without opening an inbound router port.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "htsr"
+      POSTGRES_PASSWORD: "${HTSR_DB_PASSWORD:-htsr}"
+      POSTGRES_DB: "htsr"
+    volumes:
+      - htsr-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U htsr -d htsr"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  lobby:
+    build:
+      context: .
+      target: server
+    command: ["node", "server/dist/server/src/main.js"]
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      DATABASE_URL: "postgres://htsr:${HTSR_DB_PASSWORD:-htsr}@db:5432/htsr"
+      LOBBY_AUTH_TCP_HOST: "0.0.0.0"
+      LOBBY_AUTH_TCP_PORT: "4000"
+      GAME_SERVER_TCP_HOST: "game"
+      GAME_SERVER_TCP_PORT: "4001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  game:
+    build:
+      context: .
+      target: server
+    command: ["node", "server/dist/server/src/main.game.js"]
+    environment:
+      NODE_ENV: "production"
+      GAME_SERVER_PORT: "3001"
+      DATABASE_URL: "postgres://htsr:${HTSR_DB_PASSWORD:-htsr}@db:5432/htsr"
+      GAME_SERVER_TCP_HOST: "0.0.0.0"
+      GAME_SERVER_TCP_PORT: "4001"
+      # Socket.IO interprets `/` as the browser's current HTTPS origin. This
+      # keeps the setup compatible with any stable tunnel hostname.
+      GAME_SERVER_PUBLIC_URL: "/"
+      # Restrict credentialed Socket.IO requests to the tunnel hostname.
+      GAME_SERVER_CORS_ORIGIN: "${HTSR_PUBLIC_ORIGIN:-}"
+      LOBBY_AUTH_TCP_HOST: "lobby"
+      LOBBY_AUTH_TCP_PORT: "4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      lobby:
+        condition: service_started
+
+  client:
+    build:
+      context: .
+      target: client
+      args:
+        # Caddy removes /api before forwarding to the lobby.
+        REACT_APP_LOBBY_URL: "/api"
+    depends_on:
+      - lobby
+      - game
+
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      # Local verification only. Nothing is exposed on the LAN/router.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./docker/Caddyfile.internet:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - client
+      - lobby
+      - game
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["cloudflare"]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      # Set in PowerShell before starting; never put the token in this file.
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:-}"
+    depends_on:
+      - gateway
+
+volumes:
+  htsr-db:

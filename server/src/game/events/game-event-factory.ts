@@ -232,6 +232,7 @@ export class GameEventFactory {
     cardId: string,
     targetPlayerId: string,
     value: number,
+    windowId?: string,
   ): IGameEvent {
     return new GameEvent(
       GameEventType.ModifierPlayed,
@@ -240,6 +241,7 @@ export class GameEventFactory {
         cardId,
         targetPlayerId,
         value,
+        ...(windowId ? { windowId } : {}),
         // The card's entry runs with a fresh context: what it needs travels here.
         ctxSeed: {
           [CTX_MODIFIER_TARGET]: [targetPlayerId],
@@ -385,11 +387,30 @@ export class GameEventFactory {
     )
   }
 
-  static rollSuccess(playerId: string, heroId: string): IGameEvent {
+  /**
+   * The roll stands as a pass while its window is still open. The hero's
+   * target question triggers on it (its entry [0]); the effect waits for
+   * RollSuccess.
+   */
+  static rollPassing(playerId: string, heroId: string): IGameEvent {
+    return new GameEvent(
+      GameEventType.RollPassing,
+      playerId,
+      { cardId: heroId },
+      Audience.All,
+    )
+  }
+
+  /** `ctxSeed`: the target the roll window was handed (TargetRollTask), so the effect's fresh context starts with it. */
+  static rollSuccess(
+    playerId: string,
+    heroId: string,
+    ctxSeed?: Record<string, unknown>,
+  ): IGameEvent {
     return new GameEvent(
       GameEventType.RollSuccess,
       playerId,
-      { cardId: heroId },
+      { cardId: heroId, ...(ctxSeed ? { ctxSeed } : {}) },
       Audience.All,
     )
   }

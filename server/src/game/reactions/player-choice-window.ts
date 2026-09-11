@@ -1,5 +1,6 @@
-import { ReactionWindowType } from 'shared'
+import { IGameEventEmitter, ReactionWindowType } from 'shared'
 import { ChoiceWindow } from './choice-window'
+import { GameState } from '../pipelines/game-state'
 import { CTX_CHOSEN_PLAYER, NO_CONTEXT_RESULT } from '../abilities/ability-context'
 
 // ---------------------------------------------------------------------------
@@ -7,6 +8,20 @@ import { CTX_CHOSEN_PLAYER, NO_CONTEXT_RESULT } from '../abilities/ability-conte
 // ---------------------------------------------------------------------------
 
 export class PlayerChoiceWindow extends ChoiceWindow {
+  constructor(
+    id: string,
+    respondentId: string,
+    options: unknown[],
+    timeoutMs: number,
+    gs: GameState,
+    frameId: string,
+    emitter: IGameEventEmitter,
+    /** The card whose ability asks, for the screen (`detail.sourceCardId`). */
+    sourceCardId?: string,
+  ) {
+    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, sourceCardId ? { sourceCardId } : {})
+  }
+
   getType(): ReactionWindowType {
     return ReactionWindowType.PlayerChoice
   }

@@ -22,7 +22,7 @@ const collect = (em: GameEventEmitter): IGameEvent[] => {
 
 function makeWindow(gs: GameState, em: GameEventEmitter, frameId = 'frame-1') {
   const win = new TaskChoiceWindow('win-1', 'p1', 5000, gs, frameId, em)
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame(frameId, gs.clone(), [win])
   return win
 }
 

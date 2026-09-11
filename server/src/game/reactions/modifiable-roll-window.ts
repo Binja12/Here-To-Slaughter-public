@@ -7,6 +7,7 @@ import {
   RefusalReason,
   RequestResult,
   RollContext,
+  Zone,
 } from 'shared'
 import {
   accepted,
@@ -15,6 +16,7 @@ import {
   RollBonus,
   ValueBias,
   IPassableWindow,
+  ITargetedRollWindow,
 } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { CTX_FINAL_ROLL, NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -32,8 +34,22 @@ import { GameEventFactory } from '../events/game-event-factory'
 // list, its bias rule and its settlement are a different shape.
 // ---------------------------------------------------------------------------
 
-export abstract class ModifiableRollWindow implements IModifiableWindow, IPassableWindow {
+export abstract class ModifiableRollWindow
+  implements IModifiableWindow, IPassableWindow, ITargetedRollWindow
+{
   protected bonuses: RollBonus[] = []
+  /**
+   * The target the effect chose while this roll stood open, as the slot the
+   * card's choose step wrote (TargetRollTask). Shown to the table as the
+   * seat it belongs to, and carried to the effect on the settle.
+   */
+  /**
+   * What this roll is aimed at, by the context slot that named it. A MAP, not
+   * one entry: a card that chooses two targets under the same window (Fluffy
+   * destroys two heroes) writes a slot each, and both seats have to see that
+   * they are targeted. Choosing into the same slot twice replaces it.
+   */
+  private readonly targets = new Map<string, { picks: unknown[]; zone: Zone }>()
   /** Seats that gave this roll up; cleared whenever a card lands in it. */
   private readonly passes = new Set<string>()
   private timer?: ReturnType<typeof setTimeout>
@@ -101,6 +117,55 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       ),
     )
     this.resetTimer()
+    this.announceStanding()
+  }
+
+  /**
+   * What the standing roll means to the effect, announced by the subclass
+   * that knows the requirement: a hero roll says RollPassing so its target
+   * can be asked while the window stands. Called at open and after every
+   * bonus.
+   */
+  protected announceStanding(): void {}
+
+  /** The chosen target as the seed of the effect's fresh context, if one landed. */
+  protected targetSeed(): Record<string, unknown> | undefined {
+    if (this.targets.size === 0) return undefined
+    return Object.fromEntries(
+      [...this.targets].map(([key, target]) => [key, target.picks]),
+    )
+  }
+
+  // --- ITargetedRollWindow ---
+
+  /**
+   * The target is known: the table sees it, and everyone gets another look
+   * at the roll — the full wait again, passes cleared, the way a card
+   * landing does.
+   */
+  targetChosen(key: string, picks: unknown[], zone: Zone): void {
+    this.targets.set(key, { picks, zone })
+    this.passes.clear()
+    this.resetTimer()
+  }
+
+  /**
+   * The seat the target belongs to, never the card: a card picked from a
+   * hand is that player's secret.
+   */
+  private targetSeats(): { playerId: string; zone: Zone }[] {
+    const seen = new Set<string>()
+    const seats: { playerId: string; zone: Zone }[] = []
+    for (const { picks, zone } of this.targets.values()) {
+      for (const pick of picks) {
+        if (typeof pick !== 'string') continue
+        const playerId = this.gs.getPlayer(pick) ? pick : this.gs.getCardOwner(pick)
+        if (!playerId || seen.has(`${playerId}:${zone}`)) continue
+        seen.add(`${playerId}:${zone}`)
+        seats.push({ playerId, zone })
+      }
+    }
+    return seats
   }
 
   // --- IReactionWindow ---
@@ -121,6 +186,7 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       bonuses: [...this.bonuses],
       finalRoll: this.getFinalRoll(),
       passedBy: [...this.passes],
+      targets: this.targetSeats(),
       ...this.detail,
     }
   }
@@ -129,6 +195,14 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
 
   pass(playerId: string): void {
     this.passes.add(playerId)
+  }
+
+  canPass(_playerId: string): boolean {
+    return true
+  }
+
+  isOptional(): boolean {
+    return false
   }
 
   passedBy(): readonly string[] {
@@ -208,6 +282,10 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
       ),
     )
     this.resetTimer()
+    // ...and so does whoever is answering a question over this roll — its
+    // target — who was watching it change (the owner, 2026-09-06).
+    this.gs.restartQuestionsAfter(this.frameId)
+    this.announceStanding()
     return accepted()
   }
 
@@ -222,8 +300,28 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
    * the shape every window settles in (§3): the outcome is decided and the
    * frame released or restored BEFORE `FrameResolved` wakes what waited on it.
    */
+  cancel(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.rollerId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
   resolve(): void {
     if (this._resolved) return
+    // Not while a question stands over this roll — its target being chosen,
+    // a modifier's value. The clock runs again instead; the answer landing
+    // restarts it anyway, and a question always settles on its own clock.
+    if (this.gs.hasOpenFramesAfter(this.frameId)) return this.resetTimer()
+    this.gs.restartWindowsOutside(this.frameId)
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
 
@@ -261,6 +359,12 @@ export abstract class ModifiableRollWindow implements IModifiableWindow, IPassab
   protected abstract settle(finalRoll: number): void
 
   // --- Internal ---
+
+  /** The full wait again — `GameState.restartOpenWindowsExcept`. */
+  restartClock(): void {
+    if (this._resolved) return
+    this.resetTimer()
+  }
 
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer)

@@ -8,7 +8,6 @@ import {
   IReactionWindow,
   refused,
   isPassable,
-  IPassableWindow,
 } from '../interfaces'
 import { GameEventEmitter } from '../events/game-event-emitter'
 import { ModifierWindow } from '../reactions/modifier-window'
@@ -21,14 +20,16 @@ import { ValueChoiceWindow } from '../reactions/value-choice-window'
 import { TaskChoiceWindow } from '../reactions/task-choice-window'
 
 /**
- * Each window's share of the configured reaction countdown.
+ * Each window's share of the configured reaction countdown, which is the
+ * CHALLENGE window's wait (the lobby's fast / moderate / slow).
  *
  * A share rather than a number, so one config value moves every window
- * together and the RELATIONSHIP between them survives. That relationship is
- * load-bearing: a ValueChoice opens over a roll that is already running and is
- * a question ABOUT it, so it has to settle first. Give both the same countdown
- * and they fall due on the same tick — the roll, whose timer was reset first,
- * wins and settles without the bonus.
+ * together and the RELATIONSHIP between them survives. An attack takes twice
+ * the wait: a monster's roll is the table's biggest decision. A ValueChoice
+ * opens over a roll that is already running and is a question ABOUT it, so
+ * it has to settle first. Give both the same countdown and they fall due on
+ * the same tick — the roll, whose timer was reset first, wins and settles
+ * without the bonus.
  *
  * The two ZERO cases are not shares and are not here: an empty ChoiceWindow and
  * an unchallengeable ChallengeWindow settle on a 0ms timer whatever the
@@ -36,7 +37,7 @@ import { TaskChoiceWindow } from '../reactions/task-choice-window'
  */
 const WINDOW_SHARE: Readonly<Record<ReactionWindowType, number>> = {
   [ReactionWindowType.Modifier]: 1,
-  [ReactionWindowType.Attack]: 1,
+  [ReactionWindowType.Attack]: 2,
   [ReactionWindowType.Challenge]: 1,
   [ReactionWindowType.PlayerChoice]: 1,
   [ReactionWindowType.CardChoice]: 1,
@@ -73,8 +74,7 @@ export class ReactionManager implements IReactionManager {
    */
   openFrame(): string {
     const frameId = crypto.randomUUID()
-    const snapshot = this.gs.clone()
-    this.gs.addFrame(frameId, { snapshot, windows: [] })
+    this.gs.addFrame(frameId, this.gs.clone())
     return frameId
   }
 
@@ -85,9 +85,8 @@ export class ReactionManager implements IReactionManager {
     respondent: string,
     config: Record<string, unknown> = {},
   ): void {
-    const frame = this.gs.frames.get(frameId)
-    if (!frame) return
-    frame.windows.push(this.buildWindow(type, respondent, config, frameId))
+    if (!this.gs.getFrames().has(frameId)) return
+    this.gs.addWindow(frameId, this.buildWindow(type, respondent, config, frameId))
   }
 
   // ---------------------------------------------------------------------------
@@ -148,6 +147,7 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        config['sourceCardId'] as string | undefined,
       )
     }
 
@@ -161,6 +161,8 @@ export class ReactionManager implements IReactionManager {
         frameId,
         this.em,
         config['resultKey'] as string | undefined,
+        config['sourceCardId'] as string | undefined,
+        config['question'] as string | undefined,
       )
     }
 
@@ -173,6 +175,8 @@ export class ReactionManager implements IReactionManager {
         this.gs,
         frameId,
         this.em,
+        undefined,
+        config['sourceCardId'] as string | undefined,
       )
     }
 
@@ -187,6 +191,7 @@ export class ReactionManager implements IReactionManager {
         frameId,
         this.em,
         (config['bias'] as ValueBias) ?? 'highest',
+        config['sourceCardId'] as string | undefined,
       )
     }
 
@@ -251,27 +256,13 @@ export class ReactionManager implements IReactionManager {
       ?.frame.windows.find((w) => w.getId() === windowId)
     if (!window?.isOpen()) return refused(RefusalReason.NoSuchWindow)
     if (!isPassable(window)) return refused(RefusalReason.WindowNotPassable)
+    if (!window.canPass(playerId)) return refused(RefusalReason.WindowNotPassable)
     window.pass(playerId)
     const passed = new Set(window.passedBy())
-    if (this.eligiblePassers(window).every((id) => passed.has(id))) {
+    if (this.gs.getPlayers().filter((player) => window.canPass(player.getId())).every((player) => passed.has(player.getId()))) {
       window.resolve()
     }
     return accepted()
   }
 
-  /**
-   * Who could still act on the window: every seat on a roll (anyone may spend
-   * a modifier on it); on a challenge, everyone but the defender until it
-   * starts (only others may challenge), then the two contestants alone (only
-   * they may modify). Derived from the window's own detail, never stored.
-   */
-  private eligiblePassers(window: IPassableWindow): string[] {
-    const seats = this.gs.getPlayers().map((player) => player.getId())
-    if (window.getType() !== ReactionWindowType.Challenge) return seats
-    const detail = window.getDetail()
-    if (detail['challenged'] === true) {
-      return [detail['challengerId'] as string, detail['defenderId'] as string]
-    }
-    return seats.filter((id) => id !== window.getRespondentId())
-  }
 }

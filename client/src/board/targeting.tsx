@@ -67,6 +67,10 @@ export const tkey = {
 };
 
 export interface TargetingRequest {
+  /** The ability asking for a choice, highlighted in its board slot. */
+  effectSource?: TargetKey;
+  sourceCardId?: string;
+  revision?: string;
   /** the card the action originates from — stays bright, click = cancel */
   source: TargetKey;
   /** valid picks — bright + green aura (later provided by the server) */
@@ -79,6 +83,11 @@ export interface TargetingRequest {
    *  dim; a choice (the engine asking "pick a card / player / monster")
    *  glows its targets gold instead of green. */
   tone?: "normal" | "reaction" | "choice";
+  /** elements that keep their NORMAL look and click while the request runs —
+   *  a reaction card in the hand under a choice: it stays green and pressing
+   *  it starts the reaction instead of answering the question. Wins over
+   *  `targets` for the same key. */
+  live?: readonly TargetKey[];
 }
 
 interface TargetingContextValue {
@@ -148,7 +157,7 @@ export function useTargeting() {
 }
 
 /** this element's role in the current targeting request */
-export type TargetableMode = "idle" | "source" | "target" | "dimmed";
+export type TargetableMode = "idle" | "source" | "target" | "live" | "dimmed";
 
 /**
  * Makes one board element participate in targeting mode. Every card-ish
@@ -166,11 +175,13 @@ export function useTargetable(key?: TargetKey, onActivate?: () => void) {
   let mode: TargetableMode = "idle";
   if (active) {
     mode =
-      key !== undefined && active.targets.includes(key)
-        ? "target"
-        : key === active.source
-          ? "source"
-          : "dimmed";
+      key !== undefined && active.live?.includes(key)
+        ? "live"
+        : key !== undefined && active.targets.includes(key)
+          ? "target"
+          : key === active.source
+            ? "source"
+            : "dimmed";
   }
 
   const onClick = (e: React.MouseEvent) => {
@@ -180,7 +191,7 @@ export function useTargetable(key?: TargetKey, onActivate?: () => void) {
     } else if (mode === "source") {
       e.stopPropagation();
       cancel();
-    } else if (mode === "idle" && onActivate) {
+    } else if ((mode === "idle" || mode === "live") && onActivate) {
       e.stopPropagation();
       onActivate();
     }
@@ -192,9 +203,12 @@ export function useTargetable(key?: TargetKey, onActivate?: () => void) {
       ? "dimmable dim-exempt target-aura cursor-pointer"
       : mode === "source"
         ? "dimmable dim-exempt cursor-pointer"
-        : mode === "idle" && onActivate
-          ? "dimmable cursor-pointer"
-          : "dimmable";
+        : mode === "live"
+          ? "dimmable dim-exempt live-aura cursor-pointer"
+          : mode === "idle" && onActivate
+            ? "dimmable cursor-pointer"
+            : "dimmable";
 
-  return { mode, className, onClick, targeting: active !== null };
+  const effectSource = key !== undefined && key === active?.effectSource;
+  return { mode, className: className + (effectSource ? " dim-exempt choice-source-aura" : ""), onClick, targeting: active !== null };
 }

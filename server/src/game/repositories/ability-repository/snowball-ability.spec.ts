@@ -195,7 +195,7 @@ const fire = (em: GameEventEmitter) =>
   em.emit(GameEventFactory.rollSuccess('p1', 'snowball'))
 
 const openPrompt = (gs: GameState) =>
-  [...gs.frames.values()]
+  [...gs.getFrames().values()]
     .flatMap((f) => f.windows)
     .find((w) => w.isOpen())
 
@@ -366,7 +366,7 @@ describe('SnowballAbility', () => {
     openPrompt(gs)!.submitReaction('p1', { choice: CONFIRM })
 
     // Challenger rolls 11, Snowball's owner rolls 1.
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
     openPrompt(gs)!.submitReaction('p2', {
       type: 'challenge',
       challengerId: 'p2',
@@ -400,7 +400,7 @@ describe('SnowballAbility', () => {
     expect(
       events.some((e) => e.getType() === GameEventType.TaskConfirmed),
     ).toBe(false)
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 
   it('an idle player plays and draws nothing more — timeout is a DISMISS', () => {

@@ -39,6 +39,7 @@ export const SnowballAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: CONFIRMS_PLAY_AND_DRAW,
+        question: 'Play the magic card and draw again?',
         subjectKey: CTX_DRAWN_CARD_IDS,
       }),
     ],

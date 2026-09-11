@@ -1,3 +1,5 @@
+import AssetImage from '../loading/AssetImage'
+import CardReactionTimer from './CardReactionTimer';
 import React from "react";
 import { artFor, BOARD_CARD_ASPECT } from "./assets";
 import { useHoverZoom } from "./useHoverZoom";
@@ -6,10 +8,8 @@ import { CardView } from "../contract";
 
 /**
  * Hero widget: the played hero/item cards of one seat, laid over the
- * background's hero strip. On the board we use the BOARD card design
- * (premium scans in /board/heroes/ with the ornate frame already baked in);
- * when a board scan is missing we fall back to FramedCard (hand scan + class
- * frame overlay).
+ * background's hero strip, drawn from the BOARD card design (premium scans
+ * in /board/heroes/ with the ornate frame already baked in).
  *
  * Overflow: cards NEVER change size at rest. Below the fan threshold they sit
  * side by side; from the threshold up they become a straight fan via a CSS
@@ -160,7 +160,11 @@ export function HeroCardWidget({
             itemIsTarget || heroZoomed ? "pointer-events-auto" : "pointer-events-none"
           }${itemEnemy ? " enemy-aura" : itemPlayable ? " card-aura" : itemPassive ? " passive-aura" : ""} ${itemTarget.className}`}
           style={{
-            zIndex: heroZoomed ? 40 : undefined,
+            // a TARGET item comes out on top of its hero as well: tucked
+            // under it, only a 10% strip could be pressed and the hero (or a
+            // neighbour) took the click (the owner, 2026-09-04, challenging
+            // an item just played)
+            zIndex: heroZoomed || itemIsTarget ? 40 : undefined,
             transformOrigin: origin,
             transform: heroZoomed
               ? `translateX(${
@@ -170,18 +174,21 @@ export function HeroCardWidget({
           }}
           onClick={itemTarget.onClick}
         >
-          <img
+          <AssetImage
             src={itemUrl}
             alt={item?.name}
             draggable={false}
             className="absolute inset-0 h-full w-full select-none rounded-[0.5cqw] object-fill"
           />
+          <CardReactionTimer cardId={item?.id} zoomed={heroZoomed} />
         </div>
       )}
 
       <div
         ref={hz.ref}
-        className={`absolute inset-0 ${shadow} rounded-[0.5cqw] transition-transform duration-[120ms] ease-out ${t.className}`}
+        className={`absolute inset-0 ${shadow} rounded-[0.5cqw] transition-transform duration-[120ms] ease-out${
+          heroZoomed ? ' is-zoomed' : ''
+        } ${t.className}`}
         style={{
           transformOrigin: origin,
           transform: heroZoomed ? `scale(${zoom})` : undefined,
@@ -191,7 +198,7 @@ export function HeroCardWidget({
         onContextMenu={hz.onContextMenu}
         onClick={t.onClick}
       >
-        <img
+        <AssetImage
           src={boardUrl}
           alt={card.name}
           draggable={false}
@@ -199,6 +206,7 @@ export function HeroCardWidget({
             enemy ? " enemy-aura" : asked ? " ask-aura" : playable ? " card-aura" : passive ? " passive-aura" : ""
           }`}
         />
+        <CardReactionTimer cardId={card.id} zoomed={heroZoomed} />
       </div>
     </div>
   );
@@ -265,6 +273,37 @@ export default function HeroRow({
     [heroes],
   );
 
+  // One card, whichever layout: the two branches below differ in geometry only.
+  const cardAt = (i: number, overlapped: boolean) => {
+    const hero = heroes[i];
+    return (
+      <HeroCardWidget
+        onZoomChange={zoomHandlers[i]}
+        card={hero.card}
+        overlapped={overlapped}
+        origin={origin}
+        zoom={zoom}
+        chainGroup={`hero-row-${seat}`}
+        item={hero.equippedItem}
+        itemSide={i <= (n - 1) / 2 ? "right" : "left"}
+        itemPlayable={itemPlayable?.[i]}
+        playable={playable?.[i]}
+        asked={asked?.[i]}
+        enemy={enemy?.[i]}
+        passive={passive?.[i]}
+        itemPassive={itemPassive?.[i]}
+        itemEnemy={itemEnemy?.[i]}
+        targetKey={targetKeyFor?.(i)}
+        itemTargetKey={itemTargetKeyFor?.(i)}
+        onActivate={
+          (playable?.[i] || asked?.[i]) && onActivateFor
+            ? () => onActivateFor(i)
+            : undefined
+        }
+      />
+    );
+  };
+
   if (!fanned) {
     return (
       <div className="flex h-full w-full items-center justify-center px-[0.5cqw]">
@@ -276,29 +315,7 @@ export default function HeroRow({
             }`}
             style={{ zIndex: zoomedIndex === i ? 999 : undefined }}
           >
-            <HeroCardWidget
-              onZoomChange={zoomHandlers[i]}
-              card={hero.card}
-              origin={origin}
-              zoom={zoom}
-              chainGroup={`hero-row-${seat}`}
-              item={hero.equippedItem}
-              itemSide={i <= (n - 1) / 2 ? "right" : "left"}
-              itemPlayable={itemPlayable?.[i]}
-              playable={playable?.[i]}
-              asked={asked?.[i]}
-              enemy={enemy?.[i]}
-              passive={passive?.[i]}
-              itemPassive={itemPassive?.[i]}
-              itemEnemy={itemEnemy?.[i]}
-              targetKey={targetKeyFor?.(i)}
-              itemTargetKey={itemTargetKeyFor?.(i)}
-              onActivate={
-                (playable?.[i] || asked?.[i]) && onActivateFor
-                  ? () => onActivateFor(i)
-                  : undefined
-              }
-            />
+            {cardAt(i, false)}
           </div>
         ))}
       </div>
@@ -322,25 +339,7 @@ export default function HeroRow({
           // inline base z) for as long as it is zoomed.
           style={{ zIndex: zoomedIndex === i ? 999 : i }}
         >
-          <HeroCardWidget
-            onZoomChange={zoomHandlers[i]}
-            card={hero.card}
-            overlapped={i > 0}
-            origin={origin}
-            zoom={zoom}
-            chainGroup={`hero-row-${seat}`}
-            item={hero.equippedItem}
-            itemSide={i <= (n - 1) / 2 ? "right" : "left"}
-            itemPlayable={itemPlayable?.[i]}
-            playable={playable?.[i]}
-            targetKey={targetKeyFor?.(i)}
-            itemTargetKey={itemTargetKeyFor?.(i)}
-            onActivate={
-              playable?.[i] && onActivateFor
-                ? () => onActivateFor(i)
-                : undefined
-            }
-          />
+          {cardAt(i, i > 0)}
         </div>
       ))}
     </div>

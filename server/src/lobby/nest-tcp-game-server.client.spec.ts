@@ -7,7 +7,7 @@ import {
 } from '@nestjs/microservices'
 import type { MicroserviceOptions } from '@nestjs/microservices'
 import { createServer } from 'node:net'
-import { CREATE_GAME_PATTERN } from 'shared'
+import { CREATE_GAME_PATTERN, DEFAULT_GAME_SETTINGS } from 'shared'
 import type { CreateGameRequest, CreateGameResult } from 'shared'
 import { NestTcpGameServerClient } from './nest-tcp-game-server.client'
 
@@ -54,12 +54,15 @@ describe('NestTcpGameServerClient', () => {
         { accountId: 'account-2', username: 'Bob' },
       ]
       await expect(
-        client.createGame({ players, gameConfig: 'default' }),
+        client.createGame({ players, settings: DEFAULT_GAME_SETTINGS }),
       ).resolves.toEqual({
         gameId: 'tcp-game-1',
         webSocketUrl: 'http://localhost:3001',
       })
-      expect(receivedRequest).toEqual({ players, gameConfig: 'default' })
+      expect(receivedRequest).toEqual({
+        players,
+        settings: DEFAULT_GAME_SETTINGS,
+      })
     } finally {
       await proxy.close()
       await gameServer.close()

@@ -9,18 +9,8 @@ export class SlayMonsters {
     this.monsterCount = monsterCount ?? 3
   }
 
-  getMonsterCount(): number {
-    return this.monsterCount
-  }
-
-  check(gs: GameState): Player | null {
-    for (const player of gs.getPlayers()) {
-      const party = gs.getParty(player.getId())
-      if (party.getMonsterCount() >= this.monsterCount) {
-        return player
-      }
-    }
-    return null
+  isMetBy(gs: GameState, player: Player): boolean {
+    return gs.getParty(player.getId()).getMonsterCount() >= this.monsterCount
   }
 }
 
@@ -44,20 +34,11 @@ export class AllClassesInParty {
     this.required = Math.min(required, this.reqHeroClasses.length)
   }
 
-  check(gs: GameState): Player | null {
-    for (const player of gs.getPlayers()) {
-      const party = gs.getParty(player.getId())!
-      // The class the BOARD reads, a mask included (GameState.getHeroClass).
-      const playerHeroClasses = party
-        .getHeroIds()
-        .map((id) => gs.getHeroClass(id))
-        .filter((cls): cls is HeroClass => cls !== undefined)
-
-      const uniqueClasses = new Set(
-        playerHeroClasses.filter((cls) => this.reqHeroClasses.includes(cls)),
-      )
-      if (uniqueClasses.size >= this.required) return player
-    }
-    return null
+  isMetBy(gs: GameState, player: Player): boolean {
+    // getPartyClasses, not getHeroClasses: the leader's class counts for the win.
+    const uniqueClasses = new Set(
+      gs.getPartyClasses(player.getId()).filter((cls) => this.reqHeroClasses.includes(cls)),
+    )
+    return uniqueClasses.size >= this.required
   }
 }

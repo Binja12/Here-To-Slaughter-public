@@ -1,4 +1,4 @@
-import { CardType, HeroClass } from 'shared'
+import { CardType, HeroCardData, HeroClass, PartyLeaderData } from 'shared'
 import { ItemCard } from '../cards/item-card'
 import { buildCard } from '../cards/card-factory'
 import { SlayMonsters } from './win-conditions'
@@ -11,6 +11,7 @@ import { CardPile } from '../state-structures/card-pile'
 import { GameState } from '../pipelines/game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
+import { PartyLeaderCard } from '../cards/party-leader-card'
 
 /** Party membership changes announce themselves; these tests ignore the events. */
 const silentEm = new GameEventEmitter()
@@ -40,6 +41,12 @@ const field = (
   if (!gs.getCard(id)) gs.registerCard(buildCard(repo.getById(id)!))
   party.addHero(id, silentEm, 'Played')
 }
+/** Every table below is one seat: the win is asked of that one party. */
+const met = (
+  condition: { isMetBy(gs: GameState, player: Player): boolean },
+  gs: GameState,
+) => condition.isMetBy(gs, gs.getPlayer('player-1')!)
+
 const setupPlayer = (gs: GameState, playerId: string) => {
   gs.registerPlayer(makePlayer(playerId))
   gs.registerParty(makeParty(playerId))
@@ -47,27 +54,27 @@ const setupPlayer = (gs: GameState, playerId: string) => {
 }
 
 describe('win-condition', () => {
-  it('should detect no win condition', () => {
+  it('is unmet under the monster count', () => {
     const gs = makeGs()
     const p = setupPlayer(gs, 'player-1')
     const condition = new SlayMonsters(3)
-    expect(condition.check(gs)).toBe(null)
+    expect(met(condition, gs)).toBe(false)
     p.addMonster('monster-1')
-    expect(condition.check(gs)).toBe(null)
+    expect(met(condition, gs)).toBe(false)
     p.addHero('hero-1', silentEm, 'Played')
-    expect(condition.check(gs)).toBe(null)
+    expect(met(condition, gs)).toBe(false)
   })
 
-  it('should detect win condition by 3+ monsters', () => {
+  it('is met at 3+ monsters', () => {
     const gs = makeGs()
     const p = setupPlayer(gs, 'player-1')
     const condition = new SlayMonsters(3)
     p.addMonster('monster-1')
     p.addMonster('monster-2')
     p.addMonster('monster-3')
-    expect(condition.check(gs)).not.toBe(null)
+    expect(met(condition, gs)).toBe(true)
     p.addMonster('monster-4')
-    expect(condition.check(gs)).not.toBe(null)
+    expect(met(condition, gs)).toBe(true)
   })
 
   const makeRepo = () => {
@@ -77,15 +84,15 @@ describe('win-condition', () => {
   }
 
   describe('AllClassesInParty', () => {
-    it('should return null when no player has all classes', () => {
+    it('is unmet when the party has no classes', () => {
       const repo = makeRepo()
       const gs = makeGs()
       setupPlayer(gs, 'player-1')
       const condition = new AllClassesInParty(repo)
-      expect(condition.check(gs)).toBeNull()
+      expect(met(condition, gs)).toBe(false)
     })
 
-    it('should return winning player when they have all 6 classes', () => {
+    it('is met when the party fields all 6 classes', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
@@ -96,7 +103,7 @@ describe('win-condition', () => {
       field(gs, repo, party, 'hero-009') // ranger
       field(gs, repo, party, 'hero-008') // fighter
       const condition = new AllClassesInParty(repo)
-      expect(condition.check(gs)?.getId()).toBe('player-1')
+      expect(met(condition, gs)).toBe(true)
     })
 
     it('counts a masked hero as the mask\'s class — a second Wizard in the Fighter Mask is the sixth', () => {
@@ -123,10 +130,10 @@ describe('win-condition', () => {
       )
       party.equipItem('hero-039', 'item-067') // … read as a Fighter
       const condition = new AllClassesInParty(repo)
-      expect(condition.check(gs)?.getId()).toBe('player-1')
+      expect(met(condition, gs)).toBe(true)
     })
 
-    it('should return null when player is missing one class', () => {
+    it('is unmet when the party is missing one class', () => {
       const repo = makeRepo()
       const gs = makeGs()
       const party = setupPlayer(gs, 'player-1')
@@ -137,7 +144,7 @@ describe('win-condition', () => {
       field(gs, repo, party, 'hero-009') // ranger
       // missing fighter
       const condition = new AllClassesInParty(repo)
-      expect(condition.check(gs)).toBeNull()
+      expect(met(condition, gs)).toBe(false)
     })
 
     it('should not count duplicate classes', () => {
@@ -151,7 +158,40 @@ describe('win-condition', () => {
       field(gs, repo, party, 'hero-009') // ranger
       field(gs, repo, party, 'hero-009') // ranger again — duplicate
       const condition = new AllClassesInParty(repo)
-      expect(condition.check(gs)).toBeNull()
+      expect(met(condition, gs)).toBe(false)
     })
+  })
+})
+
+describe('AllClassesInParty — the leader', () => {
+  const heroOf = (heroClass: HeroClass) =>
+    baseGameCards.find((c) => c.type === CardType.Hero && (c as HeroCardData).heroClass === heroClass)!.id
+
+  it("counts the Party Leader's class: five hero classes and a leader of the sixth win", () => {
+    const gs = makeGs()
+    const repo = new InMemoryCardRepository()
+    repo.addMany(baseGameCards)
+    const party = setupPlayer(gs, 'player-1')
+    const printedLeader = baseGameCards.find((c) => c.type === CardType.Leader && (c as PartyLeaderData).heroClass === HeroClass.Fighter)!
+    gs.registerCard(new PartyLeaderCard({ ...printedLeader, id: 'leader-player-1' } as never))
+    for (const cls of [HeroClass.Bard, HeroClass.Guardian, HeroClass.Ranger, HeroClass.Thief, HeroClass.Wizard]) {
+      field(gs, repo, party, heroOf(cls))
+    }
+
+    expect(met(new AllClassesInParty(repo), gs)).toBe(true)
+  })
+
+  it('does not count a leader of a class a hero already brings', () => {
+    const gs = makeGs()
+    const repo = new InMemoryCardRepository()
+    repo.addMany(baseGameCards)
+    const party = setupPlayer(gs, 'player-1')
+    const printedLeader = baseGameCards.find((c) => c.type === CardType.Leader && (c as PartyLeaderData).heroClass === HeroClass.Bard)!
+    gs.registerCard(new PartyLeaderCard({ ...printedLeader, id: 'leader-player-1' } as never))
+    for (const cls of [HeroClass.Bard, HeroClass.Guardian, HeroClass.Ranger, HeroClass.Thief, HeroClass.Wizard]) {
+      field(gs, repo, party, heroOf(cls))
+    }
+
+    expect(met(new AllClassesInParty(repo), gs)).toBe(false)
   })
 })

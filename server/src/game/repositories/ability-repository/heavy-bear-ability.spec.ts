@@ -40,13 +40,13 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   for (const step of steps) {
     const frameId = step.execute(gs, ctx, em, rm) as string | void
     if (frameId) {
-      const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+      const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
       // the pick the player would make, written where the window would write it
       ctx.set(window.resultKey() as string, pick === undefined ? [] : [pick])
       window.resolve()
     }
   }
-  return { emitted, window: () => [...gs.frames.values()].flatMap((f) => f.windows)[0] }
+  return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
 // Heavy Bear (hero-004): "Choose a player. That player must DISCARD 2 cards."
@@ -62,9 +62,9 @@ describe('Heavy Bear (hero-004)', () => {
 
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    const [, choose1, discard1, choose2, discard2] = HeavyBearAbility[0].steps
+    const [choose1, discard1, choose2, discard2] = HeavyBearAbility[1].steps
     choose1.execute(gs, ctx, em, rm)
-    let window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    let window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getRespondentId()).toBe('p2')
     expect(window.getOptions()).toEqual(['a', 'b'])
     ctx.set(CTX_CHOSEN_CARD, ['b'])
@@ -72,7 +72,7 @@ describe('Heavy Bear (hero-004)', () => {
     discard1.execute(gs, ctx, em, rm)
 
     choose2.execute(gs, ctx, em, rm)
-    window = [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+    window = [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
     expect(window.getOptions()).toEqual(['a'])
     ctx.set(CTX_CHOSEN_CARD, ['a'])
     window.resolve()

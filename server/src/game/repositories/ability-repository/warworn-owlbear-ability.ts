@@ -57,9 +57,15 @@ export const WarwornOwlbearAbility: IAbilityRule[] = [
       scope: TriggerScope.Attacker,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose the first card to discard' },
+      ),
       new DiscardTask(),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose the second card to discard' },
+      ),
       new DiscardTask(),
     ],
   },

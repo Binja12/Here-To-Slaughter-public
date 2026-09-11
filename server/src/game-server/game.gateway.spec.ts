@@ -6,6 +6,7 @@ import {
   GAME_COMPLETED,
   GAME_SNAPSHOT,
   GAME_STARTED,
+  DEFAULT_GAME_SETTINGS,
   GamePhase,
   INTERNAL_ERROR,
   RefusalReason,
@@ -119,7 +120,7 @@ describe('GameGateway', () => {
     running: RunningGame
     active: string
   } {
-    const running = registry.create(seated(accountIds), 'default')
+    const running = registry.create(seated(accountIds), DEFAULT_GAME_SETTINGS)
     for (const accountId of accountIds) registry.arrive(running, accountId)
     const active = playerView(running.game, accountIds[0]).currentPlayerId!
     return { running, active }
@@ -133,6 +134,28 @@ describe('GameGateway', () => {
     playerView(running.game, accountId).hand.length
 
   describe('the handshake', () => {
+    it('sends config once per connection and again on reconnect, outside snapshots', async () => {
+      const { active } = liveTable(seats('alice', 'bob'))
+      const infos: unknown[] = []
+      const snapshots: GameSnapshot[] = []
+      const listen = (socket: Socket) => {
+        socket.on('game:connected', (info) => infos.push(info))
+        socket.on(GAME_STARTED, (snapshot) => snapshots.push(snapshot))
+        socket.on(GAME_SNAPSHOT, (snapshot) => snapshots.push(snapshot))
+      }
+      const socket = await connect(tokenOf(active), listen)
+      await send(socket, 'DrawCard')
+      await sleep(20)
+      expect(infos).toHaveLength(1)
+      expect(infos[0]).toMatchObject({ config: { reactionTimeMs: 10_000 } })
+      expect(snapshots.length).toBeGreaterThan(0)
+      for (const snapshot of snapshots) expect(snapshot.state).not.toHaveProperty('config')
+      socket.disconnect()
+      await connect(tokenOf(active), listen)
+      await sleep(20)
+      expect(infos).toHaveLength(2)
+      expect(infos[1]).toEqual(infos[0])
+    })
     it('refuses a socket with no session cookie', async () => {
       await expect(connect()).rejects.toThrow('Authentication required')
     })
@@ -281,7 +304,7 @@ describe('GameGateway', () => {
   describe('the start: Setup is the seats arriving', () => {
     it('starts the table on the arrival that completes it, telling every seat its own view', async () => {
       const [alice, bob, carol] = seats('alice', 'bob', 'carol')
-      const { game } = registry.create(seated([alice, bob, carol]), 'default')
+      const { game } = registry.create(seated([alice, bob, carol]), DEFAULT_GAME_SETTINGS)
       const views: Record<string, Promise<GameSnapshot>> = {}
       const listen = (id: string) => (socket: Socket) => {
         views[id] = gameStarted(socket)
@@ -305,7 +328,7 @@ describe('GameGateway', () => {
 
     it('does not wait twice for a seat that arrived and left; it reconnects to a live table', async () => {
       const [alice, bob] = seats('alice', 'bob')
-      const { game } = registry.create(seated([alice, bob]), 'default')
+      const { game } = registry.create(seated([alice, bob]), DEFAULT_GAME_SETTINGS)
 
       const first = await connect(tokenOf(alice))
       first.disconnect()
@@ -342,10 +365,9 @@ describe('GameGateway', () => {
       await expect(
         send(at[active], 'PlayHero', { cardId: heroInHand(running.game, active) }),
       ).resolves.toMatchObject({ accepted: true })
+      // the settled hero frame is the win: the engine concludes on the spot,
+      // and an EndTurn now would be a late request (GameOver)
       await untilIdle(running.game)
-      await expect(send(at[active], 'EndTurn', {}, UUID_2)).resolves.toMatchObject({
-        accepted: true,
-      })
 
       return { running, at, ends }
     }
@@ -429,7 +451,7 @@ describe('GameGateway', () => {
 
     it('tells a seat still waiting for the others nothing', async () => {
       const [alice, bob] = seats('alice', 'bob')
-      registry.create(seated([alice, bob]), 'default')
+      registry.create(seated([alice, bob]), DEFAULT_GAME_SETTINGS)
       let heard = false
 
       await connect(tokenOf(bob), (socket) => {

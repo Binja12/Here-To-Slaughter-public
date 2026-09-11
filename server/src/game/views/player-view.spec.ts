@@ -182,6 +182,30 @@ describe('playerView', () => {
     expect(playerView(game, alice).revealedCards).toEqual([])
   })
 
+  // The strip captions itself, and only the engine knows whose look it is.
+  it('names whose look a reveal is, and drops the caption when it ends', () => {
+    const game = dealt()
+    const [alice, bob] = game.playerOrder
+    const [aCard] = game.gameState.getPlayer(alice)!.getHand()
+
+    // a LOOK at a hand: the cards belong to alice, bob's ability is showing them
+    game.gameState.revealTo(bob, [aCard], { byPlayerId: bob, ofPlayerId: alice })
+    expect(playerView(game, bob)).toMatchObject({
+      revealedBy: bob,
+      revealedOf: alice,
+    })
+
+    // a revealed DRAW names only who revealed it
+    game.gameState.hideRevealed(bob, [aCard])
+    game.gameState.revealTo(bob, [aCard], { byPlayerId: bob })
+    const shown = playerView(game, bob)
+    expect(shown.revealedBy).toBe(bob)
+    expect(shown.revealedOf).toBeUndefined()
+
+    game.gameState.hideRevealed(bob, [aCard])
+    expect(playerView(game, bob).revealedBy).toBeUndefined()
+  })
+
   it('starts every party empty, with its leader ready', () => {
     const view = playerView(dealt(), 'alice')
 
@@ -230,17 +254,20 @@ describe('playerView', () => {
 
   // --- What the engine answers, so the client cannot ----------------------
 
-  it('offers no monster to a party that cannot field one', () => {
+  it('offers no monster to a party with no heroes', () => {
     const game = dealt()
     startGame(game)
     const view = playerView(game, game.playerOrder[0])
 
-    // Every printed monster asks for at least one hero; nobody has played one.
-    const needy = view.monsterRow.filter(
-      (m) => 'partyReq' in m && m.partyReq.classes.length > 0,
-    )
-    for (const monster of needy) {
-      expect(view.attackableMonsterIds).not.toContain(monster.id)
+    // Nobody has played a hero. The party LEADER is a card of a class, but it
+    // is not one of the heroes a monster asks for (GameState.getHeroClasses),
+    // so only a monster that asks for nothing at all could be on offer.
+    for (const monster of view.monsterRow) {
+      if (!('partyReq' in monster)) continue
+      expect({
+        id: monster.id,
+        offered: view.attackableMonsterIds.includes(monster.id),
+      }).toEqual({ id: monster.id, offered: monster.partyReq.classes.length === 0 })
     }
   })
 
@@ -411,6 +438,63 @@ describe('playerView', () => {
         },
       ])
     }
+  })
+
+  // --- The turn clock -----------------------------------------------------
+
+  describe('the turn clock', () => {
+    const CLOCKED: GameConfig = {
+      ...TEST_CONFIG,
+      timeControl: { ...TEST_CONFIG.timeControl, turnTimeMs: 30_000 },
+    }
+    const clocked = () => createGame(SEATS, { config: CLOCKED })
+
+    it('is absent on a table played without one', () => {
+      const game = dealt()
+      startGame(game)
+
+      expect(playerView(game, 'alice').turnClock).toBeUndefined()
+    })
+
+    it('names the turn’s deadline, and every seat reads the same clock', () => {
+      const game = clocked()
+      startGame(game)
+
+      const clocks = SEATS.map((viewer) => playerView(game, viewer).turnClock!)
+      for (const clock of clocks) {
+        expect(clock.turnTimeMs).toBe(30_000)
+        expect(clock.heldMs).toBeUndefined()
+        expect(clock.deadline).toBeGreaterThan(Date.now())
+        expect(clock.deadline).toBeLessThanOrEqual(Date.now() + 30_000)
+      }
+      // One clock for the table: every seat is told the same instant, and it
+      // does not move between snapshots of one turn.
+      expect(new Set(clocks.map((clock) => clock.deadline)).size).toBe(1)
+      expect(playerView(game, 'alice').turnClock).toEqual(clocks[0])
+      game.turnManager.stopClock()
+    })
+
+    // The clock itself pauses and resumes in turn-manager.spec.ts; what the
+    // view owes the screen is the frozen state, so a board can draw a still
+    // clock rather than lose it under someone else's window.
+    it('reads as held while a reaction window is open — anyone’s', () => {
+      const game = clocked()
+      startGame(game)
+      const running = playerView(game, 'alice').turnClock!
+      game.reactionManager.openWindow(
+        game.reactionManager.openFrame(),
+        ReactionWindowType.CardChoice,
+        game.playerOrder[1],
+        { options: ['card-1', 'card-2'] },
+      )
+
+      const held = playerView(game, 'alice').turnClock!
+      expect(running.deadline).toBeDefined()
+      expect(held.deadline).toBeUndefined()
+      expect(held.heldMs).toBeGreaterThan(0)
+      expect(held.heldMs).toBeLessThanOrEqual(30_000)
+      game.turnManager.stopClock()
+    })
   })
 
   // --- Serialisable -------------------------------------------------------

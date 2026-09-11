@@ -260,7 +260,7 @@ describe('a full game over sockets', () => {
     const first = await windowOn(BOB, ReactionWindowType.Challenge)
     expect(first.cardId).toBe('hero-044')
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    await accepted(BOB, 'Challenge', { cardId: 'challenge-102', targetedCardId: 'hero-044' })
+    await accepted(BOB, 'Challenge', { cardId: 'challenge-102' })
     await settled()
 
     expect(partyOf(see(ALICE), ALICE).heroes).toEqual([])
@@ -273,7 +273,7 @@ describe('a full game over sockets', () => {
     await accepted(ALICE, 'PlayHero', { cardId: 'hero-037' })
     await windowOn(CAROL, ReactionWindowType.Challenge)
     scriptDice([LOWEST, HIGHEST], HIGHEST)
-    await accepted(CAROL, 'Challenge', { cardId: 'challenge-103', targetedCardId: 'hero-037' })
+    await accepted(CAROL, 'Challenge', { cardId: 'challenge-103' })
     const offer = await windowOn(ALICE, ReactionWindowType.TaskChoice, true)
     expect(offer.options).toContain(CONFIRM)
     fixDice(MIDDLING)
@@ -296,10 +296,14 @@ describe('a full game over sockets', () => {
     // The party requirement, not the turn: Whiskers qualifies Alice too, and
     // it is the turn banner that greys her button out.
     expect(see(ALICE).attackableMonsterIds).toContain('monster-130')
+    // Carol has no hero. Terratuga asks for one of any class and her LEADER
+    // does not answer for it (GameState.getHeroClasses), so she is offered
+    // nothing at all.
     expect(see(CAROL).attackableMonsterIds).toEqual([])
 
-    // A 2 is inside Terratuga's fight-back band.
-    fixDice(LOWEST)
+    // An 8 MISSES Terratuga — above its fight-back band (which now costs the
+    // attacker a hero) and below the slay: Bob keeps Bad Axe for Alice.
+    fixDice(MIDDLING)
     await accepted(BOB, 'AttackMonster', { monsterId: 'monster-130' })
     await shows(CAROL, 'her turn', (v) => v.currentPlayerId === CAROL)
     await settled(CAROL)
@@ -336,7 +340,6 @@ describe('a full game over sockets', () => {
     expect(roll.detail).toMatchObject({ rollerId: ALICE, baseRoll: 8 })
     await accepted(ALICE, 'ApplyModifier', {
       cardId: 'modifier-086',
-      targetPlayerId: ALICE,
       value: 3,
     })
     await shows(BOB, 'the modifier land', (v) => {

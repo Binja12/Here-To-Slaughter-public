@@ -73,29 +73,29 @@ describe('ReactionManager', () => {
       expect(id).toBeTruthy()
     })
 
-    it('creates the frame in gs.frames', () => {
+    it('creates the frame in gs.getFrames()', () => {
       const id = rm.openFrame()
-      expect(gs.frames.has(id)).toBe(true)
+      expect(gs.getFrames().has(id)).toBe(true)
     })
 
     it('snapshot is captured at open time — later mutations do not affect it', () => {
       const id = rm.openFrame()
       gs.markAbilityUsed('hero-x')
-      const snap = gs.frames.get(id)!.snapshot
+      const snap = gs.getFrames().get(id)!.snapshot
       expect(snap.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
     })
 
     it('frame starts with no windows', () => {
       const id = rm.openFrame()
-      expect(gs.frames.get(id)!.windows).toHaveLength(0)
+      expect(gs.getFrames().get(id)!.windows).toHaveLength(0)
     })
 
     it('returns a fresh id each time, and holds no state about it', () => {
       const a = rm.openFrame()
       const b = rm.openFrame()
       expect(a).not.toBe(b)
-      expect(gs.frames.has(a)).toBe(true)
-      expect(gs.frames.has(b)).toBe(true)
+      expect(gs.getFrames().has(a)).toBe(true)
+      expect(gs.getFrames().has(b)).toBe(true)
     })
   })
 
@@ -104,6 +104,30 @@ describe('ReactionManager', () => {
   // ---------------------------------------------------------------------------
 
   describe('pass — a seat giving a table window up', () => {
+    it.each([ReactionWindowType.Modifier, ReactionWindowType.Challenge])(
+      'reopens all four votes when the last player modifies a %s window', (type) => {
+        for (const id of ['p3', 'p4']) {
+          gs.registerPlayer(makePlayer(id))
+          gs.registerParty(makeParty(id))
+        }
+        const frameId = rm.openFrame()
+        rm.openWindow(frameId, type, 'p1', {
+          baseRoll: 5, rollReq: 7, heroId: 'hero-1', cardId: 'hero-1',
+        })
+        const window = gs.getFrames().get(frameId)!.windows[0]
+        if (type === ReactionWindowType.Challenge) {
+          window.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
+        }
+        for (const id of ['p1', 'p2', 'p3']) rm.pass(window.getId(), id)
+        expect(window.isOpen()).toBe(true)
+        window.submitReaction('p4', { type: 'modifier', targetPlayerId: 'p1', value: 2, cardId: 'mod' })
+        expect(window.getDetail()['passedBy']).toEqual([])
+        for (const id of ['p1', 'p2', 'p3']) rm.pass(window.getId(), id)
+        expect(window.isOpen()).toBe(true)
+        rm.pass(window.getId(), 'p4')
+        expect(window.isOpen()).toBe(false)
+      },
+    )
     const openRoll = () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.Modifier, 'p1', {
@@ -111,7 +135,7 @@ describe('ReactionManager', () => {
         rollReq: 7,
         heroId: 'hero-1',
       })
-      return gs.frames.get(frameId)!.windows[0]
+      return gs.getFrames().get(frameId)!.windows[0]
     }
 
     beforeEach(() => {
@@ -144,7 +168,7 @@ describe('ReactionManager', () => {
     it('an unstarted challenge waits for everyone but the defender', () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.Challenge, 'p1', { cardId: 'hero-1' })
-      const window = gs.frames.get(frameId)!.windows[0]
+      const window = gs.getFrames().get(frameId)!.windows[0]
       rm.pass(window.getId(), 'p2')
       expect(window.isOpen()).toBe(false)
     })
@@ -162,7 +186,7 @@ describe('ReactionManager', () => {
     it("WindowNotPassable for a choice — one player's question", () => {
       const frameId = rm.openFrame()
       rm.openWindow(frameId, ReactionWindowType.PlayerChoice, 'p1', { options: ['p1'] })
-      const window = gs.frames.get(frameId)!.windows[0]
+      const window = gs.getFrames().get(frameId)!.windows[0]
       expect(rm.pass(window.getId(), 'p1')).toEqual({
         accepted: false,
         reason: RefusalReason.WindowNotPassable,
@@ -178,7 +202,7 @@ describe('ReactionManager', () => {
         rollReq: 7,
         heroId: 'hero-1',
       })
-      const windows = gs.frames.get(frameId)!.windows
+      const windows = gs.getFrames().get(frameId)!.windows
       expect(windows).toHaveLength(1)
       expect(windows[0].getType()).toBe(ReactionWindowType.Modifier)
     })
@@ -188,7 +212,7 @@ describe('ReactionManager', () => {
       rm.openWindow(frameId, ReactionWindowType.Challenge, 'p1', {
         cardId: 'hero-1',
       })
-      const windows = gs.frames.get(frameId)!.windows
+      const windows = gs.getFrames().get(frameId)!.windows
       expect(windows).toHaveLength(1)
       expect(windows[0].getType()).toBe(ReactionWindowType.Challenge)
     })
@@ -205,7 +229,7 @@ describe('ReactionManager', () => {
         rollReq: 6,
         heroId: 'hero-2',
       })
-      expect(gs.frames.get(frameId)!.windows).toHaveLength(2)
+      expect(gs.getFrames().get(frameId)!.windows).toHaveLength(2)
     })
 
     it('does nothing when the frame id does not exist', () => {
@@ -263,10 +287,12 @@ describe('ReactionManager', () => {
       getId: () => id,
       getType: () => ReactionWindowType.CardChoice,
       getRespondentId: () => 'p1',
+      isOptional: () => false,
       getOptions: () => ['a'],
       isOpen: () => open,
       submitReaction: jest.fn(() => verdict),
       resolve: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
@@ -281,7 +307,7 @@ describe('ReactionManager', () => {
 
     it('refuses a window that has already lapsed, without asking it', () => {
       const lapsed = stubWindow('w1', false, { accepted: true })
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [lapsed] })
+      gs.addFrame('f1', gs.clone(), [lapsed])
 
       expect(rm.submitChoice('w1', 'p1', 'a')).toEqual({
         accepted: false,
@@ -296,10 +322,34 @@ describe('ReactionManager', () => {
         reason: RefusalReason.NotAnOption,
       }
       const open = stubWindow('w1', true, verdict)
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [open] })
+      gs.addFrame('f1', gs.clone(), [open])
 
       expect(rm.submitChoice('w1', 'p1', 'a')).toBe(verdict)
       expect(open.submitReaction).toHaveBeenCalledWith('p1', { choice: 'a' })
     })
+  })
+})
+
+describe('ReactionManager — each window takes its share of the countdown', () => {
+  it('an attack waits twice as long as a challenge; a hero roll the same as a challenge', () => {
+    jest.useFakeTimers()
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const rm = new ReactionManager(gs, em, 1_000)
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1'))
+    const now = Date.now()
+
+    const wait = (type: ReactionWindowType, config: Record<string, unknown>) => {
+      const frameId = rm.openFrame()
+      rm.openWindow(frameId, type, 'p1', config)
+      return gs.getFrames().get(frameId)!.windows[0].getDeadline() - now
+    }
+
+    expect(wait(ReactionWindowType.Challenge, { cardId: 'hero-1' })).toBe(1_000)
+    expect(wait(ReactionWindowType.Modifier, { baseRoll: 5, rollReq: 7, heroId: 'hero-1' })).toBe(1_000)
+    expect(wait(ReactionWindowType.Attack, { baseRoll: 5, monsterId: 'monster-1' })).toBe(2_000)
+    expect(wait(ReactionWindowType.PlayerChoice, { options: ['p1'] })).toBe(1_000)
+    jest.useRealTimers()
   })
 })

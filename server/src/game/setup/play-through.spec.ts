@@ -1,8 +1,10 @@
 import {
   CardType,
   GameEventType,
+  ModifierCardData,
   MonsterCardData,
   ReactionWindowType,
+  RefusalReason,
 } from 'shared'
 import { baseGameCards } from '../../data/base-game-cards'
 import { CONFIRM } from '../reactions/task-choice-window'
@@ -16,6 +18,7 @@ import {
   stacked,
   see,
   board,
+  COUNTDOWN_MS,
   active,
   seatOf,
   partyOf,
@@ -45,8 +48,6 @@ import {
   fixDice,
   scriptDice,
 } from './play-through-helpers'
-import { dealable } from '../repositories/ability-repository'
-
 
 describe('a game played through', () => {
   afterEach(() => jest.restoreAllMocks())
@@ -329,7 +330,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -367,7 +367,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -383,7 +382,7 @@ describe('a game played through', () => {
     ).toBe(true)
   })
 
-  it('only one challenge lands on a card, and the second is spent for nothing', async () => {
+  it('only one challenge lands on a card, and the second stays in hand', async () => {
     const t = stacked({
       deck: ['hero-044', 'hero-001', 'challenge-102', 'challenge-103'],
     })
@@ -399,7 +398,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     react(
@@ -408,17 +406,15 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-103',
-        'hero-044',
       ),
     )
     await settle(t)
 
     expect(ofType(t, GameEventType.ChallengeStarted)).toHaveLength(1)
-    // Both left the hand. A challenge card is spent when it is played, and the
-    // window simply refuses to start a second contest.
+    // The stale challenge is refused before its card is spent.
     const view = see(t, challenger)
     expect(view.hand.map((c) => c.id)).not.toContain('challenge-102')
-    expect(view.hand.map((c) => c.id)).not.toContain('challenge-103')
+    expect(view.hand.map((c) => c.id)).toContain('challenge-103')
   })
 
   it('never offers a roll on a hero the challenge took away', async () => {
@@ -437,7 +433,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'hero-044',
       ),
     )
     await settle(t)
@@ -569,7 +564,12 @@ describe('a game played through', () => {
     // entry lands it (§7).
     react(
       t,
-      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId, 3),
+      new PlayModifierReaction(
+        actionId(),
+        playerId,
+        'modifier-086',
+        3,
+      ),
     )
     await settle(t)
 
@@ -601,7 +601,12 @@ describe('a game played through', () => {
 
     react(
       t,
-      new PlayModifierReaction(actionId(), playerId, 'modifier-086', playerId, -1),
+      new PlayModifierReaction(
+        actionId(),
+        playerId,
+        'modifier-086',
+        -1,
+      ),
     )
     await settle(t)
 
@@ -786,7 +791,6 @@ describe('a game played through', () => {
         actionId(),
         challenger,
         'challenge-102',
-        'magic-053',
       ),
     )
     await settle(t)
@@ -801,36 +805,104 @@ describe('a game played through', () => {
 
   // --- Monsters -----------------------------------------------------------
 
-  it('offers no monster to a party that cannot field one', async () => {
-    const t = table()
+  it('offers no monster to a party with no heroes — the leader answers nothing', async () => {
+    // Nobody has played a hero. The party LEADER is a card of a class, but a
+    // monster asks for HEROES: Arctic Aries wants one of any class and gets
+    // none, Orthus wants a Wizard and one more, Mega Slime four. The bare
+    // leader answers none of them (the owner, 2026-09-04).
+    const t = stacked({
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+      monsters: ['monster-128', 'monster-131', 'monster-123'],
+    })
     const playerId = active(t)
-    const view = see(t, playerId)
 
-    // Every printed monster asks for at least one hero, and no party has one.
-    expect(view.attackableMonsterIds).toEqual([])
+    expect(see(t, playerId).attackableMonsterIds).toEqual([])
 
-    const needy = view.monsterRow[0]
-    attack(t, playerId, needy.id)
+    // Not merely unoffered: the attack itself is refused, so the points stay
+    // in the player's hand and no die is thrown.
+    attack(t, playerId, 'monster-128')
+    attack(t, playerId, 'monster-131')
     await settle(t)
 
     expect(seatOf(see(t, playerId), playerId).actionPoints).toBe(3)
     expect(ofType(t, GameEventType.DiceRolled)).toEqual([])
   })
 
-  it('offers a monster the moment the party can field it', async () => {
+  // --- The class win --------------------------------------------------
+
+  it('ends the game the moment the last class survives its challenge — the roll it is offered never holds it up', async () => {
+    // Alice leads with the Shadow Claw, a Thief; Bad Axe is a Fighter. Two
+    // classes on a table that asks for two: the win lands when the challenge
+    // settles, NOT when the roll offer that follows it is answered.
     const t = stacked({
-      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
-      monsters: ['monster-128'],
+      deck: ['hero-001', 'hero-002', 'hero-003', 'hero-004'],
+      classesWin: 2,
     })
     const playerId = active(t)
 
-    expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-128')
+    playHero(t, playerId, 'hero-001')
+    await windowFor(t, playerId, ReactionWindowType.Challenge)
+    // Within the challenge's own countdown and a half: waiting for the offer
+    // to lapse as well would take two of them.
+    await until(
+      () => board(t).winnerId === playerId,
+      'the game to end when the challenge settles',
+      COUNTDOWN_MS * 1.5,
+    )
 
+    expect(board(t).phase).toBe('Concluded')
+    expect(board(t).pendingWindows).toEqual([])
+    expect(board(t).busy).toBe(false)
+    expect(ofType(t, GameEventType.DiceRolled)).toEqual([])
+  })
+
+  it('ends the game on the slay itself, before the attack\u2019s frame settles or anything continues from it', async () => {
+    const t = stacked({
+      deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'],
+      monsters: ['monster-128'],
+      winAt: 1,
+    })
+    const playerId = active(t)
     playHero(t, playerId, 'hero-044')
     await settle(t)
 
-    // Arctic Aries asks for one hero of any class.
-    expect(see(t, playerId).attackableMonsterIds).toContain('monster-128')
+    fixDice(HIGHEST)
+    attack(t, playerId, 'monster-128')
+    await until(() => board(t).winnerId === playerId, 'the slay to end the game')
+
+    // MonsterSlain moved the board and the win was asked there, inside the
+    // attack's own settle: the attack's FrameResolved came AFTER the end.
+    // (The recorder hears GameEnded before MonsterSlain itself — it is
+    // emitted from inside that dispatch, and the recorder listens last.)
+    const types = t.events.map((e) => e.getType())
+    expect(types).toContain(GameEventType.MonsterSlain)
+    expect(types.indexOf(GameEventType.GameEnded)).toBeLessThan(
+      types.lastIndexOf(GameEventType.FrameResolved),
+    )
+    expect(board(t).busy).toBe(false)
+    expect(board(t).pendingWindows).toEqual([])
+  })
+
+  it('offers a monster the moment the party fields every hero it asks for', async () => {
+    const t = stacked({
+      deck: ['hero-037', 'hero-001', 'hero-002', 'hero-003'],
+      monsters: ['monster-131'],
+    })
+    const playerId = active(t)
+
+    // Orthus asks for a Wizard and one more hero of any class. The leader is
+    // not one of them, so the party needs two heroes of its own.
+    expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-131')
+
+    playHero(t, playerId, 'hero-037') // Whiskers, a Wizard — the named half
+    await settle(t)
+    expect(see(t, playerId).attackableMonsterIds).not.toContain('monster-131')
+
+    const second = see(t, playerId).hand.find((card) => card.type === CardType.Hero)!
+    playHero(t, playerId, second.id) // … and any second hero answers 'Any'
+    await settle(t)
+
+    expect(see(t, playerId).attackableMonsterIds).toContain('monster-131')
   })
 
   it('slays a monster, takes it into the party, and the row refills', async () => {
@@ -1030,7 +1102,7 @@ describe('a game played through', () => {
     expect(active(two)).toBe(two.game.playerOrder[0])
     expect(seatOf(board(two), active(two)).actionPoints).toBe(3)
     expect(board(two).mainDeck.count).toBe(
-      baseGameCards.filter(dealable).filter((c) =>
+      baseGameCards.filter((c) =>
         [
           CardType.Hero,
           CardType.Item,
@@ -1057,5 +1129,129 @@ describe('a game played through', () => {
     )
     if (same) expect(same.name).not.toBe('tampered')
     expect(see(one, one.game.playerOrder[0]).hand[0].name).not.toBe('tampered')
+  })
+})
+
+describe('forfeiting a window — every seat passing settles it and the table plays on', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('a challenge window given up by every other seat, then a roll given up by all', async () => {
+    const t = stacked({ deck: ['hero-044', 'hero-001', 'hero-002', 'hero-003'] })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    playHero(t, alice, 'hero-044')
+    const contest = board(t).pendingWindows.find((w) => w.type === ReactionWindowType.Challenge)!
+    // The defender cannot give up a contest nobody has started; every other seat can.
+    expect(t.game.reactionManager.pass(contest.windowId, alice)).toEqual({
+      accepted: false,
+      reason: RefusalReason.WindowNotPassable,
+    })
+    expect(t.game.reactionManager.pass(contest.windowId, bob)).toEqual({ accepted: true })
+
+    // Settled on the spot: the hero stands and its roll is offered.
+    const offer = await windowFor(t, alice, ReactionWindowType.TaskChoice)
+    expect(partyOf(board(t), alice).heroes.map((h) => h.card.id)).toEqual(['hero-044'])
+
+    fixDice(HIGHEST)
+    answer(t, offer, CONFIRM)
+    const roll = await windowFor(t, alice, ReactionWindowType.Modifier)
+    for (const seat of [alice, bob]) {
+      expect(t.game.reactionManager.pass(roll.windowId, seat)).toEqual({ accepted: true })
+    }
+    expect(board(t).pendingWindows.filter((w) => w.type === ReactionWindowType.Modifier)).toEqual([])
+    expect(ofType(t, GameEventType.RollSuccess)).toHaveLength(1)
+
+    await settle(t)
+    expect(board(t).busy).toBe(false)
+  })
+})
+
+describe("a roll's target is asked while the roll stands, and modifiers may follow it", () => {
+  const SLY_PICKINGS = 'hero-018' // pull a card from another player's hand, rollReq 6
+  const modifierWorth = (value: number) =>
+    (baseGameCards.find(
+      (card) => card.type === CardType.Modifier && (card as ModifierCardData).values.join() === String(value),
+    ) as ModifierCardData).id
+  const PLUS_4 = modifierWorth(4)
+  const MINUS_4 = modifierWorth(-4)
+  const windows = (t: ReturnType<typeof stacked>, type: ReactionWindowType) =>
+    board(t).pendingWindows.filter((w) => w.type === type)
+
+  afterEach(() => jest.restoreAllMocks())
+
+  /** Alice plays Sly Pickings and rolls on it; the challenge is left to lapse. */
+  const rolled = async (t: ReturnType<typeof stacked>, alice: string, die: number) => {
+    playHero(t, alice, SLY_PICKINGS)
+    const offer = await windowFor(t, alice, ReactionWindowType.TaskChoice)
+    fixDice(die)
+    answer(t, offer, CONFIRM)
+    return windowFor(t, alice, ReactionWindowType.Modifier)
+  }
+
+  it('a passing roll asks its target at once, the table sees the seat, and a modifier after it can still sink the roll', async () => {
+    const t = stacked({ deck: [SLY_PICKINGS, PLUS_4, MINUS_4, 'hero-003'], slack: 12 })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    const roll = await rolled(t, alice, MIDDLING) // 8 against 6
+    const question = await windowFor(t, alice, ReactionWindowType.PlayerChoice)
+    expect(windows(t, ReactionWindowType.Modifier)).toHaveLength(1)
+
+    // Giving the roll up does not settle it while the question stands.
+    expect(t.game.reactionManager.pass(roll.windowId, bob)).toEqual({ accepted: true })
+    expect(windows(t, ReactionWindowType.Modifier)).toHaveLength(1)
+
+    expect(answer(t, question, bob)).toEqual({ accepted: true })
+    const targeted = windows(t, ReactionWindowType.Modifier)[0]
+    // a pull reaches the hand: the table points at Bob's cards
+    expect(targeted.detail).toMatchObject({
+      targets: [{ playerId: bob, zone: 'Hand' }],
+      passedBy: [],
+    })
+
+    // Bob sinks the roll now that he knows he is the target: 8 - 4 = 4.
+    expect(react(t, new PlayModifierReaction(actionId(), bob, MINUS_4, -4))).toEqual({ accepted: true })
+    await settle(t)
+    expect(ofType(t, GameEventType.RollFailed)).toHaveLength(1)
+    expect(see(t, alice).hand.map((c) => c.id)).toEqual([PLUS_4])
+    expect(see(t, bob).hand.map((c) => c.id)).toEqual(['hero-003'])
+  })
+
+  it('the pull happens only at the settle, so the pulled card cannot go back into the roll', async () => {
+    // One card each: Bob's is the modifier, so the pull can only take that.
+    const t = stacked({ deck: [SLY_PICKINGS, MINUS_4], handSize: 1, slack: 12 })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    await rolled(t, alice, MIDDLING)
+    const question = await windowFor(t, alice, ReactionWindowType.PlayerChoice)
+    answer(t, question, bob)
+    expect(see(t, alice).hand).toHaveLength(0)
+
+    await settle(t)
+    expect(ofType(t, GameEventType.RollSuccess)).toHaveLength(1)
+    expect(see(t, alice).hand.map((c) => c.id)).toEqual([MINUS_4])
+    expect(
+      react(t, new PlayModifierReaction(actionId(), alice, MINUS_4, -4)),
+    ).toEqual({ accepted: false, reason: RefusalReason.NoModifiableWindow })
+  })
+
+  it('a roll short of the mark asks nothing until a modifier rescues it', async () => {
+    const t = stacked({ deck: [SLY_PICKINGS, PLUS_4, MINUS_4, 'hero-003'], slack: 12 })
+    const alice = active(t)
+    const bob = board(t).seats.find((s) => s.playerId !== alice)!.playerId
+
+    await rolled(t, alice, LOWEST) // 2 against 6
+    expect(windows(t, ReactionWindowType.PlayerChoice)).toEqual([])
+
+    expect(react(t, new PlayModifierReaction(actionId(), alice, PLUS_4, 4))).toEqual({ accepted: true })
+    const question = await windowFor(t, alice, ReactionWindowType.PlayerChoice)
+    answer(t, question, bob)
+
+    await settle(t)
+    expect(ofType(t, GameEventType.RollSuccess)).toHaveLength(1)
+    expect(see(t, alice).hand).toHaveLength(1) // the +4 spent, one card pulled
+    expect(see(t, bob).hand).toHaveLength(1)
   })
 })

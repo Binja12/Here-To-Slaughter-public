@@ -157,8 +157,8 @@ export class CommandDispatcherService {
             id,
             playerId,
             command.payload.cardId,
-            command.payload.targetPlayerId,
             command.payload.value,
+            command.payload.targetPlayerId,
           ),
         )
       case 'Challenge':
@@ -167,7 +167,6 @@ export class CommandDispatcherService {
             id,
             playerId,
             command.payload.cardId,
-            command.payload.targetedCardId,
           ),
         )
       case 'SubmitChoice':

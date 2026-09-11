@@ -1,13 +1,4 @@
-import {
-  CardType,
-  GameEventType,
-  HeroClass,
-  IGameEvent,
-  PassiveType,
-  ReactionWindowType,
-  RollCompareMode,
-  TriggerScope,
-} from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, PassiveType, ReactionWindowType, RollCompareMode, TriggerScope, MonsterCardData } from 'shared'
 import { MegaSlimeAbility } from './mega-slime-ability'
 import { WarwornOwlbearAbility } from './warworn-owlbear-ability'
 import { abilityRegistry } from './index'
@@ -25,6 +16,8 @@ import { TaskManager } from '../../pipelines/task-manager'
 import { TurnManager } from '../../pipelines/turn-manager'
 import { PlayItemAction } from '../../actions/play-item-action'
 import { GameEventFactory } from '../../events/game-event-factory'
+import { baseGameCards } from '../../../data/base-game-cards'
+import { SacrificeTask } from '../../tasks/hero-tasks'
 
 // ---------------------------------------------------------------------------
 // The two monster passives that install on MonsterSlain and never expire.
@@ -144,6 +137,15 @@ describe('monster passives', () => {
       expect(bonusesOf(ctx.gs, 'p1', PassiveType.ActionPointBonus)).toEqual([
         expect.objectContaining({ sourceCardId: 'monster-123', value: 1 }),
       ])
+    })
+
+    it('gives the slayer a point on the turn it is won, not only from the next (the owner, 2026-09-04)', () => {
+      const ctx = setup()
+      const before = ctx.gs.getPlayer('p1')!.getActionPoints()
+      slay(ctx, 'monster-123', 'p1')
+
+      expect(ctx.gs.getPlayer('p1')!.getActionPoints()).toBe(before + 1)
+      expect(ctx.gs.getPlayer('p2')!.getActionPoints()).toBe(AP_PER_TURN)
     })
 
     it('installs on the slayer only, not the table', () => {
@@ -400,6 +402,22 @@ describe('monster passives', () => {
 // belongs to nobody, so `ownerFor` reads the owner off the event.
 // ---------------------------------------------------------------------------
 
+describe('every printed SACRIFICE fight-back is declared', () => {
+  it('has a MonsterFoughtBack entry, scoped Attacker, ending in a sacrifice', () => {
+    const sacrificers = baseGameCards.filter(
+      (c) => c.type === CardType.Monster && /SACRIFICE/.test((c as MonsterCardData).fightBack?.description ?? ''),
+    )
+    expect(sacrificers.length).toBeGreaterThan(4) // Terratuga, Sabretooth, Serpent, Bloodwing, Mega Slime, ...
+    for (const monster of sacrificers) {
+      const entry = abilityRegistry.get(monster.id)?.find(
+        (rule) => rule.trigger.on === GameEventType.MonsterFoughtBack && rule.trigger.scope === TriggerScope.Attacker,
+      )
+      expect({ id: monster.id, declared: !!entry }).toEqual({ id: monster.id, declared: true })
+      expect(entry!.steps[entry!.steps.length - 1]).toBeInstanceOf(SacrificeTask)
+    }
+  })
+})
+
 describe('monster fight-back', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => {
@@ -520,7 +538,7 @@ describe('monster fight-back', () => {
 
       expect(ctx.gs.getDiscardPile().getSize()).toBe(0)
       expect(ctx.gs.hasOpenFrames()).toBe(false)
-      expect(ctx.gs.abilityPipelines).toHaveLength(0)
+      expect(ctx.gs.getPipelines()).toHaveLength(0)
     })
 
     it('leaves the monster in the row — it was not won', () => {
@@ -625,7 +643,7 @@ describe('Mega Slime (monster-123) — fight back SACRIFICES a Hero', () => {
 
     expect(ctx.gs.getDiscardPile().getSize()).toBe(0)
     expect(ctx.gs.hasOpenFrames()).toBe(false)
-    expect(ctx.gs.abilityPipelines).toHaveLength(0)
+    expect(ctx.gs.getPipelines()).toHaveLength(0)
   })
 
   it('hits the attacker, not the other seat', () => {

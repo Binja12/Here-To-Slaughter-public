@@ -1,17 +1,18 @@
 import {
   GameEventType,
+  GamePhase,
   IGameEvent,
   IGameEventEmitter,
   IGameEventListener,
   TriggerScope,
 } from 'shared'
 import {
-  AbilityTrigger,
   IAbilityRule,
   IGameRule,
   IReactionManager,
   ISystemRule,
   ITask,
+  AbilitySource,
 } from '../interfaces'
 import { AbilityPipeline, GameState } from './game-state'
 
@@ -30,17 +31,6 @@ import { ContextWrite, GameEventFactory } from '../events/game-event-factory'
 
 /** A monster in the pile is nobody's; TriggerScope.Attacker names the player. */
 const NO_OWNER = ''
-
-/** One ability to check this event, and who owns it. Gathered fresh per event. */
-type AbilitySource = {
-  trigger: AbilityTrigger
-  steps: ITask[]
-  sourceCardId: string
-  /** Empty for a monster still in the pile — see NO_OWNER and ownerFor. */
-  ownerId: string
-  /** Printed on the card, or a rule of the game — see AbilityPipeline.system. */
-  system: boolean
-}
 
 // ---------------------------------------------------------------------------
 // TaskManager — the Task pipeline, opposite TurnManager's Action queue (§1).
@@ -77,6 +67,8 @@ export class TaskManager implements IGameEventListener {
   // ---------------------------------------------------------------------------
 
   onEvent(event: IGameEvent): void {
+    if (this.gs.getGamePhase() === GamePhase.Concluded) return
+
     // Before trigger matching, so an effect ending on this event is already
     // gone for anything the same event fires.
     sweepExpired(this.gs, this.em, event)
@@ -93,7 +85,7 @@ export class TaskManager implements IGameEventListener {
       // After a rollback nothing is paused on it any more — restoreFrame
       // dropped it — but the ones underneath still need to finish, so the
       // drain below runs either way.
-      for (const pipeline of this.gs.abilityPipelines) {
+      for (const pipeline of this.gs.getPipelines()) {
         if (pipeline.pausedOn !== frameId) continue
         pipeline.pausedOn = undefined
         // The window named both the slot and the value (resultKey); a
@@ -105,6 +97,11 @@ export class TaskManager implements IGameEventListener {
     // Matched after the wake, so anything this event starts goes on top of it
     // and resolves first.
     const matched: AbilityPipeline[] = []
+    // The card the event NAMES; everything else matching is an onlooker.
+    const { cardId: eventCardId } = (event.getPayload() ?? {}) as {
+      cardId?: string
+    }
+    const own: AbilityPipeline[] = []
 
     for (const source of this.abilitySources()) {
       if (!triggerMatches(this.gs, source, source.trigger, event)) continue
@@ -129,10 +126,17 @@ export class TaskManager implements IGameEventListener {
 
       // Copy the steps: the drain consumes the array, and the declaration's
       // own list is built once at module load and reused forever.
-      matched.push({ steps: [...source.steps], ctx, system: source.system })
+      const pipeline = { steps: [...source.steps], ctx, system: source.system }
+      if (eventCardId && source.sourceCardId === eventCardId) own.push(pipeline)
+      else matched.push(pipeline)
     }
 
-    this.add(matched)
+    // The named card finishes its OWN behaviour before anything watching it
+    // reacts: a modifier's bonus is on the roll before the Crowned Serpent's
+    // "you may DRAW" parks the stack, so the table sees the number it is
+    // answering (the owner, 2026-09-07). Order INSIDE each group is
+    // abilitySources' — position order.
+    this.add([...own, ...matched])
     this.drain()
   }
 
@@ -144,7 +148,7 @@ export class TaskManager implements IGameEventListener {
   private add(pipelines: AbilityPipeline[]): void {
     // Backwards, because the top of the stack is what runs next.
     for (let i = pipelines.length - 1; i >= 0; i--) {
-      this.gs.abilityPipelines.push(pipelines[i])
+      this.gs.pushPipeline(pipelines[i])
     }
   }
 
@@ -279,14 +283,15 @@ export class TaskManager implements IGameEventListener {
    * stack would carry on before the answer had arrived.
    */
   private nextStep(): { pipeline: AbilityPipeline; step: ITask } | undefined {
-    while (this.gs.abilityPipelines.length > 0) {
-      const top = this.gs.abilityPipelines[this.gs.abilityPipelines.length - 1]
+    for (;;) {
+      const top = this.gs.getPipelines().at(-1)
+      if (!top) return undefined
       if (top.pausedOn) return undefined
 
       const step = top.steps.shift()
       if (step) return { pipeline: top, step }
 
-      this.gs.abilityPipelines.pop() // spent
+      this.gs.popPipeline() // spent
       this.announceIfCardIsDone(top)
     }
     return undefined
@@ -307,7 +312,7 @@ export class TaskManager implements IGameEventListener {
     if (spent.system) return
 
     const cardId = spent.ctx.sourceCardId
-    const stillRunning = this.gs.abilityPipelines.some(
+    const stillRunning = this.gs.getPipelines().some(
       (p) => !p.system && p.ctx.sourceCardId === cardId,
     )
     if (stillRunning) return
@@ -328,7 +333,7 @@ export class TaskManager implements IGameEventListener {
     step: ITask,
   ): void {
     // Nothing would ever send the FrameResolved that wakes it.
-    if (!this.gs.frames.has(frameId)) {
+    if (!this.gs.getFrames().has(frameId)) {
       throw new Error(
         `${step.constructor.name} returned frameId "${frameId}", ` +
           'which is not an open frame.',

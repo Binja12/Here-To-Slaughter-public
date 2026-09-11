@@ -1,14 +1,15 @@
 import { ItemCard } from '../cards/item-card'
-import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason } from 'shared'
+import { CardType, GameEventType, HeroClass, IGameEvent, ReactionWindowType, RefusalReason, Zone } from 'shared'
 import { GameState } from './game-state'
 import { Player } from '../state-structures/player'
 import { Party } from '../state-structures/party'
 import { CardStack } from '../state-structures/card-stack'
 import { HeroCard } from '../cards/hero-card'
-import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, refused } from '../interfaces'
+import { accepted, IAbilityRule, IModifiableWindow, IReactionWindow, IRestartableWindow, ITargetedRollWindow, refused } from '../interfaces'
 import { CardPile } from '../state-structures/card-pile'
 import { DiscardTask } from '../tasks/tasks'
-import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { AbilityContext, NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { PlayerChoiceWindow } from '../reactions/player-choice-window'
 import { GameEventEmitter } from '../events/game-event-emitter'
 
 const makePlayer = (id: string) =>
@@ -139,6 +140,24 @@ describe('GameState', () => {
     expect(gs.getCardOwner('hero-7')).toBe('p1')
   })
 
+  // A party holds more than the rows it stands in. An item is EQUIPPED
+  // before its challenge window opens, so a challenge on a freshly played
+  // item asked who owned a card this could not answer — and Bloodwing, whose
+  // rule is "each time another player CHALLENGES you", never fired
+  // (the owner, 2026-09-08).
+  it('should find the owner of an equipped item, a slain monster and a card in play', () => {
+    gs.registerPlayer(makePlayer('p1'))
+    const party = makeParty('p1', 'leader-1', ['hero-7'])
+    party.equipItem('hero-7', 'item-9')
+    party.addMonster('monster-127')
+    party.addInstanceCard('magic-3')
+    gs.registerParty(party)
+
+    expect(gs.getCardOwner('item-9')).toBe('p1')
+    expect(gs.getCardOwner('monster-127')).toBe('p1')
+    expect(gs.getCardOwner('magic-3')).toBe('p1')
+  })
+
   it('should return undefined for unowned card', () => {
     gs.registerPlayer(makePlayer('p1'))
     gs.registerParty(makeParty('p1', 'leader-1'))
@@ -152,38 +171,88 @@ describe('GameState', () => {
       getId: () => 'w1',
       getType: () => ReactionWindowType.Modifier,
       getRespondentId: () => 'p1',
+      isOptional: () => false,
       getOptions: () => [],
       isOpen: () => isOpen,
       submitReaction: () => ({ accepted: true }) as const,
       resolve: () => {},
+      cancel: () => {},
       resultKey: () => NO_CONTEXT_RESULT,
       getDetail: () => ({}),
       getDeadline: () => 0,
     })
 
+    it('restoreFrame drops the pipeline parked on the frame and nothing else', () => {
+      const pipeline = (pausedOn?: string) => ({
+        steps: [],
+        ctx: new AbilityContext('card-x', 'p1'),
+        pausedOn,
+      })
+
+      const outer = pipeline()
+      gs.pushPipeline(outer)
+      const opener = pipeline()
+      gs.pushPipeline(opener)
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
+      opener.pausedOn = 'f1'
+
+      gs.restoreFrame('f1')
+
+      expect(gs.getFrames().size).toBe(0)
+      expect(gs.getPipelines()).toEqual([outer])
+    })
+
+    it('a rollback does not bring back a frame that settled since the snapshot', () => {
+      gs.addFrame('f0', gs.clone(), [stubWindow()])
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
+      // f0 settles while f1 is still open — then f1 fails.
+      gs.releaseFrame('f0')
+      gs.restoreFrame('f1')
+
+      expect(gs.getFrames().size).toBe(0)
+      expect(gs.hasPendingOutcome()).toBe(false)
+    })
+
+    it('a cancelled window closes without an outcome: no default pick, no FrameResolved', () => {
+      const emitter = new GameEventEmitter()
+      const received: IGameEvent[] = []
+      emitter.addListener({ onEvent: (e) => received.push(e) })
+      const question = new PlayerChoiceWindow('w2', 'p1', ['p2'], 5000, gs, 'f2', emitter)
+      gs.addFrame('f2', gs.clone(), [question])
+
+      question.cancel()
+
+      expect(question.isOpen()).toBe(false)
+      expect(question.picks()).toEqual([])
+      const closed = received.filter((e) => e.getType() === GameEventType.ReactionWindowClosed)
+      expect(closed).toHaveLength(1)
+      expect(closed[0].getPayload()).toMatchObject({ frameId: 'f2', cancelled: true })
+      expect(received.some((e) => e.getType() === GameEventType.FrameResolved)).toBe(false)
+    })
+
     it('frame is present after addFrame', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
-      expect(gs.frames.has('f1')).toBe(true)
+      gs.addFrame('f1', gs.clone(), [])
+      expect(gs.getFrames().has('f1')).toBe(true)
     })
 
     it('frame is absent after releaseFrame', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      gs.addFrame('f1', gs.clone(), [])
       gs.releaseFrame('f1')
-      expect(gs.frames.has('f1')).toBe(false)
+      expect(gs.getFrames().has('f1')).toBe(false)
     })
 
     it('restoreFrame reverts mutations made after the snapshot', () => {
       const snapshot = gs.clone()
-      gs.addFrame('f1', { snapshot, windows: [] })
+      gs.addFrame('f1', snapshot)
       gs.markAbilityUsed('hero-x')
       gs.restoreFrame('f1')
       expect(gs.getAbilitiesUsedThisTurn()).not.toContain('hero-x')
     })
 
     it('frame is absent after restoreFrame', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+      gs.addFrame('f1', gs.clone(), [])
       gs.restoreFrame('f1')
-      expect(gs.frames.has('f1')).toBe(false)
+      expect(gs.getFrames().has('f1')).toBe(false)
     })
 
     it('hasOpenFrames returns false with no frames', () => {
@@ -191,32 +260,32 @@ describe('GameState', () => {
     })
 
     it('hasOpenFrames returns true when a frame has an open window', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(true)] })
+      gs.addFrame('f1', gs.clone(), [stubWindow(true)])
       expect(gs.hasOpenFrames()).toBe(true)
     })
 
     it('hasOpenFrames returns false when all windows are closed', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow(false)] })
+      gs.addFrame('f1', gs.clone(), [stubWindow(false)])
       expect(gs.hasOpenFrames()).toBe(false)
     })
 
     it('getFrameByWindowType finds a frame by window type', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
       expect(gs.getFrameByWindowType(ReactionWindowType.Modifier)).toBeDefined()
     })
 
     it('getFrameByWindowType returns undefined for a non-matching type', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
       expect(gs.getFrameByWindowType(ReactionWindowType.Challenge)).toBeUndefined()
     })
 
     it('getFrameByWindowId finds a frame by window id', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
       expect(gs.getFrameByWindowId('w1')).toBeDefined()
     })
 
     it('getFrameByWindowId returns undefined for an unknown window id', () => {
-      gs.addFrame('f1', { snapshot: gs.clone(), windows: [stubWindow()] })
+      gs.addFrame('f1', gs.clone(), [stubWindow()])
       expect(gs.getFrameByWindowId('no-such-window')).toBeUndefined()
     })
 
@@ -226,7 +295,7 @@ describe('GameState', () => {
         player.addToHand('mod-1')
         gs.registerPlayer(player)
         gs.registerParty(makeParty('p1', 'leader-1'))
-        gs.addFrame('f1', { snapshot: gs.clone(), windows: [] })
+        gs.addFrame('f1', gs.clone(), [])
       })
 
       it('removes the card from the current player hand', () => {
@@ -255,7 +324,7 @@ describe('GameState', () => {
 
       it('leaves the SNAPSHOT alone — it predates the burn', () => {
         gs.spendCard('p1', 'mod-1')
-        const snap = gs.frames.get('f1')!.snapshot
+        const snap = gs.getFrames().get('f1')!.snapshot
         // The frame records what was spent instead of reaching back into a
         // past GameState to describe a decision the present just made.
         expect(snap.getPlayer('p1')!.getHand()).toContain('mod-1')
@@ -372,7 +441,7 @@ describe('GameState.getHeroClass — the class the board reads, mask included', 
 
     gs.getParty('p1').equipItem('hero-1', 'item-067')
     expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Fighter)
-    expect(gs.getPartyHeroClasses('p1')).toEqual([HeroClass.Fighter])
+    expect(gs.getPartyClasses('p1')).toEqual([HeroClass.Fighter])
 
     gs.getParty('p1').unequipItem('hero-1')
     expect(gs.getHeroClass('hero-1')).toBe(HeroClass.Wizard)
@@ -432,10 +501,12 @@ describe('GameState — the open modifiable window', () => {
     getId: () => 'w1',
     getType: () => ReactionWindowType.Modifier,
     getRespondentId: () => rollerId,
+    isOptional: () => false,
     getOptions: () => [],
     isOpen: () => isOpen,
     submitReaction: jest.fn(),
     resolve: () => {},
+    cancel: () => {},
     resultKey: () => NO_CONTEXT_RESULT,
     getDetail: () => ({}),
     getDeadline: () => 0,
@@ -450,7 +521,7 @@ describe('GameState — the open modifiable window', () => {
 
   const withWindow = (window: IReactionWindow) => {
     const gs = makeGs()
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [window] })
+    gs.addFrame('f1', gs.clone(), [window])
     return gs
   }
 
@@ -687,5 +758,104 @@ describe('GameState.drawFromMainDeck', () => {
     expect(gs.drawFromMainDeck()).toBe('x1')
     expect(gs.getMainDeck().getSize()).toBe(0)
     expect(gs.getDiscardPile().getSize()).toBe(0)
+  })
+})
+
+describe('GameState — the roll target and what stands over a roll', () => {
+  let gs: GameState
+
+  beforeEach(() => {
+    gs = new GameState(
+      new CardStack('deck', 'main'),
+      new CardPile('discard', 'discard'),
+      new CardStack('mdeck', 'monster-deck'),
+      new CardPile('mpile', 'monster-pile'),
+    )
+    gs.registerPlayer(makePlayer('p1'))
+    gs.registerParty(makeParty('p1', 'leader-1'))
+  })
+
+  const targetable = (id: string) => {
+    const landed: unknown[] = []
+    const window: IModifiableWindow & ITargetedRollWindow = {
+      getId: () => id,
+      getType: () => ReactionWindowType.Modifier,
+      getRespondentId: () => 'p1',
+      isOptional: () => false,
+      getOptions: () => [],
+      isOpen: () => true,
+      submitReaction: () => accepted(),
+      resolve: () => {},
+      cancel: () => {},
+      resultKey: () => NO_CONTEXT_RESULT,
+      getDetail: () => ({}),
+      getDeadline: () => 0,
+      acceptsModifierFor: () => accepted(),
+      cardSpent: () => {},
+      valueBiasFor: () => 'highest' as const,
+      targetChosen: (key: string, picks: unknown[], zone: Zone) => {
+        landed.push([key, picks, zone])
+      },
+    }
+    return { window, landed }
+  }
+
+  it('landRollTarget hands the pick to the open roll window, and does nothing with none open', () => {
+    expect(() => gs.landRollTarget('chosenPlayer', ['p2'], Zone.Hand)).not.toThrow()
+
+    const { window, landed } = targetable('w1')
+    gs.addFrame('f1', gs.clone(), [window])
+    gs.landRollTarget('chosenPlayer', ['p2'], Zone.Hand)
+    expect(landed).toEqual([['chosenPlayer', ['p2'], Zone.Hand]])
+  })
+
+  it('hasOpenFramesAfter sees an open window in a later frame only', () => {
+    const earlier = targetable('w0').window
+    const roll = targetable('w1').window
+    const later = targetable('w2').window
+    gs.addFrame('f0', gs.clone(), [earlier])
+    gs.addFrame('f1', gs.clone(), [roll])
+    expect(gs.hasOpenFramesAfter('f1')).toBe(false)
+
+    gs.addFrame('f2', gs.clone(), [later])
+    expect(gs.hasOpenFramesAfter('f1')).toBe(true)
+    expect(gs.hasOpenFramesAfter('f2')).toBe(false)
+
+    gs.releaseFrame('f2')
+    expect(gs.hasOpenFramesAfter('f1')).toBe(false)
+  })
+
+  it('restartQuestionsAfter gives every open question in a later frame its clock back, and nothing else', () => {
+    const restartable = (id: string, open = true) => {
+      let restarts = 0
+      const window: IRestartableWindow = {
+        ...targetable(id).window,
+        isOpen: () => open,
+        restartClock: () => {
+          restarts += 1
+        },
+      }
+      return { window, restarts: () => restarts }
+    }
+    const earlier = restartable('w0')
+    const roll = restartable('w1')
+    const question = restartable('w2')
+    const settled = restartable('w3', false)
+    const plain = targetable('w4').window
+    gs.addFrame('f0', gs.clone(), [earlier.window])
+    gs.addFrame('f1', gs.clone(), [roll.window])
+    gs.addFrame('f2', gs.clone(), [question.window, settled.window, plain])
+    gs.restartQuestionsAfter('f1')
+    expect([earlier.restarts(), roll.restarts(), question.restarts(), settled.restarts()]).toEqual([0, 0, 1, 0])
+  })
+
+  it('moveToMainDeckTop puts a card from anywhere in the deck on top, and says when it is not there', () => {
+    const main = new CardStack('deck', 'main')
+    for (const id of ['a', 'b', 'c']) main.addToBottom(id)
+    const deckGs = new GameState(main, new CardPile('discard', 'discard'), new CardStack('mdeck', 'monster-deck'), new CardPile('mpile', 'monster-pile'))
+    expect(deckGs.moveToMainDeckTop('c')).toBe(true)
+    expect(deckGs.peekMainDeck(3)).toEqual(['c', 'a', 'b'])
+    expect(deckGs.moveToMainDeckTop('zzz')).toBe(false)
+    expect(deckGs.peekMainDeck(3)).toEqual(['c', 'a', 'b'])
   })
 })

@@ -1,10 +1,10 @@
+import * as dice from '../../utils/roll-utils'
 import {
   CardBase,
   CardType,
   GameConfig,
   GameEventType,
   IGameEvent,
-  MonsterCardData,
   PendingWindowView,
   PlayerView,
   ReactionWindowType,
@@ -15,7 +15,6 @@ import { baseGameCards } from '../../data/base-game-cards'
 import { createGame, startGame, Game } from './create-game'
 import { playerView } from '../views/player-view'
 import { IAction, IReaction } from '../interfaces'
-import { CONFIRM } from '../reactions/task-choice-window'
 import { DrawCardAction } from '../actions/draw-card-action'
 import { PlayHeroAction } from '../actions/play-hero-action'
 import { PlayItemAction } from '../actions/play-item-action'
@@ -25,8 +24,6 @@ import { RollOnLeaderAction } from '../actions/roll-on-leader-action'
 import { AttackMonsterAction } from '../actions/attack-monster-action'
 import { EndTurnAction } from '../actions/end-turn-action'
 import { RedrawHandAction } from '../actions/redraw-hand-action'
-import { PlayChallengeReaction } from '../reactions/play-challenge-reaction'
-import { PlayModifierReaction } from '../reactions/play-modifier-reaction'
 
 // ---------------------------------------------------------------------------
 // The harness behind play-through.spec.ts and full-game.spec.ts.
@@ -127,8 +124,12 @@ export type Deal = {
   handSize?: number
   /** How many slain monsters win. Out of reach unless a case asks for it. */
   winAt?: number
+  /** How many distinct classes win, the leader's included. */
+  classesWin?: number
   /** Cards left in the deck after the deal. Padded with filler heroes. */
   slack?: number
+  /** A turn clock, ms. None by default: a stacked case ends its turns itself. */
+  turnTimeMs?: number
 }
 
 export type Table = { game: Game; events: IGameEvent[] }
@@ -139,6 +140,7 @@ export function config(overrides: Partial<GameConfig> = {}): GameConfig {
     ...overrides,
     timeControl: {
       ...defaultGameConfig.timeControl,
+      ...overrides.timeControl,
       reactionCountdownMs: COUNTDOWN_MS,
     },
   }
@@ -184,7 +186,14 @@ export function stacked(spec: Deal): Table {
           startingHandSize: handSize,
           winConditions: [
             { type: WinConditionType.SlayMonsters, value: spec.winAt ?? 99 },
+            ...(spec.classesWin === undefined
+              ? []
+              : [{ type: WinConditionType.PartyClasses, value: spec.classesWin }]),
           ],
+          timeControl: {
+            ...defaultGameConfig.timeControl,
+            turnTimeMs: spec.turnTimeMs,
+          },
         }),
         cards,
       }),
@@ -410,11 +419,13 @@ export const LOWEST = 0.0001
 /** A hero / attack roll of 8. */
 export const MIDDLING = 0.6
 
-export const fixDice = (value: number) =>
-  jest.spyOn(Math, 'random').mockReturnValue(value)
+export const fixDice = (value: number) => {
+  jest.spyOn(dice, 'roll2Dice').mockReturnValue(2 * (Math.floor(value * 6) + 1))
+  return jest.spyOn(Math, 'random').mockReturnValue(value)
+}
 
 /** A fixed sequence, then `rest` for everything after it. */
 export function scriptDice(sequence: number[], rest: number): void {
   const queue = [...sequence]
-  jest.spyOn(Math, 'random').mockImplementation(() => queue.shift() ?? rest)
+  jest.spyOn(dice, 'roll2Dice').mockImplementation(() => 2 * (Math.floor((queue.shift() ?? rest) * 6) + 1))
 }

@@ -57,6 +57,6 @@ describe('Greedy Cheeks (hero-047)', () => {
     expect(gs.getPlayer('p2')!.getHand()).toEqual(['a'])
     expect(gs.getPlayer('p3')!.getHand()).toEqual([])
     expect(emitted.filter((e) => e.getType() === GameEventType.CardPulled)).toHaveLength(2)
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 })

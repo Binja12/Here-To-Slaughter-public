@@ -6,6 +6,7 @@ import {
   IGameEvent,
   Owner,
   ReactionWindowType,
+  RefusalReason,
   Zone,
 } from 'shared'
 import { ChooseActionTask, ChooseCardEachTask, ChooseCardTask, ChoosePlayerTask, ConfirmTask } from './choose-tasks'
@@ -94,7 +95,7 @@ const collect = (em: GameEventEmitter): IGameEvent[] => {
 
 /** The single open window across all frames. */
 const openWindow = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows)[0]
+  [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
 
 const openedPayload = (events: IGameEvent[]) =>
   events
@@ -178,7 +179,7 @@ describe('ChoosePlayerTask', () => {
     // The frameId comes back from execute() — that return value is what tells
     // TaskManager to suspend, so a task that opens a frame must yield it.
     expect(frameId).toBeTruthy()
-    expect(gs.frames.has(frameId as string)).toBe(true)
+    expect(gs.getFrames().has(frameId as string)).toBe(true)
   })
 })
 
@@ -304,9 +305,13 @@ describe('ChooseCardTask', () => {
       cardType: CardType.Magic,
     }).execute(gs, new AbilityContext('src', 'p1'), em, new ReactionManager(gs, em))
 
-    openWindow(gs).submitReaction('p1', { choice: 'their-hero' })
+    const result = openWindow(gs).submitReaction('p1', { choice: 'their-hero' })
 
-    expect(openWindow(gs).isOpen()).toBe(true)
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
+    // and the window is spent on one of the cards it DID offer: a pick the
+    // window never showed is a client out of step, and the table is not held
+    expect(openWindow(gs)).toBeUndefined()
+    expect(gs.isBusy()).toBe(false)
   })
 })
 
@@ -349,7 +354,7 @@ describe('ConfirmTask', () => {
     ) as string
     openWindow(gs).submitReaction('p1', { choice: DISMISS })
 
-    expect(gs.frames.has(frameId)).toBe(false) // released, not restored
+    expect(gs.getFrames().has(frameId)).toBe(false) // released, not restored
     expect(
       events.some((e) => e.getType() === GameEventType.TaskConfirmed),
     ).toBe(false)
@@ -425,7 +430,7 @@ describe('ConfirmTask', () => {
     }).execute(gs, ctx, em, rm)
 
     expect(frameId).toBeUndefined()
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 
   it('keeps the suspended pipeline on CONFIRM', () => {
@@ -440,7 +445,7 @@ describe('ConfirmTask', () => {
       em,
       rm,
     ) as string
-    gs.abilityPipelines.push({
+    gs.pushPipeline({
       steps: [],
       ctx: new AbilityContext('src', 'p1'),
       pausedOn: frameId,
@@ -448,7 +453,7 @@ describe('ConfirmTask', () => {
     openWindow(gs).submitReaction('p1', { choice: CONFIRM })
 
     // Present through resolution; TaskManager is what consumes it.
-    expect(gs.frames.has(frameId)).toBe(false)
+    expect(gs.getFrames().has(frameId)).toBe(false)
   })
 
   it('routes the prompt to the ability owner', () => {
@@ -494,7 +499,7 @@ describe('ChooseCardTask — the output slot, and a skipped choice', () => {
   it('files the pick where `resultKey` says, so a second pick does not overwrite it', () => {
     const { gs, em, rm, ctx } = build()
     new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }, { resultKey: CTX_CHOSEN_ITEM }).execute(gs, ctx, em, rm)
-    const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.resultKey()).toBe(CTX_CHOSEN_ITEM)
   })
 
@@ -524,8 +529,8 @@ describe('ChooseCardEachTask', () => {
     const { gs, em, rm, ctx } = table()
     const frameId = new ChooseCardEachTask({ owner: Owner.Others }, { zone: Zone.Hand, cardType: CardType.Hero }).execute(gs, ctx, em, rm)
     expect(frameId).toBeTruthy()
-    expect(gs.frames.size).toBe(1)
-    const windows = gs.frames.get(frameId as string)!.windows
+    expect(gs.getFrames().size).toBe(1)
+    const windows = gs.getFrames().get(frameId as string)!.windows
     expect(windows.map((w) => w.getRespondentId())).toEqual(['p2', 'p3'])
     expect(windows.map((w) => w.getOptions())).toEqual([['a'], ['b']]) // the item did not qualify
     expect(windows.map((w) => w.resultKey())).toEqual([chosenCardOf('p2'), chosenCardOf('p3')])
@@ -535,7 +540,7 @@ describe('ChooseCardEachTask', () => {
   it('nobody to ask: no frame, nothing to wait for', () => {
     const { gs, em, rm, ctx } = table()
     expect(new ChooseCardEachTask({ owner: Owner.Others, hasHeroes: true }, { zone: Zone.Hand }).execute(gs, ctx, em, rm)).toBeUndefined()
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getFrames().size).toBe(0)
     expect(ctx.get(CTX_ASKED_SEATS)).toEqual([])
   })
 })

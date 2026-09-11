@@ -13,12 +13,16 @@ import { GameEvent } from './events/game-event'
 
 export class GameEngine implements IGameEventListener {
   private playerOrder: string[] = []
+  /** Set by every event — nothing moves the board without one — and cleared by asking the win conditions. */
+  private dirty = false
 
   constructor(
     private gs: GameState,
     private turnManager: TurnManager,
     private emitter: GameEventEmitter,
     private winConditions: IWinCondition[] = [],
+    /** AND over the conditions rather than OR — `GameConfig.requireAllWinConditions`. */
+    private readonly requireAll = false,
   ) {
     this.emitter.addListener(this)
   }
@@ -46,39 +50,53 @@ export class GameEngine implements IGameEventListener {
   }
 
   onEvent(event: IGameEvent): void {
+    this.dirty = true
+    const concluded = this.concludeIfDue()
     switch (event.getType()) {
       case GameEventType.TurnEnded:
-        this.handleTurnEnded(event.getPlayerId())
+        if (!concluded) this.startNextTurn(event.getPlayerId())
         break
 
       case GameEventType.FrameResolved:
-        this.turnManager.resumeDrain()
+        // After TaskManager (§8), which continued the pipeline the frame held.
+        if (!concluded) this.turnManager.resumeDrain()
         break
     }
   }
 
-  private handleTurnEnded(currentPlayerId: string): void {
+  /**
+   * Asks the win conditions once per change, and only while no frame may
+   * still restore the board (GameState.hasPendingOutcome). Returns whether
+   * the game is concluded, now or earlier.
+   */
+  private concludeIfDue(): boolean {
+    if (this.gs.getGamePhase() === GamePhase.Concluded) return true
+    if (!this.dirty || this.gs.hasPendingOutcome()) return false
+    this.dirty = false
     const winner = this.checkWinConditions()
-    if (winner) {
-      // Before the announcement, so whoever hears GameEnded sees a concluded
-      // board that already names its winner.
-      this.gs.conclude(winner.getId())
-      this.emitter.emit(
-        new GameEvent(GameEventType.GameEnded, winner.getId(), {
-          winnerId: winner.getId(),
-        }),
-      )
-      return
-    }
-    this.startNextTurn(currentPlayerId)
+    if (!winner) return false
+    // Clock before conclude: conclude closes windows, and a close is what
+    // resumes the clock. Board before GameEnded, so its hearers see the winner.
+    this.turnManager.stopClock()
+    this.gs.conclude(winner.getId())
+    this.emitter.emit(
+      new GameEvent(GameEventType.GameEnded, winner.getId(), {
+        winnerId: winner.getId(),
+      }),
+    )
+    return true
   }
 
+  /** Per player, not per condition: "all" means one party meeting every one. An empty list is never met. */
   private checkWinConditions(): Player | null {
-    for (const wc of this.winConditions) {
-      const winner = wc.check(this.gs)
-      if (winner) return winner
-    }
-    return null
+    if (this.winConditions.length === 0) return null
+    return (
+      this.gs.getPlayers().find((player) =>
+        this.requireAll
+          ? this.winConditions.every((wc) => wc.isMetBy(this.gs, player))
+          : this.winConditions.some((wc) => wc.isMetBy(this.gs, player)),
+      ) ?? null
+    )
   }
 
   private startNextTurn(currentPlayerId: string): void {

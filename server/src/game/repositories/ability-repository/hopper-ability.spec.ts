@@ -40,13 +40,13 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   for (const step of steps) {
     const frameId = step.execute(gs, ctx, em, rm) as string | void
     if (frameId) {
-      const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+      const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
       // the pick the player would make, written where the window would write it
       ctx.set(window.resultKey() as string, pick === undefined ? [] : [pick])
       window.resolve()
     }
   }
-  return { emitted, window: () => [...gs.frames.values()].flatMap((f) => f.windows)[0] }
+  return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
 // Hopper (hero-033): "Choose a player. That player must SACRIFICE a Hero card."
@@ -62,15 +62,16 @@ describe('Hopper (hero-033)', () => {
 
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    const [choosePlayer, chooseHero, sacrifice] = HopperAbility[0].steps
+    const [choosePlayer] = HopperAbility[0].steps
+    const [chooseHero, sacrifice] = HopperAbility[1].steps
     choosePlayer.execute(gs, ctx, em, rm)
-    let window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    let window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getOptions()).toEqual(['p2']) // p3 has no heroes
     ctx.set(CTX_CHOSEN_PLAYER, ['p2'])
     window.resolve()
 
     chooseHero.execute(gs, ctx, em, rm)
-    window = [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+    window = [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
     expect(window.getRespondentId()).toBe('p2')
     expect(window.getOptions()).toEqual(['theirs'])
     ctx.set(CTX_CHOSEN_CARD, ['theirs'])

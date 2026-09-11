@@ -45,7 +45,7 @@ const collect = () => {
 }
 
 const openWindow = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
 // Bloodwing (monster-127): "Each time another player CHALLENGES you, that
 // player must DISCARD a card."

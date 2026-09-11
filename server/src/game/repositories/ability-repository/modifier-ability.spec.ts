@@ -117,7 +117,7 @@ function rollAndPlayModifier(values: number[], value = values[0]) {
   jest.spyOn(Math, 'random').mockReturnValue(LOW)
   new RollOnHeroAction('a1', 'p1', HERO, ctx.em, ctx.rm).execute(ctx.gs)
   const result = ctx.rm.submitReaction(
-    new PlayModifierReaction('r1', 'p2', MOD, 'p1', value),
+    new PlayModifierReaction('r1', 'p2', MOD, value),
   )
   return { ...ctx, result }
 }
@@ -157,7 +157,7 @@ describe('ModifierAbility', () => {
     expect(openedValueChoices(events)).toEqual([])
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
     expect(applied).toHaveLength(1)
-    expect(applied[0]).toMatchObject({ cardId: MOD, value: -2, finalRoll: -1 })
+    expect(applied[0]).toMatchObject({ cardId: MOD, value: -2, finalRoll: 0 })
   })
 
   it('lands the other printed value just as happily', () => {
@@ -165,7 +165,7 @@ describe('ModifierAbility', () => {
 
     expect(payloadsOf(events, GameEventType.ModifierApplied)[0]).toMatchObject({
       value: 2,
-      finalRoll: 3,
+      finalRoll: 4,
     })
   })
 

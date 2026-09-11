@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react';
+import { assetUrl } from '../assetUrl';
 
 /* ---------------------------------------------------------------------------
  * Lobby art manifest — client/public/lobby/*.png
@@ -35,7 +36,7 @@ const art = (
   by: number,
   bw: number,
   bh: number,
-): LobbyArt => ({ url: `/lobby/${file}`, cw, ch, bx, by, bw, bh });
+): LobbyArt => ({ url: assetUrl(`/lobby/${file}`), cw, ch, bx, by, bw, bh });
 
 export const LOBBY_ART = {
   /* ----- CURRENT lobby (straight-on layered set, one shared 1672×941

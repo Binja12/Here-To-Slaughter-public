@@ -1,4 +1,6 @@
+import AssetImage from '../loading/AssetImage'
 import { useEffect, useRef, useState } from "react";
+import { assetUrl } from "../assetUrl";
 import {
   DICE_SIZE,
   DICE_SPOTS,
@@ -52,7 +54,7 @@ export type DiceThrowSpot = Pick<
 >;
 
 
-const faceUrl = (n: number) => `/board/Dice/dice_face_${n}.png`;
+const faceUrl = (n: number) => assetUrl(`/board/Dice/dice_face_${n}.png`);
 
 /** where each face PNG sits on the cube (real-die layout, opposites sum 7) */
 const FACE_PLACEMENT: { value: number; rotate: string }[] = [
@@ -117,13 +119,15 @@ export function DicePair({
 
 export default function DiceRoll({
   roll,
-  tone = "mine",
+  outcome = "none",
 }: {
   roll: DiceRollState | null;
-  /** an opponent's roll: once the dice have settled, each die wears a
-   *  square red glow — the cards' glow in red. A box-shadow square BEHIND
-   *  the die, not a filter: a filter on an ancestor flattens the 3D cubes. */
-  tone?: "mine" | "enemy";
+  /** what the roll means as it stands (liveRoll.rollOutcome): once the dice
+   *  have settled each die wears a square glow — green over the threshold,
+   *  red under it, none in a monster's "nothing happens" band. A box-shadow
+   *  square BEHIND the die, not a filter: a filter on an ancestor flattens
+   *  the 3D cubes. */
+  outcome?: "success" | "failure" | "none";
 }) {
   // the glow waits for the throw to land (per throw = per nonce)
   const [settled, setSettled] = useState(false);
@@ -146,12 +150,12 @@ export default function DiceRoll({
       className="pointer-events-none absolute z-[95]"
       style={positionStyle("center", spot.dx, spot.dy)}
     >
-      {tone === "enemy" &&
+      {outcome !== "none" &&
         settled &&
         [0, 1].map((i) => (
           <div
             key={i}
-            className="dice-glow absolute -translate-x-1/2 -translate-y-1/2"
+            className={`${outcome === "success" ? "dice-glow-green" : "dice-glow"} absolute -translate-x-1/2 -translate-y-1/2`}
             style={{
               left: `${(i === 0 ? -1 : 1) * spot.pairDx}cqh`,
               top: `${(i === 0 ? -1 : 1) * spot.pairDy}cqh`,
@@ -324,7 +328,7 @@ function Die({
                   backfaceVisibility: "hidden",
                 }}
               >
-                <img
+                <AssetImage
                   src={faceUrl(f.value)}
                   alt={`die face ${f.value}`}
                   draggable={false}

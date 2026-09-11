@@ -1,4 +1,4 @@
-import { CardBase, GameEventType, TriggerScope } from 'shared'
+import { GameEventType, TriggerScope } from 'shared'
 import { IAbilityRule } from '../../interfaces'
 import { ChallengeAbility } from './challenge-ability'
 import { CharismaticSongAbility } from './charismatic-song-ability'
@@ -235,7 +235,7 @@ export const abilityRegistry: ReadonlyMap<string, IAbilityRule[]> = new Map<
   ['magic-054', CriticalBoostAbility],
   ['magic-055', EnchantedSpellAbility], // Enchanted Spell — +2 to all your rolls this turn
   ['magic-056', EnchantedSpellAbility],
-  ['magic-057', ForcedExchangeAbility], // Forced Exchange — choose a player, STEAL from them
+  ['magic-057', ForcedExchangeAbility], // Forced Exchange — STEAL a hero, GIVE one back
   ['magic-058', WindsOfChangeAbility], // Winds of Change — a worn item goes home, then DRAW
   ['magic-059', WindsOfChangeAbility],
   ['magic-060', ForcefulWindsAbility], // Forceful Winds — every worn item goes home
@@ -331,10 +331,14 @@ export const isActivatable = (cardId: string): boolean =>
   )
 
 /**
- * Whether a printed card may be DEALT — TEMPORARY pool for the playtest
- * (the owner, 2026-09-04: "a temp registry with only cards that are
- * implemented"): exactly the cards with an entry here, every type alike.
- * Today that is all modifiers, challenges and leaders, 8 items, 7 magics,
- * 5 monsters and 3 heroes; the deck grows as entries are written.
+ * Whether a card declares anything that still fires from a PARTY — every entry
+ * but the fight-back, which only a monster still in the pile can run. Asked of
+ * a leader (with `isActivatable` false, its rule is a passive by elimination)
+ * and of a monster won into a party, whose printed rule is its passive. Read
+ * by `views/player-view.ts` for the pink aura, so the glow and the registry
+ * cannot disagree.
  */
-export const dealable = (card: CardBase): boolean => abilityRegistry.has(card.id)
+export const hasStandingRule = (cardId: string): boolean =>
+  (abilityRegistry.get(cardId) ?? []).some(
+    (rule) => rule.trigger.on !== GameEventType.MonsterFoughtBack,
+  )

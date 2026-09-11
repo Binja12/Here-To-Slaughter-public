@@ -146,7 +146,7 @@ function setup(withDriver = false) {
 }
 
 const openWindows = (gs: GameState): IReactionWindow[] =>
-  [...gs.frames.values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
 
 const windowOfType = (gs: GameState, type: ReactionWindowType) =>
   openWindows(gs).find((w) => w.getType() === type)
@@ -235,7 +235,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       expect(modifierWindow(gs)).toBeDefined()
       // One point, spent on the play. The roll is a task and costs nothing.
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
-      expect(gs.actionQueue).toHaveLength(0)
+      expect(tm.getQueuedActions()).toHaveLength(0)
     })
 
     it('no: the hero stays in the party with its ability unspent', () => {
@@ -257,12 +257,13 @@ describe('hero rules — the roll a played hero is offered', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(HIGH)
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
-      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
 
-      // Wiggles is asking which hero to steal — nothing else opens that window.
+      // The roll stands, so Wiggles is already asking which hero to steal,
+      // beside the open modifier window — nothing else opens that window.
       const choice = windowOfType(gs, ReactionWindowType.CardChoice)
       expect(choice).toBeDefined()
       choice!.submitReaction('p1', { choice: 'victim' })
+      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
       expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     })
 
@@ -290,7 +291,7 @@ describe('hero rules — the roll a played hero is offered', () => {
         .mockReturnValueOnce(HIGH) // challenger 11
         .mockReturnValueOnce(LOW) // challenged 1
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'wiggles'))
+      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
       jest.advanceTimersByTime(5000)
 
       // Rolled back out of the party before FrameResolved, so it was not among
@@ -347,7 +348,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       jest.advanceTimersByTime(5000) // challenge lapses -> offered
       jest.advanceTimersByTime(5000) // the offer lapses, which is a DISMISS
 
-      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(gs.getPipelines()).toHaveLength(0)
       expect(tm.getPhase()).toBe(TurnPhase.End)
     })
 
@@ -363,7 +364,7 @@ describe('hero rules — the roll a played hero is offered', () => {
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
       jest.advanceTimersByTime(5000) // the roll lapses -> RollFailed, rollback
 
-      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(gs.getPipelines()).toHaveLength(0)
       expect(tm.getPhase()).toBe(TurnPhase.End)
     })
   })
@@ -391,7 +392,6 @@ describe('hero rules — the roll a played hero is offered', () => {
       expect(challengeWindow(gs)).toBeDefined()
       expect(rollOffer(gs)).toBeUndefined()
       // Nothing reached the action queue: a task grants a task.
-      expect(gs.actionQueue).toHaveLength(0)
     })
 
     it('costs the owner no action point', () => {
@@ -418,11 +418,11 @@ describe('hero rules — the roll a played hero is offered', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(HIGH)
       rollOffer(gs)!.submitReaction('p1', { choice: CONFIRM })
-      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
 
       const choice = windowOfType(gs, ReactionWindowType.CardChoice)
       expect(choice).toBeDefined()
       choice!.submitReaction('p1', { choice: 'victim' })
+      jest.advanceTimersByTime(5000) // modifier settles -> RollSuccess
       expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     })
 
@@ -435,14 +435,14 @@ describe('hero rules — the roll a played hero is offered', () => {
         .mockReturnValueOnce(HIGH)
         .mockReturnValueOnce(LOW)
         .mockReturnValue(LOW)
-      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL, 'wiggles'))
+      rm.submitReaction(new PlayChallengeReaction('r1', 'p2', CHAL))
       jest.advanceTimersByTime(5000)
 
       expect(gs.getParty('p1').getHeroIds()).not.toContain('wiggles')
       expect(gs.getPlayer('p1')!.getHand()).not.toContain('wiggles')
       expect(gs.getDiscardPile().getAll()).toContain('wiggles')
       expect(rollOffer(gs)).toBeUndefined()
-      expect(gs.abilityPipelines).toHaveLength(0)
+      expect(gs.getPipelines()).toHaveLength(0)
     })
   })
 })

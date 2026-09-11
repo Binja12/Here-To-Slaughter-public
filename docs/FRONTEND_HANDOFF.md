@@ -513,9 +513,12 @@ game and opens a Hearthstone-style resolution window. Three pieces, all new:
   "± {mod}" suffix only once a modifier landed — exactly the TurnBanner roll
   treatment, revealed after DICE_SETTLE_MS); and every modifier card played
   onto that roll fanned at the panel's OUTER edge. Hand sizes are NOT in the
-  window — instead EVERY seat's cardback widget on the board is dim-exempted
-  (Widget's `dimExempt` prop → whole frame+count subtree bright) while a
-  challenge is open, and the board's TurnBanner is `muted` (label hidden —
+  window. Only the LOCAL seat's cardback widget is dim-exempted (Widget's
+  `dimExempt` prop, on the same condition as its raised z) while a challenge is
+  open — that is the hand a modifier is played from; every other seat's stack
+  dims with the felt, because it draws the same card-back art as the main deck
+  and three bright ones read as the decks floating over the dim (the owner,
+  2026-09-07). Also, the board's TurnBanner is `muted` (label hidden —
   the panels' scrolls are the only roll text on the dimmed screen). ALL
   geometry in `CHALLENGE_LAYOUT` (layout.ts): card h/dx/dy, tuck {peek,
   angle, scale}, panel w/h/±dx/dy, scroll h/dx/dy, modCard h/dx/dy/step/
@@ -588,7 +591,8 @@ aura'd cards bright), fan force-open, exactly the 4 window targets glow,
 challenge pick → window over the picked card's art ("Hero Calming Voice",
 challenged = player 2), modifier pick → banner "12 + 4" + card beside the
 banner, panel modifier pick → "6 + 4" at the panel with dice untouched, all
-four hand counts bright during the dim, banner label muted in-challenge,
+the local hand bright during the dim and the other seats' stacks dimmed with
+the felt, banner label muted in-challenge,
 Escape restores.
 
 ### Turn banner (TurnBanner in Board.tsx) — two modes

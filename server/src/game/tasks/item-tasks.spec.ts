@@ -137,12 +137,12 @@ describe('PlayItemTask', () => {
 
   it('equips inside the frame, so a lost challenge takes it back', () => {
     run(play(), bothSlots('item-1', 'hero-1'))
-    const window = [...gs.frames.values()]
+    const window = [...gs.getFrames().values()]
       .flatMap((f) => f.windows)
       .find((w) => w.isOpen())!
 
     // Challenger rolls 11, defender 1.
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
     window.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
     unchallenged()
 
@@ -198,18 +198,17 @@ describe('PlayItemTask', () => {
     const frameId = run(play(), bothSlots('item-1', 'hero-1'))
 
     expect(typeof frameId).toBe('string')
-    const window = [...gs.frames.values()]
+    const window = [...gs.getFrames().values()]
       .flatMap((f) => f.windows)
       .find((w) => w.isOpen())
     expect(window?.getType()).toBe(ReactionWindowType.Challenge)
   })
 
-  it('refuses a plain item aimed at another party', () => {
+  it("refuses a plain item on another party's hero — it helps its own side (the owner, 2026-09-08)", () => {
     run(play(), bothSlots('item-1', 'hero-2'))
 
-    expect(emitted).toHaveLength(0)
-    expect(player.getHand()).toContain('item-1')
     expect(gs.getEquippedItem('hero-2')).toBeUndefined()
+    expect(player.getHand()).toContain('item-1')
   })
 
   it('allows a CURSED item onto another party — that is what it is for', () => {

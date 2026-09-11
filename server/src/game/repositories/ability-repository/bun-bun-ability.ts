@@ -16,7 +16,10 @@ export const BunBunAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Discard, cardType: CardType.Magic }),
+      new ChooseCardTask(
+        { zone: Zone.Discard, cardType: CardType.Magic },
+        { question: 'Choose a magic card to add to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

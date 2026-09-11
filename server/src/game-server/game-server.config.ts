@@ -45,15 +45,6 @@ export const gameServerConfig = {
   lobbyTcpHost: env.LOBBY_AUTH_TCP_HOST ?? '127.0.0.1',
   lobbyTcpPort: numberOr(env.LOBBY_AUTH_TCP_PORT, 4000),
   corsOrigin: corsOrigin(env.GAME_SERVER_CORS_ORIGIN),
-  /**
-   * Reaction countdown for every table this process creates, in ms. The
-   * engine's Standard time control is bot-length (5 s); a human table needs
-   * longer, and that is this process's business, not the engine's. Unset
-   * keeps the config's own value.
-   */
-  reactionCountdownMs: env.REACTION_COUNTDOWN_MS
-    ? Number(env.REACTION_COUNTDOWN_MS)
-    : undefined,
 }
 
 /** The one CORS declaration, for the HTTP app and the gateway alike. */

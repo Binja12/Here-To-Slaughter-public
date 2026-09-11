@@ -1,14 +1,8 @@
 import { z } from "zod";
+import { GameSettingsSchema } from "./game-settings";
 
 export const CREATE_GAME_PATTERN = "game.create";
 export const GAME_COMPLETED_PATTERN = "game.completed";
-
-// Schema and type are one declaration, so the wire check and the compile-time
-// shape cannot drift. The game server's config table is keyed by
-// `GameConfigId`, so adding an id here without a config there fails to compile.
-
-export const GameConfigIdSchema = z.enum(["default"]);
-export type GameConfigId = z.infer<typeof GameConfigIdSchema>;
 
 /**
  * One seat as the lobby knows it. The account id is the player id the engine
@@ -21,10 +15,13 @@ export const SeatedAccountSchema = z.object({
 });
 export type SeatedAccount = z.infer<typeof SeatedAccountSchema>;
 
+// Schema and type are one declaration, so the wire check and the compile-time
+// shape cannot drift. The settings travel whole: the lobby's dropdowns and
+// the game server's config are the same object (`game-settings.ts`).
 export const CreateGameRequestSchema = z.object({
   /** In ready-list order. The engine shuffles the seats itself. */
   players: z.array(SeatedAccountSchema),
-  gameConfig: GameConfigIdSchema,
+  settings: GameSettingsSchema,
 });
 export type CreateGameRequest = z.infer<typeof CreateGameRequestSchema>;
 

@@ -120,7 +120,7 @@ function setup({ play = true }: { play?: boolean } = {}) {
 }
 
 const openWindow = (gs: GameState) =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())
 
 describe('SuspiciouslyShinyCoinAbility', () => {
   beforeEach(() => jest.useFakeTimers())
@@ -191,7 +191,7 @@ describe('SuspiciouslyShinyCoinAbility', () => {
     em.emit(GameEventFactory.rollSuccess('p2', 'carrier'))
     jest.advanceTimersByTime(5000)
 
-    expect(gs.abilityPipelines).toHaveLength(0)
-    expect(gs.frames.size).toBe(0)
+    expect(gs.getPipelines()).toHaveLength(0)
+    expect(gs.getFrames().size).toBe(0)
   })
 })

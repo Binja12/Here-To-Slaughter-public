@@ -131,7 +131,7 @@ function rollAndPlayModifier(leaderId: string, values: number[] = [2, -2]) {
   const ctx = setup(leaderId, values)
   jest.spyOn(Math, 'random').mockReturnValue(LOW)
   new RollOnHeroAction('a1', 'p1', HERO, ctx.em, ctx.rm).execute(ctx.gs)
-  ctx.rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD, 'p1', values[0]))
+  ctx.rm.submitReaction(new PlayModifierReaction('r1', 'p1', MOD, values[0]))
   return ctx
 }
 
@@ -156,8 +156,8 @@ describe('ProtectingHornAbility', () => {
   it('asks its own two numbers; the card\'s value came with the play', () => {
     const { gs, events } = rollAndPlayModifier(HORN)
 
-    // The leader is scanned before the instance pile, so the Horn goes first
-    // and the card's own choice follows once the Horn's has settled.
+    // The card lands its own value first (TaskManager runs the event's named
+    // card before the onlookers), then the Horn asks for its own.
     expect(openedValueChoices(events)).toHaveLength(1)
     expect(openedValueChoices(events)[0]['options']).toEqual([1, -1])
 
@@ -174,12 +174,13 @@ describe('ProtectingHornAbility', () => {
 
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
     expect(applied).toHaveLength(2)
-    // Each names its own source, so the roll can be shown broken down.
+    // Each names its own source, so the roll can be shown broken down. The
+    // card the event names goes first; the Horn is watching it.
     expect(applied.map((p) => [p['cardId'], p['value']])).toEqual([
-      [HORN, 1],
       [MOD, 2],
+      [HORN, 1],
     ])
-    expect(applied[1]['finalRoll']).toBe(4) // 1 base + 1 Horn + 2 card
+    expect(applied[1]['finalRoll']).toBe(5) // 1 base + 1 Horn + 2 card
   })
 
   it('can push the roll DOWN — "+1 or -1", the player chooses', () => {
@@ -188,11 +189,11 @@ describe('ProtectingHornAbility', () => {
     valueChoice(gs)!.submitReaction('p1', { choice: -1 })
 
     const applied = payloadsOf(events, GameEventType.ModifierApplied)
-    expect(applied[1]['finalRoll']).toBe(2) // 1 base - 1 Horn + 2 card
+    expect(applied[1]['finalRoll']).toBe(3) // 1 base - 1 Horn + 2 card
   })
 
   it('is what turns a roll the card alone could not rescue', () => {
-    const { gs, events } = rollAndPlayModifier(HORN, [4]) // 1 + 4 = 5, one short
+    const { gs, events } = rollAndPlayModifier(HORN, [3]) // 1 + 4 = 5, one short
     valueChoice(gs)!.submitReaction('p1', { choice: 1 }) // 5 + 1 = 6, clears
     jest.advanceTimersByTime(3000) // the card's single value settles
     jest.advanceTimersByTime(5000) // the roll settles
@@ -201,7 +202,7 @@ describe('ProtectingHornAbility', () => {
   })
 
   it('without the Horn the same roll falls short', () => {
-    const { events } = rollAndPlayModifier(PLAIN, [4]) // 1 + 4 = 5 < 6
+    const { events } = rollAndPlayModifier(PLAIN, [3]) // 1 + 4 = 5 < 6
     jest.advanceTimersByTime(3000)
     jest.advanceTimersByTime(5000)
 

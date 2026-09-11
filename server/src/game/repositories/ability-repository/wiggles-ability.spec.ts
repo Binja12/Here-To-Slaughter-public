@@ -86,10 +86,15 @@ type CtxResult = { result?: { key: string; value: unknown } }
 
 /** All currently open windows across every frame. */
 const openWindows = (gs: GameState): IReactionWindow[] =>
-  [...gs.frames.values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
+  [...gs.getFrames().values()].flatMap((f) => f.windows).filter((w) => w.isOpen())
 
+/** The roll stands: entry [0] asks which hero to steal. */
 const fireTrigger = (em: GameEventEmitter) =>
-  em.emit(GameEventFactory.rollSuccess('p1', 'wiggles'))
+  em.emit(GameEventFactory.rollPassing('p1', 'wiggles'))
+
+/** The roll settles with the pick riding along, as the window sends it. */
+const settleRoll = (em: GameEventEmitter) =>
+  em.emit(GameEventFactory.rollSuccess('p1', 'wiggles', { [CTX_CHOSEN_CARD]: ['victim'] }))
 
 describe('WigglesAbility', () => {
   beforeEach(() => jest.useFakeTimers())
@@ -98,9 +103,11 @@ describe('WigglesAbility', () => {
     jest.restoreAllMocks()
   })
 
-  /** Answer the card choice, which is now the FIRST thing Wiggles asks. */
+  /** Answer the card choice, which is the FIRST thing Wiggles asks, while the roll still stands. */
   const chooseVictim = (gs: GameState) =>
-    openWindows(gs)[0].submitReaction('p1', { choice: 'victim' })
+    openWindows(gs)
+      .find((w) => w.getType() === ReactionWindowType.CardChoice)!
+      .submitReaction('p1', { choice: 'victim' })
 
   /** Answer the roll-or-not prompt that follows the steal. */
   const answerRollPrompt = (gs: GameState, choice: string) =>
@@ -111,6 +118,7 @@ describe('WigglesAbility', () => {
     jest.spyOn(Math, 'random').mockReturnValue(random)
     fireTrigger(em)
     chooseVictim(gs)
+    settleRoll(em)
     answerRollPrompt(gs, CONFIRM)
     jest.advanceTimersByTime(5000)
   }
@@ -165,6 +173,7 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
 
     chooseVictim(gs)
+    settleRoll(em)
 
     expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     expect(gs.getParty('p2').getHeroIds()).not.toContain('victim')
@@ -175,6 +184,7 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
 
     chooseVictim(gs)
+    settleRoll(em)
 
     expect(
       events.find((e) => e.getType() === GameEventType.HeroStolen),
@@ -190,6 +200,7 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
 
     chooseVictim(gs)
+    settleRoll(em)
 
     const prompt = events
       .filter((e) => e.getType() === GameEventType.ReactionWindowOpened)
@@ -203,22 +214,25 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
 
     chooseVictim(gs)
+    settleRoll(em)
 
     expect(openWindows(gs)).toHaveLength(1)
     expect(gs.getParty('p1').getHeroIds()).toContain('victim')
   })
 
-  it('is declared as two entries, split at the question', () => {
-    expect(WigglesAbility).toHaveLength(2)
-    expect(WigglesAbility[0].trigger.on).toBe(GameEventType.RollSuccess)
-    expect(WigglesAbility[1].trigger.on).toBe(GameEventType.TaskConfirmed)
-    expect(WigglesAbility[1].trigger.when).toBe('RollOnHero')
+  it('is declared as three entries: the target while the roll stands, the steal on the settle, the roll on the confirm', () => {
+    expect(WigglesAbility).toHaveLength(3)
+    expect(WigglesAbility[0].trigger.on).toBe(GameEventType.RollPassing)
+    expect(WigglesAbility[1].trigger.on).toBe(GameEventType.RollSuccess)
+    expect(WigglesAbility[2].trigger.on).toBe(GameEventType.TaskConfirmed)
+    expect(WigglesAbility[2].trigger.when).toBe('RollOnHero')
   })
 
   it('CONFIRM carries the stolen hero into the continuation context', () => {
     const { gs, em, events } = setup()
     fireTrigger(em)
     chooseVictim(gs)
+    settleRoll(em)
 
     answerRollPrompt(gs, CONFIRM)
 
@@ -238,6 +252,7 @@ describe('WigglesAbility', () => {
     const { gs, em, events } = setup()
     fireTrigger(em)
     chooseVictim(gs)
+    settleRoll(em)
 
     answerRollPrompt(gs, DISMISS)
 
@@ -253,6 +268,7 @@ describe('WigglesAbility', () => {
     const { gs, em, events } = setup()
     fireTrigger(em)
     chooseVictim(gs)
+    settleRoll(em)
 
     jest.advanceTimersByTime(5000)
 
@@ -267,6 +283,7 @@ describe('WigglesAbility', () => {
     const { gs, em, events } = setup()
     fireTrigger(em)
     chooseVictim(gs)
+    settleRoll(em)
 
     answerRollPrompt(gs, CONFIRM)
 
@@ -297,11 +314,12 @@ describe('WigglesAbility', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.99) // baseRoll 12 >= 5
       tm.enqueue(new RollOnHeroAction('a1', 'p1', 'wiggles', em, rm))
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2) // the roll is paid for
-      jest.advanceTimersByTime(5000) // modifier window settles -> RollSuccess
 
-      // The ability is under way: it is asking which hero to steal.
-      expect(openWindows(gs)).toHaveLength(1)
+      // The roll stands: the ability is already asking which hero to steal,
+      // beside the open modifier window.
+      expect(openWindows(gs)).toHaveLength(2)
       chooseVictim(gs)
+      jest.advanceTimersByTime(5000) // modifier window settles -> RollSuccess
       expect(gs.getParty('p1').getHeroIds()).toContain('victim')
     })
 
@@ -310,9 +328,9 @@ describe('WigglesAbility', () => {
 
       jest.spyOn(Math, 'random').mockReturnValue(0.99)
       tm.enqueue(new RollOnHeroAction('a1', 'p1', 'wiggles', em, rm))
-      jest.advanceTimersByTime(5000)
       chooseVictim(gs)
-      answerRollPrompt(gs, CONFIRM) // entry [1] — the TASK half
+      jest.advanceTimersByTime(5000)
+      answerRollPrompt(gs, CONFIRM) // entry [2] — the TASK half
 
       // One point spent in total, on the action; the granted roll is free.
       expect(gs.getPlayer('p1')!.getActionPoints()).toBe(2)
@@ -381,6 +399,7 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
 
     chooseVictim(gs)
+    settleRoll(em)
 
     const cardChoice = events
       .filter((e) => e.getType() === GameEventType.FrameResolved)
@@ -396,6 +415,7 @@ describe('WigglesAbility', () => {
     const { gs, em, events } = setup()
     fireTrigger(em)
     chooseVictim(gs)
+    settleRoll(em)
 
     answerRollPrompt(gs, CONFIRM)
 
@@ -451,7 +471,7 @@ describe('WigglesAbility', () => {
 
     // The choice resolved with no pick, the steal skipped itself, and ConfirmTa...
     expect(openWindows(gs)).toHaveLength(0)
-    expect(gs.abilityPipelines).toHaveLength(0)
+    expect(gs.getPipelines()).toHaveLength(0)
   })
 
   it('steals a random option when the card choice times out', () => {
@@ -459,6 +479,7 @@ describe('WigglesAbility', () => {
     fireTrigger(em)
 
     jest.advanceTimersByTime(5000)
+    settleRoll(em)
 
     // A card choice defaults to one of its options, so an idle player still
     // steals — and the confirm behind it is offered as normal.

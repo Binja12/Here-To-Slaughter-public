@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Observable } from 'rxjs'
+import { MIN_PLAYER_COUNT } from 'shared'
+import type { GameSettings } from 'shared'
 import type { AuthenticatedAccount } from '../auth/auth.types'
 import {
   AccountAlreadyInGameError,
@@ -7,6 +9,7 @@ import {
   GameStartInProgressError,
   InvalidReadyPlayerCountError,
   LobbyFullError,
+  OnlyHostCanChangeSettingsError,
   OnlyHostCanStartError,
 } from './lobby.errors'
 import {
@@ -20,7 +23,6 @@ import type {
   ILobbyStore,
 } from './lobby.interfaces'
 import { LobbyEventStreamService } from './lobby-event-stream.service'
-import { LOBBY_CAPACITY, MIN_GAME_PLAYERS } from './lobby.types'
 import type {
   GameAssignment,
   LobbyPlayer,
@@ -107,8 +109,9 @@ export class LobbyService {
 
     // Repeating a ready request is idempotent and does not change host order.
     if (!alreadyReady) {
-      if (readyPlayers.length >= LOBBY_CAPACITY) {
-        throw new LobbyFullError(LOBBY_CAPACITY)
+      const { playerCount } = await this.lobby.getSettings()
+      if (readyPlayers.length >= playerCount) {
+        throw new LobbyFullError(playerCount)
       }
       await this.lobby.addReadyPlayer({
         accountId: account.accountId,
@@ -129,6 +132,26 @@ export class LobbyService {
     return snapshot
   }
 
+  /** Host only. A smaller seat count closes seats from the back of the ready list and unseats whoever sat in them. */
+  async updateSettings(
+    account: AuthenticatedAccount,
+    settings: GameSettings,
+  ): Promise<LobbySnapshot> {
+    const readyPlayers = await this.lobby.getReadyPlayers()
+    if (readyPlayers[0]?.accountId !== account.accountId) {
+      throw new OnlyHostCanChangeSettingsError()
+    }
+
+    await this.lobby.updateSettings(settings)
+    await this.lobby.removeReadyPlayers(
+      readyPlayers.slice(settings.playerCount).map((player) => player.accountId),
+    )
+
+    const snapshot = await this.getSnapshot(account)
+    await this.publishLobbyUpdated()
+    return snapshot
+  }
+
   async getStartPlayers(hostAccountId: string): Promise<LobbyPlayer[]> {
     const readyPlayers = await this.lobby.getReadyPlayers()
 
@@ -136,11 +159,12 @@ export class LobbyService {
     if (readyPlayers[0]?.accountId !== hostAccountId) {
       throw new OnlyHostCanStartError()
     }
+    const { playerCount } = await this.lobby.getSettings()
     if (
-      readyPlayers.length < MIN_GAME_PLAYERS ||
-      readyPlayers.length > LOBBY_CAPACITY
+      readyPlayers.length < MIN_PLAYER_COUNT ||
+      readyPlayers.length > playerCount
     ) {
-      throw new InvalidReadyPlayerCountError(MIN_GAME_PLAYERS, LOBBY_CAPACITY)
+      throw new InvalidReadyPlayerCountError(MIN_PLAYER_COUNT, playerCount)
     }
 
     // Game creation will consume this group only after the game server accepts it.
@@ -166,7 +190,7 @@ export class LobbyService {
         throw new AccountAlreadyInGameError()
       }
 
-      // Read the current lobby settings selected for this ready group.
+      // The table as the host set it while this group was forming.
       const settings = await this.lobby.getSettings()
       let game: { gameId: string; webSocketUrl: string }
       try {
@@ -177,7 +201,7 @@ export class LobbyService {
             accountId,
             username,
           })),
-          gameConfig: settings.gameConfig,
+          settings,
         })
       } catch {
         throw new GameServerUnavailableError()

@@ -44,7 +44,11 @@ export const MalamammothAbility: IAbilityRule[] = [
       when: DREW_AN_ITEM,
     },
     steps: [
-      new ConfirmTask({ confirms: PLAY_IT, subjectKey: CTX_DRAWN_CARD_IDS }),
+      new ConfirmTask({
+        confirms: PLAY_IT,
+        question: 'Play the item you just drew?',
+        subjectKey: CTX_DRAWN_CARD_IDS,
+      }),
     ],
   },
   {
@@ -54,11 +58,14 @@ export const MalamammothAbility: IAbilityRule[] = [
       when: PLAY_IT,
     },
     steps: [
-      new ChooseCardTask({
-        zone: Zone.Party,
-        owner: Owner.Self,
-        unequipped: true,
-      }),
+      new ChooseCardTask(
+        {
+          zone: Zone.Party,
+          owner: Owner.Self,
+          unequipped: true,
+        },
+        { question: 'Choose a hero to equip it to' },
+      ),
       new PlayItemTask(CTX_DRAWN_CARD_IDS),
     ],
   },
@@ -68,9 +75,15 @@ export const MalamammothAbility: IAbilityRule[] = [
       scope: TriggerScope.Attacker,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose the first card to discard' },
+      ),
       new DiscardTask(),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose the second card to discard' },
+      ),
       new DiscardTask(),
     ],
   },

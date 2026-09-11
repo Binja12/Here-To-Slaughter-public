@@ -32,6 +32,7 @@ export const RexMajorAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: DRAW_AGAIN,
+        question: 'Reveal it and draw a second card?',
         subjectKey: CTX_DRAWN_CARD_IDS,
       }),
     ],
@@ -54,9 +55,15 @@ export const RexMajorAbility: IAbilityRule[] = [
       scope: TriggerScope.Attacker,
     },
     steps: [
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
     ],
   },

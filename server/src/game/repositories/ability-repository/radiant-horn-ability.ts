@@ -16,7 +16,10 @@ export const RadiantHornAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Discard, cardType: CardType.Modifier }),
+      new ChooseCardTask(
+        { zone: Zone.Discard, cardType: CardType.Modifier },
+        { question: 'Choose a modifier to add to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

@@ -42,3 +42,14 @@ export function slotForPlayer(view: PlayerView, playerId: string): PlayerId | nu
   const entries = Object.entries(slotsFor(view)) as [PlayerId, string | null][]
   return entries.find(([, id]) => id === playerId)?.[0] ?? null
 }
+
+/**
+ * What to CALL a seat on this screen. The viewer is never named — they are
+ * "YOU" wherever they appear (the owner, 2026-09-07) — and everyone else is
+ * their own name. One function, so no two corners of the board can disagree.
+ */
+export function nameOf(view: PlayerView, playerId?: string): string {
+  if (!playerId) return 'player'
+  if (playerId === view.playerId) return 'YOU'
+  return view.seats.find((seat) => seat.playerId === playerId)?.name ?? 'player'
+}

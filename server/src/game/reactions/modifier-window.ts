@@ -18,6 +18,9 @@ import { ModifiableRollWindow } from './modifiable-roll-window'
 // ---------------------------------------------------------------------------
 
 export class ModifierWindow extends ModifiableRollWindow {
+  /** RollPassing goes out once per target: a roll that flips twice does not ask twice. */
+  private asked = false
+
   constructor(
     id: string,
     rollerId: string,
@@ -43,6 +46,13 @@ export class ModifierWindow extends ModifiableRollWindow {
     return { rollReq: this.rollReq, heroId: this.heroId }
   }
 
+  /** A roll that stands as a pass announces it, so the effect may ask for its target while the window is open (§4). */
+  protected override announceStanding(): void {
+    if (this.asked || this.getFinalRoll() < this.rollReq) return
+    this.asked = true
+    this.emitter.emit(GameEventFactory.rollPassing(this.rollerId, this.heroId))
+  }
+
   /**
    * Short of the requirement rolls the frame back, which is also what cancels
    * whatever paused on it (§3). Meeting it releases and announces the hit —
@@ -60,6 +70,8 @@ export class ModifierWindow extends ModifiableRollWindow {
       return
     }
     this.gs.releaseFrame(this.frameId)
-    this.emitter.emit(GameEventFactory.rollSuccess(this.rollerId, this.heroId))
+    this.emitter.emit(
+      GameEventFactory.rollSuccess(this.rollerId, this.heroId, this.targetSeed()),
+    )
   }
 }

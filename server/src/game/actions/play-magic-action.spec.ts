@@ -68,7 +68,7 @@ const makeGs = () => {
 }
 
 const openChallenge = (gs: GameState) =>
-  [...gs.frames.values()]
+  [...gs.getFrames().values()]
     .flatMap((f) => f.windows)
     .find((w) => w.getType() === ReactionWindowType.Challenge && w.isOpen())
 
@@ -128,8 +128,8 @@ describe('PlayMagicAction', () => {
   const challengedBy = (rolls: [number, number]) => {
     jest
       .spyOn(Math, 'random')
-      .mockReturnValueOnce(rolls[0])
-      .mockReturnValueOnce(rolls[1])
+      .mockReturnValueOnce(rolls[0]).mockReturnValueOnce(rolls[0])
+      .mockReturnValueOnce(rolls[1]).mockReturnValueOnce(rolls[1])
     openChallenge(gs)!.submitReaction('p2', {
       type: 'challenge',
       challengerId: 'p2',
@@ -362,8 +362,8 @@ describe('PlayMagicAction', () => {
       makeAction().execute(gs)
       challengedBy(CHALLENGER_WINS)
 
-      expect(gs.abilityPipelines).toHaveLength(0)
-      expect(gs.frames.size).toBe(0)
+      expect(gs.getPipelines()).toHaveLength(0)
+      expect(gs.getFrames().size).toBe(0)
     })
   })
 })

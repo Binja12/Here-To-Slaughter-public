@@ -238,11 +238,11 @@ describe('ReallyBigRingAbility', () => {
     const ctx = setup()
     new PlayItemAction('a1', 'p1', RING, 'hero-1', ctx.rm, ctx.em).execute(ctx.gs)
 
-    const window = [...ctx.gs.frames.values()]
+    const window = [...ctx.gs.getFrames().values()]
       .flatMap((f) => f.windows)
       .find((w) => w.isOpen())!
     // Challenger rolls 11, defender 1.
-    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
     window.submitReaction('p1', { type: 'challenge', challengerId: 'p1' })
     jest.advanceTimersByTime(5000)
 

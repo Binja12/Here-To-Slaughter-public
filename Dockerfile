@@ -20,17 +20,32 @@ RUN npm ci --no-audit --no-fund
 
 # ---- build: shared -> server -> client ------------------------------------
 FROM deps AS build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 COPY tsconfig.json ./
 COPY shared shared
 COPY server server
 COPY client client
+COPY scripts/prepare-online-art.mjs scripts/online-art-sizes.mjs scripts/prepare-online-music.mjs scripts/verify-online-assets.mjs scripts/build-asset-catalog.mjs scripts/
 RUN npm run build --workspace=shared \
  && npm run build --workspace=server
+# The IMAGES are already prepared: client/public/generated/online-art is
+# committed, one 720p export per card and the master's own size for the
+# backgrounds. Nothing here re-encodes them — that used to be minutes of sharp
+# on every build (the owner, 2026-09-08). Run `npm run assets:art` and commit
+# what it writes when art changes; `npm run assets:verify` is the gate for
+# that, not for this build. Music still needs ffmpeg, so it is still made here.
+RUN npm run assets:music
 # Where the browser reaches the lobby. Baked in at build time (CRA).
 ARG REACT_APP_LOBBY_URL=http://localhost:3000
 ENV REACT_APP_LOBBY_URL=$REACT_APP_LOBBY_URL
+# The generated catalog supplies per-file versions. This bundle-wide version
+# covers any original URL not represented in that catalog.
 # CI=false: eslint warnings must not fail the build. No source maps: faster.
-RUN CI=false GENERATE_SOURCEMAP=false npm run build --workspace=client
+RUN export REACT_APP_ASSET_VERSION=$(find client/public -type f ! -path 'client/public/generated/*' ! -name '*.webp' -print0 \
+      | LC_ALL=C sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12) \
+ && CI=false GENERATE_SOURCEMAP=false npm run build --workspace=client
 
 # ---- server: lobby/auth or game, picked by the command --------------------
 FROM node:24-bookworm-slim AS server

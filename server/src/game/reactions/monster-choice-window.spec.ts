@@ -86,7 +86,7 @@ function makeWindow(
     'frame-1',
     em,
   )
-  gs.addFrame('frame-1', { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame('frame-1', gs.clone(), [win])
   return win
 }
 
@@ -147,7 +147,7 @@ describe('MonsterChoiceWindow', () => {
       expect(() => win.submitReaction('p1', { choice: 'monster-1' })).toThrow()
 
       expect(win.isOpen()).toBe(true)
-      expect(gs.frames.has('frame-1')).toBe(true)
+      expect(gs.getFrames().has('frame-1')).toBe(true)
     })
 
     it('does NOT reset the clock — a refused pick cannot stall the turn', () => {
@@ -171,7 +171,9 @@ describe('MonsterChoiceWindow', () => {
     expect(win.submitReaction('p1', { choice: 'monster-not-offered' })).toEqual(
       { accepted: false, reason: RefusalReason.NotAnOption },
     )
-    expect(win.isOpen()).toBe(true)
+    // settled on what silence picks here: NO attack (an attack is an offer)
+    expect(win.isOpen()).toBe(false)
+    expect(win.picks()).toEqual([])
   })
 
   it('a submission from another player is refused as such', () => {
@@ -228,6 +230,6 @@ describe('MonsterChoiceWindow', () => {
     expect(
       emitted.some((e) => e.getType() === GameEventType.FrameResolved),
     ).toBe(true)
-    expect(gs.frames.has('frame-1')).toBe(false)
+    expect(gs.getFrames().has('frame-1')).toBe(false)
   })
 })

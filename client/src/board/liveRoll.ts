@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PendingWindowView, PlayerView } from '../contract'
 import type { DiceRollState } from './DiceRoll'
-import { slotForPlayer } from './seats'
+import { nameOf, slotForPlayer } from './seats'
 import { cardById } from './viewTargets'
 
 /**
@@ -24,10 +24,31 @@ export type LiveRoll = {
   rollReq?: number
   /** The hero, leader or monster the roll is about. */
   subjectId?: string
+  /** The seats the roll's effect is aimed at, once its owner has chosen. */
+  targetPlayerIds: string[]
 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value : undefined)
 const num = (value: unknown) => (typeof value === 'number' ? value : undefined)
+
+/** One seat a roll's effect is aimed at, and the zone of theirs it reaches. */
+export type RollTargetView = { playerId: string; zone: string }
+
+/**
+ * Whom a roll is aimed at. A LIST: one card may choose several targets under
+ * a single window (Fluffy destroys two heroes), and every seat named has to
+ * see that it is one of them.
+ */
+export function targetSeatsOf(value: unknown): RollTargetView[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { playerId, zone } = entry as Record<string, unknown>
+    return typeof playerId === 'string' && typeof zone === 'string'
+      ? [{ playerId, zone }]
+      : []
+  })
+}
 
 export function bonusesOf(value: unknown): RollBonusView[] {
   if (!Array.isArray(value)) return []
@@ -70,6 +91,7 @@ export function liveRollOf(view: PlayerView): LiveRoll | null {
       finalRoll: num(detail.finalRoll) ?? baseRoll + bonusTotal(bonuses),
       rollReq: num(detail.rollReq),
       subjectId: subjectIdOf(window),
+      targetPlayerIds: targetSeatsOf(detail.targets).map((seat) => seat.playerId),
     }
   }
   return null
@@ -92,27 +114,48 @@ export function facesOf(sum: number, seed: string): [number, number] {
   return [first, sum - first]
 }
 
-const signed = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value)}`
+/**
+ * How far the roll stands from each outcome — what must still be added to
+ * reach it, or taken off to fall to it — never the printed thresholds
+ * (the owner, 2026-09-06: a 7 against "slay 8+, hit back ≤5" reads
+ * "slay +1 · hit back −2"). Empty when nothing is printed.
+ */
+export function rollNeedLabel(roll: LiveRoll, view: PlayerView): string {
+  if (roll.rollReq !== undefined) return `need +${Math.max(0, roll.rollReq - roll.finalRoll)}`
+  const monster = cardById(view, roll.subjectId)
+  if (monster?.type !== 'Monster') return ''
+  const up = (req: number) => `+${Math.max(0, req - roll.finalRoll)}`
+  const down = (req: number) => `−${Math.max(0, roll.finalRoll - req)}`
+  return monster.rollCompareMode === 'LowToWin'
+    ? `slay ${down(monster.lowerReq)}`
+    : `slay ${up(monster.higherReq)} · hit back ${down(monster.lowerReq)}`
+}
 
-/** The banner text while a roll is open: what was rolled, against what. */
-export function rollLabel(roll: LiveRoll, view: PlayerView): string {
-  const roller = view.seats.find((seat) => seat.playerId === roll.rollerId)
-  const who = roll.rollerId === view.playerId ? 'you' : roller?.name ?? 'player'
-  const total = bonusTotal(roll.bonuses)
-  const sum = total === 0 ? `${roll.baseRoll}` : `${roll.baseRoll} ${signed(total)} = ${roll.finalRoll}`
-  let need = ''
-  if (roll.rollReq !== undefined) {
-    need = ` · need ${roll.rollReq}+`
-  } else {
-    const monster = cardById(view, roll.subjectId)
-    if (monster?.type === 'Monster') {
-      need =
-        monster.rollCompareMode === 'LowToWin'
-          ? ` · slay ≤${monster.lowerReq}`
-          : ` · slay ${monster.higherReq}+ · hit back ≤${monster.lowerReq}`
-    }
+export type RollOutcome = 'success' | 'failure' | 'none'
+
+/**
+ * What the roll means as it stands: over a hero's requirement or short of
+ * it; for a monster, in its slay band, its fight-back band, or between the
+ * two (the "nothing happens" band, which has no colour). Read live, so a
+ * modifier landing moves it.
+ */
+export function rollOutcome(roll: LiveRoll, view: PlayerView): RollOutcome {
+  if (roll.rollReq !== undefined) return roll.finalRoll >= roll.rollReq ? 'success' : 'failure'
+  const monster = cardById(view, roll.subjectId)
+  if (monster?.type !== 'Monster') return 'none'
+  if (monster.rollCompareMode === 'LowToWin') {
+    if (roll.finalRoll <= monster.lowerReq) return 'success'
+    return roll.finalRoll >= monster.higherReq ? 'failure' : 'none'
   }
-  return `${who} rolled ${sum}${need}`
+  if (roll.finalRoll >= monster.higherReq) return 'success'
+  return roll.finalRoll <= monster.lowerReq ? 'failure' : 'none'
+}
+
+/** Whether a modifier CARD has landed on the roll — standing effects alone are not "someone applied a modifier". */
+/** The banner text while a roll is open: the total as it stands, against what. */
+export function rollLabel(roll: LiveRoll, view: PlayerView): string {
+  const need = rollNeedLabel(roll, view)
+  return `${nameOf(view, roll.rollerId)} rolled ${roll.finalRoll}${need ? ` · ${need}` : ''}`
 }
 
 /**

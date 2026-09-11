@@ -236,6 +236,9 @@ export const threeSeatOpening: PlayerView = {
   discardPile: [],
   monsterRow: [megaSlime, titanWyvern, abyssQueen],
   attackableMonsterIds: [],
+  // the three fixture leaders: two passives (Divine Arrow, Fist of Reason)
+  // and the ACTIVATED Shadow Claw, which never glows pink
+  passiveCardIds: [divineArrow.id, fistOfReason.id],
   revealedCards: [],
 
   pendingWindows: [],
@@ -299,13 +302,18 @@ export const midGame: PlayerView = {
 const withWindow = (
   base: PlayerView,
   window: PendingWindowView,
-): PlayerView => ({ ...base, pendingWindows: [window] })
+): PlayerView => ({
+  ...base,
+  pendingWindows: [window],
+  busy: true,
+})
 
 export const myTaskChoice = withWindow(threeSeatOpening, {
   windowId: 'window-task',
   type: 'TaskChoice',
   respondentId: 'player-a',
-  options: ['CONFIRM', 'DISMISS'],
+  options: ['confirm', 'dismiss'],
+  optional: true,
   deadline: Date.now() + 30_000,
   isYours: true,
 })
@@ -339,6 +347,7 @@ export const opponentsChoice = withWindow(threeSeatOpening, {
 export const modifierWindowOpen = withWindow(threeSeatOpening, {
   windowId: 'window-modifier',
   type: 'Modifier',
+  canPass: true,
   respondentId: 'player-b',
   // Server shape (ModifiableRollWindow.getDetail): the roll and its bonuses,
   // plus the subject — `heroId` for a hero/leader roll, `monsterId` for an
@@ -372,6 +381,7 @@ const challengeDetail = {
 export const challengeWindowOpen = withWindow(midGame, {
   windowId: 'window-challenge',
   type: 'Challenge',
+  canPass: true,
   respondentId: 'player-b',
   cardId: luckyBucky.id,
   detail: challengeDetail,
@@ -396,6 +406,48 @@ export const challengeStarted = withWindow(midGame, {
   deadline: Date.now() + 30_000,
   isYours: false,
 })
+
+/**
+ * The Crowned Serpent's "you may DRAW", asked of its owner about a monster
+ * won into their OWN party while the roll it is watching still stands: the
+ * board has nothing for them to press, so the ask takes the stage over the
+ * modifier window instead of a strip card under it.
+ */
+export const monsterAsksOverRoll: PlayerView = {
+  ...midGame,
+  busy: true,
+  pendingWindows: [
+    modifierWindowOpen.pendingWindows[0],
+    {
+      windowId: 'window-serpent',
+      type: 'TaskChoice',
+      respondentId: 'player-a',
+      options: ['confirm', 'dismiss'],
+      optional: true,
+      detail: {
+        confirms: 'CrownedSerpentDraws',
+        sourceCardId: crownedSerpent.id,
+      },
+      deadline: Date.now() + 30_000,
+      isYours: true,
+    },
+  ],
+}
+
+/** An opponent's roll has chosen this seat's HAND — the red screen edge. */
+export const rollTargetsYou: PlayerView = {
+  ...midGame,
+  busy: true,
+  pendingWindows: [
+    {
+      ...modifierWindowOpen.pendingWindows[0],
+      detail: {
+        ...modifierWindowOpen.pendingWindows[0].detail,
+        targets: [{ playerId: 'player-a', zone: 'Hand' }],
+      },
+    },
+  ],
+}
 
 export const opponentsTurnIdle: PlayerView = {
   ...threeSeatOpening,

@@ -1,39 +1,21 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { GamePhase, RefusalReason } from 'shared'
 import type {
   CardBase,
   GameConfig,
-  GameConfigId,
+  GameSettings,
   RequestResult,
   SeatedAccount,
 } from 'shared'
-import { defaultGameConfig } from '../game/config/game-config'
 import { accepted, refused } from '../game/interfaces'
 import { createGame, startGame } from '../game/setup/create-game'
 import type { Game } from '../game/setup/create-game'
 import { playerView } from '../game/views/player-view'
+import { GameLog } from '../game/views/game-log'
+import { GAME_STORE } from './game.store'
+import type { IGameStore } from './game.store'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
-import { gameServerConfig } from './game-server.config'
-
-/**
- * Every config id the wire may name, and the config it stands for. Keyed by
- * the schema's enum, so a new id on the wire is a compile error until it has
- * a config here.
- */
-const GAME_CONFIGS: Record<GameConfigId, GameConfig> = {
-  default: withProcessTimeControl(defaultGameConfig),
-}
-
-/** The config as this process plays it: `REACTION_COUNTDOWN_MS` wins when set. */
-function withProcessTimeControl(config: GameConfig): GameConfig {
-  const countdown = gameServerConfig.reactionCountdownMs
-  return countdown === undefined
-    ? config
-    : {
-        ...config,
-        timeControl: { ...config.timeControl, reactionCountdownMs: countdown },
-      }
-}
+import { gameConfigFor } from './game-config-for'
 
 /**
  * One session this process hosts: the engine's game plus what the transport
@@ -61,13 +43,15 @@ export type RunningGame = {
    * snapshot so a client can keep the newest of two that crossed.
    */
   version: number
+  /** The table's story, recorded from birth; each seat reads its own wording. */
+  log: GameLog
 }
 
 /**
  * A spec's hand on the deal: the printed pool and the config, the two
- * things `createGame` lets a caller fix. The wire never carries either — a
- * browser names a config id and the lobby names the seats — so this is how
- * a test seats a table it can predict (plan §6).
+ * things `createGame` lets a caller fix. The wire never carries either — the
+ * lobby sends the seats and the settings the config is built from — so this
+ * is how a test seats a table it can predict (plan §6).
  */
 export type Deal = {
   cards?: CardBase[]
@@ -86,40 +70,67 @@ export type Deal = {
 
 @Injectable()
 export class GameRegistryService {
+  private readonly logger = new Logger(GameRegistryService.name)
   private readonly games = new Map<string, RunningGame>()
 
-  constructor(private readonly publisher: SnapshotPublisherService) {}
+  constructor(
+    private readonly publisher: SnapshotPublisherService,
+    @Inject(GAME_STORE) private readonly store: IGameStore,
+  ) {}
 
   /**
    * Deals a table seating exactly these accounts and holds it. NOT started:
    * the first turn is a point of no return, and it waits for every seat to
-   * arrive (`arrive`). Watched from birth: the publisher's listener joins
-   * the emitter here, so no event of the table's life goes unobserved.
+   * arrive (`arrive`). Watched from birth: the log and the publisher's
+   * listener join the emitter here, so no event of the table's life goes
+   * unobserved. The store hears of the table now and of every flush after;
+   * a store that cannot be reached is logged, and the table plays on.
    */
   create(
     players: readonly SeatedAccount[],
-    configId: GameConfigId,
+    settings: GameSettings,
     deal: Deal = {},
   ): RunningGame {
     // Player ids ARE account ids; the username is only what a seat is called.
     const game = createGame(
       players.map((player) => player.accountId),
       {
-        config: deal.config ?? GAME_CONFIGS[configId],
+        config: deal.config ?? gameConfigFor(settings),
         cards: deal.cards,
         names: Object.fromEntries(
           players.map((player) => [player.accountId, player.username]),
         ),
       },
     )
+    const log = new GameLog(game.gameState)
+    game.emitter.addListener(log)
     const running: RunningGame = {
       game,
       arrived: new Set(),
       left: new Set(),
       version: 0,
+      log,
     }
     this.games.set(game.gameId, running)
     this.publisher.watch(running)
+    this.store
+      .create({
+        gameId: game.gameId,
+        createdAt: new Date(),
+        seats: game.playerOrder.map((accountId, seat) => ({
+          accountId,
+          username: players.find((p) => p.accountId === accountId)!.username,
+          seat,
+        })),
+        settings,
+        config: game.config,
+      })
+      .catch((error: unknown) =>
+        this.logger.error(
+          `could not store game ${game.gameId}`,
+          error instanceof Error ? error.stack : String(error),
+        ),
+      )
     return running
   }
 

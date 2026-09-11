@@ -14,9 +14,11 @@ import {
   TcpSessionResolver,
 } from './session/tcp-session.resolver'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
+import { StoresModule } from '../stores/stores.module'
 
 @Module({
   imports: [
+    StoresModule,
     // Dialled lazily, on the first resolve — the lobby need not be up for
     // this module to boot, only for a browser to be seated.
     ClientsModule.register([

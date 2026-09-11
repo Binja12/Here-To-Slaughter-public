@@ -145,7 +145,7 @@ describe('a full game', () => {
     playHero(t, ALICE, 'hero-044')
     await windowFor(t, ALICE, ReactionWindowType.Challenge)
     scriptDice([HIGHEST, LOWEST], LOWEST)
-    react(t, new PlayChallengeReaction(actionId(), BOB, 'challenge-102', 'hero-044'))
+    react(t, new PlayChallengeReaction(actionId(), BOB, 'challenge-102'))
     await settle(t)
 
     expect(partyOf(see(t, ALICE), ALICE).heroes).toEqual([])
@@ -158,7 +158,7 @@ describe('a full game', () => {
     playHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Challenge)
     scriptDice([LOWEST, HIGHEST], HIGHEST)
-    react(t, new PlayChallengeReaction(actionId(), CAROL, 'challenge-103', 'hero-037'))
+    react(t, new PlayChallengeReaction(actionId(), CAROL, 'challenge-103'))
     const offer = await windowFor(t, ALICE, ReactionWindowType.TaskChoice)
     fixDice(MIDDLING)
     answer(t, offer, CONFIRM)
@@ -180,12 +180,14 @@ describe('a full game', () => {
     await settle(t) // nobody challenges; the roll offer lapses
     expect(see(t, BOB).attackableMonsterIds).toContain('monster-130')
 
-    // A 2 is inside Terratuga's fight-back band.
-    fixDice(LOWEST)
+    // An 8 MISSES Terratuga — above its fight-back band (7 and under, which
+    // now costs the attacker a hero) and below the slay (11+): the monster
+    // stays, Bob keeps Bad Axe for Alice to steal next turn.
+    fixDice(MIDDLING)
     attack(t, BOB, 'monster-130')
     await settle(t)
 
-    expect(ofType(t, GameEventType.MonsterFoughtBack)).toHaveLength(1)
+    expect(ofType(t, GameEventType.MonsterFoughtBack)).toEqual([])
     expect(ofType(t, GameEventType.MonsterSlain)).toEqual([])
     expect(board(t).monsterRow.map((m) => m.id)).toContain('monster-130')
     // Play (1) plus attack (2) is the whole budget.
@@ -211,7 +213,7 @@ describe('a full game', () => {
     fixDice(MIDDLING)
     rollOnHero(t, ALICE, 'hero-037')
     await windowFor(t, ALICE, ReactionWindowType.Modifier)
-    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', ALICE, 3))
+    react(t, new PlayModifierReaction(actionId(), ALICE, 'modifier-086', 3))
     const whiskersSteal = await windowFor(
       t,
       ALICE,

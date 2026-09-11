@@ -33,6 +33,7 @@ export const PanChucksAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: DESTROY_A_HERO,
+        question: 'Reveal the challenge and destroy a hero?',
         subjectKey: CTX_DRAWN_CARD_IDS,
       }),
     ],
@@ -46,7 +47,10 @@ export const PanChucksAbility: IAbilityRule[] = [
     steps: [
       // "you may reveal it": the yes shows the drawn cards to the table
       new RevealTask({ fromKey: CTX_DRAWN_CARD_IDS, to: 'all' }),
-      new ChooseCardTask({ zone: Zone.Party, owner: Owner.All }),
+      new ChooseCardTask(
+        { zone: Zone.Party, owner: Owner.All, destroyable: true },
+        { question: 'Choose a hero to destroy' },
+      ),
       new DestroyTask(),
     ],
   },

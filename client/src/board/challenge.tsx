@@ -34,36 +34,76 @@ import { NONHERO_CARD_ASPECT } from "./assets";
 
 export type ChallengeRole = "challenged" | "challenger";
 
-/** one side's roll: the 2d6 throw + the modifier total played onto it
- *  (null until a modifier card lands, exactly like the turn banner) */
+/** the art of one thing modifying a roll — a card played onto it or a
+ *  standing effect's source (a leader, a monster, a hero) — and what it adds */
+export interface RollBonusCard {
+  url: string;
+  amount: number;
+}
+
+/** one side's roll: the 2d6 throw + the bonus total on it
+ *  (null until anything modifies it, exactly like the turn banner) */
 export interface ChallengeRoll extends DiceThrow {
   modifier: number | null;
-  /** art of every modifier card played onto THIS roll, in play order —
-   *  shown fanned beside that side's panel */
-  modifierCards: string[];
+  /** everything modifying THIS roll, in the order it landed — shown fanned
+   *  beside that side's panel, each with its amount */
+  modifierCards: RollBonusCard[];
 }
 
 export interface ChallengeSide {
   seat: PlayerId;
   /** null until this side has rolled — the panel shows a waiting state */
+  /**
+   * Whose side this is. The NAME comes from here, never from `seat`: a seat
+   * is a place on the screen and an unresolved one used to fall back to the
+   * viewer's, which put "YOU" on both panels of a challenge the viewer was
+   * only half of (the owner, 2026-09-08).
+   */
+  playerId: string | null;
   roll: ChallengeRoll | null;
 }
 
 export interface ChallengeState {
+  /**
+   * Whether anybody has actually challenged yet. Before that the window is
+   * just the play on the table, up for contest: the card alone, no challenge
+   * card behind it and no roll panels — the two rolls do not exist. It is what
+   * makes a play VISIBLE while it can still be contested, which a card tucked
+   * behind its hero was not (the owner, 2026-09-07).
+   */
+  started: boolean;
   /** art of the card whose play is being contested (centre stage) */
   challengedCardUrl: string;
   /** aspect ratio (w/h) of that art — cards differ (leader vs item vs magic) */
   challengedCardAspect: number;
   /** art of the challenge card itself (tucked behind at an angle) */
   challengeCardUrl: string;
+  /**
+   * An ITEM is played AT a hero, and the hero is already wearing it by the
+   * time the window opens (server item-tasks.ts equips before it opens the
+   * Challenge). Its art rides behind the item, mirroring the challenge card,
+   * so the window says what the play actually does (the owner, 2026-09-08).
+   * Absent for every other kind of play.
+   */
+  carrierCardUrl?: string;
+  /** aspect (w/h) of that art — a hero card is not shaped like an item */
+  carrierCardAspect?: number;
   challenged: ChallengeSide;
   challenger: ChallengeSide;
 }
 
 export interface ChallengeOpenArgs {
+  /** false while the play is merely contestable — see ChallengeState.started */
+  started?: boolean;
   challengedCardUrl: string;
   challengedCardAspect?: number;
   challengeCardUrl: string;
+  /** the hero an ITEM is being played onto — see ChallengeState.carrierCardUrl */
+  carrierCardUrl?: string;
+  carrierCardAspect?: number;
+  /** who is on each side — absent only before the server has said */
+  challengedId?: string;
+  challengerId?: string;
   challengedSeat: PlayerId;
   challengerSeat: PlayerId;
 }
@@ -72,15 +112,23 @@ interface ChallengeContextValue {
   /** the open challenge, or null when the game is not paused on one */
   active: ChallengeState | null;
   open: (args: ChallengeOpenArgs) => void;
-  /** a side rolled (or re-rolled) — replays its dice */
+  /**
+   * Who is on each side. Known only once somebody has CHALLENGED: the window
+   * opens while the play is merely contestable, so the challenger does not
+   * exist yet and the overlay would otherwise keep whatever it was opened
+   * with (the owner, 2026-09-08: both panels named the same player).
+   */
+  setSides: (challengedId?: string, challengerId?: string) => void;
+  /** a side rolled (or re-rolled) — replays its dice, with whatever was
+   *  already modifying that roll (standing effects) beside it */
   setRoll: (
     role: ChallengeRole,
     values: [number, number],
-    modifier?: number | null,
+    bonuses?: RollBonusCard[],
   ) => void;
-  /** a modifier card was played onto one side's roll: bumps that roll's
-   *  modifier total and records the card art (the dice do NOT re-throw —
-   *  the nonce is untouched, so they stay settled on the panel) */
+  /** something landed on one side's roll: bumps that roll's total and
+   *  records the source's art (the dice do NOT re-throw — the nonce is
+   *  untouched, so they stay settled on the panel) */
   addModifier: (role: ChallengeRole, amount: number, cardUrl: string) => void;
   close: () => void;
 }
@@ -88,6 +136,7 @@ interface ChallengeContextValue {
 const ChallengeContext = createContext<ChallengeContextValue>({
   active: null,
   open: () => {},
+  setSides: () => {},
   setRoll: () => {},
   addModifier: () => {},
   close: () => {},
@@ -100,30 +149,58 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
 
   const open = useCallback((args: ChallengeOpenArgs) => {
     setActive({
+      started: args.started ?? true,
       challengedCardUrl: args.challengedCardUrl,
       challengedCardAspect: args.challengedCardAspect ?? NONHERO_CARD_ASPECT,
       challengeCardUrl: args.challengeCardUrl,
-      challenged: { seat: args.challengedSeat, roll: null },
-      challenger: { seat: args.challengerSeat, roll: null },
+      carrierCardUrl: args.carrierCardUrl,
+      carrierCardAspect: args.carrierCardAspect,
+      challenged: {
+        seat: args.challengedSeat,
+        playerId: args.challengedId ?? null,
+        roll: null,
+      },
+      challenger: {
+        seat: args.challengerSeat,
+        playerId: args.challengerId ?? null,
+        roll: null,
+      },
     });
   }, []);
+
+  const setSides = useCallback((challengedId?: string, challengerId?: string) => {
+    setActive((prev) =>
+      prev === null
+        ? prev
+        : {
+            ...prev,
+            challenged: { ...prev.challenged, playerId: challengedId ?? prev.challenged.playerId },
+            challenger: { ...prev.challenger, playerId: challengerId ?? prev.challenger.playerId },
+          },
+    )
+  }, [])
 
   const setRoll = useCallback(
     (
       role: ChallengeRole,
       values: [number, number],
-      modifier: number | null = null,
+      bonuses: RollBonusCard[] = [],
     ) => {
       setActive((prev) =>
         prev
           ? {
               ...prev,
+              // a roll landing IS the challenge starting
+              started: true,
               [role]: {
                 ...prev[role],
                 roll: {
                   values,
-                  modifier,
-                  modifierCards: [],
+                  modifier:
+                    bonuses.length === 0
+                      ? null
+                      : bonuses.reduce((sum, bonus) => sum + bonus.amount, 0),
+                  modifierCards: [...bonuses],
                   nonce: ++nonceSeq.current,
                 },
               },
@@ -146,7 +223,7 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
             roll: {
               ...side.roll,
               modifier: (side.roll.modifier ?? 0) + amount,
-              modifierCards: [...side.roll.modifierCards, cardUrl],
+              modifierCards: [...side.roll.modifierCards, { url: cardUrl, amount }],
             },
           },
         };
@@ -158,8 +235,8 @@ export function ChallengeProvider({ children }: { children: React.ReactNode }) {
   const close = useCallback(() => setActive(null), []);
 
   const value = useMemo(
-    () => ({ active, open, setRoll, addModifier, close }),
-    [active, open, setRoll, addModifier, close],
+    () => ({ active, open, setSides, setRoll, addModifier, close }),
+    [active, open, setSides, setRoll, addModifier, close],
   );
   return (
     <ChallengeContext.Provider value={value}>

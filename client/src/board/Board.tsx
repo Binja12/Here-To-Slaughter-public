@@ -1,3 +1,4 @@
+import AssetImage, { useBackgroundImage } from '../loading/AssetImage'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Anchor,
@@ -16,6 +17,7 @@ import {
   HudDef,
   INSET,
   PLAYERS,
+  PlayerDef,
   PlayerId,
   positionStyle,
   TABLE_BG,
@@ -26,12 +28,26 @@ import { artFor, BIG_BACK, boardModifierUrl, SMALL_BACK } from './assets'
 import HeroRow, { Seat as HeroSeat } from './HeroRow'
 import PlayerHand from './PlayerHand'
 import HandCount from './HandCount'
+import ImageButton from './ImageButton'
 import DiceRoll from './DiceRoll'
+import TurnTimer from './TurnTimer'
+import CardReactionTimer from './CardReactionTimer'
 import ChallengeWindow from './ChallengeWindow'
+import ModifierWindow from './ModifierWindow'
+import SettingsMenu from './SettingsMenu'
+import { auraClasses, BoardSettingsProvider, useBoardSettings } from './boardSettings'
 import { ChallengeProvider, ChallengeRole, useChallenge } from './challenge'
-import { bonusesOf, liveRollOf, rollLabel, subjectIdOf, useLiveDice } from './liveRoll'
+import {
+  liveRollOf,
+  rollLabel,
+  rollOutcome,
+  subjectIdOf,
+  useLiveDice,
+  targetSeatsOf,
+} from './liveRoll'
+import ValueArt from './ValueArt'
 import { useChallengeSync } from './useChallengeSync'
-import { derivePlayable, isOptionalWindow } from './playable'
+import { derivePlayable, equipTargets, holdsAnswer, isFreeAction, isOptionalWindow, reactionCardType, reactionRevision } from './playable'
 import {
   TargetingProvider,
   TargetKey,
@@ -39,7 +55,7 @@ import {
   useTargetable,
   useTargeting,
 } from './targeting'
-import { useGameView } from '../state/game'
+import { useGameView, useGameInfo, useGameLog } from '../state/game'
 import { useSend } from '../state/commands'
 import {
   CardView,
@@ -51,16 +67,16 @@ import {
   PlayerView,
   REFUSAL_MESSAGES,
 } from '../contract'
-import { slotsFor } from './seats'
-import {
-  discardCardsForView,
-  idForTargetKey,
-  targetKeyForId,
-} from './viewTargets'
+import { nameOf, slotsFor } from './seats'
+import { cardById, discardCardsForView, idForTargetKey, targetKeyForId } from './viewTargets'
 import { useHoverZoom } from './useHoverZoom'
-import PendingWindows from './PendingWindows'
+import PendingWindows, { Countdown } from './PendingWindows'
+import ChoicePrompt, { choiceInstruction, openChoice, ReactionPrompt } from './choicePrompt'
 import DiscardPileModal from './DiscardPileModal'
 import RevealedCards from './RevealedCards'
+import { useAudio } from '../audio/AudioProvider'
+import { useGameAudio } from '../audio/useGameAudio'
+import { backedRole, lazyModifierValue, lazyMove, useLazyChoice } from './lazyChoice'
 
 function Widget({
   def,
@@ -68,6 +84,7 @@ function Widget({
   zClass = 'z-20',
   zIndex,
   dimExempt = false,
+  turn = false,
   children,
 }: {
   def: WidgetDef
@@ -77,12 +94,14 @@ function Widget({
   zIndex?: number
   /** keep this widget bright while a challenge dims the board */
   dimExempt?: boolean
+  /** it is this seat's turn: the painted frame glows green */
+  turn?: boolean
   children?: React.ReactNode
 }) {
   const inset = INSET[def.kind]
   return (
     <div
-      className={`absolute -translate-x-1/2 -translate-y-1/2 ${zClass} has-[:hover]:z-[100]${
+      className={`absolute -translate-x-1/2 -translate-y-1/2 ${zClass} has-[.is-zoomed]:z-[120]${
         dimExempt ? ' dim-exempt' : ''
       }`}
       style={{
@@ -92,12 +111,14 @@ function Widget({
         ...positionStyle(anchor, def.dx, def.dy),
       }}
     >
-      <img
+      <AssetImage
         src={FRAMES[def.kind]}
         alt=""
         aria-hidden
         draggable={false}
-        className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill"
+        className={`board-felt dimmable absolute inset-0 h-full w-full object-fill${
+          turn ? ' turn-frame-aura' : ''
+        }`}
       />
       <div
         className="absolute"
@@ -141,20 +162,17 @@ function SlotCard({
 }) {
   // A slot card (the monster row) shrinks back as soon as the cursor leaves
   // its resting footprint, not its enlarged box.
-  const hz = useHoverZoom<HTMLImageElement>(undefined, undefined, { stickyBounds: 'rest' })
+  const hz = useHoverZoom<HTMLDivElement>(undefined, undefined, { stickyBounds: 'rest' })
   const target = useTargetable(targetKey, onActivate)
   const zoomable = zoom !== undefined && !(target.targeting && target.mode === 'dimmed')
   const art = artFor(card)
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <img
+      <div
         ref={zoomable ? hz.ref : undefined}
-        src={art.url}
-        alt={alt ?? card.name}
-        draggable={false}
         className={`select-none rounded-[0.3cqw] shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-150 ${
-          stretch ? 'h-full w-full object-fill' : 'max-h-[90%] max-w-[90%] object-contain'
-        }${enemy ? ' enemy-aura card-aura-sm' : playable ? ' card-aura card-aura-sm' : passive ? ' passive-aura card-aura-sm' : ''} ${target.className}`}
+          stretch ? 'relative h-full w-full' : 'relative h-[90%] w-[90%]'
+        }${zoomable && hz.active ? ' is-zoomed' : ''}${enemy ? ' enemy-aura card-aura-sm' : playable ? ' card-aura card-aura-sm' : passive ? ' passive-aura card-aura-sm' : ''} ${target.className}`}
         style={{
           transformOrigin: origin,
           transform: zoomable && hz.active ? `scale(${zoom})` : undefined,
@@ -163,21 +181,45 @@ function SlotCard({
         onMouseEnter={zoomable ? hz.onMouseEnter : undefined}
         onMouseLeave={zoomable ? hz.onMouseLeave : undefined}
         onContextMenu={zoomable ? hz.onContextMenu : undefined}
-      />
+      >
+        <AssetImage src={art.url} alt={alt ?? card.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
+        <CardReactionTimer cardId={card.id} zoomed={zoomable && hz.active} />
+      </div>
     </div>
   )
 }
 
-/** Each slain-monster trophy covers a tenth of the one before it. */
+/** Each slain-monster trophy covers at least a tenth of the one before it. */
 const TROPHY_OVERLAP = 0.1
+/** …and at most this much of it: a strip of every trophy always shows. */
+const TROPHY_MIN_STEP = 0.3
+
+/** The stage is 16:9: its width in cqh. */
+const STAGE_W_CQH = (100 * 16) / 9
+
+/**
+ * How far a seat's trophies may fan, in TROPHY WIDTHS from the leader's
+ * centre: the felt between the leader and the stage edge on the reveal
+ * side, over the width of the leader's inner window (the trophies' box).
+ */
+function trophyRoom(layout: PlayerDef, revealSide: 'left' | 'right'): number {
+  const { anchor, leader } = layout
+  const cx =
+    anchor === 'left' ? leader.dx : anchor === 'right' ? STAGE_W_CQH - leader.dx : STAGE_W_CQH / 2 + leader.dx
+  const room = revealSide === 'right' ? STAGE_W_CQH - cx : cx
+  return room / (widthCqh(leader) * INSET.leader.w)
+}
 
 /**
  * A party leader with its slain monsters tucked behind it. The leader zooms
  * on hover like a hero (`useHoverZoom`, capped by the caller so the enlarged
  * card stays inside the stage); while zoomed the trophies fan out beside it
- * at 80% of its size, the first flush against it and each next one a card
- * step further, overlapping by `TROPHY_OVERLAP`. A trophy that is a pick
- * target while the leader is at rest steps out at its own size instead.
+ * at the SAME size, the first flush against it and each next one a card
+ * step further. The step shrinks as trophies pile up so the fan always fits
+ * the felt (`room`), the way the hero row overlaps from five cards on —
+ * each covering the edge of the one under it (the owner, 2026-09-05). A
+ * trophy that is a pick target while the leader is at rest steps out at its
+ * own size instead.
  */
 function LeaderWithCards({
   slot,
@@ -188,12 +230,15 @@ function LeaderWithCards({
   passive = false,
   enemy = false,
   zoom,
+  room,
   onActivate,
 }: {
   slot: PlayerId
   party: PartyView
   origin: string
   revealSide: 'left' | 'right'
+  /** felt on the reveal side, in trophy widths from the leader's centre */
+  room: number
   playable: boolean
   /** its standing effect feeds the open roll: gold */
   /** the leader's standing effect is working right now (feeds the open roll): pink */
@@ -208,14 +253,18 @@ function LeaderWithCards({
   const leaderArt = artFor(party.leader)
   const trophyRefs = useRef<Array<HTMLDivElement | null>>([])
   const getTrophies = useCallback(() => trophyRefs.current, [])
-  const hz = useHoverZoom<HTMLImageElement>(undefined, getTrophies)
+  const hz = useHoverZoom<HTMLDivElement>(undefined, getTrophies)
   const dimmed = leaderTarget.targeting && leaderTarget.mode === 'dimmed'
   const zoomed = hz.active && !dimmed
-  const trophyScale = zoom * 0.8
+  const trophyScale = zoom
   // centre-to-centre distances in trophy widths: inner edges touching the
-  // zoomed leader (minus a hair, glued), then one overlapped step each
+  // zoomed leader (minus a hair, glued), then one step each — a tenth
+  // overlapped, or as much more as it takes for the last one to stay on
+  // the felt (never past TROPHY_MIN_STEP: a strip of each always shows)
   const firstShift = (zoom + trophyScale) / 2 - 0.12
-  const step = trophyScale * (1 - TROPHY_OVERLAP)
+  const count = party.monsters.length
+  const fitStep = count > 1 ? (room - firstShift - trophyScale / 2 - 0.5) / (count - 1) : Infinity
+  const step = Math.max(trophyScale * TROPHY_MIN_STEP, Math.min(trophyScale * (1 - TROPHY_OVERLAP), fitStep))
 
   return (
     <div className="relative h-full w-full">
@@ -234,12 +283,11 @@ function LeaderWithCards({
           origin={origin}
         />
       ))}
-      <img
+      <div
         ref={hz.ref}
-        src={leaderArt.url}
-        alt={party.leader.name}
-        draggable={false}
         className={`absolute inset-0 z-20 h-full w-full select-none rounded-[0.3cqw] object-fill shadow-[0.15cqw_0.3cqw_0.8cqw_rgba(0,0,0,0.7)] transition-transform duration-[120ms] ease-out ${
+          zoomed ? 'is-zoomed ' : ''
+        }${
           enemy ? 'enemy-aura card-aura-sm ' : playable ? 'card-aura card-aura-sm ' : passive ? 'passive-aura card-aura-sm ' : ''
         }${leaderTarget.className}`}
         style={{
@@ -250,7 +298,10 @@ function LeaderWithCards({
         onMouseLeave={hz.onMouseLeave}
         onContextMenu={hz.onContextMenu}
         onClick={leaderTarget.onClick}
-      />
+      >
+        <AssetImage src={leaderArt.url} alt={party.leader.name} draggable={false} className="h-full w-full rounded-[0.3cqw] object-fill" />
+        <CardReactionTimer cardId={party.leader.id} zoomed={zoomed} />
+      </div>
     </div>
   )
 }
@@ -293,7 +344,7 @@ const Trophy = React.forwardRef<
       }}
       onClick={target.onClick}
     >
-      <img
+      <AssetImage
         src={art.url}
         alt={`${card.name}, slain monster`}
         draggable={false}
@@ -306,7 +357,7 @@ const Trophy = React.forwardRef<
 function DeckSlot({ def, children }: { def: DeckDef; children: React.ReactNode }) {
   return (
     <div
-      className="absolute z-30 -translate-x-1/2 -translate-y-1/2 has-[:hover]:z-[100]"
+      className="absolute z-30 -translate-x-1/2 -translate-y-1/2 has-[.is-zoomed]:z-[120]"
       style={{
         height: `${def.h}cqh`,
         width: `${deckWidthCqh(def)}cqh`,
@@ -339,7 +390,7 @@ function DeckPile({
       {Array.from({ length: layers }, (_, index) => {
         const top = index === layers - 1
         return (
-          <img
+          <AssetImage
             key={index}
             src={back}
             alt={top ? 'deck' : ''}
@@ -415,8 +466,8 @@ function DiscardPile({
         const art = artFor(card)
         const top = index === visible.length - 1
         return (
-          <img
-            key={card.id}
+          <div key={card.id} className="absolute inset-0" style={{ transform: pileJitter(index, top) }}>
+          <AssetImage
             src={art.url}
             alt={top ? `${card.name}, discard top` : ''}
             aria-hidden={!top}
@@ -424,8 +475,9 @@ function DiscardPile({
             className={`absolute inset-0 h-full w-full select-none rounded-[0.3cqw] object-contain shadow-[0.1cqw_0.2cqw_0.5cqw_rgba(0,0,0,0.6)]${
               top && enemy ? ' enemy-aura' : playable && top ? ' card-aura' : ''
             }`}
-            style={{ transform: pileJitter(index, top) }}
           />
+          {top && <CardReactionTimer cardId={card.id} />}
+          </div>
         )
       })}
     </div>
@@ -460,11 +512,16 @@ function pileJitter(index: number, top: boolean): string {
 }
 
 function HudWidget({
+  aboveChallenge = false,
+  yields = false,
   def,
   aspect,
   title,
   children,
 }: {
+  aboveChallenge?: boolean
+  /** stands down while the hand fan is open or a card is zoomed (index.css) */
+  yields?: boolean
   def: HudDef
   aspect: number
   title?: string
@@ -472,7 +529,13 @@ function HudWidget({
 }) {
   return (
     <div
-      className="absolute z-40 -translate-x-1/2 -translate-y-1/2"
+      // z-[110] sits BETWEEN the board's resting layers (z-20/30/40) and its
+      // hover lift (z-[120] on the centre wrapper, every widget and every deck
+      // slot). Both halves of the owner's rule, 2026-09-07: a HUD button is not
+      // swallowed by the wooden centre it sits on, and it does not paint over
+      // a card that has been zoomed — hovering is what zooms, and the hover
+      // lift is the band that carries the zoom.
+      className={`absolute -translate-x-1/2 -translate-y-1/2${yields ? ' hud-yield' : ''} ${aboveChallenge ? 'dim-exempt z-[160]' : 'z-[110]'}`}
       title={title}
       style={{
         height: `${def.h}cqh`,
@@ -490,9 +553,9 @@ const AP_SLOT_X = [25.5, 37.5, 50, 62.4, 74.5]
 function ActionPoints({ current }: { current: number }) {
   return (
     <div className="relative h-full w-full">
-      <img src={HUD.actionFrame} alt="" aria-hidden className="dimmable absolute inset-0 h-full w-full object-fill" />
+      <AssetImage src={HUD.actionFrame} alt="" aria-hidden className="dimmable absolute inset-0 h-full w-full object-fill" />
       {AP_SLOT_X.map((x, index) => (
-        <img
+        <AssetImage
           key={index}
           src={HUD.actionGem}
           alt="action point"
@@ -529,37 +592,6 @@ function DevButton({
       className="h-full w-full rounded-[0.45cqw] border-[0.12cqw] border-amber-300/70 bg-gradient-to-b from-amber-700 to-amber-950 px-[0.5cqw] font-heading text-[0.7cqw] uppercase tracking-wide text-amber-100 shadow-[inset_0_0_0.35cqw_rgba(255,210,100,0.25),0_0.25cqw_0.6cqw_rgba(0,0,0,0.65)] transition hover:brightness-125 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-45"
     >
       {label}
-    </button>
-  )
-}
-
-/** A painted HUD button (the owner's End Turn / Redraw art). */
-function ImageButton({
-  src,
-  label,
-  enabled,
-  onClick,
-}: {
-  src: string
-  label: string
-  enabled: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      aria-label={label}
-      title={label}
-      disabled={!enabled}
-      onClick={onClick}
-      className="group relative h-full w-full transition-transform duration-[120ms] ease-out enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50"
-    >
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        draggable={false}
-        className="dimmable absolute inset-0 h-full w-full object-contain group-enabled:group-hover:drop-shadow-[0_0_0.55cqw_rgba(255,190,70,0.95)]"
-      />
     </button>
   )
 }
@@ -656,8 +688,29 @@ const LEADER_ZOOM_ORIGIN: Record<Anchor, string> = {
   center: '50% 50%',
 }
 
+/**
+ * Whose party this is, written beside their leader — ABOVE it for the two side
+ * seats, BELOW it for the top seat, so the name never sits off the stage
+ * (the owner, 2026-09-07). The viewer is not named: they know.
+ */
+function SeatName({ name, anchor }: { name: string; anchor: Anchor }) {
+  const below = anchor === 'top'
+  return (
+    <div
+      className={`pointer-events-none absolute inset-x-0 ${
+        below ? 'top-full mt-[0.4cqh]' : 'bottom-full mb-[0.4cqh]'
+      } truncate text-center font-heading text-[1.05cqw] uppercase tracking-[0.08cqw] text-amber-100 drop-shadow-[0_0.1cqw_0.25cqw_rgba(0,0,0,0.95)]`}
+    >
+      {name}
+    </div>
+  )
+}
+
 /** Choice windows answered by pressing a glowing card on the board. */
 const BOARD_CHOICES = new Set(['CardChoice', 'PlayerChoice', 'MonsterChoice'])
+
+/** height (cqh) of the Draw / Forfeit answers beside a question card */
+const ANSWER_H = 11
 
 /**
  * The card a yes/no window is about. The server's ConfirmTask detail is
@@ -673,18 +726,59 @@ function askedCardOf(window: PendingWindowView): string | undefined {
 
 export default function Board({ onLeave }: { onLeave?: () => void }) {
   return (
-    <TargetingProvider>
-      <ChallengeProvider>
-        <BoardInner onLeave={onLeave} />
-      </ChallengeProvider>
-    </TargetingProvider>
+    <BoardSettingsProvider>
+      <TargetingProvider>
+        <ChallengeProvider>
+          <BoardInner onLeave={onLeave} />
+        </ChallengeProvider>
+      </TargetingProvider>
+    </BoardSettingsProvider>
+  )
+}
+
+/**
+ * A press on the FELT — the table, a painted frame, or the bare stage — as
+ * opposed to a press on anything the player can act with. What closes a hand
+ * held open by the click-to-open setting (the owner, 2026-09-07); the felt and
+ * every frame carry `board-felt` and take pointer events for exactly this.
+ */
+function pressedFelt(event: React.MouseEvent): boolean {
+  const target = event.target as HTMLElement
+  return (
+    target.classList.contains('board-felt') ||
+    target.classList.contains('board-stage') ||
+    target.classList.contains('board-root')
   )
 }
 
 function BoardInner({ onLeave }: { onLeave?: () => void }) {
+  const { settings } = useBoardSettings()
+  // Click-to-open hand: the board owns whether it is held open, because what
+  // closes it is a press on the FELT, which only the root sees.
+  const [handHeldOpen, setHandHeldOpen] = useState(false)
+  const tableBackground = useBackgroundImage(TABLE_BG)
   const view = useGameView()
+  const info = useGameInfo()
+  const log = useGameLog()
+  const { playSound } = useAudio()
+  useGameAudio(view, log)
   const send = useSend()
   const flags = derivePlayable(view)
+  const [localPasses, setLocalPasses] = useState<Record<string, string>>({})
+  const passableWindows = view.pendingWindows.filter((window) =>
+    flags.passableWindows.includes(window.windowId) &&
+    localPasses[window.windowId] !== reactionRevision(window),
+  )
+  useEffect(() => {
+    setLocalPasses((passes) => {
+      const remaining = Object.entries(passes).filter(([id, revision]) =>
+        view.pendingWindows.some((window) => window.windowId === id &&
+          reactionRevision(window) === revision &&
+          !(Array.isArray(window.detail?.passedBy) && window.detail?.passedBy.includes(view.playerId))),
+      )
+      return remaining.length === Object.keys(passes).length ? passes : Object.fromEntries(remaining)
+    })
+  }, [view])
   const discardCards = discardCardsForView(view)
   const slots = slotsFor(view)
   const { active, begin, cancel } = useTargeting()
@@ -693,25 +787,73 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const challenge = useChallenge()
   const liveChallenge = useChallengeSync(view)
   // The overlay can be put away (click its backdrop) to look at the table,
-  // and brought back with the top-left Challenge button. A new challenge
+  // and brought back with the window button beside the discard pile. A new challenge
   // always shows itself.
   const [overlayHidden, setOverlayHidden] = useState(false)
   const liveChallengeId = liveChallenge?.windowId
   useEffect(() => {
     setOverlayHidden(false)
   }, [liveChallengeId])
-  const challengeOpen = !!challenge.active && !overlayHidden
+  // A question put to THIS seat takes the stage back from BOTH overlays: a
+  // challenge on stage while you are being asked to discard is a window you
+  // cannot act on standing over the one you must (the owner, 2026-09-08 —
+  // Bloodwing asks the challenger for a card mid-contest). The contest comes
+  // back the moment the question is answered; nothing is lost, because the
+  // engine will not settle a challenge while a question stands after it
+  // (ChallengeWindow.resolve) and restarts its clock when one does
+  // (GameState.restartWindowsOutside).
+  const myQuestionOpen = !!openChoice(view)
+  const challengeOpen = !!challenge.active && !overlayHidden && !myQuestionOpen
   const liveRoll = liveRollOf(view)
   const dice = useLiveDice(view, liveRoll)
+  // Every roll takes the stage (ModifierWindow) the moment it is made
+  // (the owner, 2026-09-06), put away and brought back exactly like the
+  // challenge overlay; a challenge on stage takes precedence. A question of
+  // MINE holds it back (myQuestionOpen, below), which is what keeps a roll's
+  // window off the choice that roll opened (Fury Knuckle).
+  const modifiedRoll = liveRoll
+  const [manuallyOpenedRollId, setManuallyOpenedRollId] = useState<string | null>(null)
+  const modifierRoll = modifiedRoll ?? (liveRoll?.windowId === manuallyOpenedRollId ? liveRoll : null)
+  // A question put to THIS seat outranks the roll it stands over, always
+  // (the owner, 2026-09-08): a choice is the thing the table is waiting on,
+  // and the roll's window does not open over it even when a modifier lands.
+  // The engine agrees — a roll will not settle while a question stands after
+  // it (ModifiableRollWindow.resolve), and every clock outside the frame that
+  // just answered is restarted (GameState.restartWindowsOutside), so nothing
+  // is lost by showing the question first.
+  //
+  // `openChoice` is the same test the question's own banner uses, so the two
+  // can never disagree about whether one is standing.
+  // Put away by hand, and brought back by the window button. A question of
+  // mine overrides both: it is a gate, not a preference.
+  const [modifierHidden, setModifierHidden] = useState(false)
+  const modifiedRollId = modifiedRoll?.windowId
+  useEffect(() => {
+    setModifierHidden(false)
+  }, [modifiedRollId])
+  const modifierOpen =
+    !!modifierRoll && !modifierHidden && !challengeOpen && !myQuestionOpen
+  const stageOpen = challengeOpen || modifierOpen
   const [toast, setToast] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
   const [modifierChoice, setModifierChoice] = useState<{
     card: ModifierCardData
-    targetPlayerId: string
+    /** Whose roll, in a started challenge only — a roll has one and the server names it. */
+    targetPlayerId?: string
   } | null>(null)
   const mine = view.seats.find((seat) => seat.playerId === view.playerId)
   const current = view.seats.find((seat) => seat.playerId === view.currentPlayerId)
   const hasPlayableHandCard = flags.hand.some(Boolean)
+  // While a reaction window is up the hand opens itself and shows ONLY the
+  // cards that answer it — the modifiers on a roll, the challenges on a play
+  // (the owner, 2026-09-07). Indices are untouched: a hidden card keeps its
+  // slot in every flag array and its own targeting key.
+  // A reaction window narrows the fan to the cards that answer it — but only
+  // opens it, and only lifts it over the dim, when this seat HOLDS one. An
+  // empty fan floating above a dimmed table says you may act when you cannot
+  // (the owner, 2026-09-08).
+  const canAnswer = holdsAnswer(view)
+  const answersWith = reactionCardType(view)
   const canPlayModifier = view.hand.some(
     (card, index) => card.type === 'Modifier' && flags.hand[index],
   )
@@ -730,69 +872,55 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   //  - red: the card an OPPONENT just played (the contested card, until
   //    its challenge window closes) or rolls on (hero / leader / monster,
   //    until the roll closes); the dice go red with it;
-  //  - pink: every card whose effect is WORKING right now — a standing
-  //    effect that is live (the seats' effect lists) or one feeding the open
-  //    roll (the server names them as the roll's bonus sources: "each time
-  //    you roll to attack a monster, +1"). The owner's rule, 2026-09-04:
-  //    gold = can pick, green = can play, pink = effect working.
+  //  - pink: every card carrying a PASSIVE (`view.passiveCardIds`), all game
+  //    long. The owner's rule, 2026-09-07: gold = can pick, green = can play,
+  //    pink = this one has a standing rule. Pink is the quietest of the four,
+  //    so red and green still win the card they are on.
   const enemyIds = new Set<string>()
-  const bonusSourceIds = new Set<string>()
   for (const window of view.pendingWindows) {
     if (window.type !== 'Modifier' && window.type !== 'Attack' && window.type !== 'Challenge') continue
     if (window.respondentId !== view.playerId) {
       const subject = subjectIdOf(window)
       if (subject) enemyIds.add(subject)
     }
-    const detail = window.detail ?? {}
-    for (const list of [detail.bonuses, detail.challengerBonuses, detail.challengedBonuses]) {
-      for (const bonus of bonusesOf(list)) if (bonus.cardSource) bonusSourceIds.add(bonus.cardSource)
+  }
+  // Pink = "this card's rule works with nobody playing anything", every one
+  // of them, all game long (the owner, 2026-09-07: always, leaders and won
+  // monsters included). The server names them off the ability registry —
+  // behaviour never reaches card data, so nothing here could work it out.
+  const passiveIds = new Set(view.passiveCardIds)
+  // The seats a roll's effect has chosen. Only the VIEWER's own is drawn now:
+  // the screen's red rim says it, and the widget frames used to say the same
+  // thing a second time (the owner, 2026-09-07: the rim is enough).
+  const targetedHands = new Set<string>()
+  const targetedParties = new Set<string>()
+  for (const window of view.pendingWindows) {
+    if (window.type !== 'Modifier' && window.type !== 'Attack') continue
+    for (const seat of targetSeatsOf(window.detail?.targets)) {
+      if (seat.zone === 'Party') targetedParties.add(seat.playerId)
+      else targetedHands.add(seat.playerId)
     }
   }
-  // pink: every card whose effect is working — a live standing effect at any
-  // seat (the seats' effect lists name their source card) or a bonus source
-  // of the open roll (heroes, items, leaders, a monster's counter)
-  const passiveIds = new Set([
-    ...view.seats.flatMap((seat) => seat.effects.map((effect) => effect.sourceCardId)),
-    ...Array.from(bonusSourceIds),
-  ])
-  const diceTone = liveRoll && liveRoll.rollerId !== view.playerId ? 'enemy' : 'mine'
+  // A roll's effect has chosen YOU: red down both sides of the screen, so it
+  // reads even with the modifier window on the stage (the owner, 2026-09-07).
+  const targeted =
+    targetedHands.has(view.playerId) || targetedParties.has(view.playerId)
+  // The screen rim is the VIEWER's turn and nothing else — somebody else's
+  // turn is said by their own frames instead (the owner, 2026-09-08).
+  const myTurn = view.phase === 'Turns' && view.currentPlayerId === view.playerId
+  const diceOutcome = liveRoll ? rollOutcome(liveRoll, view) : 'none'
 
-  // A reaction being aimed (modifier / challenge card pressed, board dimmed,
-  // targets gold) or a value being picked loses its target when its window
-  // lapses mid-resolution: the aim ends with it, the dim with the aim. The
-  // test is the TARGETS, not "some window is open" — another window (an
-  // unstarted challenge, say) can outlive the roll the modifier was for.
-  const validReactionTargets = useMemo(() => {
-    const keys = new Set<string>()
-    for (const window of view.pendingWindows) {
-      if (window.type === 'Modifier' || window.type === 'Attack') {
-        const key = targetKeyForId(view, subjectIdOf(window))
-        if (key) keys.add(key)
-      } else if (window.type === 'Challenge') {
-        if (window.detail?.challenged === true) {
-          keys.add(tkey.challengeRoll('challenged'))
-          keys.add(tkey.challengeRoll('challenger'))
-        } else {
-          const key = targetKeyForId(view, window.cardId)
-          if (key) keys.add(key)
-        }
-      }
-    }
-    return keys
-  }, [view])
-  useEffect(() => {
-    if (active?.tone === 'reaction' && !active.targets.some((key) => validReactionTargets.has(key))) {
-      cancel()
-    }
-  }, [validReactionTargets, active, cancel])
+  // A value being picked loses its roll when the window lapses
+  // mid-resolution: the dialog goes with it. The test is a roll that takes
+  // modifiers, not "some window is open" — an unstarted challenge can
+  // outlive the roll the modifier was for.
   const modifierTargetGone =
     !!modifierChoice &&
     !view.pendingWindows.some(
       (window) =>
-        (window.type === 'Modifier' || window.type === 'Attack' || window.type === 'Challenge') &&
-        (window.respondentId === modifierChoice.targetPlayerId ||
-          window.detail?.challengerId === modifierChoice.targetPlayerId ||
-          window.detail?.defenderId === modifierChoice.targetPlayerId),
+        window.type === 'Modifier' ||
+        window.type === 'Attack' ||
+        (window.type === 'Challenge' && window.detail?.challenged === true),
     )
   useEffect(() => {
     if (modifierTargetGone) setModifierChoice(null)
@@ -838,18 +966,109 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
    * dismissed "roll on the hero you just played?", so Buttons never pulled).
    */
   const forfeitWindow = async (): Promise<boolean> => {
-    if (!flags.passable) return false
-    const result = await send({ type: 'PassWindow', payload: { windowId: flags.passable } })
-    return handleResult(result)
+    if (passableWindows.length === 0) return false
+    // A non-final pass emits no engine event/snapshot. Keep its acknowledgement
+    // locally until the server confirms it or a changed roll reopens reactions.
+    const attempts = passableWindows.map((window) => [window.windowId, reactionRevision(window)] as const)
+    setLocalPasses((passes) => ({ ...passes, ...Object.fromEntries(attempts) }))
+    for (let index = 0; index < attempts.length; index++) {
+      const [windowId] = attempts[index]
+      let result: CommandResult
+      try {
+        result = await send({ type: 'PassWindow', payload: { windowId } })
+      } catch {
+        result = { accepted: false, error: 'InternalError' }
+      }
+      if (!handleResult(result)) {
+        setLocalPasses((passes) => {
+          const remaining = { ...passes }
+          for (const [id, revision] of attempts.slice(index)) {
+            if (remaining[id] === revision) delete remaining[id]
+          }
+          return remaining
+        })
+        return false
+      }
+    }
+    playSound('skipReaction')
+    return true
+  }
+
+  /**
+   * A modifier card played on the roll of the moment — the server names the
+   * target on a roll; a started challenge has two rolls and `targetPlayerId`
+   * says which. One printed value: it lands as it is, nothing to choose
+   * (the owner, 2026-09-05); two: the value dialog, unless the caller has
+   * already chosen — Lazy Choice decides the number and the side together,
+   * so there is nothing left to ask.
+   */
+  const playModifier = (
+    card: ModifierCardData,
+    targetPlayerId?: string,
+    value?: number,
+  ) => {
+    const only = value ?? (card.values.length === 1 ? card.values[0] : undefined)
+    if (only !== undefined) {
+      void run({
+        type: 'ApplyModifier',
+        payload: { cardId: card.id, value: only, ...(targetPlayerId ? { targetPlayerId } : {}) },
+      })
+      return
+    }
+    setModifierChoice({ card, targetPlayerId })
   }
 
   const run = async (command: GameCommandInput): Promise<boolean> => {
     // another action while an optional question is open = "no, thanks":
     // the engine is busy until it is answered, so decline it first
     if (command.type !== 'SubmitChoice' && !(await forfeit())) return false
+    if (command.type === 'SubmitChoice') answeredHere(command.payload.windowId)
     const result = await send(command)
     return handleResult(result)
   }
+
+  // A question this seat has just answered. The snapshot that takes the
+  // window away is a round trip off, and until it lands the overlay would
+  // still be standing over the board — an answered question leaves the
+  // screen at once (the owner, 2026-09-08). Ids are dropped again as soon as
+  // the table stops reporting the window, so this never grows.
+  // SHIFT takes a sequence back from Lazy Choice (the owner, 2026-09-08).
+  // Press an action with shift down and nothing is answered for you until the
+  // table is quiet again — the whole modifier exchange, not the one window,
+  // because a sequence is what a player means to play out by hand.
+  //
+  // The flag is read at mousedown in the CAPTURE phase rather than threaded
+  // through `onActivate`: every board press already goes through one root,
+  // and the alternative is a MouseEvent carried down every targetable.
+  const shiftHeld = useRef(false)
+  const [lazySuspended, setLazySuspended] = useState(false)
+  const tableQuiet = view.pendingWindows.length === 0 && !view.busy
+  useEffect(() => {
+    if (tableQuiet) setLazySuspended(false)
+  }, [tableQuiet])
+
+  // Decided HERE, in the render that would otherwise draw the window: a
+  // question Lazy Choice is about to submit is never put on screen at all.
+  const lazyPlan = settings.lazyChoice && !lazySuspended ? lazyMove(view) : null
+  const lazyAnswering = lazyPlan?.kind === 'submit' ? lazyPlan.windowId : null
+
+  const [submitted, setSubmitted] = useState<string[]>([])
+  const answeredHere = useCallback(
+    (windowId: string) =>
+      setSubmitted((was) => (was.includes(windowId) ? was : [...was, windowId])),
+    [],
+  )
+  useEffect(() => {
+    setSubmitted((was) => {
+      if (was.length === 0) return was
+      const open = new Set(view.pendingWindows.map((window) => window.windowId))
+      const left = was.filter((id) => open.has(id))
+      return left.length === was.length ? was : left
+    })
+  }, [view.pendingWindows])
+  /** a window still worth putting on screen — not one we have just answered */
+  const unanswered = (window: PendingWindowView) =>
+    !submitted.includes(window.windowId) && window.windowId !== lazyAnswering
 
   // A choice the engine asks of THIS seat, answered by pressing a gold
   // target on the board, no buttons:
@@ -861,11 +1080,14 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const boardChoice = useMemo(() => {
     for (const window of view.pendingWindows) {
       if (!window.isYours || !window.options?.length) continue
+      if (!unanswered(window)) continue
       if (BOARD_CHOICES.has(window.type)) {
         const pairs = window.options.flatMap((option) => {
           const key = targetKeyForId(view, option)
           return key ? [{ key, option }] : []
         })
+        // a pick from the discard pile is a board choice too: the pile glows,
+        // opening it shows the pickable cards gold (the owner, 2026-09-05)
         if (pairs.length === window.options.length) return { window, pairs, dismiss: undefined }
       }
       // a yes/no about a board card that CANNOT be walked away from — the
@@ -895,7 +1117,17 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     }
     const { window, pairs, dismiss } = boardChoice
     const source = tkey.pendingWindow(window.windowId)
-    if (active?.source === source || answeredChoice.current === window.windowId) return
+    // The reaction cards in the hand stay playable under the question: a
+    // challenge or modifier against the play that is asking must not wait
+    // for the answer (the owner, 2026-09-05). Pressing one starts the reaction;
+    // the question re-arms once it is done.
+    const live = view.hand.flatMap((card, index) =>
+      flags.hand[index] && (card.type === 'Challenge' || card.type === 'Modifier')
+        ? [tkey.handCard(index)]
+        : [],
+    )
+    const revision = JSON.stringify([pairs, live])
+    if ((active?.source === source && active.revision === revision) || answeredChoice.current === window.windowId) return
     const answer = (choice: unknown) => {
       answeredChoice.current = window.windowId
       void run({ type: 'SubmitChoice', payload: { windowId: window.windowId, choice } })
@@ -903,6 +1135,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     begin({
       source,
       tone: 'choice',
+      effectSource: targetKeyForId(view, window.detail?.sourceCardId) ?? undefined,
+      revision,
+      live,
       targets: pairs.map((pair) => pair.key),
       onPick: (key) => {
         const pair = pairs.find((candidate) => candidate.key === key)
@@ -923,7 +1158,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   // played?"): the hero wears a gold aura, pressing it says yes, the table
   // stays live, and any other action forfeits it (see `run`).
   const optionalAsk = view.pendingWindows.find(
-    (window) => window.isYours && isOptionalWindow(window),
+    (window) => window.isYours && unanswered(window) && isOptionalWindow(window),
   )
   const askedCardId = optionalAsk ? askedCardOf(optionalAsk) : undefined
   // A choice of ACTION ("steal it instead of destroying it?"): a TaskChoice
@@ -932,11 +1167,124 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
   const actionAsk = view.pendingWindows.find(
     (window) =>
       window.isYours &&
+      unanswered(window) &&
       window.type === 'TaskChoice' &&
       !!window.options?.length &&
       !window.options.includes('confirm') &&
       !window.options.includes('dismiss'),
   )
+  // A choice of VALUE the engine asks (the Protecting Horn's +1 / -1): the
+  // +1 / -1 modifier cards to pick from, with the card that asks
+  // (`detail.sourceCardId`) beside them wearing the pink "effect working"
+  // aura (the owner, 2026-09-04).
+  const valueAsk = view.pendingWindows.find(
+    (window) =>
+      window.isYours &&
+      unanswered(window) &&
+      window.type === 'ValueChoice' &&
+      !!window.options?.length,
+  )
+  const valueAskCard = cardById(
+    view,
+    typeof valueAsk?.detail?.sourceCardId === 'string' ? valueAsk.detail.sourceCardId : undefined,
+  )
+  // A card is being chosen FROM the viewer's hand: the fan only opens on
+  // hover, so the closed stack wears the gold ask until it is answered
+  // (the owner, 2026-09-04: "add a glow to the deck").
+  /**
+   * This choice is answered INSIDE the discard browser — Call of the Fallen
+   * and every other pick off the pile.
+   *
+   * The browser opens itself for one (the owner, 2026-09-08): the cards are
+   * face up but the pile is shut, so a question about them was asked over a
+   * board that did not show them. It also carries the clock and the question,
+   * because every board choice is hidden from the pending-windows strip and
+   * the centre banner stands down while the pile is up.
+   */
+  const discardPick =
+    boardChoice?.pairs.some((pair) => pair.key.startsWith('discardCard:')) === true
+      ? boardChoice
+      : null
+  // A pick off the pile opens the pile. Only on the way IN, so closing it
+  // by hand during a pick does not fight the effect reopening it.
+  const pickingFromPile = !!discardPick
+  useEffect(() => {
+    if (pickingFromPile) setDiscardOpen(true)
+  }, [pickingFromPile])
+
+  const handChoiceOpen =
+    !!boardChoice && boardChoice.pairs.some((pair) => pair.key.startsWith('handCard:'))
+  /**
+   * What the fan shows. A reaction window narrows it to the cards that answer
+   * that window — but a QUESTION put to this seat wins, and shows the cards
+   * the question is about.
+   *
+   * Bloodwing is why: it asks the challenger to discard while the challenge
+   * is on stage, and narrowing to the cards that answer the challenge hid
+   * every card the discard was offering (the owner, 2026-09-08).
+   */
+  const handVisible = handChoiceOpen
+    ? view.hand.map((card) => boardChoice!.window.options!.includes(card.id))
+    : answersWith
+      ? view.hand.map((card) => card.type === answersWith)
+      : undefined
+  // The optional question may be about a card in the HAND — Mellow Dee's
+  // "play the hero you just drew?" names the drawn card — so that card
+  // wears the gold ask (pressing it says yes: a FREE play, not PlayHero)
+  // and the closed stack shows the ask as well.
+  const askedInHand = view.hand.map((card) => !!askedCardId && card.id === askedCardId)
+  const handAsked = handChoiceOpen || askedInHand.some(Boolean)
+  // A card choice whose options are NOT on the board — Bullseye's look at the
+  // deck's top three — is answered from a picker drawing the cards themselves
+  // (the view's `optionCards`), gold like any pick.
+  const cardPick = boardChoice
+    ? null
+    : (view.pendingWindows.find(
+        (window) =>
+          window.isYours &&
+          unanswered(window) &&
+          (window.type === 'CardChoice' || window.type === 'MonsterChoice') &&
+          !!window.optionCards?.length,
+      ) ?? null)
+  // Off-board choices name the asking ability in the picker.
+  const askingWindow = boardChoice?.window ?? cardPick
+  const askingCard = cardById(
+    view,
+    typeof askingWindow?.detail?.sourceCardId === 'string' ? askingWindow.detail.sourceCardId : undefined,
+  )
+  // The ask lives on the board only when the viewer can PRESS the card it is
+  // about — their own hand card or their own party hero. A question about
+  // somebody else's card (Plundering Puma's "you may draw", asked of its
+  // victim and naming the Puma in the thief's party) keeps its strip window
+  // and its Confirm / Dismiss buttons; hiding it left the victim nothing.
+  const mySlot = (Object.entries(slots) as [PlayerId, string | null][]).find(
+    ([, id]) => id === view.playerId,
+  )?.[0]
+  // The card ASKING (the ability) and the card asked ABOUT, for the overlay.
+  const askCard = cardById(
+    view,
+    typeof optionalAsk?.detail?.sourceCardId === 'string' ? optionalAsk.detail.sourceCardId : undefined,
+  )
+  const askSubject = cardById(view, askedCardId)
+  // A choice of ACTION is about a card too: the Corrupted Sabretooth asks
+  // "steal it instead of destroying it?" about a particular hero, and the
+  // answer is meaningless without knowing which (the owner, 2026-09-08). The
+  // server already names it — `cardId` on the window, from the choice's
+  // `subjectKey` (choose-tasks.ts ChooseActionTask).
+  const actionCard = cardById(
+    view,
+    typeof actionAsk?.detail?.sourceCardId === 'string'
+      ? actionAsk.detail.sourceCardId
+      : undefined,
+  )
+  const actionSubject = cardById(
+    view,
+    typeof actionAsk?.detail?.cardId === 'string' ? actionAsk.detail.cardId : undefined,
+  )
+  const askedKey = askedCardId ? targetKeyForId(view, askedCardId) : null
+  const askOnBoard =
+    !!askedKey &&
+    (askedKey.startsWith('handCard:') || (!!mySlot && askedKey.startsWith(`hero:${mySlot}:`)))
   const forfeit = async (): Promise<boolean> => {
     if (!optionalAsk) return true
     const result = await send({
@@ -946,18 +1294,25 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
     return handleResult(result)
   }
 
-  // what the gems' tooltip says while a question is open: the engine's
-  // wording, else a yes/no's label ("RollOnPlayedHero" → "roll on played hero?")
-  const question = (() => {
-    const detail = (boardChoice?.window ?? optionalAsk)?.detail
-    if (typeof detail?.question === 'string') return detail.question
-    if (typeof detail?.confirms === 'string') {
-      return `${detail.confirms.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}?`
-    }
-    return undefined
-  })()
+  // Answers this seat would almost always give, given for it. Through the
+  // very paths a press takes: `run` for a submission, `forfeitWindow` for a
+  // skip — so a lazy answer and a manual one are the same command.
+  const lazyPassing = useLazyChoice(
+    lazyPlan,
+    (windowId, choice) => void run({ type: 'SubmitChoice', payload: { windowId, choice } }),
+    () => void forfeitWindow(),
+  )
+  // A pass already on its way is not an action to offer: the button stands
+  // down for exactly as long as the lazy skip is waiting.
+  const canSkipNow = passableWindows.length > 0 && !lazyPassing
+
+  // what the gems' tooltip says while a question is open — the same wording
+  // the ChoicePrompt banner puts up, so the two can never disagree
+  const asking = boardChoice?.window ?? optionalAsk
+  const question = asking ? choiceInstruction(asking) : undefined
 
   const activate = (source: TargetKey) => {
+    if (shiftHeld.current) setLazySuspended(true)
     const [kind, a, b] = source.split(':')
     if (kind === 'mainDeck') {
       void run({ type: 'DrawCard', payload: {} })
@@ -993,22 +1348,26 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
 
     const card = view.hand[Number(a)]
     if (!card) return
+    if (optionalAsk && card.id === askedCardId) {
+      // the card the question is about: pressing it is "yes" — the engine
+      // plays it for free; PlayHero would forfeit the offer and pay a point
+      void send({
+        type: 'SubmitChoice',
+        payload: { windowId: optionalAsk.windowId, choice: 'confirm' },
+      }).then(handleResult)
+      return
+    }
     if (card.type === 'Hero') {
       void run({ type: 'PlayHero', payload: { cardId: card.id } })
     } else if (card.type === 'Magic') {
       void run({ type: 'PlayMagic', payload: { cardId: card.id } })
     } else if (card.type === 'Item') {
-      // MIRROR of the engine's equip rule (item-tasks.ts canEquip): a cursed
-      // item is played AT anybody, a plain one only dresses your own; either
-      // way the hero must be bare (HeroAlreadyEquipped)
-      const cursed = 'cursed' in card && card.cursed === true
-      const targets = view.parties.flatMap((party) => {
-        const slot = (Object.entries(slots) as [PlayerId, string | null][]).find(([, id]) => id === party.playerId)?.[0]
-        if (!slot) return []
-        if (!cursed && party.playerId !== view.playerId) return []
-        return party.heroes.flatMap((hero, index) =>
-          hero.equippedItem ? [] : [tkey.hero(slot, index)],
-        )
+      // Whom an item may go on lives in playable.ts, because the same rule
+      // decides whether the card glows at all — with no bare hero anywhere
+      // the card is not playable and this handler is never reached.
+      const targets = equipTargets(view, card).flatMap((bare) => {
+        const slot = (Object.entries(slots) as [PlayerId, string | null][]).find(([, id]) => id === bare.playerId)?.[0]
+        return slot ? [tkey.hero(slot, bare.index)] : []
       })
       begin({
         source,
@@ -1022,94 +1381,107 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
       })
     } else if (card.type === 'Modifier') {
       if (liveChallenge) {
-        // A started challenge: aim at one of the two roll panels in the
-        // overlay; the panel's side names whose roll the modifier lands on.
+        // A started challenge has two rolls: aim at one of the two roll
+        // panels in the overlay; the panel's side names whose roll the
+        // modifier lands on (the server refuses one that names no side).
         const sideOf: Record<ChallengeRole, string> = {
           challenged: liveChallenge.defenderId,
           challenger: liveChallenge.challengerId,
         }
+        // Lazy Choice answers the WHOLE play: the number and the roll it
+        // lands on are one decision, so it picks both and sends it. The
+        // value is not a server window here — a two-valued card is asked
+        // for in a local dialog (playModifier) — which is why watching for
+        // a ValueChoice never answered a challenge (the owner, 2026-09-08).
+        const swing =
+          settings.lazyChoice && !lazySuspended && !shiftHeld.current
+            ? lazyModifierValue(card.values ?? [])
+            : null
+        if (swing !== null) {
+          const backed = backedRole(view, liveChallenge.defenderId, liveChallenge.challengerId)
+          const other: ChallengeRole = backed === 'challenged' ? 'challenger' : 'challenged'
+          playModifier(card, sideOf[swing > 0 ? backed : other], swing)
+          return
+        }
         begin({
           source,
           tone: 'reaction',
+          sourceCardId: card.id,
           targets: (['challenged', 'challenger'] as const).map((role) =>
             tkey.challengeRoll(role),
           ),
           onPick: (target) => {
             const role = target.split(':')[1] as ChallengeRole
-            setModifierChoice({ card, targetPlayerId: sideOf[role] })
+            playModifier(card, sideOf[role])
           },
         })
         return
       }
-      const windows = view.pendingWindows.filter(
-        (window) => window.type === 'Modifier' || window.type === 'Attack',
-      )
-      const pairs = windows.flatMap((window) => {
-        const key = targetKeyForId(view, subjectIdOf(window))
-        return key ? [{ key, window }] : []
-      })
-      begin({
-        source,
-        tone: 'reaction',
-        targets: pairs.map((pair) => pair.key),
-        onPick: (target) => {
-          const pair = pairs.find((candidate) => candidate.key === target)
-          if (pair) {
-            setModifierChoice({
-              card,
-              targetPlayerId: pair.window.respondentId,
-            })
-          }
-        },
-      })
+      // A roll has one target and the server names it: no aiming, the
+      // press goes straight to the value.
+      playModifier(card)
     } else if (card.type === 'Challenge') {
-      const windows = view.pendingWindows.filter(
-        (window) =>
-          window.type === 'Challenge' &&
-          window.cardId &&
-          window.detail?.challenged !== true,
-      )
-      const pairs = windows.flatMap((window) => {
-        const key = targetKeyForId(view, window.cardId)
-        return key && window.cardId ? [{ key, window }] : []
-      })
-      begin({
-        source,
-        tone: 'reaction',
-        targets: pairs.map((pair) => pair.key),
-        onPick: (target) => {
-          const contested = pairs.find((pair) => pair.key === target)?.window
-          if (contested?.cardId) {
-            void run({
-              type: 'Challenge',
-              payload: { cardId: card.id, targetedCardId: contested.cardId },
-            })
-          }
-        },
-      })
+      // Likewise: the card contests whichever play is open to a challenge.
+      void run({ type: 'Challenge', payload: { cardId: card.id } })
     }
   }
 
+  useEffect(() => {
+    if (active?.tone !== 'reaction' || !active.sourceCardId) return
+    const index = view.hand.findIndex((card) => card.id === active.sourceCardId)
+    if (index < 0 || !flags.hand[index]) { cancel(); return }
+    activate(tkey.handCard(index))
+    // Refresh target identities and callbacks together when the board changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view])
+
   return (
     <div
+      onMouseDownCapture={(event) => {
+        shiftHeld.current = event.shiftKey
+      }}
       className={`board-root relative h-screen w-screen overflow-hidden bg-zinc-950${
         active ? ` targeting${active.tone === 'reaction' ? ' reaction-targeting' : ''}` : ''
-      }${active?.tone === 'choice' ? ' choice-targeting' : ''}${challengeOpen ? ' challenge-open' : ''}`}
-      onClick={active ? cancel : undefined}
+      }${active?.tone === 'choice' ? ' choice-targeting' : ''}${stageOpen ? ' challenge-open' : ''}${auraClasses(
+        settings,
+      )}`}
+      onClick={(event) => {
+        if (handHeldOpen && pressedFelt(event)) setHandHeldOpen(false)
+        if (active) cancel()
+      }}
     >
       <div
-        className="dimmable pointer-events-none absolute inset-0"
-        style={{ backgroundImage: `url("${TABLE_BG}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+        className="board-felt dimmable absolute inset-0"
+        style={{ backgroundImage: `url("${tableBackground}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
       />
+      {/* The screen's own two words: RED while an opponent's roll is aimed at
+          you, GREEN while the turn is yours. Both are legible from under the
+          modifier window's overlay, and both sit outside the stage — it is the
+          SCREEN's edge, not the table's. Red wins when both apply. */}
+      {myTurn && (
+        <div
+          aria-hidden
+          className="turn-vignette turn-side-all pointer-events-none absolute inset-0 z-[300]"
+        />
+      )}
+      {/* the red rim rides OVER the green one: being the target of a roll is
+          the more urgent of the two, and they are the same geometry so the
+          green still shows through at the edges it is not on */}
+      {targeted && (
+        <div
+          aria-hidden
+          className="target-vignette pointer-events-none absolute inset-0 z-[301]"
+        />
+      )}
       <div
         className="board-stage absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 [container-type:size]"
         style={{ width: 'min(100vw, calc(100vh * 16 / 9))', height: 'min(100vh, calc(100vw * 9 / 16))' }}
       >
         <div
-          className="absolute z-20 -translate-x-1/2 -translate-y-1/2 has-[:hover]:z-[100]"
+          className="absolute z-20 -translate-x-1/2 -translate-y-1/2 has-[.is-zoomed]:z-[120]"
           style={{ left: `calc(50% + ${CENTER_DX}cqh)`, top: `calc(50% + ${CENTER_DY}cqh)`, height: `${CENTER_H}cqh`, width: `${CENTER_H * ASPECT.center}cqh` }}
         >
-          <img src={FRAMES.center} alt="" aria-hidden draggable={false} className="dimmable pointer-events-none absolute inset-0 h-full w-full object-fill" />
+          <AssetImage src={FRAMES.center} alt="" aria-hidden draggable={false} className="board-felt dimmable absolute inset-0 h-full w-full object-fill" />
           <CenterArena
             view={view}
             discardCards={discardCards}
@@ -1130,9 +1502,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           if (!player || !party) return null
           const layout = PLAYERS[slot]
           const isMine = playerId === view.playerId
+          // Somebody else's turn is said by THEIR corner of the table; the
+          // viewer's own is the screen rim, so the two never both fire.
+          const theirTurn =
+            !isMine && view.phase === 'Turns' && view.currentPlayerId === playerId
           return (
             <React.Fragment key={slot}>
-              <Widget def={layout.heroes} anchor={layout.anchor}>
+              <Widget def={layout.heroes} anchor={layout.anchor} turn={theirTurn}>
                 <HeroRow
                   heroes={party.heroes}
                   seat={HERO_SEAT[slot]}
@@ -1160,7 +1536,8 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                   onActivateFor={isMine ? (index) => activate(tkey.hero(slot, index)) : undefined}
                 />
               </Widget>
-              <Widget def={layout.leader} anchor={layout.anchor}>
+              <Widget def={layout.leader} anchor={layout.anchor} turn={theirTurn}>
+                {!isMine && <SeatName name={nameOf(view, playerId)} anchor={layout.anchor} />}
                 <LeaderWithCards
                   slot={slot}
                   party={party}
@@ -1172,26 +1549,53 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                   origin={LEADER_ZOOM_ORIGIN[layout.anchor]}
                   // a zoomed leader is exactly as tall as a zoomed monster
                   zoom={MONSTER_ZOOMED_H / layout.leader.h}
+                  room={trophyRoom(layout, layout.anchor === 'right' ? 'left' : 'right')}
                 />
               </Widget>
               <Widget
                 def={layout.cardback}
                 anchor={layout.anchor}
+                turn={theirTurn}
                 zClass="z-40"
-                // during a challenge the local hand is part of the bright
-                // layer — raised above the overlay's click shield (z-140) —
-                // and every seat's hand count stays readable (modifier fuel)
-                zIndex={challengeOpen && isMine ? 160 : undefined}
-                dimExempt={challengeOpen}
+                // during a challenge the LOCAL hand is part of the bright
+                // layer — raised above the overlay's click shield (z-140) and
+                // above the HUD's opener (z-160): a hand that is opened sits
+                // over everything (the owner, 2026-09-06). The same condition as
+                // the z: an opponent's face-down stack is drawn with the SAME
+                // art as the main deck, so exempting it too read as the decks
+                // floating over the dim (the owner, 2026-09-07).
+                // A discard chosen from the hand is answered in here too —
+                // Bloodwing asks the challenger for one while the challenge
+                // is on stage — so the fan rises for that as well as for a
+                // reaction it can answer (the owner, 2026-09-08).
+                zIndex={stageOpen && isMine && (canAnswer || handChoiceOpen) ? 170 : undefined}
+                dimExempt={stageOpen && isMine}
               >
                 {isMine ? (
                   <PlayerHand
                     cards={view.hand.map((card) => artFor(card).url)}
+                    ids={view.hand.map((card) => card.id)}
                     anchorCenterCqw={82}
                     playable={flags.hand}
+                    free={view.hand.map(isFreeAction)}
+                    asked={askedInHand}
                     onActivateCard={(index) => activate(tkey.handCard(index))}
+                    visible={handVisible}
+                    // A pick FROM the hand — a discard, a card to give
+                    // away — opens the fan on its own: the answer is in
+                    // there and the closed stack cannot be pressed
+                    // (the owner, 2026-09-08). Same door a reaction opens.
+                    forceOpen={(!!answersWith && canAnswer) || handChoiceOpen}
+                    sticky={settings.stickyHand}
+                    stuckOpen={handHeldOpen}
+                    onStickyOpen={() => setHandHeldOpen(true)}
                   >
-                    <HandCount count={view.hand.length} playable={hasPlayableHandCard} targetKey={tkey.handStack(slot)} />
+                    <HandCount
+                      count={view.hand.length}
+                      playable={hasPlayableHandCard}
+                      asked={handAsked}
+                      targetKey={tkey.handStack(slot)}
+                    />
                   </PlayerHand>
                 ) : (
                   <HandCount count={player.handCount} targetKey={tkey.handStack(slot)} />
@@ -1201,15 +1605,33 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           )
         })}
 
-        {/* the table's one line of words — the roll as it stands, the
-            question being asked, whose turn — as a tooltip on the gems,
-            since the owner dropped the turn scroll (2026-09-03) */}
-        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={3}>
-          <DevButton
-            label="Challenge"
-            enabled={!!liveChallenge && overlayHidden}
-            onClick={() => setOverlayHidden(false)}
-          />
+        {/* the volume now lives behind the gear, not on the felt
+            (the owner, 2026-09-07) */}
+        <HudWidget def={HUD_WIDGETS.settings} aspect={1} aboveChallenge>
+          <SettingsMenu config={info?.config} log={log} />
+        </HudWidget>
+        {/* One painted slot for the reaction windows: the challenge plaque
+            while a challenge runs, the modifier plaque while a roll does, and
+            greyed on its own when neither is (the owner, 2026-09-07) — it used
+            to unmount, so the slot blinked in and out of the rim.
+            `dim-exempt` on the wrapper: ImageButton's art is `dimmable`, and
+            without it the painted plaque would go dark under targeting the way
+            a card does. */}
+        <HudWidget def={HUD_WIDGETS.challengeButton} aspect={HUD_ASPECT.answer} aboveChallenge={stageOpen} yields>
+          <div className="dim-exempt h-full w-full">
+            <ImageButton
+              src={liveChallenge ? HUD.challengeWindow : HUD.modifierWindow}
+              label={liveChallenge ? 'Challenge window' : 'Modifier window'}
+              enabled={!!liveChallenge || !!liveRoll}
+              onClick={() => {
+                if (liveChallenge) setOverlayHidden((hidden) => !hidden)
+                else {
+                  setManuallyOpenedRollId(liveRoll?.windowId ?? null)
+                  setModifierHidden(modifierOpen)
+                }
+              }}
+            />
+          </div>
         </HudWidget>
         {FAKE_SERVER && (
           <HudWidget def={HUD_WIDGETS.restartButton} aspect={3}>
@@ -1220,6 +1642,9 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             />
           </HudWidget>
         )}
+        <HudWidget def={HUD_WIDGETS.turnTimer} aspect={1}>
+          <TurnTimer clock={view.turnClock} />
+        </HudWidget>
         <HudWidget
           def={HUD_WIDGETS.actionPoints}
           aspect={HUD_ASPECT.actionFrame}
@@ -1229,25 +1654,32 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
               : boardChoice
                 ? `choose: ${typeof question === 'string' ? question : boardChoice.window.type}`
                 : `${
-                    view.currentPlayerId === view.playerId ? 'your turn' : `${current?.name ?? 'player'}'s turn`
+                    view.currentPlayerId === view.playerId
+                      ? 'your turn'
+                      : `${nameOf(view, view.currentPlayerId)}'s turn`
                   } · ${current?.actionPoints ?? mine?.actionPoints ?? 0} AP${view.busy ? ' · busy' : ''}`
           }
         >
-          <ActionPoints current={mine?.actionPoints ?? 0} />
+          {/* the CURRENT player's points, not the viewer's: the bar says what
+              the turn has left to spend (the owner, 2026-09-07) */}
+          <ActionPoints current={current?.actionPoints ?? mine?.actionPoints ?? 0} />
         </HudWidget>
-        <HudWidget def={HUD_WIDGETS.endTurn} aspect={HUD_ASPECT.button}>
+        <HudWidget def={HUD_WIDGETS.endTurn} aspect={HUD_ASPECT.button} aboveChallenge>
           {view.phase === 'Concluded' ? (
             // once the game is over the End Turn slot is the Exit button
             // (same art until the owner's Exit art lands)
             <ImageButton src={HUD.endTurn} label="Exit" enabled onClick={leaveGame} />
-          ) : flags.passable || flags.waitingOnPass ? (
-            // a roll or a challenge is open: nobody can end a turn, so the slot
-            // gives the window up instead (PassWindow) — one window per press,
-            // and once this seat has passed them all it waits for the others
+          ) : canSkipNow && !modifierOpen ? (
+            // Only while there IS something to give up (the owner,
+            // 2026-09-08): a Skip with nothing behind it reads as an action
+            // the table is waiting on. The modifier window carries its own
+            // Skip beside the total, so while that is up this slot stays out
+            // of the way.
             <ImageButton
               src={HUD.skipReaction}
-              label={flags.passable ? 'Skip reaction' : 'Waiting for the other players'}
-              enabled={!!flags.passable}
+              label="Skip reaction"
+              enabled
+              glow
               onClick={() => void forfeitWindow()}
             />
           ) : (
@@ -1259,7 +1691,7 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
             />
           )}
         </HudWidget>
-        <HudWidget def={HUD_WIDGETS.redraw} aspect={HUD_ASPECT.button}>
+        <HudWidget def={HUD_WIDGETS.redraw} aspect={HUD_ASPECT.button} yields>
           <ImageButton
             src={HUD.redraw}
             label="Redraw"
@@ -1272,36 +1704,76 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
           view={view}
           hiddenWindowIds={[
             ...(boardChoice ? [boardChoice.window.windowId] : []),
-            ...(optionalAsk && askedCardId && targetKeyForId(view, askedCardId)
-              ? [optionalAsk.windowId]
-              : []),
+            ...(valueAsk ? [valueAsk.windowId] : []),
+            ...(cardPick ? [cardPick.windowId] : []),
+            // a yes/no is answered either on the board (the card glows) or in
+            // the ConfirmAsk overlay below — never as a strip card as well
+            ...(optionalAsk ? [optionalAsk.windowId] : []),
+            ...(actionAsk ? [actionAsk.windowId] : []),
           ]}
           onSubmit={(windowId, choice) =>
             void run({ type: 'SubmitChoice', payload: { windowId, choice } })
           }
         />
-        <DiceRoll roll={dice} tone={diceTone} />
+        {/* what the open choice wants of you, in large type over whatever it
+            is answered on — and never in the way of answering it */}
+        {/* the pile carries the question in its own header while it is up:
+            its backdrop is translucent, so a banner behind it reads as a
+            ghost plate over the cards (the owner, 2026-09-08) */}
+        {!discardOpen && <ChoicePrompt view={view} />}
+        <ReactionPrompt view={view} />
+        <DiceRoll roll={dice} outcome={diceOutcome} />
         <ChallengeWindow
-          hidden={overlayHidden}
+          hidden={overlayHidden || myQuestionOpen}
           onHide={() => setOverlayHidden(true)}
-          onForfeit={flags.passable ? () => void forfeitWindow() : undefined}
+        />
+        <ModifierWindow
+          roll={modifierRoll}
+          hidden={modifierHidden || challengeOpen || myQuestionOpen}
+          onHide={() => setModifierHidden(true)}
+          canSkip={canSkipNow}
+          onSkip={canSkipNow ? () => void forfeitWindow() : undefined}
         />
 
-        <RevealedCards cards={view.revealedCards ?? []} />
+        <RevealedCards view={view} />
 
         {discardOpen && (
           <DiscardPileModal
             cards={discardCards}
+            deadline={discardPick?.window.deadline}
+            question={discardPick ? choiceInstruction(discardPick.window) : undefined}
             onClose={() => setDiscardOpen(false)}
           />
         )}
 
         {actionAsk && (
-          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+          <div className="dim-exempt absolute inset-0 z-[210] flex items-center justify-center bg-black/60">
             <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
               <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
-                {typeof actionAsk.detail?.question === 'string' ? actionAsk.detail.question : 'Choose'}
+                {choiceInstruction(actionAsk)}
               </div>
+              {(actionCard || actionSubject) && (
+                <div className="mb-[.9cqh] flex items-center justify-center gap-[1.2cqw]">
+                  {/* the card ASKING wears the pink of a rule in force… */}
+                  {actionCard && (
+                    <AssetImage
+                      src={artFor(actionCard).url}
+                      alt={actionCard.name}
+                      draggable={false}
+                      className="passive-aura h-[26cqh] rounded-[.35cqw] object-contain"
+                    />
+                  )}
+                  {/* …and the card it is ABOUT the gold of the thing at stake */}
+                  {actionSubject && actionSubject.id !== actionCard?.id && (
+                    <AssetImage
+                      src={artFor(actionSubject).url}
+                      alt={actionSubject.name}
+                      draggable={false}
+                      className="ask-aura h-[26cqh] rounded-[.35cqw] object-contain"
+                    />
+                  )}
+                </div>
+              )}
               <div className="flex justify-center gap-[.8cqw]">
                 {actionAsk.options!.map((option) => (
                   <button
@@ -1318,6 +1790,68 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                     {String(option)}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* A yes/no about a card the viewer cannot press — the Crowned
+            Serpent's "you may DRAW", asked of its owner about a monster in
+            their own party — takes the stage instead of the strip card it
+            used to get, which sat UNDER the modifier window (the owner,
+            2026-09-07): the card that asks beside the two painted answers. */}
+        {optionalAsk && !askOnBoard && (
+          <div className="dim-exempt absolute inset-0 z-[210] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {askCard?.name ?? 'Your response'}
+              </div>
+              <div className="flex items-center justify-center gap-[1.2cqw]">
+                {askCard && (
+                  <AssetImage
+                    src={artFor(askCard).url}
+                    alt={askCard.name}
+                    draggable={false}
+                    className="passive-aura h-[30cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                {/* the subject, when the question is about a DIFFERENT card
+                    than the one asking (Quick Draw's drawn Item) */}
+                {askSubject && askSubject.id !== askCard?.id && (
+                  <AssetImage
+                    src={artFor(askSubject).url}
+                    alt={askSubject.name}
+                    draggable={false}
+                    className="ask-aura h-[30cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                <div className="flex flex-col gap-[1.2cqh]">
+                  <div style={{ height: `${ANSWER_H}cqh`, width: `${ANSWER_H * HUD_ASPECT.answer}cqh` }}>
+                    <ImageButton
+                      src={HUD.draw}
+                      label={question ? `Yes — ${question}` : 'Yes'}
+                      enabled
+                      glow
+                      onClick={() =>
+                        void send({
+                          type: 'SubmitChoice',
+                          payload: { windowId: optionalAsk.windowId, choice: 'confirm' },
+                        }).then(handleResult)
+                      }
+                    />
+                  </div>
+                  <div style={{ height: `${ANSWER_H}cqh`, width: `${ANSWER_H * HUD_ASPECT.answer}cqh` }}>
+                    <ImageButton
+                      src={HUD.forfeit}
+                      label="No"
+                      enabled
+                      onClick={() => void forfeit()}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-[.8cqh]">
+                <Countdown deadline={optionalAsk.deadline} />
               </div>
             </div>
           </div>
@@ -1352,13 +1886,13 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                         type: 'ApplyModifier',
                         payload: {
                           cardId: selection.card.id,
-                          targetPlayerId: selection.targetPlayerId,
                           value,
+                          ...(selection.targetPlayerId ? { targetPlayerId: selection.targetPlayerId } : {}),
                         },
                       })
                     }}
                   >
-                    <img
+                    <AssetImage
                       src={boardModifierUrl(`${value > 0 ? '+' : ''}${value}`)}
                       alt={`${value > 0 ? '+' : ''}${value}`}
                       draggable={false}
@@ -1366,6 +1900,87 @@ function BoardInner({ onLeave }: { onLeave?: () => void }) {
                     />
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {cardPick && (
+          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              {/* the banner above says WHAT to pick; this names who is asking */}
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {askingCard?.name ?? 'Choose a card'}
+              </div>
+              <div className="flex items-center justify-center gap-[1cqw]">
+                {askingCard && (
+                  <AssetImage
+                    src={artFor(askingCard).url}
+                    alt={askingCard.name}
+                    draggable={false}
+                    className="passive-aura mr-[1cqw] h-[30cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                {cardPick.optionCards!.map((card) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    aria-label={`Choose ${card.name}`}
+                    className="group rounded-[.45cqw] border border-amber-400/60 bg-amber-950/70 p-[.35cqw] transition hover:-translate-y-[.35cqh] hover:border-amber-200 hover:brightness-125"
+                    onClick={() =>
+                      void run({
+                        type: 'SubmitChoice',
+                        payload: { windowId: cardPick.windowId, choice: card.id },
+                      })
+                    }
+                  >
+                    <AssetImage
+                      src={artFor(card).url}
+                      alt={card.name}
+                      draggable={false}
+                      className="ask-aura h-[30cqh] rounded-[.35cqw] object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {valueAsk && (
+          <div className="absolute inset-0 z-[180] flex items-center justify-center bg-black/60">
+            <div className="rounded-[.6cqw] border border-amber-400/70 bg-zinc-950 p-[1cqw] text-center text-amber-100 shadow-2xl">
+              <div className="mb-[.7cqh] font-heading text-[.9cqw] text-amber-300">
+                {valueAskCard ? `${valueAskCard.name}: choose value` : 'Choose value'}
+              </div>
+              <div className="flex items-center justify-center gap-[1cqw]">
+                {valueAskCard && (
+                  <AssetImage
+                    src={artFor(valueAskCard).url}
+                    alt={valueAskCard.name}
+                    draggable={false}
+                    className="passive-aura mr-[1cqw] h-[25cqh] rounded-[.35cqw] object-contain"
+                  />
+                )}
+                {(valueAsk.options as number[])
+                  .slice()
+                  .sort((a, b) => a - b)
+                  .map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-label={`Choose ${value > 0 ? '+' : ''}${value}`}
+                      className="group rounded-[.45cqw] border border-amber-400/60 bg-amber-950/70 p-[.35cqw] transition hover:-translate-y-[.35cqh] hover:border-amber-200 hover:brightness-125"
+                      onClick={() =>
+                        void run({
+                          type: 'SubmitChoice',
+                          payload: { windowId: valueAsk.windowId, choice: value },
+                        })
+                      }
+                    >
+                      <ValueArt value={value} />
+                    </button>
+                  ))}
               </div>
             </div>
           </div>

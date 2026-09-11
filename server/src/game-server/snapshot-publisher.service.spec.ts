@@ -2,9 +2,11 @@ import { Logger } from '@nestjs/common'
 import type { ClientProxy } from '@nestjs/microservices'
 import { of } from 'rxjs'
 import {
+  DEFAULT_GAME_SETTINGS,
   GAME_COMPLETED,
   GAME_COMPLETED_PATTERN,
   GAME_SNAPSHOT,
+  GameEventType,
   GamePhase,
   RefusalReason,
 } from 'shared'
@@ -22,6 +24,8 @@ import { GameRegistryService } from './game-registry.service'
 import type { RunningGame } from './game-registry.service'
 import { SnapshotPublisherService } from './snapshot-publisher.service'
 import { dealQuickWin, winFirstTurn } from './spec-helpers'
+import { GameLog } from '../game/views/game-log'
+import { InMemoryGameStore } from './stores/in-memory-game.store'
 
 // ---------------------------------------------------------------------------
 // The observer, on a real dealt table driven through the real dispatcher,
@@ -44,12 +48,13 @@ describe('SnapshotPublisherService', () => {
   let sent: Sent[]
   let lobby: { emit: jest.Mock }
   let publisher: SnapshotPublisherService
+  let store: InMemoryGameStore
 
   beforeAll(() => {
     Logger.overrideLogger(false)
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Alice holds hero-001 and modifier-080; Bob holds hero-002 and modifier-081.
     t = stacked({
       seats: [ALICE, BOB],
@@ -57,14 +62,25 @@ describe('SnapshotPublisherService', () => {
       deck: ['hero-001', 'modifier-080', 'hero-002', 'modifier-081'],
     })
     expect(active(t)).toBe(ALICE)
-    running = { game: t.game, arrived: new Set(), left: new Set(), version: 0 }
+    const log = new GameLog(t.game.gameState)
+    t.game.emitter.addListener(log)
+    running = { game: t.game, arrived: new Set(), left: new Set(), version: 0, log }
     dispatcher = new CommandDispatcherService()
     sent = []
     lobby = { emit: jest.fn(() => of(undefined)) }
 
-    publisher = new SnapshotPublisherService(lobby as unknown as ClientProxy)
+    store = new InMemoryGameStore()
+    publisher = new SnapshotPublisherService(lobby as unknown as ClientProxy, store)
     publisher.bind(recorder(sent))
     publisher.watch(running)
+    // The registry stores a table at its birth; this table has no registry.
+    await store.create({
+      gameId: t.game.gameId,
+      createdAt: new Date(),
+      seats: t.game.playerOrder.map((accountId, seat) => ({ accountId, username: accountId, seat })),
+      settings: DEFAULT_GAME_SETTINGS,
+      config: t.game.config,
+    })
   })
 
   afterEach(async () => {
@@ -118,6 +134,44 @@ describe('SnapshotPublisherService', () => {
     expect(bob.state.seats.find((s) => s.playerId === ALICE)!.handCount).toBe(1)
   })
 
+  it('ships each seat the story in its own words, with the view', async () => {
+    dispatcher.dispatch(t.game, ALICE, command('DrawCard'))
+    await nextTurn()
+
+    const alice = sent.find((s) => s.room === room(ALICE))!.snapshot
+    const bob = sent.find((s) => s.room === room(BOB))!.snapshot
+    expect(alice.log).toEqual(running.log.entriesFor(ALICE))
+    expect(bob.log).toEqual(running.log.entriesFor(BOB))
+    expect(alice.log.at(-1)!.text).toMatch(/^alice drew (?!a card$)/)
+    expect(bob.log.at(-1)!.text).toBe('alice drew a card')
+  })
+
+  it('hands every flush to the store: the burst, the lines, the board per seat', async () => {
+    dispatcher.dispatch(t.game, ALICE, command('PlayHero', { cardId: 'hero-001' }))
+    await nextTurn()
+
+    const stored = store.get(t.game.gameId)!
+    expect(stored.version).toBe(1)
+    expect(stored.views[ALICE]).toEqual(sent.find((s) => s.room === room(ALICE))!.snapshot.state)
+    expect(stored.views[BOB]).toEqual(sent.find((s) => s.room === room(BOB))!.snapshot.state)
+    expect(stored.events.map((e) => e.type)).toEqual(
+      expect.arrayContaining([GameEventType.CardRemovedFromHand, GameEventType.HeroAddedToParty]),
+    )
+    expect(stored.lines.map((l) => l.line.text)).toContain('alice played Bad Axe')
+    expect(stored.winnerId).toBeUndefined()
+
+    // The next flush brings only what came since.
+    const before = stored.events.length
+    dispatcher.dispatch(t.game, BOB, command('PassWindow', {
+      windowId: playerView(t.game, BOB).pendingWindows[0].windowId,
+    }))
+    await nextTurn()
+    const again = store.get(t.game.gameId)!
+    expect(again.version).toBe(2)
+    expect(again.events.length).toBeGreaterThan(before)
+    expect(again.events.map((e) => e.seq)).toEqual(again.events.map((_, i) => i + 1))
+  })
+
   it('pushes nothing for a refused command: nothing happened', async () => {
     const result = dispatcher.dispatch(t.game, BOB, command('DrawCard'))
     expect(result).toEqual({
@@ -155,7 +209,7 @@ describe('SnapshotPublisherService', () => {
   describe('the end', () => {
     it('pushes the final board as game-completed to every seat, and tells the lobby once', async () => {
       // A table this publisher watches from birth, won in one turn.
-      const registry = new GameRegistryService(publisher)
+      const registry = new GameRegistryService(publisher, store)
       const won = dealQuickWin(registry, [ALICE, BOB])
       for (const id of [ALICE, BOB]) registry.arrive(won, id)
       const before = sent.length
@@ -168,6 +222,8 @@ describe('SnapshotPublisherService', () => {
       expect(ending.map((s) => s.room).sort()).toEqual([wonRoom(ALICE), wonRoom(BOB)])
       expect(ending.every((s) => s.snapshot.version === won.version)).toBe(true)
       expect(ending.every((s) => s.snapshot.state.phase === GamePhase.Concluded)).toBe(true)
+      expect(store.get(won.game.gameId)!.winnerId).toBe(won.game.gameState.getWinnerId())
+      expect(store.get(won.game.gameId)!.events.map((e) => e.type)).toContain(GameEventType.GameEnded)
       expect(ending.find((s) => s.room === wonRoom(BOB))!.snapshot.state).toEqual(
         playerView(won.game, BOB),
       )

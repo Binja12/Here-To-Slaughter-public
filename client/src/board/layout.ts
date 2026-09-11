@@ -16,16 +16,18 @@
  */
 
 import type React from "react";
+import { assetUrl } from "../assetUrl";
 
 const WIDGETS = "/board/Border Widgets/";
-export const TABLE_BG = WIDGETS + "Table Background.png";
+const widget = (file: string) => assetUrl(WIDGETS + file);
+export const TABLE_BG = widget("Table Background.png");
 
 export const FRAMES = {
-  heroes: WIDGETS + "Heroes Frame.png", // 2172x724  aspect 3.00
-  leader: WIDGETS + "Leader Card Frame.png", // 1024x1536 aspect 0.667
-  cardback: WIDGETS + "Small Card Back Frame.png", // 1060x1484 aspect 0.714
-  big: WIDGETS + "Big Card Frame.png", // 956x1645  aspect 0.581
-  center: WIDGETS + "Center Border Frame.png", // 1254x1254 aspect 1.0
+  heroes: widget("Heroes Frame.png"), // 2172x724  aspect 3.00
+  leader: widget("Leader Card Frame.png"), // 1024x1536 aspect 0.667
+  cardback: widget("Small Card Back Frame.png"), // 1060x1484 aspect 0.714
+  big: widget("Big Card Frame.png"), // 956x1645  aspect 0.581
+  center: widget("Center Border Frame.png"), // 1254x1254 aspect 1.0
 } as const;
 
 export type FrameKind = keyof typeof FRAMES;
@@ -41,18 +43,27 @@ export const ASPECT: Record<FrameKind, number> = {
 /* HUD art (turn banner + action-points bar). Self-contained widgets, not
  * card frames — placed by HUD_WIDGETS below. */
 export const HUD = {
-  actionFrame: WIDGETS + "Action Pointer Border.png", // 2508x627 aspect 4.0
-  actionGem: WIDGETS + "Action Point Gem.png", // 1254x1254 aspect 1.0
-  yourTurn: WIDGETS + "Your Turn Show.png", // 2508x627 aspect 4.0
-  endTurn: WIDGETS + "End Turn Button.png", // 2172x724 aspect 3.0
-  skipReaction: WIDGETS + "Skip Reaction Button.png", // 2172x724 aspect 3.0 — the Forfeit slot
-  redraw: WIDGETS + "Redraw Button.png", // 2172x724 aspect 3.0
+  actionFrame: widget("Action Pointer Border.png"), // 2508x627 aspect 4.0
+  actionGem: widget("Action Point Gem.png"), // 1254x1254 aspect 1.0
+  yourTurn: widget("Your Turn Show.png"), // 2508x627 aspect 4.0
+  endTurn: widget("End Turn Button.png"), // 2172x724 aspect 3.0
+  skipReaction: widget("Skip Reaction Button.png"), // 2172x724 aspect 3.0 — the Forfeit slot
+  redraw: widget("Redraw Button.png"), // 2172x724 aspect 3.0
+  settings: widget("settings button.png"), // 1254x1254 aspect 1.0
+  /** the two answers to an engine question that is not about a card on the board */
+  draw: widget("Draw Button.png"), // 1672x941 aspect 1.777
+  forfeit: widget("Forfeit Button.png"), // 1672x941 aspect 1.777
+  /** the one opener slot, painted with whichever window is running */
+  challengeWindow: widget("Challenge Window Button.png"), // 1672x941 aspect 1.777
+  modifierWindow: widget("Modifier Window Button.png"), // 1672x941 aspect 1.777
 } as const;
 
 export const HUD_ASPECT = {
   actionFrame: 2508 / 627,
   yourTurn: 2508 / 627,
   button: 2172 / 724,
+  /** the 16:9 plaques — Draw / Forfeit, and the reaction-window opener */
+  answer: 1672 / 941,
 } as const;
 
 /**
@@ -266,10 +277,12 @@ export const CHALLENGE_LAYOUT = {
   tuck: { peek: 0.3, angle: 14, scale: 0.94 },
   /** the two roll panels — centres at ±dx from the stage centre
    *  (challenged at −dx, challenger at +dx), w/h in cqh */
-  panel: { w: 30, h: 26, dx: 43, dy: -6 },
+  panel: { w: 30, h: 30, dx: 43, dy: -6 },
   /** the roll-total scroll (the board's "your turn" art) inside a panel —
-   *  centre offset in cqh from the PANEL centre */
-  scroll: { h: 6, dx: 0, dy: 10.5 },
+   *  centre offset in cqh from the PANEL centre. Big: it is the number the
+   *  whole table is reading (the owner, 2026-09-08), which is why the panel
+   *  grew with it and the dice moved up to clear it. */
+  scroll: { h: 10, dx: 0, dy: 11 },
   /** modifier cards played onto a roll, by the panel's outer edge — dx is
    *  mirrored toward that side's OUTER edge (challenged left, challenger
    *  right); each next card steps `step` further out and tilts `angle`°
@@ -282,8 +295,8 @@ export const CHALLENGE_LAYOUT = {
   dice: {
     size: 6.5,
     spots: {
-      challenged: { dx: 0, dy: 4, fromDx: -20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
-      challenger: { dx: 0, dy: 4, fromDx: 20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
+      challenged: { dx: 0, dy: 2, fromDx: -20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
+      challenger: { dx: 0, dy: 2, fromDx: 20, fromDy: -14, pairDx: 4.3, pairDy: 0 },
     },
   },
 } as const;
@@ -343,10 +356,14 @@ export interface HudDef {
 export const HUD_WIDGETS: {
   actionPoints: HudDef;
   endTurn: HudDef;
+  /** the turn clock, a square dial left of the gems/End Turn column */
+  turnTimer: HudDef;
   redraw: HudDef;
-  /** the top-left dev row: re-open the challenge window, restart the test */
+  /** Opens whichever reaction window is running, below the discard pile. */
   challengeButton: HudDef;
   restartButton: HudDef;
+  /** the gear, top-left, where the config and log menus used to float */
+  settings: HudDef;
 } = {
   // The owner's placement (2026-09-03): the action-point gems and, right
   // under them, the End Turn button, together in the top-right strip above
@@ -356,10 +373,52 @@ export const HUD_WIDGETS: {
   // at centre-board dy 15, board dy -4).
   actionPoints: { anchor: "top", h: 5, dx: 62, dy: 4.5 },
   endTurn: { anchor: "top", h: 5, dx: 62, dy: 10 },
+  // Left of both, close against the gems' column (the owner's red circle,
+  // 2026-09-05): the gems span dx 52..72, a 9cqh square at dx 50 sits
+  // just off them.
+  turnTimer: { anchor: "top", h: 9, dx: 50, dy: 6.75 },
   redraw: { anchor: "center", h: 4.5, dx: -16, dy: 22 },
-  challengeButton: { anchor: "top", h: 4, dx: -80, dy: 4 },
-  restartButton: { anchor: "top", h: 4, dx: -66, dy: 4 },
+  // The centre frame's BOTTOM rim (the owner, 2026-09-08). CENTER_H 64 about
+  // CENTER_DY -4 puts that frame at stage y 14..78; this mirrors the 4cqh
+  // inset the button used to have at the top, so it spans 67..74 — beside
+  // Redraw (69.8..74.3), which sits left of centre and never meets it.
+  challengeButton: { anchor: "center", h: 7, dx: CENTER_DX, dy: 20.5 },
+  restartButton: { anchor: "top", h: 4, dx: -38, dy: 4.8 },
+  // the gear takes the corner the volume slider used to hold: the volume
+  // lives behind it now (the owner, 2026-09-07)
+  settings: { anchor: "top", h: 5, dx: -80, dy: 5.5 },
 };
+
+/* ------------------------------------------------------------------ */
+/* Modifier window (ModifierWindow.tsx) — the roll being modified takes  */
+/* the stage the way a challenge does: the card rolled on centre-stage,   */
+/* the total in a scroll under it, the modifier cards beside it — first   */
+/* right, second left, and so on outward. All cqh from the STAGE centre.  */
+/*                                                                       */
+/* The whole group sits HIGH, and that is load-bearing: an opened hand    */
+/* paints at z-170 over this window's z-140 (the owner's rule, 2026-09-06: */
+/* an opened hand sits over everything), and the fan's top edge is about  */
+/* y 65cqh. At the old dy the total and the Skip sat inside that band and */
+/* vanished the moment the player opened their hand to choose a modifier  */
+/* — which is exactly when the number is needed. CHALLENGE_LAYOUT has     */
+/* always cleared the band, which is why only this window ever showed it. */
+/* Anything moved down here has to stay above y 65cqh.                    */
+/* ------------------------------------------------------------------ */
+
+export const MODIFIER_LAYOUT = {
+  /** the card rolled on (hero / leader / monster) */
+  card: { h: 42, dx: 0, dy: -16 },
+  /** the total's scroll, under the card — big: it is the number the whole
+   *  table is deciding on (the owner, 2026-09-07) */
+  scroll: { h: 8, dx: 0, dy: 9 },
+  /** the modifier cards: the first at +dx (right), the second at −dx
+   *  (left), each next pair `step` further out and `drop` lower, tilted
+   *  `angle`° away from the centre */
+  modCard: { h: 22, dx: 24, dy: -8, step: 5, drop: 1.5, angle: 8 },
+  /** the Skip button beside the total's scroll — clear of the wider scroll
+   *  (the scroll is 4:1, so at h 8 it reaches 16cqh either side of centre) */
+  skip: { h: 7, dx: 28, dy: 9 },
+} as const;
 
 /**
  * Modifier cards played onto the CURRENT BOARD ROLL (no challenge window —
@@ -375,4 +434,97 @@ export const ROLL_MOD_CARDS = {
   dy: 9,
   step: 2,
   angle: -8,
+};
+
+/* ------------------------------------------------------------------ */
+/* DISCARD PILE BROWSER (DiscardPileModal.tsx) — the owner's painted     */
+/* panel plus the six filter plaques under /board/Discard Pile/. Same   */
+/* mechanic as every other painted widget: the panel is a hard cqh box  */
+/* at the art's own aspect, and everything inside is placed by a        */
+/* fraction of that box measured off the PNG, the way INSET was.        */
+/* ------------------------------------------------------------------ */
+
+const PILE = "/board/Discard Pile/";
+const pile = (file: string) => assetUrl(PILE + file);
+
+export const DISCARD_ART = {
+  frame: pile("Pile Border.png"), // 1672x941 aspect 1.777
+  All: pile("All Button.png"), // every plaque 2508x627, aspect 4.0
+  Hero: pile("Hero Button.png"),
+  Item: pile("Item Button.png"),
+  Magic: pile("Magic Button.png"),
+  Modifier: pile("Modifier Button.png"),
+  Challenge: pile("Challenge Button.png"),
+} as const;
+
+const PANEL_H = 90; // cqh — leaves a margin of felt top and bottom
+const PANEL_ASPECT = 1672 / 941;
+const PLAQUE_ASPECT = 2508 / 627; // = HUD_ASPECT.actionFrame
+
+/**
+ * The frame's inner window as a fraction of the panel box. Measured off the
+ * PNG: the plain gold band leaves x 0.071..0.942 and y 0.104..0.927, but four
+ * ruby gems bite further in — the side pair to x 0.094 / 0.904 at mid-height,
+ * the top and bottom pair to y 0.153 / 0.848 at mid-width. The content box
+ * clears the SIDE gems (they would cross the card grid) and only the band top
+ * and bottom, because the one row that reaches up there is the title/close
+ * row, which parts around the top gem.
+ */
+const PANEL_WINDOW = { l: 0.099, r: 0.901, t: 0.112, b: 0.918 };
+
+/**
+ * Each plaque was painted on its own canvas, so the gold sits at a different
+ * size on every one: this is the painted area (alpha bounds) as a fraction of
+ * the 2508x627 sheet, and it runs from 0.565 wide on MAGIC to 0.672 on
+ * CHALLENGE. Drawn at one box size they would read as six different buttons.
+ */
+export const DISCARD_BUTTON_INK: Record<string, { w: number; h: number }> = {
+  All: { w: 0.591, h: 0.718 },
+  Hero: { w: 0.654, h: 0.842 },
+  Item: { w: 0.621, h: 0.802 },
+  Magic: { w: 0.565, h: 0.777 },
+  Modifier: { w: 0.575, h: 0.716 },
+  Challenge: { w: 0.672, h: 0.73 },
+};
+
+/** how much of its slot in the row a plaque's PAINT should cover */
+const PLAQUE_FILL = 0.86;
+/** the extra step the chosen plaque takes toward the player */
+export const PLAQUE_PICKED = 1.07;
+
+/** one plaque's visual weight: the geometric mean of its painted box, so a
+ *  wide-and-short sheet and a narrow-and-tall one compare fairly */
+const inkWeight = (key: string) => {
+  const ink = DISCARD_BUTTON_INK[key];
+  return ink ? Math.sqrt(ink.w * ink.h) : 1;
+};
+
+/**
+ * Scale for a plaque's sheet so its PAINT covers `PLAQUE_FILL` of its slot —
+ * always > 1, because roughly a third of every sheet is transparent margin.
+ * Dividing by the plaque's own weight is what makes six differently painted
+ * sheets read at one weight in a row.
+ */
+export const inkScale = (key: string) => PLAQUE_FILL / inkWeight(key);
+
+const PLAQUE_SLOT_W =
+  (PANEL_H * PANEL_ASPECT * (PANEL_WINDOW.r - PANEL_WINDOW.l)) / 6;
+
+export const DISCARD_PANEL = {
+  h: PANEL_H,
+  aspect: PANEL_ASPECT,
+  window: PANEL_WINDOW,
+  plaqueAspect: PLAQUE_ASPECT,
+  /**
+   * The plaque row's height (cqh). `object-contain` fits each sheet to the
+   * slot WIDTH, so a sheet is slot/4 tall before `inkScale` blows it up; the
+   * row has to be tall enough for the biggest of those, picked, or a plaque
+   * would spill over the count under it.
+   */
+  plaqueRowH:
+    (PLAQUE_SLOT_W / PLAQUE_ASPECT) *
+    PLAQUE_PICKED *
+    Math.max(...Object.keys(DISCARD_BUTTON_INK).map(inkScale)),
+  /** the card grid inside the window; gaps in cqh */
+  grid: { cols: 7, gapX: 1.5, gapY: 2.2 },
 };

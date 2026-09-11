@@ -3,6 +3,7 @@ import {
   HeroClass,
   HeroClassReq,
   Owner,
+  PassiveType,
   RollCompareMode,
   Zone,
 } from 'shared'
@@ -288,6 +289,36 @@ describe('filterCards', () => {
     ).toEqual(['hero-2'])
   })
 
+  // Fluffy destroys two heroes and asks twice; the second question must not
+  // offer the first answer again.
+  it('leaves out whatever a context slot already holds', () => {
+    const gs = makeGs()
+    const p1 = seat(gs, 'p1')
+    gs.registerCard(hero('hero-1'))
+    gs.registerCard(hero('hero-2'))
+    p1.addToHand('hero-1')
+    p1.addToHand('hero-2')
+    const ctx = ctxFor('p1')
+    ctx.set('already', ['hero-1'])
+
+    expect(
+      filterCards(gs, ctx, {
+        zone: Zone.Hand,
+        owner: Owner.Self,
+        excludeKey: 'already',
+      }),
+    ).toEqual(['hero-2'])
+
+    // an empty or absent slot excludes nothing
+    expect(
+      filterCards(gs, ctxFor('p1'), {
+        zone: Zone.Hand,
+        owner: Owner.Self,
+        excludeKey: 'never-written',
+      }),
+    ).toEqual(['hero-1', 'hero-2'])
+  })
+
   it('returns an empty list in a solo game with no enemies', () => {
     const gs = makeGs()
     seat(gs, 'p1')
@@ -473,3 +504,36 @@ describe('filterCards — `among`: a limit to what a slot names', () => {
   })
 })
 
+
+describe('filterCards — destroyable', () => {
+  const table = () => {
+    const gs = makeGs()
+    seat(gs, 'p1')
+    seat(gs, 'p2')
+    gs.registerCard(hero('mine'))
+    gs.registerCard(hero('theirs'))
+    gs.getParty('p1').addHero('mine', silentEm, 'Played')
+    gs.getParty('p2').addHero('theirs', silentEm, 'Played')
+    return gs
+  }
+
+  it('offers every hero on the table while nobody is shielded', () => {
+    const gs = table()
+    expect(
+      filterCards(gs, new AbilityContext('src', 'p1'), { zone: Zone.Party, owner: Owner.All, destroyable: true }).sort(),
+    ).toEqual(['mine', 'theirs'])
+  })
+
+  it('never offers a hero its owner has shielded (Mighty Blade, Terratuga)', () => {
+    const gs = table()
+    gs.addEffect({ id: 'e', sourceCardId: 'blade', ownerId: 'p2', type: PassiveType.CantBeDestroyed })
+
+    expect(
+      filterCards(gs, new AbilityContext('src', 'p1'), { zone: Zone.Party, owner: Owner.All, destroyable: true }),
+    ).toEqual(['mine'])
+    // without the flag the shield is not the filter's business
+    expect(
+      filterCards(gs, new AbilityContext('src', 'p1'), { zone: Zone.Party, owner: Owner.All }).sort(),
+    ).toEqual(['mine', 'theirs'])
+  })
+})

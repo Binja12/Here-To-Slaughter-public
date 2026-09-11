@@ -122,7 +122,7 @@ describe('ChooseMonsterTask', () => {
     const { gs, em, rm } = setup([FREE], [])
     const frameId = new ChooseMonsterTask().execute(gs, ctx(), em, rm)
     expect(typeof frameId).toBe('string')
-    expect(gs.frames.has(frameId as string)).toBe(true)
+    expect(gs.getFrames().has(frameId as string)).toBe(true)
   })
 
   describe('with nothing it may attack', () => {
@@ -141,7 +141,7 @@ describe('ChooseMonsterTask', () => {
 
       // TaskManager files the window's result; here the window wrote nothing
       // to file, which is what the steps behind read as "produced nothing".
-      expect(gs.frames.size).toBe(0)
+      expect(gs.getFrames().size).toBe(0)
     })
 
     it('the attack behind it skips on the empty slot', () => {

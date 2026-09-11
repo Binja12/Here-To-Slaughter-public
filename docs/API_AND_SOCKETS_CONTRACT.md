@@ -11,7 +11,7 @@ The application has two independently running servers:
 - **Lobby/Auth server**: registration, login, sessions, the global lobby, and lobby updates over HTTP and Server-Sent Events (SSE).
 - **Game server**: multiple isolated games running simultaneously, with commands and snapshots carried over Socket.IO.
 
-There is one global lobby. Its ready list holds at most four players. Starting a game removes its players from that list immediately, allowing another group to form while the first game is running. Games have no spectators.
+There is one global lobby. Its ready list holds at most `settings.playerCount` players (four by default; the host sets it). Starting a game removes its players from that list immediately, allowing another group to form while the first game is running. Games have no spectators.
 
 For local development, addresses and ports are configuration values using local IPs. Docker and production routing are deferred.
 
@@ -19,7 +19,7 @@ The two servers communicate through NestJS microservices using its built-in TCP 
 
 Initial internal operations:
 
-- Lobby -> Game: create a game for the selected accounts.
+- Lobby -> Game: create a game for the selected accounts, under the lobby's current `GameSettings`.
 - Game -> Lobby/Auth: resolve a session to its account.
 - Game -> Lobby: report that a game completed.
 
@@ -43,14 +43,13 @@ If an authenticated account is assigned to an active game, navigating to any app
 
 "Local storage" means server-side in-memory storage, not browser `localStorage`.
 
-The first implementation uses injected interfaces with in-memory adapters:
+Every store is an injected interface, chosen by `StoresModule` once at load (`docs/DATABASE_AND_LOGS.md`):
 
-- `IUserRepository`
-- `ISessionStore`
-- `ILobbyStore`
-- `IGameAssignmentStore`
+- `IUserRepository` — PostgreSQL when `DATABASE_URL` is set, otherwise in memory
+- `IGameStore` (game process: dealt tables, per-seat last state, both logs) — likewise
+- `ISessionStore`, `ILobbyStore`, `IGameAssignmentStore` — in memory
 
-Database or Redis adapters should later replace these without changing controllers or application services.
+The controllers and application services see the interfaces only.
 
 **Important:** separate server processes cannot share an in-memory session map. Until a shared persistent store is introduced, the game server must resolve sessions through the Lobby/Auth server over the internal NestJS TCP connection.
 
@@ -118,8 +117,18 @@ type LobbyPlayer = {
   username: string;
 };
 
+type GameSettings = {
+  playerCount: number; // 2..4 — seats at the table; the ready list holds at most this many
+  winCondition: "monstersOrClasses" | "monstersAndClasses"; // how the two printed win conditions combine
+  monsterCount: number; // 2..5 — monsters to slay
+  cardSet: "base";
+  turnTimeMs: number; // 10 000..120 000 — a turn's clock; paused while any reaction window is open, and the turn ends when it lapses
+  reactionTimeMs: 5000 | 10000 | 20000; // fast / moderate / slow — the challenge window's wait; a hero roll or a question takes the same, an attack twice it
+};
+
 type LobbySnapshot = {
-  readyPlayers: LobbyPlayer[]; // ordered, maximum four
+  readyPlayers: LobbyPlayer[]; // ordered, at most settings.playerCount
+  settings: GameSettings; // the table as the host set it; the same object goes to the game server
   self: {
     accountId: string;
     username: string;
@@ -139,7 +148,9 @@ IDLE <-> READY -> IN_GAME -> IDLE
 - The server performs `READY -> IN_GAME` after an accepted start command.
 - The server performs `IN_GAME -> IDLE` after the game is complete and the player leaves it.
 - The first ready player is the host.
-- Only the host may start a game, with two to four ready players.
+- Only the host may start a game, with two to `settings.playerCount` ready players.
+- Only the host may change the settings. Two named presets exist (`default`: 4 players, both win conditions, 3 monsters, 1:00 turns, 15 s reactions; `fast`: the same on 0:30 turns and 7.5 s reactions); a preset is DERIVED from the values and never stored — a client shows "custom" the moment one value differs.
+- A change of `playerCount` removes every ready player but the host from the ready list; they sit down again if they still mean to. Every other setting changes in place.
 
 #### `GET /lobby`
 
@@ -157,9 +168,15 @@ Empty request. Removes the authenticated account from the ready list.
 
 Success: `200 OK` with the updated `LobbySnapshot`.
 
+#### `PUT /lobby/settings`
+
+Request: a whole `GameSettings`. The authenticated account must be the host (`403` otherwise); a value outside its range is `400` with the field named in `reason`.
+
+Success: `200 OK` with the updated `LobbySnapshot`; every connected account receives it over SSE.
+
 #### `POST /lobby/start-game`
 
-Empty request. The authenticated account must be the host, and the ready list must contain two to four players.
+Empty request. The authenticated account must be the host, and the ready list must contain two to `settings.playerCount` players.
 
 Success: `202 Accepted`.
 
@@ -277,15 +294,19 @@ type AttackMonsterPayload = { monsterId: string };
 type ReDrawPayload = {};
 type EndTurnPayload = {};
 
+// A modifier on a roll lands on that roll: the board names the roller and
+// `targetPlayerId` is ignored. In a started challenge there are two rolls,
+// so `targetPlayerId` says which (the challenger or the defender) and is
+// refused TargetRequired when missing. A challenge card contests the open
+// play; it names nothing (GameState.aimModifier).
 type ApplyModifierPayload = {
   cardId: string;
   value: number;
-  targetPlayerId: string;
+  targetPlayerId?: string;
 };
 
 type ChallengePayload = {
   cardId: string;
-  targetedCardId: string;
 };
 
 type SubmitChoicePayload = {
@@ -315,10 +336,12 @@ type GameSnapshot<TState> = {
   gameId: string;
   version: number;
   state: TState;
+  /** The table's story so far, worded for this seat (docs/DATABASE_AND_LOGS.md §3). */
+  log: GameLogEntry[];
 };
 ```
 
-Every recipient gets a separately projected snapshot. A player can see its own private state, such as its hand, but never another player's hidden data.
+Every recipient gets a separately projected snapshot, story included: a line names a card only to the seats that saw it. A player can see its own private state, such as its hand, but never another player's hidden data.
 
 **Deferred:** the exact `state` fields depend on the finalized HTSR-3 engine model and HTSR-5 view requirements.
 

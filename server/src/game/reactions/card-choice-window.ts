@@ -19,8 +19,15 @@ export class CardChoiceWindow extends ChoiceWindow {
     emitter: IGameEventEmitter,
     /** The slot the pick is filed in — the task's choice (ChooseCardOptions.resultKey). */
     private readonly slot: string = CTX_CHOSEN_CARD,
+    /** The card whose ability asks, for the screen (`detail.sourceCardId`). */
+    sourceCardId?: string,
+    /** What is asked, when the cards alone do not say (`detail.question`). */
+    question?: string,
   ) {
-    super(id, respondentId, options, timeoutMs, gs, frameId, emitter)
+    super(id, respondentId, options, timeoutMs, gs, frameId, emitter, {
+      ...(sourceCardId && { sourceCardId }),
+      ...(question && { question }),
+    })
   }
 
   getType(): ReactionWindowType {
@@ -42,6 +49,10 @@ export class CardChoiceWindow extends ChoiceWindow {
   protected override defaultChoice(): unknown {
     if (this.options.length === 0) return undefined
     return this.options[Math.floor(Math.random() * this.options.length)]
+  }
+
+  protected override picksAtRandom(): boolean {
+    return true
   }
 
   /** The card must still be registered when the window resolves. */

@@ -5,6 +5,7 @@ import {
   GameSnapshot,
   HeroInPlayView,
   PendingWindowView,
+  GameLogEntry,
   PlayerView,
   RefusalReason,
 } from '../contract'
@@ -70,18 +71,7 @@ const makeInitialView = (): PlayerView => {
     copyOf(discardSeed[index % discardSeed.length], `fake-discard-stub-${index}`),
   )
 
-  return {
-    ...threeSeatOpening,
-    gameId: 'fake-game',
-    seats: [
-      ...threeSeatOpening.seats.map((seat, index) => ({
-        ...seat,
-        seat: index,
-        handCount: index === 0 ? threeSeatOpening.hand.length : 5 + index,
-      })),
-      fourthSeat,
-    ],
-    parties: [
+  const parties: PlayerView['parties'] = [
       {
         ...mine,
         // the viewer always leads with The Shadow Claw (the owner wants to
@@ -127,6 +117,35 @@ const makeInitialView = (): PlayerView => {
         ...partyExtras(mine, 'fake-d'),
         canRollOnLeader: false,
       },
+  ]
+
+  return {
+    ...threeSeatOpening,
+    gameId: 'fake-game',
+    seats: [
+      ...threeSeatOpening.seats.map((seat, index) => ({
+        ...seat,
+        seat: index,
+        handCount: index === 0 ? threeSeatOpening.hand.length : 5 + index,
+      })),
+      fourthSeat,
+    ],
+    parties,
+    // What the real projection says (server/src/game/views/player-view.ts):
+    // every leader but the ACTIVATED Shadow Claw, every monster won into a
+    // party, and every item standing an effect up.
+    passiveCardIds: [
+      ...parties
+        .filter((party) => party.leader.name !== shadowClaw.name)
+        .map((party) => party.leader.id),
+      ...parties.flatMap((party) => party.monsters.map((monster) => monster.id)),
+      ...parties.flatMap((party) =>
+        party.heroes.flatMap((hero) =>
+          hero.equippedItem && hero.equippedItem.name === ring?.name
+            ? [hero.equippedItem.id]
+            : [],
+        ),
+      ),
     ],
     hand: threeSeatOpening.hand,
     discardPile: [...discardSeed, ...discardStubs],
@@ -134,6 +153,7 @@ const makeInitialView = (): PlayerView => {
     revealedCards: [],
 
     pendingWindows: [],
+    turnClock: { turnTimeMs: 60_000, deadline: Date.now() + 60_000 },
     busy: false,
     phase: 'Turns',
   }
@@ -142,6 +162,7 @@ const makeInitialView = (): PlayerView => {
 export class FakeGamePort implements GamePort {
   private view = makeInitialView()
   private version = 0
+  private log: GameLogEntry[] = []
   private events: GameEvents | null = null
   private timers: number[] = []
 
@@ -150,8 +171,18 @@ export class FakeGamePort implements GamePort {
     if (this.view.phase === 'Concluded') {
       this.view = makeInitialView()
       this.version = 0
+      this.log = []
+    }
+    if (this.log.length === 0) {
+      this.say('', 'The game begins')
+      this.say(this.view.playerId, `${this.nameOf(this.view.playerId)}'s turn`)
     }
     this.events = events
+    events.onConnected?.({ gameId: this.view.gameId, config: {
+      actionPointsPerTurn: 3, cardSets: ['base'], turnTimeMs: 60_000, reactionTimeMs: 45_000,
+      requireAllWinConditions: false,
+      winConditions: [{ type: 'SlayMonsters', value: 3 }, { type: 'PartyClasses', value: 6 }],
+    } })
     events.onConnectionChange?.(true)
     this.after(0, () => events.onStarted(this.snapshot()))
     this.after(4000, () => this.openChallenge())
@@ -212,7 +243,7 @@ export class FakeGamePort implements GamePort {
           options: this.view.seats
             .filter((seat) => seat.playerId !== this.view.playerId)
             .map((seat) => seat.playerId),
-          detail: { question: 'Pull a card from whose hand?' },
+          detail: { question: 'Choose a player to pull a card from' },
           deadline: freshDeadline(10_000),
           isYours: true,
         })
@@ -228,28 +259,64 @@ export class FakeGamePort implements GamePort {
       case 'EndTurn':
         this.endTurn()
         break
-      case 'ApplyModifier':
-        this.removeFromHand(command.payload.cardId)
+      case 'ApplyModifier': {
+        const { cardId, value, targetPlayerId: aimed } = command.payload
+        // The server's rule: a roll's target is the roller; a started
+        // challenge has two rolls and the play names the side.
+        const soundWindow = [...this.view.pendingWindows].reverse().find((window) =>
+          window.type === 'Challenge'
+            ? window.detail?.challenged === true
+            : ['Modifier', 'Attack'].includes(window.type),
+        )
+        const targetPlayerId = aimed ?? soundWindow?.respondentId
+        const soundWindowId = soundWindow && (this.soundWindowIds.get(soundWindow.windowId) ?? soundWindow.windowId)
+        this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} modified the roll`, 'modifierPlayed', soundWindowId)
+        const card = this.view.hand.find((candidate) => candidate.id === cardId)
+        this.removeFromHand(cardId)
+        // The server's shape: the spent card sits in its owner's instance
+        // pile, the bonus lands in the roll's detail and the total moves,
+        // the window's clock resets. A challenge window just closes here.
+        const landed = (window: PendingWindowView): PendingWindowView => {
+          const detail = window.detail ?? {}
+          const previous = Array.isArray(detail.bonuses)
+            ? (detail.bonuses as { cardSource: string; amount: number }[])
+            : []
+          const bonuses = [...previous, { cardSource: cardId, amount: value }]
+          const baseRoll = typeof detail.baseRoll === 'number' ? detail.baseRoll : 0
+          const finalRoll = baseRoll + bonuses.reduce((sum, bonus) => sum + bonus.amount, 0)
+          return { ...window, deadline: freshDeadline(15_000), detail: { ...detail, bonuses, finalRoll } }
+        }
+        const aimedAt = (window: PendingWindowView) =>
+          ['Modifier', 'Attack'].includes(window.type) && window.respondentId === targetPlayerId
         this.view = {
           ...this.view,
-          pendingWindows: this.view.pendingWindows.filter(
-            (window) =>
-              !(
-                ['Modifier', 'Attack', 'Challenge'].includes(window.type) &&
-                window.respondentId === command.payload.targetPlayerId
-              ),
+          parties: this.view.parties.map((party) =>
+            card && party.playerId === this.view.playerId
+              ? { ...party, instanceCards: [...party.instanceCards, card] }
+              : party,
           ),
+          pendingWindows: this.view.pendingWindows
+            .filter((window) => !(window.type === 'Challenge' && window.respondentId === targetPlayerId))
+            .map((window) => (aimedAt(window) ? landed(window) : window)),
         }
         this.publish()
-        this.after(1200, () => this.openCardChoice())
+        this.after(15_000, () => {
+          this.view = {
+            ...this.view,
+            pendingWindows: this.view.pendingWindows.filter((window) => !aimedAt(window)),
+          }
+          this.publish()
+          this.openCardChoice()
+        })
         break
+      }
       case 'Challenge':
         this.removeFromHand(command.payload.cardId)
         this.view = {
           ...this.view,
           pendingWindows: this.view.pendingWindows.map((window) =>
             window.type === 'Challenge' &&
-            window.cardId === command.payload.targetedCardId
+            window.detail?.challenged !== true
               ? {
                   ...window,
                   detail: {
@@ -305,6 +372,7 @@ export class FakeGamePort implements GamePort {
       hand: [...this.view.hand, source],
       mainDeck: { count: Math.max(0, this.view.mainDeck.count - 1) },
     }
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} drew ${source.name}`)
     this.publish()
   }
 
@@ -315,6 +383,7 @@ export class FakeGamePort implements GamePort {
     const party = this.mine()
     if (!card || !party) return
     this.removeFromHand(cardId)
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} played ${card.name}`, 'heroPlayed')
     this.replaceParty({
       ...party,
       heroes: [...party.heroes, { card, canRollOn: true }],
@@ -376,6 +445,8 @@ export class FakeGamePort implements GamePort {
   }
 
   private endTurn() {
+    this.say(this.view.playerId, `${this.nameOf(this.view.playerId)} ended their turn`)
+    this.say(this.view.seats[1].playerId, `${this.nameOf(this.view.seats[1].playerId)}'s turn`)
     this.view = {
       ...this.view,
       currentPlayerId: this.view.seats[1].playerId,
@@ -404,6 +475,7 @@ export class FakeGamePort implements GamePort {
     )
     if (!challengedMagic) return
     const opponentId = this.view.parties[1].playerId
+    this.say(opponentId, `${this.nameOf(opponentId)} played ${challengedMagic.name}`)
     this.view = {
       ...this.view,
       currentPlayerId: opponentId,
@@ -457,6 +529,7 @@ export class FakeGamePort implements GamePort {
     const attacker = this.view.parties[1]?.playerId
     const monster = this.view.monsterRow[0]
     if (!attacker || !monster) return
+    this.say(attacker, `${this.nameOf(attacker)} rolled a 6 for ${monster.name}`)
     this.upsertWindow({
       windowId: 'fake-enemy-attack',
       type: 'Attack',
@@ -496,12 +569,15 @@ export class FakeGamePort implements GamePort {
 
   private openCardChoice() {
     const options = this.view.hand.slice(0, 3).map((card) => card.id)
+    // the server's shape: the options as cards too, and the card that asks
+    const leader = this.view.parties.find((party) => party.playerId === this.view.playerId)?.leader
     this.upsertWindow({
       windowId: 'fake-card-choice',
       type: 'CardChoice',
       respondentId: this.view.playerId,
       options,
-      detail: { question: 'Choose a card to discard.' },
+      optionCards: this.view.hand.slice(0, 3),
+      detail: { question: 'Choose a card to discard', sourceCardId: leader?.id },
       deadline: freshDeadline(),
       isYours: true,
     })
@@ -543,7 +619,12 @@ export class FakeGamePort implements GamePort {
     this.events?.onCompleted(snapshot)
   }
 
+  // Demo windows reuse friendly IDs; each new opening still starts a fresh sound ladder.
+  private soundWindowIds = new Map<string, string>()
+  private soundWindowSequence = 0
+
   private upsertWindow(window: PendingWindowView) {
+    this.soundWindowIds.set(window.windowId, `${window.windowId}:${++this.soundWindowSequence}`)
     this.view = {
       ...this.view,
       revealedCards: [],
@@ -552,7 +633,11 @@ export class FakeGamePort implements GamePort {
         ...this.view.pendingWindows.filter(
           (candidate) => candidate.windowId !== window.windowId,
         ),
-        window,
+        { ...window,
+          optional: window.options?.includes('dismiss') ?? false,
+          canPass: window.type === 'Modifier' || window.type === 'Attack' ||
+            (window.type === 'Challenge' && (window.detail?.challenged === true || !window.isYours)),
+        },
       ],
     }
     this.publish()
@@ -585,11 +670,20 @@ export class FakeGamePort implements GamePort {
     this.events?.onSnapshot(this.nextSnapshot())
   }
 
+  private say(playerId: string, text: string, sound?: GameLogEntry['sound'], soundWindowId?: string) {
+    this.log = [...this.log, { seq: this.log.length + 1, at: Date.now(), playerId, text, ...(sound ? { sound } : {}), ...(soundWindowId ? { soundWindowId } : {}) }]
+  }
+
+  private nameOf(playerId: string) {
+    return this.view.seats.find((seat) => seat.playerId === playerId)?.name ?? playerId
+  }
+
   private snapshot(): GameSnapshot {
     return {
       gameId: this.view.gameId,
       version: this.version,
       state: structuredClone(this.view),
+      log: [...this.log],
     }
   }
 

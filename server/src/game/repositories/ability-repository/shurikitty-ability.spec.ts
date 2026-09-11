@@ -29,7 +29,7 @@ const item = (id: string, cursed = false) =>
   new ItemCard({ id, name: id, type: CardType.Item, image: '', description: '', set: 'base', cursed })
 
 const openWindow = (gs: GameState): IReactionWindow =>
-  [...gs.frames.values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
+  [...gs.getFrames().values()].flatMap((f) => f.windows).find((w) => w.isOpen())!
 
 /** Answers the open window the way the player would, in the slot it names. */
 const answer = (gs: GameState, ctx: AbilityContext, pick?: string) => {
@@ -63,7 +63,8 @@ describe('Shurikitty (hero-023)', () => {
     gs.equipItem('h2', 'sword')
     const ctx = new AbilityContext('hero-023', 'p1')
     const { em, emitted, rm } = wire(gs)
-    const [choose, destroy, retrieve] = ShurikittyAbility[0].steps
+    const [choose] = ShurikittyAbility[0].steps
+    const [destroy, retrieve] = ShurikittyAbility[1].steps
 
     choose.execute(gs, ctx, em, rm)
     expect(openWindow(gs).getOptions()).toEqual(expect.arrayContaining(['mine', 'h2']))
@@ -89,7 +90,8 @@ describe('Shurikitty (hero-023)', () => {
     gs.registerCard(hero('h2'))
     const ctx = new AbilityContext('hero-023', 'p1')
     const { em, rm } = wire(gs)
-    const [choose, destroy, retrieve] = ShurikittyAbility[0].steps
+    const [choose] = ShurikittyAbility[0].steps
+    const [destroy, retrieve] = ShurikittyAbility[1].steps
     choose.execute(gs, ctx, em, rm)
     answer(gs, ctx, 'h2')
     destroy.execute(gs, ctx, em, rm)

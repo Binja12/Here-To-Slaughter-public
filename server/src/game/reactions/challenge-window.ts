@@ -1,6 +1,4 @@
 import {
-  Audience,
-  GameEventType,
   IGameEventEmitter,
   PassiveType,
   ReactionWindowType,
@@ -17,9 +15,9 @@ import {
   IPassableWindow,
 } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
-import { GameEvent } from '../events/game-event'
 import { GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
+import { roll2Dice } from '../../utils/roll-utils'
 
 export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
   /**
@@ -130,6 +128,14 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     this.passes.add(playerId)
   }
 
+  canPass(playerId: string): boolean {
+    return this.challenged || playerId !== this.challengedId
+  }
+
+  isOptional(): boolean {
+    return false
+  }
+
   passedBy(): readonly string[] {
     return [...this.passes]
   }
@@ -190,10 +196,31 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     return refused(RefusalReason.ChallengeNotStarted)
   }
 
-  resolve(): void {
+  cancel(): void {
     if (this._resolved) return
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.challengedId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
+  resolve(): void {
+    if (this._resolved) return
+    // Not while a question stands over this challenge — Bloodwing asks the
+    // challenger to discard when they challenge, and the contest cannot be
+    // settled out from under that. The clock runs again instead, exactly as
+    // ModifiableRollWindow does over its own questions.
+    if (this.gs.hasOpenFramesAfter(this.frameId)) return this.resetTimer()
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.gs.restartWindowsOutside(this.frameId)
 
     if (!this.challenged) {
       // No challenger — card plays uncontested.
@@ -316,8 +343,8 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
     this.challengerId = challengerId
     // A new contest, a new set of seats who may act on it.
     this.passes.clear()
-    this.challengerRoll = Math.floor(Math.random() * 11) + 1
-    this.challengedRoll = Math.floor(Math.random() * 11) + 1
+    this.challengerRoll = roll2Dice()
+    this.challengedRoll = roll2Dice()
 
     // Both sides arrive with whatever standing bonuses they already hold, so
     // the opening totals are the real ones and nobody has to wait for
@@ -363,6 +390,12 @@ export class ChallengeWindow implements IModifiableWindow, IPassableWindow {
 
   getDeadline(): number {
     return this.deadline
+  }
+
+  /** The full wait again — `GameState.restartOpenWindowsExcept`. */
+  restartClock(): void {
+    if (this._resolved || this.clockMs === 0) return
+    this.resetTimer()
   }
 
   private resetTimer(): void {

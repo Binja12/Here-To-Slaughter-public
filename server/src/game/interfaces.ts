@@ -12,6 +12,7 @@ import {
   RollContext,
   RollResult,
   TriggerScope,
+  Zone,
 } from 'shared'
 import type { GameState } from './pipelines/game-state'
 import type { AbilityContext } from './abilities/ability-context'
@@ -91,6 +92,17 @@ export interface ITask {
  * WHEN an ability runs: an event, plus whose events count. Shared by card
  * abilities and by ongoing effects, so the processor checks both the same way.
  */
+/** One ability to check against an event, and who owns it. Gathered fresh per event by TaskManager. */
+export type AbilitySource = {
+  trigger: AbilityTrigger
+  steps: ITask[]
+  sourceCardId: string
+  /** Empty for a monster still in the pile — see TaskManager's NO_OWNER and ownerFor. */
+  ownerId: string
+  /** Printed on the card, or a rule of the game — see AbilityPipeline.system. */
+  system: boolean
+}
+
 export type AbilityTrigger = {
   on: GameEventType
   scope: TriggerScope
@@ -166,7 +178,8 @@ export interface IEffect {
 // ---------------------------------------------------------------------------
 
 export interface IWinCondition {
-  check(gs: GameState): Player | null
+  /** Per player: a table requiring every condition needs one party to meet them all. */
+  isMetBy(gs: GameState, player: Player): boolean
 }
 
 export interface IRollResolver {
@@ -201,12 +214,36 @@ export type ValueBias = 'highest' | 'lowest'
  * passes — the roll changed under them, everyone gets another look.
  */
 export interface IPassableWindow extends IReactionWindow {
+  canPass(playerId: string): boolean
   pass(playerId: string): void
   passedBy(): readonly string[]
 }
 
 export const isPassable = (window: IReactionWindow): window is IPassableWindow =>
   typeof (window as Partial<IPassableWindow>).pass === 'function'
+
+/**
+ * A roll window that takes the target its effect chose while it is still
+ * open (§4): the table sees it, the clock restarts, and the settle carries
+ * it to the effect on RollSuccess.
+ */
+export interface ITargetedRollWindow extends IReactionWindow {
+  /** `zone`: what the effect will reach on the targeted seat — its hand or its party — so the table can point at it. */
+  targetChosen(key: string, picks: unknown[], zone: Zone): void
+}
+
+export const isTargetable = (window: IReactionWindow): window is ITargetedRollWindow =>
+  typeof (window as Partial<ITargetedRollWindow>).targetChosen === 'function'
+
+/**
+ * A window whose clock can be given back in full: a question standing over
+ * a roll that just changed (ChoiceWindow). `GameState.restartQuestionsAfter`.
+ */
+export interface IRestartableWindow extends IReactionWindow {
+  restartClock(): void
+}
+export const canRestartClock = (window: IReactionWindow): window is IRestartableWindow =>
+  typeof (window as Partial<IRestartableWindow>).restartClock === 'function'
 
 export interface IModifiableWindow extends IReactionWindow {
   /** Whether a modifier aimed at `playerId` belongs in this window, and if not, why. */
@@ -243,6 +280,19 @@ export interface IReactionWindow {
   submitReaction(playerId: string, payload: unknown): RequestResult
   /** Force immediate resolution (e.g. timeout, test helpers). */
   resolve(): void
+  /**
+   * Close WITHOUT an outcome: the clock is cleared, `ReactionWindowClosed`
+   * goes out with `cancelled: true`, no default is picked and no
+   * `FrameResolved` follows. A concluded game does this to every open
+   * window (GameState.conclude).
+   */
+  cancel(): void
+  /**
+   * A question the respondent may simply walk away from — a TaskChoice
+   * offering DISMISS. Projected as `PendingWindowView.optional`; the client
+   * dismisses one before sending another action.
+   */
+  isOptional(): boolean
   /**
    * What the window is asking, read LIVE: the fields it announced at open
    * plus whatever moved since — a bonus that landed, a challenge that

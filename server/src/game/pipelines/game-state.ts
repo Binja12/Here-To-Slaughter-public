@@ -1,4 +1,4 @@
-import { accepted, refused } from '../interfaces'
+import { accepted, canRestartClock, isTargetable, refused } from '../interfaces'
 import {
   GamePhase,
   HeroClass,
@@ -7,10 +7,10 @@ import {
   ReactionWindowType,
   RefusalReason,
   RequestResult,
+  Zone,
 } from 'shared'
 import type {
   IEffect,
-  IAction,
   IModifiableWindow,
   IReactionWindow,
   ITask,
@@ -30,6 +30,7 @@ import type { AbilityContext } from '../abilities/ability-context'
 // Value import, not type-only: slayMonster announces. No cycle — the factory
 // reaches only shared, game-event.ts and ability-context.ts.
 import { GameEventFactory } from '../events/game-event-factory'
+import { PartyLeaderCard } from '../cards/party-leader-card'
 
 // ---------------------------------------------------------------------------
 // GameFrame — snapshot taken just before the frame was opened, plus any
@@ -44,7 +45,15 @@ function isModifiable(w: IReactionWindow): w is IModifiableWindow {
   return typeof (w as IModifiableWindow).acceptsModifierFor === 'function'
 }
 
+/** The windows whose settlement may still restore their frame (§3). */
+const RESTORING_WINDOWS: ReadonlySet<ReactionWindowType> = new Set([
+  ReactionWindowType.Challenge,
+  ReactionWindowType.Modifier,
+  ReactionWindowType.Attack,
+])
+
 export type GameFrame = {
+  /** The board as it stood before the play's effect, taken by the caller. */
   snapshot: GameState
   windows: IReactionWindow[]
 }
@@ -67,6 +76,30 @@ export type AbilityPipeline = {
   system?: boolean
 }
 
+/** Whose look a seat is being shown — the caption's two facts. */
+/**
+ * How a choice window closed when nobody answered it. Only the two outcomes
+ * a player needs telling about: a pick made AT RANDOM on their behalf
+ * (CardChoiceWindow) and one made not at all (MonsterChoice, PlayerChoice).
+ * A fixed default — a value's bias, a confirm's DISMISS — is announced when
+ * the window opens, so it needs no notice.
+ */
+export type ChoiceLapse = {
+  windowId: string
+  respondentId: string
+  type: ReactionWindowType
+  resolution: 'random' | 'forfeited'
+  /** what the window was asking, when its task declared a question */
+  question?: string
+}
+
+export type RevealSource = {
+  /** the seat whose ability is showing the cards */
+  byPlayerId: string
+  /** the seat the cards BELONG to, when the reveal is a look at their hand */
+  ofPlayerId?: string
+}
+
 export class GameState {
   private players: Map<string, Player> = new Map()
   private parties: Map<string, Party> = new Map()
@@ -81,23 +114,28 @@ export class GameState {
    * `revealedCards`; the client decides how to show them.
    */
   private revealed: Map<string, string[]> = new Map()
+  private revealSources = new Map<string, RevealSource>()
+  /**
+   * The last choice that ran out of time, kept so the table can be TOLD.
+   * A lapse is otherwise indistinguishable from an answer — the window is
+   * simply gone from the next snapshot — and a random pick made on your
+   * behalf has to be visible (the owner, 2026-09-08).
+   *
+   * One slot, never cleared: the client shows each windowId once and lets it
+   * fade, the same way it lets the choice banner linger.
+   */
+  private lastLapse?: ChoiceLapse
   private cardsChallengedThisTurn: string[] = []
-  /** Actions queued for draining this turn — GS is source of truth. */
-  actionQueue: IAction[] = []
 
   /**
-   * Ability pipelines, newest on top. TaskManager works on the top one.
-   *
-   * A step's own events trigger more abilities while it is still running, and
-   * those go on top — so they finish before the step's own pipeline continues.
-   *
-   * Kept here rather than on the processor so frames snapshot it: a pipeline
-   * started inside a frame is undone when that frame rolls back.
+   * Ability pipelines, newest on top; TaskManager works on the top one. Here
+   * rather than on TaskManager so a frame's rollback can drop the one parked
+   * on it (restoreFrame).
    */
-  abilityPipelines: AbilityPipeline[] = []
+  private abilityPipelines: AbilityPipeline[] = []
 
-  /** All open reaction frames. Each holds its own pre-open snapshot. */
-  frames: Map<string, GameFrame> = new Map()
+  /** Open reaction frames, in the order they opened. */
+  private frames: Map<string, GameFrame> = new Map()
 
   constructor(
     private mainDeck: CardStack,
@@ -110,8 +148,30 @@ export class GameState {
   // Frame API
   // ---------------------------------------------------------------------------
 
-  addFrame(frameId: string, frame: GameFrame): void {
-    this.frames.set(frameId, frame)
+  getFrames(): ReadonlyMap<string, GameFrame> {
+    return this.frames
+  }
+
+  /** Nothing happens for a frame that is not open. */
+  addWindow(frameId: string, window: IReactionWindow): void {
+    this.frames.get(frameId)?.windows.push(window)
+  }
+
+  getPipelines(): readonly AbilityPipeline[] {
+    return this.abilityPipelines
+  }
+
+  pushPipeline(pipeline: AbilityPipeline): void {
+    this.abilityPipelines.push(pipeline)
+  }
+
+  popPipeline(): AbilityPipeline | undefined {
+    return this.abilityPipelines.pop()
+  }
+
+  /** Opens a frame over `board`, a clone taken by the caller before the play's effect. */
+  addFrame(frameId: string, board: GameState, windows: IReactionWindow[] = []): void {
+    this.frames.set(frameId, { snapshot: board, windows })
   }
 
   /**
@@ -148,25 +208,24 @@ export class GameState {
   }
 
   /**
-   * Restore from the frame's snapshot then delete the frame.
-   * Used when a reaction fails (e.g. modifier roll doesn't meet rollReq, Challenger wins a challenge).
+   * Rollback, frame gone: the failed outcome of a window (a roll under its
+   * requirement, a lost challenge). The board goes back to the snapshot and
+   * the pipeline parked on the frame is dropped — undoing a frame IS
+   * cancelling what waited on it. Spent cards are read BEFORE the swap:
+   * restoring is what erases the evidence, and spent is spent whichever way
+   * the window went.
    */
   restoreFrame(frameId: string): void {
     const frame = this.frames.get(frameId)
     if (!frame) return
-    // BEFORE the swap: the snapshot predates every burn, so restoring is what
-    // erases the record of what was spent.
     const spent = this.spentInto(frame)
     this.frames.delete(frameId)
-    // Undoing a frame IS cancelling what waited on it. The stack is not in
-    // the snapshot, so this is the one place a rollback touches it.
     this.abilityPipelines = this.abilityPipelines.filter(
       (p) => p.pausedOn !== frameId,
     )
     this.copyFrom(frame.snapshot)
 
-    // The snapshot handed them back to their owners' hands. Spent is spent,
-    // whichever way the window went.
+    // The snapshot handed them back to their owners' hands.
     for (const { cardId, playerId } of spent) {
       this.players.get(playerId)?.removeFromHand(cardId)
       this.discardPile.add(cardId)
@@ -291,6 +350,40 @@ export class GameState {
   }
 
   /**
+   * The seat the next modifier lands on, or why none can. A roll has one
+   * roll, so the board names it — the roller, the last play's target, never
+   * the player's pick (the owner, 2026-09-06). A started contest has TWO, so
+   * there the player says which (`aimedAt`), and naming none is refused
+   * `TargetRequired`. The accepted shape is a `RequestResult`, so a reaction
+   * can hand the refusal up unchanged.
+   */
+  aimModifier(
+    aimedAt?: string,
+  ): { accepted: true; targetPlayerId: string } | { accepted: false; reason: RefusalReason } {
+    const open = this.findOpenModifiableWindow()
+    if (!open) return { accepted: false, reason: RefusalReason.NoModifiableWindow }
+    const respondent = open.window.getRespondentId()
+    if (open.window.getType() !== ReactionWindowType.Challenge) {
+      const takes = open.window.acceptsModifierFor(respondent)
+      if (takes.accepted) return { accepted: true, targetPlayerId: respondent }
+      return takes
+    }
+    // Not before the contest has started: there are no rolls yet.
+    const started = open.window.acceptsModifierFor(respondent)
+    if (!started.accepted) return started
+    if (aimedAt === undefined) return { accepted: false, reason: RefusalReason.TargetRequired }
+    const takes = open.window.acceptsModifierFor(aimedAt)
+    if (takes.accepted) return { accepted: true, targetPlayerId: aimedAt }
+    return takes
+  }
+
+  /** Stable identity for the public modifier cue, without exposing the window itself. */
+  modifierWindowIdFor(targetPlayerId: string): string | undefined {
+    const open = this.findOpenModifiableWindow()
+    return open?.window.acceptsModifierFor(targetPlayerId).accepted ? open.window.getId() : undefined
+  }
+
+  /**
    * Land a bonus in the window that is open.
    *
    * Does nothing when there is nothing to land it in, or when that window
@@ -310,6 +403,17 @@ export class GameState {
     if (!open?.window.acceptsModifierFor(bonus.targetPlayerId).accepted) return
 
     open.window.submitReaction(playerId, { type: 'modifier', ...bonus })
+  }
+
+  /**
+   * Hand the target a hero's effect chose to the roll window still open over
+   * it (TargetRollTask). Nothing when the roll has settled meanwhile: the
+   * question was answered late, and the effect never ran.
+   */
+  landRollTarget(key: string, picks: unknown[], zone: Zone): void {
+    const open = this.findOpenModifiableWindow()
+    if (!open || !isTargetable(open.window)) return
+    open.window.targetChosen(key, picks, zone)
   }
 
   /**
@@ -336,10 +440,89 @@ export class GameState {
     return undefined
   }
 
+  /**
+   * Whether a window opened after `frameId` still stands — a question asked
+   * over a roll (its target, a modifier's value). A roll does not settle
+   * while one does (ModifiableRollWindow.resolve). Frames are held in the
+   * order they opened, so "after" is a position.
+   */
+  hasOpenFramesAfter(frameId: string): boolean {
+    let after = false
+    for (const [id, frame] of this.frames) {
+      if (after && frame.windows.some((w) => w.isOpen())) return true
+      if (id === frameId) after = true
+    }
+    return false
+  }
+
+  /**
+   * The full wait again for every question standing over `frameId` — asked
+   * after it, still open. A modifier landing on a roll restarts the roll's
+   * clock (§4); the player choosing its target was watching that roll change
+   * and gets their time back too (the owner, 2026-09-06). Only ever on a
+   * landing, never on the roll's own expiry: two clocks restarting each other
+   * would never run out.
+   */
+  restartQuestionsAfter(frameId: string): void {
+    let after = false
+    for (const [id, frame] of this.frames) {
+      if (after) {
+        for (const window of frame.windows) {
+          if (window.isOpen() && canRestartClock(window)) window.restartClock()
+        }
+      }
+      if (id === frameId) after = true
+    }
+  }
+
+  /**
+   * A window has settled, and every window still open ELSEWHERE gets its
+   * clock back (the owner, 2026-09-08: "if ever a window resolves while
+   * another window is open, reset all other windows' timers").
+   *
+   * One rule rather than a list of cases: a player watching another question
+   * be answered was not spending their own time on their own. Bloodwing is
+   * what made it plain — a challenge that asks the challenger to discard used
+   * to settle while the discard was still being chosen.
+   *
+   * Its OWN frame is excluded, and that is the whole subtlety. A frame may
+   * hold one question per seat (ChooseCardEachTask — "each other player must
+   * DISCARD a card"); those are the same question asked in parallel, not
+   * seats watching each other, and restarting them per lapse would let one
+   * silent player stretch a frame to a clock per seat.
+   *
+   * It cannot run for ever either way: a resolution never restarts its own
+   * frame, so every pass strictly shrinks the set of open windows.
+   */
+  restartWindowsOutside(frameId: string): void {
+    for (const [id, frame] of this.frames) {
+      if (id === frameId) continue
+      for (const window of frame.windows) {
+        if (window.isOpen() && canRestartClock(window)) window.restartClock()
+      }
+    }
+  }
+
   /** True while any frame has an open window — used by TurnManager.drain(). */
   hasOpenFrames(): boolean {
     for (const frame of this.frames.values()) {
       if (frame.windows.some((w) => w.isOpen())) return true
+    }
+    return false
+  }
+
+  /**
+   * Whether a frame may still restore the board: one holding an open
+   * challenge, hero roll or attack, or one with nothing open yet (between
+   * openFrame and its first window, or between a window's close and its
+   * settle). Choice windows never restore. GameEngine reads this before it
+   * asks the win conditions.
+   */
+  hasPendingOutcome(): boolean {
+    for (const frame of this.frames.values()) {
+      const open = frame.windows.filter((w) => w.isOpen())
+      if (open.length === 0) return true
+      if (open.some((w) => RESTORING_WINDOWS.has(w.getType()))) return true
     }
     return false
   }
@@ -385,7 +568,8 @@ export class GameState {
     copy.abilitiesUsedThisTurn = [...this.abilitiesUsedThisTurn]
     copy.cardsChallengedThisTurn = [...this.cardsChallengedThisTurn]
     for (const [id, ids] of this.revealed) copy.revealed.set(id, [...ids])
-    copy.actionQueue = [...this.actionQueue]
+    for (const [id, src] of this.revealSources) copy.revealSources.set(id, { ...src })
+    copy.lastLapse = this.lastLapse && { ...this.lastLapse }
     // Not the pipeline stack: it is work in progress ON the board, not the
     // board. A rollback undoes what that work did and drops what was waiting
     // on the frame (restoreFrame); it does not forget the work existed.
@@ -409,8 +593,11 @@ export class GameState {
     this.discardPile = src.discardPile
     this.monsterDeck = src.monsterDeck
     this.monsterPile = src.monsterPile
-    this.actionQueue = src.actionQueue
-    this.frames = src.frames // outer frames survive; restored frame entry is gone
+    // NOT the frames. The live map already holds exactly the outer frames
+    // (`restoreFrame` removed the restored one), and a frame that settled
+    // since the snapshot must stay settled — the snapshot's own map would
+    // bring it back closed, and a closed frame reads as an outcome still
+    // pending, for ever (hasPendingOutcome).
   }
 
   // ---------------------------------------------------------------------------
@@ -596,13 +783,21 @@ export class GameState {
     this.requirePlayer(playerId).removeEffect(effectId)
   }
 
-  /** Show cards to a seat: onto its `revealedCards` until hideRevealed. */
-  revealTo(playerId: string, cardIds: string[]): void {
+  /**
+   * Show cards to a seat: onto its `revealedCards` until hideRevealed.
+   *
+   * `source` says WHOSE look this is, so the screen can caption it — the seat
+   * whose ability is showing them, and, for a look at a hand, the seat the
+   * cards belong to. Only the latest source is kept: a seat looking at two
+   * things at once has no single caption, and no card does that.
+   */
+  revealTo(playerId: string, cardIds: string[], source?: RevealSource): void {
     const current = this.revealed.get(playerId) ?? []
     this.revealed.set(playerId, [
       ...current,
       ...cardIds.filter((id) => !current.includes(id)),
     ])
+    if (source) this.revealSources.set(playerId, source)
   }
 
   /** The reveal is over: those cards come off the seat's view. */
@@ -611,11 +806,29 @@ export class GameState {
       (id) => !cardIds.includes(id),
     )
     if (left.length) this.revealed.set(playerId, left)
-    else this.revealed.delete(playerId)
+    else {
+      this.revealed.delete(playerId)
+      this.revealSources.delete(playerId)
+    }
   }
 
   getRevealed(playerId: string): string[] {
     return [...(this.revealed.get(playerId) ?? [])]
+  }
+
+  /** Whose look the seat is being shown, when anything is being shown. */
+  getRevealSource(playerId: string): RevealSource | undefined {
+    return this.revealSources.get(playerId)
+  }
+
+  /** A choice ran out of time — ChoiceWindow.resolve reports what became of it. */
+  noteChoiceLapse(lapse: ChoiceLapse): void {
+    this.lastLapse = lapse
+  }
+
+  /** The last choice that ran out, for the view to caption. */
+  getLastLapse(): ChoiceLapse | undefined {
+    return this.lastLapse
   }
 
   /** CardStack.peek on the main deck, through the board. */
@@ -626,6 +839,13 @@ export class GameState {
   /** CardStack.pick on the main deck, through the board. Null when not there. */
   pickFromMainDeck(cardId: string): string | null {
     return this.mainDeck.pick(cardId)
+  }
+
+  /** A card out of anywhere in the main deck onto its top. False when it is not there. */
+  moveToMainDeckTop(cardId: string): boolean {
+    if (this.mainDeck.pick(cardId) === null) return false
+    this.mainDeck.addToTop(cardId)
+    return true
   }
 
 
@@ -643,12 +863,21 @@ export class GameState {
     for (const [playerId, player] of this.players) {
       if (player.getHand().includes(cardId)) return playerId
       const party = this.parties.get(playerId)
-      if (
-        party &&
-        (party.getHeroIds().includes(cardId) || party.getLeaderId() === cardId)
-      ) {
+      if (!party) continue
+      if (party.getLeaderId() === cardId) return playerId
+      const heroes = party.getHeroIds()
+      if (heroes.includes(cardId)) return playerId
+      // Everything else a party HOLDS, not only what stands in its rows: an
+      // equipped item, a slain monster, a magic still in play. An item is
+      // equipped BEFORE its challenge window opens (item-tasks.ts), so a
+      // challenge on a freshly played item asked who owned a card this could
+      // not answer — and Bloodwing, whose whole rule is "each time another
+      // player CHALLENGES you", never fired (the owner, 2026-09-08).
+      if (heroes.some((heroId) => party.getEquippedItem(heroId) === cardId)) {
         return playerId
       }
+      if (party.getMonsterIds().includes(cardId)) return playerId
+      if (party.getInstanceCardIds().includes(cardId)) return playerId
     }
     return undefined
   }
@@ -775,7 +1004,12 @@ export class GameState {
       return refused(RefusalReason.MonsterNotInRow)
     }
 
-    if (!monster.canBeAttackedBy(this.getPartyHeroClasses(playerId))) {
+    if (
+      !monster.canBeAttackedBy(
+        this.getHeroClasses(playerId),
+        this.getLeaderClass(playerId),
+      )
+    ) {
       return refused(RefusalReason.PartyRequirementUnmet)
     }
     return accepted()
@@ -852,12 +1086,29 @@ export class GameState {
     return masked ?? hero.getDefaultClass()
   }
 
-  /** The classes standing in a party, one entry per hero. Leaders excluded. */
-  getPartyHeroClasses(playerId: string): HeroClass[] {
+  /** The party leader's class, when the seat has one. */
+  getLeaderClass(playerId: string): HeroClass | undefined {
+    const leader = this.getCard(this.getParty(playerId).getLeaderId())
+    return leader instanceof PartyLeaderCard ? leader.getHeroClass() : undefined
+  }
+
+  /**
+   * One class per HERO, a mask included. A monster's `partyReq` is matched
+   * against these plus the leader, which `canBeAttackedBy` takes separately —
+   * the leader may fill a named class but never "a Hero card of any class".
+   */
+  getHeroClasses(playerId: string): HeroClass[] {
     return this.getParty(playerId)
       .getHeroIds()
       .map((heroId) => this.getHeroClass(heroId))
       .filter((cls): cls is HeroClass => cls !== undefined)
+  }
+
+  /** The leader's class, then the heroes'. What the class win and the `hasClass` filter read. */
+  getPartyClasses(playerId: string): HeroClass[] {
+    const leaderClass = this.getLeaderClass(playerId)
+    const heroClasses = this.getHeroClasses(playerId)
+    return leaderClass === undefined ? heroClasses : [leaderClass, ...heroClasses]
   }
 
   /**
@@ -916,6 +1167,9 @@ export class GameState {
   conclude(winnerId: string): void {
     this.gamePhase = GamePhase.Concluded
     this.winnerId = winnerId
+    for (const window of this.openWindows()) window.cancel()
+    this.frames.clear()
+    this.abilityPipelines = []
   }
 
   /** Set only by `conclude`; absent while the game is still being played. */
@@ -1015,3 +1269,4 @@ export class GameState {
     this.cardsChallengedThisTurn = []
   }
 }
+

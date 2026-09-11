@@ -4,7 +4,7 @@ import {
   RefusalReason,
   RequestResult,
 } from 'shared'
-import { accepted, IReactionWindow, refused } from '../interfaces'
+import { accepted, IRestartableWindow, refused } from '../interfaces'
 import { GameState } from '../pipelines/game-state'
 import { ContextWrite, GameEventFactory } from '../events/game-event-factory'
 import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
@@ -20,7 +20,7 @@ import { NO_CONTEXT_RESULT } from '../abilities/ability-context'
 // never for a player declining.
 // ---------------------------------------------------------------------------
 
-export abstract class ChoiceWindow implements IReactionWindow {
+export abstract class ChoiceWindow implements IRestartableWindow {
   protected picked: unknown = undefined
   private timer?: ReturnType<typeof setTimeout>
   private _resolved = false
@@ -92,6 +92,10 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return !this._resolved
   }
 
+  isOptional(): boolean {
+    return false
+  }
+
   /** payload: { choice: unknown } — must be one of the offered options. */
   submitReaction(playerId: string, payload: unknown): RequestResult {
     if (this._resolved) return refused(RefusalReason.NoSuchWindow)
@@ -99,8 +103,15 @@ export abstract class ChoiceWindow implements IReactionWindow {
       return refused(RefusalReason.WrongRespondent)
 
     const { choice } = (payload ?? {}) as { choice?: unknown }
-    if (!this.options.includes(choice))
+    // A pick the window never offered is answered with the refusal AND
+    // settled by the window itself, on whatever its silence picks (a random
+    // option for a card choice): the client only ever sends what it was
+    // shown, so a request like this is a client that is out of step, and the
+    // table is not held for it (the owner, 2026-09-04).
+    if (!this.options.includes(choice)) {
+      this.resolve()
       return refused(RefusalReason.NotAnOption)
+    }
 
     // An option the engine offered must still be legal when it is picked.
     // One that is not means this window went stale under the player — an
@@ -118,17 +129,63 @@ export abstract class ChoiceWindow implements IReactionWindow {
     return accepted()
   }
 
+  cancel(): void {
+    if (this._resolved) return
+    this._resolved = true
+    if (this.timer) clearTimeout(this.timer)
+    this.emitter.emit(
+      GameEventFactory.reactionWindowClosed(
+        this.getType(),
+        this.respondentId,
+        this.frameId,
+        undefined,
+        { cancelled: true },
+      ),
+    )
+  }
+
+  /**
+   * The full wait again, at this window's own timeout — a modifier landing
+   * on the roll this question stands over (ModifiableRollWindow.submitReaction):
+   * the asked player was watching that roll change and gets their time back
+   * (the owner, 2026-09-06). A question with nothing to choose keeps its 0ms clock.
+   */
+  restartClock(): void {
+    if (this._resolved || this.options.length === 0) return
+    if (this.timer) clearTimeout(this.timer)
+    this.deadline = Date.now() + this.timeoutMs
+    this.timer = setTimeout(() => this.resolve(), this.timeoutMs)
+  }
+
   resolve(): void {
     if (this._resolved) return
     this._resolved = true
     if (this.timer) clearTimeout(this.timer)
+    // Everyone else watching this get answered gets their own clock back.
+    this.gs.restartWindowsOutside(this.frameId)
 
     // Timed out without a submission — subclasses decide the fallback.
-    if (this.picked === undefined) this.picked = this.defaultChoice()
+    const lapsed = this.picked === undefined
+    if (lapsed) this.picked = this.defaultChoice()
 
     // The option may have gone stale while the window was open.
     if (this.picked !== undefined && !this.isStillValid(this.picked)) {
       this.picked = undefined
+    }
+
+    // Nobody answered: the table is told what became of it. A fixed default
+    // says nothing here — a value's bias and a confirm's DISMISS are already
+    // announced when the window opens.
+    if (lapsed && (this.picked === undefined || this.picksAtRandom())) {
+      this.gs.noteChoiceLapse({
+        windowId: this.id,
+        respondentId: this.respondentId,
+        type: this.getType(),
+        resolution: this.picked === undefined ? 'forfeited' : 'random',
+        question: typeof this.openDetail['question'] === 'string'
+          ? this.openDetail['question']
+          : undefined,
+      })
     }
 
     // A frame may hold one question per seat (ChooseCardEachTask), and it
@@ -180,7 +237,7 @@ export abstract class ChoiceWindow implements IReactionWindow {
 
   /** The choice windows of this frame, in the order they were opened; just this one when it was opened outside a frame. */
   private frameChoices(): ChoiceWindow[] {
-    const windows = this.gs.frames.get(this.frameId)?.windows ?? []
+    const windows = this.gs.getFrames().get(this.frameId)?.windows ?? []
     const choices = windows.filter((w): w is ChoiceWindow => w instanceof ChoiceWindow)
     return choices.includes(this) ? choices : [this]
   }
@@ -193,6 +250,15 @@ export abstract class ChoiceWindow implements IReactionWindow {
    */
   protected defaultChoice(): unknown {
     return undefined
+  }
+
+  /**
+   * Whether `defaultChoice` draws at RANDOM. Only CardChoiceWindow does, and
+   * only that is worth telling the table about: a value's bias and a
+   * confirm's DISMISS are fixed, and announced when the window opens.
+   */
+  protected picksAtRandom(): boolean {
+    return false
   }
 
   /** Emit what this outcome means elsewhere. See TaskChoiceWindow. */

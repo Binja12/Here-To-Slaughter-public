@@ -53,7 +53,7 @@ function makeWindow({
   frameId?: string
 }): TestChoiceWindow {
   const win = new TestChoiceWindow('win-1', respondentId, options, timeoutMs, gs, frameId, em)
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame(frameId, gs.clone(), [win])
   return win
 }
 
@@ -81,6 +81,26 @@ describe('ChoiceWindow', () => {
     expect(opened).toBeDefined()
     expect(payloadOf(opened!)['windowType']).toBe(ReactionWindowType.CardChoice)
     expect(payloadOf(opened!)['options']).toEqual(['a', 'b'])
+  })
+
+  it('restartClock gives the full wait again from now, and does nothing once settled', () => {
+    const gs = makeGs()
+    const em = new GameEventEmitter()
+    const win = makeWindow({ gs, em, timeoutMs: 5000 })
+    const opened = win.getDeadline()
+
+    jest.advanceTimersByTime(4000)
+    win.restartClock()
+    expect(win.getDeadline()).toBe(opened + 4000)
+    jest.advanceTimersByTime(4000)
+    expect(win.isOpen()).toBe(true) // the old clock was cleared
+    jest.advanceTimersByTime(1000)
+    expect(win.isOpen()).toBe(false)
+
+    const before = win.getDeadline()
+    jest.advanceTimersByTime(1000)
+    win.restartClock()
+    expect(win.getDeadline()).toBe(before)
   })
 
   it('is open before anything is submitted', () => {
@@ -139,13 +159,29 @@ describe('ChoiceWindow', () => {
     expect(win.isOpen()).toBe(true)
   })
 
-  it('refuses a choice that was not offered', () => {
+  it('refuses a choice that was not offered AND settles on what silence picks', () => {
     const gs = makeGs()
-    const win = makeWindow({ gs, em: new GameEventEmitter(), options: ['a', 'b'] })
+    const em = new GameEventEmitter()
+    const events = collect(em)
+    const win = makeWindow({ gs, em, options: ['a', 'b'] })
 
     const result = win.submitReaction('p1', { choice: 'zzz' })
 
     expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
+    // the base picks nothing for a silent player; the window is spent either way
+    expect(win.isOpen()).toBe(false)
+    expect(win.picks()).toEqual([])
+    expect(events.some((e) => e.getType() === GameEventType.FrameResolved)).toBe(true)
+  })
+
+  it('a wrong respondent is refused WITHOUT settling — another seat cannot spend the window', () => {
+    const gs = makeGs()
+    const win = makeWindow({ gs, em: new GameEventEmitter(), options: ['a', 'b'] })
+
+    expect(win.submitReaction('p2', { choice: 'a' })).toEqual({
+      accepted: false,
+      reason: RefusalReason.WrongRespondent,
+    })
     expect(win.isOpen()).toBe(true)
   })
 
@@ -187,7 +223,7 @@ describe('ChoiceWindow', () => {
 
     jest.advanceTimersByTime(5000)
 
-    expect(gs.frames.has('f1')).toBe(false)
+    expect(gs.getFrames().has('f1')).toBe(false)
   })
 
   it('does not resolve before the timeout elapses', () => {
@@ -222,7 +258,7 @@ describe('ChoiceWindow', () => {
 
     win.submitReaction('p1', { choice: 'a' })
 
-    expect(gs.frames.has('frame-1')).toBe(false)
+    expect(gs.getFrames().has('frame-1')).toBe(false)
   })
 
   // -------------------------------------------------------------------------
@@ -306,7 +342,7 @@ describe('CardChoiceWindow', () => {
   const openOn = (gs: GameState, em: GameEventEmitter, options: string[]) => {
     for (const id of options) gs.registerCard(makeCard(id))
     const win = new CardChoiceWindow('win-1', 'p1', options, 5000, gs, 'f1', em)
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [win] })
+    gs.addFrame('f1', gs.clone(), [win])
     return win
   }
 
@@ -353,6 +389,19 @@ describe('CardChoiceWindow', () => {
     expect(payloadOf(resolved!)['results']).toEqual([])
   })
 
+  it('a pick it never offered is refused and lands on one of the offered cards instead', () => {
+    const gs = makeGs()
+    for (const id of ['x', 'y']) gs.registerCard(makeCard(id))
+    const win = new CardChoiceWindow('win-1', 'p1', ['x', 'y'], 5000, gs, 'frame-1', new GameEventEmitter())
+    gs.addFrame('frame-1', gs.clone(), [win])
+
+    const result = win.submitReaction('p1', { choice: 'shielded-hero' })
+
+    expect(result).toEqual({ accepted: false, reason: RefusalReason.NotAnOption })
+    expect(win.isOpen()).toBe(false)
+    expect(['x', 'y']).toContain(win.picks()[0])
+  })
+
   it('still honours an explicit pick', () => {
     const gs = makeGs()
     const em = new GameEventEmitter()
@@ -379,7 +428,7 @@ describe('ChoiceWindow — a frame of several windows', () => {
     for (const id of ['a', 'b']) gs.registerCard(makeCard(id))
     const w1 = new CardChoiceWindow('w1', 'p1', ['a'], 5000, gs, 'f1', em, 'pick@p1')
     const w2 = new CardChoiceWindow('w2', 'p2', ['b'], 5000, gs, 'f1', em, 'pick@p2')
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [w1, w2] })
+    gs.addFrame('f1', gs.clone(), [w1, w2])
     return { gs, em, events, w1, w2 }
   }
 
@@ -387,12 +436,12 @@ describe('ChoiceWindow — a frame of several windows', () => {
     const { gs, events, w1, w2 } = twoUp()
     w2.submitReaction('p2', { choice: 'b' })
     expect(w2.isOpen()).toBe(false)
-    expect(gs.frames.has('f1')).toBe(true)
+    expect(gs.getFrames().has('f1')).toBe(true)
     expect(events.filter((e) => e.getType() === GameEventType.ReactionWindowClosed)).toHaveLength(1)
     expect(events.filter((e) => e.getType() === GameEventType.FrameResolved)).toHaveLength(0)
 
     w1.submitReaction('p1', { choice: 'a' })
-    expect(gs.frames.has('f1')).toBe(false)
+    expect(gs.getFrames().has('f1')).toBe(false)
     const resolved = events.filter((e) => e.getType() === GameEventType.FrameResolved)
     expect(resolved).toHaveLength(1)
     expect(payloadOf(resolved[0])).toMatchObject({
@@ -411,7 +460,7 @@ describe('ChoiceWindow — a frame of several windows', () => {
     // both lapsed on the same tick: a card choice picks for a silent player
     expect(w1.isOpen()).toBe(false)
     expect(w2.isOpen()).toBe(false)
-    expect(gs.frames.has('f1')).toBe(false)
+    expect(gs.getFrames().has('f1')).toBe(false)
   })
 
   it('a lone window still carries a single write, as before', () => {
@@ -420,7 +469,7 @@ describe('ChoiceWindow — a frame of several windows', () => {
     const events = collect(em)
     gs.registerCard(makeCard('a'))
     const w = new CardChoiceWindow('w', 'p1', ['a'], 5000, gs, 'f1', em)
-    gs.addFrame('f1', { snapshot: gs.clone(), windows: [w] })
+    gs.addFrame('f1', gs.clone(), [w])
     w.submitReaction('p1', { choice: 'a' })
     expect(payloadOf(events.find((e) => e.getType() === GameEventType.FrameResolved)!)).toMatchObject({
       results: ['a'],

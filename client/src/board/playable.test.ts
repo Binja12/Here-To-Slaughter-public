@@ -4,7 +4,7 @@ import {
   modifierWindowOpen,
   threeSeatOpening,
 } from '../fixtures/views'
-import { derivePlayable } from './playable'
+import { derivePlayable, holdsAnswer } from './playable'
 
 test('main actions follow only the turn, phase, busy, and view flags', () => {
   const flags = derivePlayable(threeSeatOpening)
@@ -86,4 +86,20 @@ test('reaction windows light only the matching reaction cards', () => {
     expect(startedFlags.hand[index]).toBe(card.type === 'Modifier')
   })
   expect(startedFlags.hand.some(Boolean)).toBe(true)
+})
+
+test('the hand only counts as an answer when it holds the card the window wants', () => {
+  // a modifier window wants a Modifier, a contestable play wants a Challenge
+  expect(holdsAnswer(modifierWindowOpen)).toBe(true)
+  expect(holdsAnswer(challengeWindowOpen)).toBe(true)
+
+  const without = (type: string) => (view: typeof modifierWindowOpen) => ({
+    ...view,
+    hand: view.hand.filter((card) => card.type !== type),
+  })
+  expect(holdsAnswer(without('Modifier')(modifierWindowOpen))).toBe(false)
+  expect(holdsAnswer(without('Challenge')(challengeWindowOpen))).toBe(false)
+
+  // no window open: nothing to answer, so nothing is held for it
+  expect(holdsAnswer(threeSeatOpening)).toBe(false)
 })

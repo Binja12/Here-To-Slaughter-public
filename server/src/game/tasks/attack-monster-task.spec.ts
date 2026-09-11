@@ -176,7 +176,7 @@ describe('AttackMonsterTask', () => {
     )
 
     expect(typeof frameId).toBe('string')
-    expect(gs.frames.has(frameId as string)).toBe(true)
+    expect(gs.getFrames().has(frameId as string)).toBe(true)
   })
 
   it('rolls for the ability owner, and slays into that owner party', () => {
@@ -184,7 +184,7 @@ describe('AttackMonsterTask', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.99) // 12 >= 9
 
     new AttackMonsterTask().execute(gs, ctxWith(['monster-1']), emitter, rm)
-    jest.advanceTimersByTime(5000)
+    jest.advanceTimersByTime(10_000) // an attack waits twice the countdown
 
     expect(gs.getParty('p1').getMonsterIds()).toContain('monster-1')
     expect(gs.getMonsterPile().getAll()).not.toContain('monster-1')
@@ -195,7 +195,7 @@ describe('AttackMonsterTask', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.99)
 
     new AttackMonsterTask().execute(gs, ctxWith(['monster-1']), emitter, rm)
-    jest.advanceTimersByTime(5000)
+    jest.advanceTimersByTime(10_000) // an attack waits twice the countdown
 
     expect(gs.getPlayer('p1')!.getActionPoints()).toBe(3)
   })

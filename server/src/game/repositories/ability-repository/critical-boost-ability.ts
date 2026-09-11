@@ -30,7 +30,10 @@ export const CriticalBoostAbility: IAbilityRule[] = [
     },
     steps: [
       new DrawTask(3),
-      new ChooseCardTask({ zone: Zone.Hand, owner: Owner.Self }),
+      new ChooseCardTask(
+        { zone: Zone.Hand, owner: Owner.Self },
+        { question: 'Choose a card to discard' },
+      ),
       new DiscardTask(),
     ],
   },

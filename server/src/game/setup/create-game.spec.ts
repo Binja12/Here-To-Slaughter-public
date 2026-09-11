@@ -12,7 +12,7 @@ import { HeroCard } from '../cards/hero-card'
 import { MonsterCard } from '../cards/monster-card'
 import { PartyLeaderCard } from '../cards/party-leader-card'
 import { GameState } from '../pipelines/game-state'
-import { dealable } from '../repositories/ability-repository'
+import { abilityRegistry } from '../repositories/ability-repository'
 
 // ---------------------------------------------------------------------------
 // createGame — the deal, and the wiring order that nothing else checks.
@@ -43,7 +43,9 @@ describe('createGame', () => {
     })
 
     it('refuses more players than the config allows', () => {
-      expect(() => createGame(['a', 'b', 'c', 'd', 'e'])).toThrow(/seats 2 to 4/)
+      expect(() => createGame(['a', 'b', 'c', 'd', 'e'])).toThrow(
+        /seats 2 to 4/,
+      )
     })
 
     it('refuses the same player twice', () => {
@@ -52,9 +54,7 @@ describe('createGame', () => {
 
     it('seats everybody who was passed in', () => {
       const game = createGame(SEATS)
-      expect(game.playerOrder.slice().sort()).toEqual(
-        SEATS.slice().sort(),
-      )
+      expect(game.playerOrder.slice().sort()).toEqual(SEATS.slice().sort())
       for (const id of SEATS) expect(game.gameState.getPlayer(id)).toBeDefined()
     })
 
@@ -70,20 +70,26 @@ describe('createGame', () => {
   // --- The table ----------------------------------------------------------
 
   describe('the deal', () => {
-    it('registers every dealable printed card as an object the engine can look up', () => {
+    it('registers every printed card as an object the engine can look up', () => {
       const game = createGame(SEATS)
 
-      for (const data of baseGameCards.filter(dealable)) {
+      for (const data of baseGameCards) {
         expect(game.gameState.getCard(data.id)).toBeDefined()
       }
     })
 
-    it('deals the whole printed set now that the registry implements every card', () => {
+    it('uses the complete 136-card printed set by default', () => {
       const game = createGame(SEATS)
 
-      expect(baseGameCards.filter(dealable)).toHaveLength(baseGameCards.length)
+      expect(baseGameCards).toHaveLength(136)
       expect(game.gameState.getCard('hero-022')).toBeDefined() // Slippery Paws, the last one in
       expect(game.gameState.getCard('hero-028')).toBeDefined() // Wise Shield
+    })
+
+    it('has a behaviour entry for every printed card id', () => {
+      expect([...abilityRegistry.keys()].sort()).toEqual(
+        baseGameCards.map((card) => card.id).sort(),
+      )
     })
 
     it('builds the right CLASS for each card type', () => {
@@ -124,7 +130,7 @@ describe('createGame', () => {
 
     it('leaves the rest of the monsters face down behind the row', () => {
       const game = createGame(SEATS)
-      const monsters = baseGameCards.filter(dealable).filter(
+      const monsters = baseGameCards.filter(
         (c) => c.type === CardType.Monster,
       ).length
 
@@ -133,7 +139,9 @@ describe('createGame', () => {
 
     it('gives every party a leader, and no two the same', () => {
       const game = createGame(SEATS)
-      const leaderIds = SEATS.map((id) => inPlay(game.gameState, id).getLeaderId())
+      const leaderIds = SEATS.map((id) =>
+        inPlay(game.gameState, id).getLeaderId(),
+      )
 
       expect(new Set(leaderIds).size).toBe(SEATS.length)
       for (const leaderId of leaderIds) {
@@ -187,7 +195,7 @@ describe('createGame', () => {
       const leaders = baseGameCards.filter(
         (c) => c.type === CardType.Leader,
       ).length
-      expect(total).toBe(baseGameCards.filter(dealable).length - (leaders - SEATS.length))
+      expect(total).toBe(baseGameCards.length - (leaders - SEATS.length))
     })
 
     it('leaves the undealt leaders in no zone at all', () => {
@@ -208,8 +216,9 @@ describe('createGame', () => {
 
     it('shuffles — two games do not deal the same top card', () => {
       const runs = new Set(
-        Array.from({ length: 12 }, () =>
-          createGame(SEATS).gameState.getPlayer(SEATS[0])!.getHand()[0],
+        Array.from(
+          { length: 12 },
+          () => createGame(SEATS).gameState.getPlayer(SEATS[0])!.getHand()[0],
         ),
       )
       expect(runs.size).toBeGreaterThan(1)
@@ -230,15 +239,18 @@ describe('createGame', () => {
         config: { ...defaultGameConfig, actionPointsPerTurn: 7 },
       })
 
-      expect(
-        game.gameState.getPlayer(SEATS[0])!.getActionPointsPerTurn(),
-      ).toBe(7)
+      expect(game.gameState.getPlayer(SEATS[0])!.getActionPointsPerTurn()).toBe(
+        7,
+      )
     })
 
     it('drops cards outside the configured sets', () => {
       expect(() =>
         createGame(SEATS, {
-          config: { ...defaultGameConfig, cardSets: ['expansion-that-is-not-here'] },
+          config: {
+            ...defaultGameConfig,
+            cardSets: ['expansion-that-is-not-here'],
+          },
         }),
       ).toThrow(/leaders in the configured card sets/)
     })
@@ -252,7 +264,7 @@ describe('createGame', () => {
       const events = collect(game)
 
       expect(events).toEqual([])
-      expect(game.turnManager.getActionPoints()).toBe(0)
+      expect(game.gameState.getCurrentPlayerId()).toBeUndefined()
     })
 
     it('announces GameStarted BEFORE the first turn', () => {
@@ -273,7 +285,7 @@ describe('createGame', () => {
       startGame(game)
 
       expect(game.gameState.getCurrentPlayerId()).toBe(game.playerOrder[0])
-      expect(game.turnManager.getActionPoints()).toBe(
+      expect(game.gameState.getActionPoints(game.playerOrder[0])).toBe(
         defaultGameConfig.actionPointsPerTurn,
       )
     })

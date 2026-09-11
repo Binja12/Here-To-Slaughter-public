@@ -113,7 +113,14 @@ describe('QuickDrawAbility', () => {
     )
 
     emitter.emit(GameEventFactory.rollSuccess('p1', 'hero-010'))
-    openWindow(gs).submitReaction('p1', { choice: CONFIRM })
+
+    // The ask NAMES the Item, not whatever came off the deck first: the board
+    // glows the card the question is about, and a Hero (or a Challenge, or a
+    // Modifier) is not a card this offer can be taken on.
+    const ask = openWindow(gs)
+    expect(ask.getType()).toBe(ReactionWindowType.TaskChoice)
+    expect(ask.getDetail()['cardId']).toBe('drawn-item')
+    ask.submitReaction('p1', { choice: CONFIRM })
 
     const itemChoice = openWindow(gs)
     expect(itemChoice.getType()).toBe(ReactionWindowType.CardChoice)

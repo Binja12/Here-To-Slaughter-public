@@ -1,8 +1,10 @@
+import AssetImage from '../loading/AssetImage'
 import React, { useEffect, useRef, useState } from 'react'
 import type { PendingWindowView, PlayerView } from '../contract'
 import { artFor } from './assets'
 import { cardById } from './viewTargets'
 import { tkey, useTargetable } from './targeting'
+import { nameOf } from './seats'
 
 export default function PendingWindows({
   view,
@@ -14,15 +16,21 @@ export default function PendingWindows({
   hiddenWindowIds?: string[]
   onSubmit: (windowId: string, choice: unknown) => void
 }) {
-  // Only the windows that need a BUTTON (choices). A roll or a challenge is
-  // told by the board itself — the reaction card glowing in the hand, the
-  // dice at the roller's seat, the banner's numbers, the challenge overlay —
-  // and the owner does not want a detail card for those (2026-09-03).
+  // Only the windows that need a BUTTON from THIS seat (its own choices).
+  // A roll or a challenge is told by the board itself — the reaction card
+  // glowing in the hand, the dice at the roller's seat, the overlays — and
+  // another seat's question is theirs to answer: no "waiting for…" card
+  // (the owner, 2026-09-03 and 2026-09-05).
   const visibleWindows = view.pendingWindows.filter(
     (window) =>
+      window.isYours &&
       window.type !== 'Modifier' &&
       window.type !== 'Attack' &&
       window.type !== 'Challenge' &&
+      // a choice with nothing to choose is not a question: the engine opens it
+      // and settles it on a 0ms timer, and drawing a card with no buttons for
+      // that frame reads as the table asking something it is not
+      !(window.options && window.options.length === 0) &&
       !hiddenWindowIds.includes(window.windowId),
   )
   if (visibleWindows.length === 0) return null
@@ -50,9 +58,7 @@ function WindowCard({
   window: PendingWindowView
   onSubmit: (windowId: string, choice: unknown) => void
 }) {
-  const respondent = view.seats.find(
-    (seat) => seat.playerId === window.respondentId,
-  )
+  const respondent = nameOf(view, window.respondentId)
   const card = cardById(view, window.cardId)
   const art = card ? artFor(card) : null
   const target = useTargetable(tkey.pendingWindow(window.windowId))
@@ -62,7 +68,7 @@ function WindowCard({
       onClick={target.onClick}
     >
       {art && card && (
-        <img
+        <AssetImage
           src={art.url}
           alt={card.name}
           draggable={false}
@@ -75,9 +81,7 @@ function WindowCard({
           {window.type}
         </div>
         <div className="text-[0.58cqw] leading-tight text-stone-200">
-          {window.isYours
-            ? `Your response${respondent ? `, ${respondent.name}` : ''}`
-            : `Waiting for ${respondent?.name ?? 'player'}…`}
+          {window.isYours ? 'Your response' : `Waiting for ${respondent}…`}
         </div>
 
         {window.detail && (
@@ -116,11 +120,8 @@ function humanize(value: string): string {
 
 function formatDetailValue(value: unknown, view: PlayerView): string {
   if (typeof value === 'string') {
-    return (
-      view.seats.find((seat) => seat.playerId === value)?.name ??
-      cardById(view, value)?.name ??
-      value
-    )
+    if (view.seats.some((seat) => seat.playerId === value)) return nameOf(view, value)
+    return cardById(view, value)?.name ?? value
   }
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (value === null) return '—'
@@ -129,10 +130,9 @@ function formatDetailValue(value: unknown, view: PlayerView): string {
 
 function optionLabel(option: unknown, view: PlayerView): string {
   if (typeof option === 'string') {
-    const resolved =
-      view.seats.find((seat) => seat.playerId === option)?.name ??
-      cardById(view, option)?.name
-    if (resolved) return resolved
+    if (view.seats.some((seat) => seat.playerId === option)) return nameOf(view, option)
+    const card = cardById(view, option)?.name
+    if (card) return card
     return humanize(option.toLowerCase())
   }
   if (typeof option === 'number') {
@@ -162,7 +162,8 @@ function ChoiceButton({
   )
 }
 
-function Countdown({ deadline }: { deadline: number }) {
+/** The window's own clock, drawn as a bar. Shared with Board's ask overlay. */
+export function Countdown({ deadline }: { deadline: number }) {
   const initial = useRef(Math.max(1, deadline - Date.now()))
   const [remaining, setRemaining] = useState(initial.current)
   useEffect(() => {

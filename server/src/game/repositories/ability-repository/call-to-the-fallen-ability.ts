@@ -17,7 +17,10 @@ export const CallToTheFallenAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.FrameResolved, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.Discard, cardType: CardType.Hero }),
+      new ChooseCardTask(
+        { zone: Zone.Discard, cardType: CardType.Hero },
+        { question: 'Choose a hero to add to your hand' },
+      ),
       new RetrieveCardTask(),
     ],
   },

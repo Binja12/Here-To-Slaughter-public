@@ -2,6 +2,7 @@ import {
   Account,
   Credentials,
   GameAssigned,
+  GameSettings,
   LobbySnapshot,
   StartGameResult,
 } from '../contract'
@@ -19,6 +20,8 @@ export interface LobbyPort {
   getLobby(): Promise<LobbySnapshot>
   ready(): Promise<LobbySnapshot>
   unready(): Promise<LobbySnapshot>
+  /** Host only. The whole object every time; the server answers with the lobby as it now stands. */
+  updateSettings(settings: GameSettings): Promise<LobbySnapshot>
   startGame(): Promise<StartGameResult>
   subscribe(events: LobbyEvents): () => void
 }

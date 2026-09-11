@@ -3,17 +3,24 @@ import { expectAbility } from './ability-declaration-test-helpers'
 import { FluffyAbility } from './fluffy-ability'
 
 describe('FluffyAbility', () => {
-  it('registers two complete choose-and-destroy pairs', () => {
+  // Both victims are named while the roll's window is still open — each
+  // choice restarts its clock — and only the settled roll destroys them.
+  it('chooses BOTH heroes under the roll, then destroys both when it lands', () => {
     expectAbility('hero-038', FluffyAbility, [
       {
-        on: GameEventType.RollSuccess,
+        on: GameEventType.RollPassing,
         scope: TriggerScope.SelfCard,
         steps: [
           'ChooseCardTask',
-          'DestroyTask',
+          'TargetRollTask',
           'ChooseCardTask',
-          'DestroyTask',
+          'TargetRollTask',
         ],
+      },
+      {
+        on: GameEventType.RollSuccess,
+        scope: TriggerScope.SelfCard,
+        steps: ['DestroyTask', 'DestroyTask'],
       },
     ])
   })

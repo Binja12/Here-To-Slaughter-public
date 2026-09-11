@@ -1,106 +1,17 @@
 import { CardView } from '../contract';
+import { assetUrl } from '../assetUrl';
 
-/**
- * Manifest of the hero card scans under client/public/cards/heroes/.
- * The user maintains the folder as <class>/<NN>_<snake_name>.png where NN
- * is the file's position in the arrays below — keep the order in sync with
- * the folder. Leaders/monsters currently only have the root template scans
- * (/cards/leader.png, /cards/monster.png).
- */
-
-const CLASS_HEROES: Record<string, string[]> = {
-  Bard: [
-    'napping_nibbles',
-    'peanut',
-    'fuzzy_cheeks',
-    'greedy_cheeks',
-    'lucky_bucky',
-    'dodgy_dealer',
-    'mellow_dee',
-    'tipsy_tootie',
-  ],
-  Fighter: [
-    'heavy_bear',
-    'pan_chucks',
-    'beary_wise',
-    'qi_bear',
-    'fury_knuckle',
-    'tough_teddy',
-    'bad_axe',
-    'bear_claw',
-  ],
-  Guardian: [
-    'wise_shield',
-    'calming_voice',
-    'radiant_horn',
-    'mighty_blade',
-    'holy_curselifter',
-    'iron_resolve',
-    'guiding_light',
-    'vibrant_glow',
-  ],
-  Ranger: [
-    'wildshot',
-    'sharp_fox',
-    'lookie_rookie',
-    'wily_red',
-    'quick_draw',
-    'bullseye',
-    'serious_grey',
-    'hook',
-  ],
-  Thief: [
-    'plundering_puma',
-    'smooth_mimimeow',
-    'meowzio',
-    'shurikitty',
-    'sly_pickings',
-    'slippery_paws',
-    'kit_napper',
-    'silent_shadow',
-  ],
-  Wizard: [
-    'wiggles',
-    'snowball',
-    'spooky',
-    'bun_bun',
-    'buttons',
-    'fluffy',
-    'hopper',
-    'whiskers',
-  ],
-};
-
-export interface HeroAsset {
-  heroClass: string;
-  url: string;
-}
-
-/** kebab-case slug (e.g. "fuzzy-cheeks") → class + scan url */
-export const HEROES: Record<string, HeroAsset> = {};
-for (const [heroClass, names] of Object.entries(CLASS_HEROES)) {
-  names.forEach((snake, i) => {
-    const nn = String(i + 1).padStart(2, '0');
-    HEROES[snake.replace(/_/g, '-')] = {
-      heroClass,
-      url: `/cards/heroes/${heroClass.toLowerCase()}/${nn}_${snake}.png`,
-    };
-  });
-}
-
-/** HAND design (also used for the discard pile). */
-export const heroCardUrl = (slug: string): string =>
-  HEROES[slug]?.url ?? '/cards/hero.png'; // template fallback
-
-export const heroClassOf = (slug: string): string =>
-  HEROES[slug]?.heroClass ?? 'Bard';
+// Every card on the table is drawn from its BOARD scan under client/public/
+// board/. There is no template art any more (the owner, 2026-09-04: the old
+// /cards folder is gone); a card without a scan draws a placeholder that names
+// itself, so the table never shows a broken image.
 
 /* ------------------------------------------------------------------ */
 /* BOARD design (client/public/board/): premium scans, frame baked in  */
 /* ------------------------------------------------------------------ */
 
-export const SMALL_BACK = '/board/Small Card Back.png'; // any regular pile
-export const BIG_BACK = '/board/Big Card Back.png'; // monster deck only
+export const SMALL_BACK = assetUrl('/board/Small Card Back.png'); // any regular pile
+export const BIG_BACK = assetUrl('/board/Big Card Back.png'); // monster deck only
 export const BOARD_CARD_ASPECT = 1060 / 1484; // board heroes + small back
 export const MONSTER_CARD_ASPECT = 956 / 1645; // board monsters + big back
 
@@ -114,19 +25,17 @@ const titleCase = (slug: string) =>
 const BOARD_HERO_OVERRIDES: Record<string, string> = {
   'beary-wise': 'Breay Wise', // typo on disk
 };
-const BOARD_HERO_MISSING = new Set(['guiding-light']);
-
-/** Board-design hero scan, or null when the art doesn't exist yet. */
-export const boardHeroCardUrl = (slug: string): string | null => {
-  if (!HEROES[slug] || BOARD_HERO_MISSING.has(slug)) return null;
-  return `/board/heroes/Hero ${BOARD_HERO_OVERRIDES[slug] ?? titleCase(slug)}.png`;
-};
+/** Board-design hero scan for the slug of a printed `image` field. */
+export const boardHeroCardUrl = (slug: string): string =>
+  slug === 'guiding-light'
+    ? assetUrl('/board/heroes/Hero Guardian Light.png') // typo on disk
+    : assetUrl(`/board/heroes/Hero ${BOARD_HERO_OVERRIDES[slug] ?? titleCase(slug)}.png`);
 
 /** name like "Mega Slime" → /board/Monsters/Monster Mega Slime.png */
 export const boardMonsterUrl = (name: string) =>
   name === 'Warworn Owlbear' // file lacks the "Monster " prefix
-    ? '/board/Monsters/Warworn Owlbear.png'
-    : `/board/Monsters/Monster ${name}.png`;
+    ? assetUrl('/board/Monsters/Warworn Owlbear.png')
+    : assetUrl(`/board/Monsters/Monster ${name}.png`);
 
 /* ------------------------------------------------------------------ */
 /* Non-hero board cards: items, magics, modifiers, challenge. These have  */
@@ -153,9 +62,10 @@ export const ITEMS = [
   'Wizard Mask',
 ] as const;
 export type ItemName = (typeof ITEMS)[number];
-export const boardItemUrl = (name: string) => `/board/Items/Item ${name}.png`;
+export const boardItemUrl = (name: string) => assetUrl(`/board/Items/Item ${name}.png`);
 
 export const MAGICS = [
+  'Call Of The Fallen',
   'Critical Boost',
   'Destructive Spell',
   'Enchanted Spell',
@@ -164,20 +74,45 @@ export const MAGICS = [
   'Forceful Winds',
   'Winds Of Change',
 ] as const;
-export const boardMagicUrl = (name: string) => `/board/Magics/Magic ${name}.png`;
+export const boardMagicUrl = (name: string) => assetUrl(`/board/Magics/Magic ${name}.png`);
+const hasMagicScan = (name: string) => (MAGICS as readonly string[]).includes(name);
+
+/** A stand-in for a card whose scan has not landed: a plain card face that
+ *  names the card, drawn inline so nothing needs to be on disk. */
+export const placeholderCardUrl = (kind: string, name: string): string => {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const words = name.split(' ');
+  const lines: string[] = [];
+  for (const word of words) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && `${last} ${word}`.length <= 14) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  const title = lines
+    .map((line, i) => `<tspan x="543" dy="${i === 0 ? 0 : 130}">${esc(line)}</tspan>`)
+    .join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1086 1448">` +
+    `<rect width="1086" height="1448" rx="60" fill="#2b1d12"/>` +
+    `<rect x="36" y="36" width="1014" height="1376" rx="44" fill="#e9d7b1" stroke="#b58a3c" stroke-width="18"/>` +
+    `<text x="543" y="180" text-anchor="middle" font-family="Georgia, serif" font-size="96" font-weight="bold" fill="#5a3a12">${esc(kind.toUpperCase())}</text>` +
+    `<text x="543" y="700" text-anchor="middle" font-family="Georgia, serif" font-size="112" font-weight="bold" fill="#3b2a14">${title}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
 
 export const MODIFIERS = ['+1-3', '+2-2', '+3-1', '+4', '-4'] as const;
 export const boardModifierUrl = (name: string) =>
-  `/board/Modifiers/Modifier ${name}.png`;
+  assetUrl(`/board/Modifiers/Modifier ${name}.png`);
 
 export const boardChallengeUrl = (name = 'Basic') =>
-  `/board/challenge/Challenge ${name}.png`;
+  assetUrl(`/board/challenge/Challenge ${name}.png`);
 
 export const LEADER_CARD_ASPECT = 1024 / 1536;
 
 /** name like "The Divine Arrow" → /board/Leaders/Leader The Divine Arrow.png */
 export const boardLeaderUrl = (name: string) =>
-  `/board/Leaders/Leader ${name}.png`;
+  assetUrl(`/board/Leaders/Leader ${name}.png`);
 
 /** the six board leaders (one per class), for demo/seat assignment */
 export const LEADERS = {
@@ -196,6 +131,8 @@ const ART_NAME_OVERRIDES: Record<string, string> = {
   'Bard Mask': 'Bad Mask',
   "Curse of the Snake's Eyes": "Curse Of The Snake's Eyes",
   'Winds of Change': 'Winds Of Change',
+  // the scan says "Of The", the card says "to the"
+  'Call to the Fallen': 'Call Of The Fallen',
 };
 
 const heroSlugFromImage = (image: string) =>
@@ -207,22 +144,13 @@ export function artFor(card: CardView): { url: string; aspect: number } {
   switch (card.type) {
     case 'Hero': {
       const slug = heroSlugFromImage(card.image);
-      return {
-        url:
-          slug === 'guiding-light'
-            ? '/board/heroes/Hero Guardian Light.png'
-            : boardHeroCardUrl(slug) ?? heroCardUrl(slug),
-        aspect: BOARD_CARD_ASPECT,
-      };
+      return { url: boardHeroCardUrl(slug), aspect: BOARD_CARD_ASPECT };
     }
     case 'Item':
       return { url: boardItemUrl(name), aspect: NONHERO_CARD_ASPECT };
     case 'Magic':
       return {
-        url:
-          card.name === 'Call to the Fallen'
-            ? '/cards/magic.png'
-            : boardMagicUrl(name),
+        url: hasMagicScan(name) ? boardMagicUrl(name) : placeholderCardUrl(card.type, card.name),
         aspect: NONHERO_CARD_ASPECT,
       };
     case 'Modifier': {

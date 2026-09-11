@@ -40,13 +40,13 @@ function run(gs: GameState, steps: readonly { execute: Function }[], ctx: Abilit
   for (const step of steps) {
     const frameId = step.execute(gs, ctx, em, rm) as string | void
     if (frameId) {
-      const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+      const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
       // the pick the player would make, written where the window would write it
       ctx.set(window.resultKey() as string, pick === undefined ? [] : [pick])
       window.resolve()
     }
   }
-  return { emitted, window: () => [...gs.frames.values()].flatMap((f) => f.windows)[0] }
+  return { emitted, window: () => [...gs.getFrames().values()].flatMap((f) => f.windows)[0] }
 }
 
 // Silent Shadow (hero-021): "Look at another player's hand. Choose a card and
@@ -62,9 +62,9 @@ describe('Silent Shadow (hero-021)', () => {
 
     const em = new GameEventEmitter()
     const rm = new ReactionManager(gs, em)
-    const [, chooseCard, take] = SilentShadowAbility[0].steps
+    const [chooseCard, take] = SilentShadowAbility[1].steps
     chooseCard.execute(gs, ctx, em, rm)
-    const window = [...gs.frames.values()].flatMap((f) => f.windows)[0]
+    const window = [...gs.getFrames().values()].flatMap((f) => f.windows)[0]
     expect(window.getRespondentId()).toBe('p1')
     expect(window.getOptions()).toEqual(['their-1', 'their-2'])
 

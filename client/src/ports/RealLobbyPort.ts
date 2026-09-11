@@ -2,6 +2,7 @@ import {
   Account,
   Credentials,
   GameAssigned,
+  GameSettings,
   LobbyFailure,
   LobbySnapshot,
   StartGameResult,
@@ -40,6 +41,10 @@ export class RealLobbyPort implements LobbyPort {
     return this.request<LobbySnapshot>('/lobby/ready', 'DELETE')
   }
 
+  updateSettings(settings: GameSettings) {
+    return this.request<LobbySnapshot>('/lobby/settings', 'PUT', settings)
+  }
+
   startGame() {
     return this.request<StartGameResult>('/lobby/start-game', 'POST')
   }
@@ -62,7 +67,7 @@ export class RealLobbyPort implements LobbyPort {
 
   private async request<T>(
     path: string,
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     body?: unknown,
   ): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {

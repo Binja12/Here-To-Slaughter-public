@@ -1,6 +1,5 @@
 import { CardBase, CardType, GameConfig, WinConditionType } from 'shared'
 import { baseGameCards } from '../../data/base-game-cards'
-import { dealable } from '../repositories/ability-repository'
 import { IWinCondition } from '../interfaces'
 import { defaultGameConfig } from '../config/game-config'
 import { buildCard } from '../cards/card-factory'
@@ -49,6 +48,7 @@ const MAIN_DECK_TYPES: readonly CardType[] = [
  * emitter is where a projection layer would listen.
  */
 export type Game = {
+  config: GameConfig
   gameId: string
   /** Seat order, randomised at deal. Turn rotation follows it. */
   playerOrder: string[]
@@ -65,8 +65,8 @@ export type CreateGameOptions = {
   config?: GameConfig
   /**
    * All printed cards to draw the deck from, filtered by `config.cardSets`.
-   * Default: exactly the cards the registry implements (`dealable`, the
-   * temporary playtest pool); a caller's own list is dealt as given.
+   * Default: the complete printed card set; a caller's own list is dealt as
+   * given.
    */
   cards?: CardBase[]
   /**
@@ -84,11 +84,10 @@ export function createGame(
 ): Game {
   const config = options.config ?? defaultGameConfig
   const gameId = options.gameId ?? crypto.randomUUID()
-  // TEMPORARY playtest pool: exactly the cards the registry implements (see
-  // `dealable`). A caller that hands its own `cards` in has decided the deal
-  // itself — the harness does.
-  const pool = (options.cards ?? baseGameCards.filter(dealable)).filter(
-    (card) => config.cardSets.includes(card.set),
+  // The default game uses the complete printed set. A caller that hands its
+  // own `cards` in has decided the deal itself — the harness does.
+  const pool = (options.cards ?? baseGameCards).filter((card) =>
+    config.cardSets.includes(card.set),
   )
 
   assertSeats(playerIds, config)
@@ -102,7 +101,11 @@ export function createGame(
 
   assertEnough(leaders.length, playerIds.length, 'leaders')
   assertEnough(monsters.length, MONSTER_ROW_SIZE, 'monsters')
-  assertEnough(deckCards.length, playerIds.length * config.startingHandSize, 'deck cards')
+  assertEnough(
+    deckCards.length,
+    playerIds.length * config.startingHandSize,
+    'deck cards',
+  )
 
   const mainDeck = new CardStack('main-deck', 'Main deck')
   const monsterDeck = new CardStack('monster-deck', 'Monster deck')
@@ -185,16 +188,24 @@ export function createGame(
     emitter,
     config.timeControl.reactionCountdownMs,
   )
-  const turnManager = new TurnManager(gameState, emitter)
+  // The turn clock is config the same way: absent means an unclocked turn,
+  // which is what every engine spec plays on.
+  const turnManager = new TurnManager(
+    gameState,
+    emitter,
+    config.timeControl.turnTimeMs,
+  )
   const taskManager = new TaskManager(gameState, emitter, reactionManager)
   const engine = new GameEngine(
     gameState,
     turnManager,
     emitter,
     buildWinConditions(config, pool),
+    config.requireAllWinConditions,
   )
 
   return {
+    config,
     gameId,
     playerOrder,
     gameState,

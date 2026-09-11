@@ -3,17 +3,24 @@ import { expectAbility } from './ability-declaration-test-helpers'
 import { WhiskersAbility } from './whiskers-ability'
 
 describe('WhiskersAbility', () => {
-  it('registers steal before destroy', () => {
+  // Two victims, and they may be two different players: both are named while
+  // the roll's window is still open, so each of them sees it and can answer.
+  it('names BOTH victims under the roll, then steals and destroys when it lands', () => {
     expectAbility('hero-037', WhiskersAbility, [
       {
-        on: GameEventType.RollSuccess,
+        on: GameEventType.RollPassing,
         scope: TriggerScope.SelfCard,
         steps: [
           'ChooseCardTask',
-          'StealFromPartyTask',
+          'TargetRollTask',
           'ChooseCardTask',
-          'DestroyTask',
+          'TargetRollTask',
         ],
+      },
+      {
+        on: GameEventType.RollSuccess,
+        scope: TriggerScope.SelfCard,
+        steps: ['StealFromPartyTask', 'DestroyTask'],
       },
     ])
   })

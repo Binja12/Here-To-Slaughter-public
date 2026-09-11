@@ -93,7 +93,7 @@ function makeWindow({
     frameId,
     em,
   )
-  gs.addFrame(frameId, { snapshot: gs.clone(), windows: [win] })
+  gs.addFrame(frameId, gs.clone(), [win])
   return win
 }
 
@@ -244,7 +244,7 @@ describe('AttackWindow', () => {
   describe('SLAY (roll >= 9)', () => {
     it('releases the frame', () => {
       makeWindow({ gs, em, baseRoll: 9 }).resolve()
-      expect(gs.frames.has('frame-1')).toBe(false)
+      expect(gs.getFrames().has('frame-1')).toBe(false)
     })
 
     it('takes the monster out of the pile and into the roller party', () => {
@@ -289,7 +289,7 @@ describe('AttackWindow', () => {
 
     it('restores the frame and leaves the monster in the pile', () => {
       makeWindow({ gs, em, baseRoll: 5 }).resolve()
-      expect(gs.frames.has('frame-1')).toBe(false)
+      expect(gs.getFrames().has('frame-1')).toBe(false)
       expect(gs.getMonsterPile().getAll()).toContain('monster-1')
       expect(gs.getParty('p1').getMonsterIds()).not.toContain('monster-1')
     })
@@ -304,7 +304,7 @@ describe('AttackWindow', () => {
   describe('FIGHT BACK (roll <= 3)', () => {
     it('restores the frame and leaves the monster in the pile', () => {
       makeWindow({ gs, em, baseRoll: 2 }).resolve()
-      expect(gs.frames.has('frame-1')).toBe(false)
+      expect(gs.getFrames().has('frame-1')).toBe(false)
       expect(gs.getMonsterPile().getAll()).toContain('monster-1')
       expect(gs.getParty('p1').getMonsterIds()).not.toContain('monster-1')
     })

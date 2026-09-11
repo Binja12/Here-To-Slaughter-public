@@ -619,6 +619,31 @@ Findings from building the transport, and what the owner decided
   phase and winner together (engine doc §4), the view shows it, the
   full-game spec and the capstone assert it from every seat.
 - **The 5 s reaction countdown** stays: fine for the playtest.
+- **Game settings replace the config id (2026-09-04).** The wire carries
+  `settings: GameSettings` (`shared/src/contracts/game-settings.ts`) instead
+  of `gameConfig: 'default'`: player count 2–4, win condition (both /
+  monsters / heroes) with a monster count 2–5, card set, turn timer and
+  reaction timer.
+  The lobby holds one settings object, the host edits it over
+  `PUT /lobby/settings` (a changed seat count unseats everyone but the host),
+  and `game-server/game-config-for.ts` turns it into the engine's
+  `GameConfig`. Presets (`default`, `fast`) are derived from the values,
+  never stored. The `REACTION_COUNTDOWN_MS` process override is gone: the
+  settings own both clocks. The turn clock itself is the engine's
+  (`TurnManager`, engine doc §11) and pauses while any reaction window is
+  open, anyone's (the owner, same day).
+- **Seamless reactions: built 2026-09-05, removed 2026-09-06.** A mode in
+  which plays resolved at once under their reaction windows and rolled back
+  on a losing reaction, behind a `seamlessReactions` setting. Removed
+  because the printed rules do not survive it: a challenge card stolen
+  during the contested play could not be played into the still-open
+  window, and only modifiers may wait for their target. The wire lost the
+  setting, `GameConfigView.seamlessReactions` and `PlayerView.acceptsActions`
+  (the client gates on `busy` again); the engine lost optimistic frames,
+  the rollback of later frames and the turn-end clock cap. What that work
+  left in place on purpose: per-seat passes (`canPass`), `optional` on a
+  window, a window's `cancel` (used when a game concludes), and the turn
+  clock re-read at `FrameResolved`.
 - **CORS on the lobby** — added to `main.ts`, reflecting the asking origin
   with credentials, the same as the game server. A local client runs on
   its own dev-server port, and without this a browser would not let it
@@ -646,6 +671,6 @@ jars), all reaching the servers as `localhost`.
 ## 10. Deferred (recorded so they are not reinvented)
 
 n game servers (lobby holds a list of clients + pick; each server already
-announces its own url), no-show / abandoned-game teardown, turn timers,
-priority scheduling of reactions vs actions, event-log persistence, shared
+announces its own url), no-show / abandoned-game teardown, a turn-clock
+countdown on the wire (the client cannot yet show one), priority scheduling of reactions vs actions, event-log persistence, shared
 session store replacing the TCP resolve, client rewrite to the envelope.

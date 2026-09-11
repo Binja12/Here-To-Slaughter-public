@@ -15,7 +15,10 @@ export const WindsOfChangeAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.FrameResolved, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardTask({ zone: Zone.EquippedItem, owner: Owner.All }),
+      new ChooseCardTask(
+        { zone: Zone.EquippedItem, owner: Owner.All },
+        { question: 'Choose an item to return to its owner' },
+      ),
       new RetrieveCardTask(undefined, 'cardOwner'),
       new DrawTask(1),
     ],

@@ -140,6 +140,8 @@ export type GameConfig = {
   cardSets: string[];
   timeControl: TimeControl;
   winConditions: WinConditionConfig[];
+  /** Every win condition must stand for one party (AND); otherwise any one ends it (OR). */
+  requireAllWinConditions: boolean;
   flawPlay: boolean;
 };
 

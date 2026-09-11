@@ -101,6 +101,9 @@ export type SeatView = {
  * window stops the game — but `options` reaches its respondent only.
  */
 export type PendingWindowView = {
+  /** Window-owned policies projected for this viewer. */
+  optional?: boolean;
+  canPass?: boolean;
   windowId: string;
   type: ReactionWindowType;
   /** The roller, the defender, or the only legal answerer of a choice. */
@@ -110,9 +113,16 @@ export type PendingWindowView = {
   /** Present only when `respondentId` is the viewer. */
   options?: unknown[];
   /**
+   * The options that are CARDS, as printed data, for the respondent only —
+   * a choice over cards nowhere on the viewer's screen (Bullseye's look at
+   * the deck's top three) has nothing else to draw.
+   */
+  optionCards?: CardView[];
+  /**
    * What the window is asking, as the engine sees it now: a roll's base,
-   * bonuses and running total with its requirement, a challenge's two rolls,
-   * a choice's question. A roll or a challenge is the table's business and
+   * bonuses and running total with its requirement and, once the effect has
+   * chosen, `targetPlayerId` (the seat targeted, never the card); a
+   * challenge's two rolls; a choice's question. A roll or a challenge is the table's business and
    * reaches everyone; a choice's question reaches its respondent only, like
    * `options`, because it can name cards nobody else may see.
    */
@@ -123,10 +133,46 @@ export type PendingWindowView = {
   isYours: boolean;
 };
 
+/** The active seat's turn clock, one for the table. Exactly one of `deadline` / `heldMs` is present. */
+export type TurnClockView = {
+  turnTimeMs: number;
+  /** Epoch ms of the lapse while the clock runs. Fixed per running stretch, so snapshots agree and the screen ticks between them. */
+  deadline?: number;
+  /** ms left while a reaction window holds the clock. */
+  heldMs?: number;
+};
+
 /**
  * Everything one player's screen is drawn from, at one moment. Sent whole on
  * every update rather than as a diff — the board is small.
  */
+export type GameConfigView = {
+  actionPointsPerTurn: number;
+  cardSets: string[];
+  turnTimeMs?: number;
+  reactionTimeMs: number;
+  requireAllWinConditions: boolean;
+  winConditions: { type: string; value: number }[];
+};
+
+/**
+ * The last choice on this table that ran out of time. A lapse is otherwise
+ * invisible — the window is simply gone from the next snapshot — so a pick
+ * made AT RANDOM on somebody's behalf, or an offer nobody took, is reported
+ * here for the screen to say out loud. Kept until the next one replaces it;
+ * the client shows each `windowId` once.
+ */
+export type ChoiceLapseView = {
+  windowId: string;
+  /** the seat that was asked */
+  respondentId: string;
+  type: ReactionWindowType;
+  /** `random`: the engine drew one of the options. `forfeited`: nothing was chosen. */
+  resolution: "random" | "forfeited";
+  /** what the window was asking, when its task declared a question */
+  question?: string;
+};
+
 export type PlayerView = {
   gameId: string;
   /** Whose view this is. The one player whose hand is named below. */
@@ -148,9 +194,17 @@ export type PlayerView = {
   /**
    * Cards being SHOWN to you right now — a look at a hand, a revealed draw —
    * without moving. The engine puts them here (RevealTask) and takes them off
-   * when its clock runs out; how to show them is the client's.
+   * when its clock runs out; how to show them is the client's. `revealedBy` /
+   * `revealedOf` are the caption: whose ability is showing them, and, for a
+   * look at a hand, whose hand it is. Both absent when nothing is shown.
    */
   revealedCards: CardView[];
+  /** The seat whose ability is showing the cards. */
+  revealedBy?: string;
+  /** The seat the cards BELONG to — set only for a look at somebody's hand. */
+  revealedOf?: string;
+  /** The last choice that ran out of time — see ChoiceLapseView. */
+  lastLapse?: ChoiceLapseView;
   /** The face-up monster row. Refilled from the monster deck as it empties. */
   monsterRow: CardView[];
   /**
@@ -158,7 +212,22 @@ export type PlayerView = {
    * the same question the action and the choice window ask.
    */
   attackableMonsterIds: string[];
+  /**
+   * Every card on the table whose rule works with nobody playing anything —
+   * what the board glows pink. A standing effect names its own card, a leader
+   * that is not ACTIVATED is a passive by elimination, and a monster won into
+   * a party carries the rule it was won for; only the server can say which,
+   * because behaviour lives in the ability registry and never in card data.
+   */
+  passiveCardIds: string[];
   pendingWindows: PendingWindowView[];
-  /** `GameState.isBusy` — mid-resolution, so no action will be accepted. */
+  /** Absent on a table played without a clock. */
+  turnClock?: TurnClockView;
+  /** `GameState.isBusy` — mid-resolution: a window is open or an ability still has steps, so no action will be accepted. */
   busy: boolean;
+};
+
+export type GameConnectionInfo = {
+  gameId: string;
+  config: GameConfigView;
 };

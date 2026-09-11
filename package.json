@@ -10,9 +10,14 @@
   "scripts": {
     "client": "npm start --workspace=client",
     "server": "npm run start:dev --workspace=server",
-    "test": "npm test --workspaces"
+    "test": "npm test --workspaces",
+    "assets:art": "node scripts/prepare-online-art.mjs",
+    "assets:music": "node scripts/prepare-online-music.mjs",
+    "assets:prepare": "npm run assets:art && npm run assets:music",
+    "assets:verify": "node scripts/verify-online-assets.mjs"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "sharp": "^0.35.4"
   }
 }

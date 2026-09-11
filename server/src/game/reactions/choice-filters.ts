@@ -20,9 +20,9 @@ import { ItemCard } from '../cards/item-card'
 export type PlayerFilter = {
   owner?: Owner
   /**
-   * Keep only players fielding at least one hero. For a wording whose SECOND
-   * clause is about that player's party — Forced Exchange takes one and hands
-   * one back — offering an empty seat would offer a choice that cannot be
+   * Keep only players fielding at least one hero. For a wording whose next
+   * clause is about that player's party — Hopper's "that player SACRIFICES a
+   * Hero card" — offering an empty seat would offer a choice that cannot be
    * carried out.
    */
   hasHeroes?: boolean
@@ -41,6 +41,12 @@ export type CardFilter = {
    * discarded cards" (CTX_DISCARDED_CARDS) off the pile.
    */
   among?: string
+  /**
+   * Ids in THIS context slot are not offered — "the second hero to destroy"
+   * must not be the first one again. The slot form of `excludeIds`, the way
+   * `among` is the slot form of a fixed candidate list.
+   */
+  excludeKey?: string
   /**
    * Who this step runs AS — who answers the choice. The ability owner unless
    * `'chosen'`: then the window opens for the player in CTX_CHOSEN_PLAYER — "that player must DISCARD a card"
@@ -65,6 +71,13 @@ export type CardFilter = {
   unequipped?: boolean
   /** Items only: keep the cursed ones (true) or the plain ones (false). Non-items never match. */
   cursed?: boolean
+  /**
+   * Heroes only: keep the ones a DESTROY would actually take — not the ones
+   * under Mighty Blade or Terratuga (`GameState.canBeDestroyed`). Non-heroes
+   * never match. Every choice that feeds a DestroyTask sets it, so a shielded
+   * hero is never offered.
+   */
+  destroyable?: boolean
   excludeIds?: string[]
 }
 
@@ -123,7 +136,7 @@ export function filterPlayers(
     if (filter.hasHeroes && gs.getParty(id).getHeroIds().length === 0) {
       return false
     }
-    if (filter.hasClass && !gs.getPartyHeroClasses(id).includes(filter.hasClass)) {
+    if (filter.hasClass && !gs.getPartyClasses(id).includes(filter.hasClass)) {
       return false
     }
     return true
@@ -198,6 +211,9 @@ function keep(
   ids: string[],
 ): string[] {
   const exclude = new Set(filter.excludeIds ?? [])
+  for (const id of (filter.excludeKey ? ctx.get<string[]>(filter.excludeKey) : undefined) ?? []) {
+    exclude.add(id)
+  }
   const among = filter.among
     ? new Set(ctx.get<string[]>(filter.among) ?? [])
     : undefined
@@ -222,6 +238,11 @@ function keep(
     if (filter.cursed !== undefined) {
       if (!(card instanceof ItemCard)) return false
       if (card.isCursed() !== filter.cursed) return false
+    }
+
+    if (filter.destroyable) {
+      if (!(card instanceof HeroCard)) return false
+      if (!gs.canBeDestroyed(id)) return false
     }
 
     // Asked of the board rather than answered here: the same question the

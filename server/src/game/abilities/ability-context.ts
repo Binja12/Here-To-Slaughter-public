@@ -28,6 +28,12 @@ export const CTX_CHOSEN_CARD = "chosenCard";
 export const CTX_CHOSEN_PLAYER = "chosenPlayer";
 
 /**
+ * string[] — a CardChoice over the deck's top cards filed here (Bullseye's
+ * "return the other two in any order"): the one that goes on top.
+ */
+export const CTX_DECK_TOP_CARD = "deckTopCard";
+
+/**
  * The ability's own card, as a slot — set by the constructor, so a step that
  * reads "the hero to move" from a slot can be pointed at the card itself:
  * Tipsy Tootie moves ITSELF into the party it stole from.

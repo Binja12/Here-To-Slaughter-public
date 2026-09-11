@@ -196,13 +196,30 @@ describe('PlayItemAction', () => {
       expect(makeAction('hero-1').canExecute(gs)).toEqual({ accepted: true })
     })
 
-    it("non-cursed item targeting an opponent hero can't execute", () => {
-      const opponent = makePlayer('p2')
-      const opponentParty = makeParty('p2', ['enemy-hero'])
-      gs.registerPlayer(opponent)
-      gs.registerParty(opponentParty)
+    // Ownership decides the side (the owner, 2026-09-08): plain items help
+    // your own party, cursed ones are played at somebody else's.
+    const withOpponent = () => {
+      gs.registerPlayer(makePlayer('p2'))
+      gs.registerParty(makeParty('p2', ['enemy-hero']))
       gs.registerCard(makeHeroCard('enemy-hero'))
-      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({ accepted: false, reason: RefusalReason.NotYourHero })
+    }
+
+    it("refuses a plain item on an opponent's hero", () => {
+      withOpponent()
+      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NotYourHero,
+      })
+    })
+
+    it('a CURSED item goes on an enemy hero, never your own', () => {
+      withOpponent()
+      gs.registerCard(makeItemCard('item-1', true))
+      expect(makeAction('enemy-hero').canExecute(gs)).toEqual({ accepted: true })
+      expect(makeAction('hero-1').canExecute(gs)).toEqual({
+        accepted: false,
+        reason: RefusalReason.NotAnEnemyHero,
+      })
     })
   })
 
@@ -235,12 +252,12 @@ describe('PlayItemAction', () => {
 
     it('equips inside the frame, so a lost challenge un-equips it', () => {
       makeAction().execute(gs)
-      const window = [...gs.frames.values()]
+      const window = [...gs.getFrames().values()]
         .flatMap((f) => f.windows)
         .find((w) => w.isOpen())!
 
       // Challenger rolls 11, defender 1.
-      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0)
+      jest.spyOn(Math, 'random').mockReturnValueOnce(0.99).mockReturnValueOnce(0.99).mockReturnValueOnce(0).mockReturnValueOnce(0)
       window.submitReaction('p2', { type: 'challenge', challengerId: 'p2' })
       unchallenged()
 

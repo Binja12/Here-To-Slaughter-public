@@ -15,7 +15,11 @@ export const ToughTeddyAbility: IAbilityRule[] = [
   {
     trigger: { on: GameEventType.RollSuccess, scope: TriggerScope.SelfCard },
     steps: [
-      new ChooseCardEachTask({ owner: Owner.Others, hasClass: HeroClass.Fighter }, { zone: Zone.Hand }),
+      new ChooseCardEachTask(
+        { owner: Owner.Others, hasClass: HeroClass.Fighter },
+        { zone: Zone.Hand },
+        'Choose a card to discard',
+      ),
       new DiscardEachTask(),
     ],
   },

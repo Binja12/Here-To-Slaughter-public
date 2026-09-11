@@ -49,7 +49,7 @@ describe('Beary Wise (hero-003)', () => {
     const [ask, discard, choose, retrieve] = BearyWiseAbility[0].steps
 
     const frameId = ask.execute(gs, ctx, em, rm) as string
-    expect(gs.frames.size).toBe(1)
+    expect(gs.getFrames().size).toBe(1)
     expect(openWindows(gs).map((w) => w.getRespondentId())).toEqual(['p2', 'p3'])
     expect(windowOf(gs, 'p2').getOptions()).toEqual(['a', 'a2'])
     expect(windowOf(gs, 'p3').getOptions()).toEqual(['b'])
@@ -57,10 +57,10 @@ describe('Beary Wise (hero-003)', () => {
 
     // p3 answers first: the frame waits for p2
     windowOf(gs, 'p3').submitReaction('p3', { choice: 'b' })
-    expect(gs.frames.has(frameId)).toBe(true)
+    expect(gs.getFrames().has(frameId)).toBe(true)
     expect(emitted.filter((e) => e.getType() === GameEventType.FrameResolved)).toHaveLength(0)
     windowOf(gs, 'p2').submitReaction('p2', { choice: 'a2' })
-    expect(gs.frames.has(frameId)).toBe(false)
+    expect(gs.getFrames().has(frameId)).toBe(false)
     const resolved = emitted.filter((e) => e.getType() === GameEventType.FrameResolved)
     expect(resolved).toHaveLength(1)
     // what the TaskManager would file on resume
@@ -115,7 +115,7 @@ describe('Beary Wise (hero-003)', () => {
     expect(gs.getPlayer('p3')!.getHand()).toEqual([])
     expect(gs.getDiscardPile().getAll()).toEqual(['b', 'old'])
     expect(emitted.filter((e) => e.getType() === GameEventType.CardRetrieved)).toHaveLength(1)
-    expect(gs.abilityPipelines).toEqual([])
+    expect(gs.getPipelines()).toEqual([])
   })
 
   it('a seat with no hand settles on its own; the owner chooses among what the others discarded', () => {
@@ -159,7 +159,7 @@ describe('Beary Wise (hero-003)', () => {
       expect(windowOf(gs, 'p1').getOptions()).toEqual([])
       jest.runOnlyPendingTimers() // and the owner's
       expect(gs.getPlayer('p1')!.getHand()).toEqual(['mine'])
-      expect(gs.abilityPipelines).toEqual([])
+      expect(gs.getPipelines()).toEqual([])
     } finally {
       jest.useRealTimers()
     }

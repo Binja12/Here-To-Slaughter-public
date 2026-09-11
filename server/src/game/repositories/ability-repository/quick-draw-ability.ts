@@ -31,6 +31,7 @@ export const QuickDrawAbility: IAbilityRule[] = [
     steps: [
       new ConfirmTask({
         confirms: PLAY_AN_ITEM,
+        question: 'Play the item you just drew?',
         subjectKey: CTX_DRAWN_CARD_IDS,
       }),
     ],
@@ -49,7 +50,7 @@ export const QuickDrawAbility: IAbilityRule[] = [
           cardType: CardType.Item,
           among: CTX_DRAWN_CARD_IDS,
         },
-        { resultKey: CTX_CHOSEN_ITEM },
+        { resultKey: CTX_CHOSEN_ITEM, question: 'Choose an item to play' },
       ),
       new ChooseCardTask(
         {
@@ -57,7 +58,10 @@ export const QuickDrawAbility: IAbilityRule[] = [
           owner: Owner.Self,
           unequipped: true,
         },
-        { requiresKey: CTX_CHOSEN_ITEM },
+        {
+          requiresKey: CTX_CHOSEN_ITEM,
+          question: 'Choose a hero to equip it to',
+        },
       ),
       new PlayItemTask(CTX_CHOSEN_ITEM),
     ],

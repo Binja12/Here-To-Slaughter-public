@@ -10,6 +10,7 @@ import type { OnGatewayConnection, OnGatewayInit } from '@nestjs/websockets'
 import {
   GAME_COMMAND,
   GAME_STARTED,
+  GAME_CONNECTED,
   GamePhase,
   INTERNAL_ERROR,
   LeaveGameSchema,
@@ -105,6 +106,19 @@ export class GameGateway implements OnGatewayInit<Server>, OnGatewayConnection {
 
     const running = this.registry.get(seat.gameId)
     if (!running) return
+
+    const config = running.game.config
+    socket.emit(GAME_CONNECTED, {
+      gameId: running.game.gameId,
+      config: {
+        actionPointsPerTurn: config.actionPointsPerTurn,
+        cardSets: config.cardSets,
+        turnTimeMs: config.timeControl.turnTimeMs,
+        reactionTimeMs: config.timeControl.reactionCountdownMs,
+        requireAllWinConditions: config.requireAllWinConditions,
+        winConditions: config.winConditions,
+      },
+    })
 
     if (this.registry.arrive(running, seat.accountId)) {
       // The last seat is in: the table just started, and everybody — this
