@@ -320,6 +320,13 @@ structure's mutator has a thin one-to-one door on it. Most of the file is
 those setters and getters, which is why it is long. Grouping the doors by zone
 is a later pass — see `docs/ENGINE_ARCHITECTURE.md` §8.
 
+## License
+
+Copyright © 2026 Benjamin Namdar. All rights reserved. The code is published
+for reading and evaluation; using it, in whole or in part, in any other way
+requires written permission. See [LICENSE](LICENSE). The game it implements
+belongs to its publisher, and nothing here grants rights in it.
+
 ## Status
 
 Every card in the base set has its behaviour in the registry, and whole games
