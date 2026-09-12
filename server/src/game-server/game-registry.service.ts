@@ -51,7 +51,7 @@ export type RunningGame = {
  * A spec's hand on the deal: the printed pool and the config, the two
  * things `createGame` lets a caller fix. The wire never carries either — the
  * lobby sends the seats and the settings the config is built from — so this
- * is how a test seats a table it can predict (plan §6).
+ * is how a test seats a table it can predict (plan §5).
  */
 export type Deal = {
   cards?: CardBase[]
@@ -157,7 +157,7 @@ export class GameRegistryService {
    * earlier one is a seat waiting for the others.
    *
    * A seat that never arrives holds the table in `Setup` for ever; the
-   * no-show timer that abandons it is deferred (plan §10).
+   * no-show timer that abandons it is deferred (plan §7).
    */
   arrive(running: RunningGame, accountId: string): boolean {
     running.arrived.add(accountId)

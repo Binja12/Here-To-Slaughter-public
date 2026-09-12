@@ -53,7 +53,7 @@ export class InMemorySessionResolver implements IGameSessionResolver {
 
 // --- A table won in one turn ---------------------------------------------
 //
-// The engine's own shortcut (engine doc §11): `AllClassesInParty` asks the
+// The engine's own shortcut (engine doc §10): `AllClassesInParty` asks the
 // POOL which classes exist, so a pool holding one class makes "every class"
 // mean "one hero", and the first hero played wins at the end of that turn.
 // Fighters with nothing printed on them, so nothing else happens; the

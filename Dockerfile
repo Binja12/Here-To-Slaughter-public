@@ -5,8 +5,7 @@
 #                       lobby/auth process (main.js) and the game process
 #                       (main.game.js)
 #   --target client  -> the CRA production build behind nginx on 3002
-# Ports and hosts follow docs/ENGINE_INTEGRATION_PLAN.md §9 and the run
-# book in docs/CLIENT_PLAYTEST_TODO.md §2.
+# Ports and hosts follow docs/ENGINE_INTEGRATION_PLAN.md §6.
 # ---------------------------------------------------------------------------
 
 # ---- deps: one npm ci for every workspace ---------------------------------

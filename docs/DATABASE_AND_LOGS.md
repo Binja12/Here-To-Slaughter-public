@@ -52,7 +52,7 @@ internet.
 A store that rejects at runtime — the database gone mid-game — is logged by
 the caller (`GameRegistryService.create`, `SnapshotPublisherService.push`)
 and the table plays on. There is no retry; the outage story is deferred with
-the rest of it (`ENGINE_INTEGRATION_PLAN.md` §10).
+the rest of it (`ENGINE_INTEGRATION_PLAN.md` §7).
 
 ### Running the Postgres spec
 

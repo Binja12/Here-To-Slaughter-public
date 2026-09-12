@@ -33,7 +33,7 @@ export function snapshotOf(running: RunningGame, accountId: string): GameSnapsho
 
 // ---------------------------------------------------------------------------
 // The view's observer: the piece that makes socket MVC push rather than
-// pull (plan §2). One listener per game on the game's own emitter, added at
+// pull (plan §1). One listener per game on the game's own emitter, added at
 // the table's birth, doing two things at two moments:
 //
 //   mark  — on EVERY event, synchronously: the board may have changed, so
@@ -138,7 +138,7 @@ export class SnapshotPublisherService {
    * One-way, like the lobby's own `game.completed` listener expects. A lobby
    * that cannot be reached is logged, not thrown: the seats have their final
    * board either way, and the assignment is the lobby's to clear when it is
-   * back. Retry is deferred with the rest of the outage story (plan §10).
+   * back. Retry is deferred with the rest of the outage story (plan §7).
    */
   private tellLobby(gameId: string): void {
     const event: GameCompletedEvent = { gameId }

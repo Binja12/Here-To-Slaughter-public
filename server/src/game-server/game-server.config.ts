@@ -3,7 +3,7 @@
 // listens on, dials or announces lives here, so `main.game.ts`, the module
 // and the gateway agree by construction rather than by three copies of the
 // same `process.env` line. Defaults follow the port table in
-// docs/ENGINE_INTEGRATION_PLAN.md §9: lobby HTTP 3000 + TCP 4000, game
+// docs/ENGINE_INTEGRATION_PLAN.md §6: lobby HTTP 3000 + TCP 4000, game
 // Socket.IO 3001 + TCP 4001.
 // ---------------------------------------------------------------------------
 

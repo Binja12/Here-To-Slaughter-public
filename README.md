@@ -14,7 +14,18 @@ Test Suites: 1 skipped, 168 passed, 168 of 169 total
 Tests:       7 skipped, 1588 passed, 1595 total
 ```
 
-## What this demonstrates
+## In play
+
+https://github.com/user-attachments/assets/36ccf3fb-0a81-4677-b7c1-6db60f99ce17
+
+Recorded from the seat of the player being challenged. A hero play is
+interrupted by another seat's Challenge; both roll, and each side answers
+with modifiers until the window settles, so the play stands. On the same
+turn the hero's own effect pauses on a target choice, rolls, and takes a card
+from the chosen hand. One request, suspended twice by other users' input,
+committed at the end.
+
+## Core ideas
 
 - **Server authority.** All state lives on the server. Clients send intents
   and receive a projection; nothing a client sends is trusted as fact.
@@ -25,20 +36,18 @@ Tests:       7 skipped, 1588 passed, 1595 total
 - **Snapshot-based rollback, chosen over an undo log.** One serialized state
   serves as both the rollback point and the authoritative broadcast, so there
   is one definition of "the state" and it runs on every event, not only on the
-  rare failure path. The trade-offs are documented, not hidden.
+  rare failure path.
 - **Two schedulers, one contract.** User requests and rule execution run on
   separate pipelines that share nothing but events and state, so neither can
   reach into the other.
-- **Rules as data.** The domain is 136 records plus declarative
-  `{ trigger, steps }` entries in one registry. No file in the engine core
-  names a domain object; adding a rule is data, not an engine change.
-- **Information hiding at the type level.** Each user gets a projection built
-  by one function whose *type* cannot hold what that user may not see. A
-  visible object is named; a hidden one is counted.
-- **Dependency direction.** An interface layer sits at the top and imports no
-  implementation. Type-only cycles were measured and removed. Every design
-  decision, and every alternative that was tried and deleted, is written down
-  in [docs/ENGINE_ARCHITECTURE.md](docs/ENGINE_ARCHITECTURE.md).
+- **Rules as data.** The 136 cards are plain records; each ability is a
+  declarative `{ trigger, steps }` entry in one registry, composed from a
+  small set of reusable tasks. The engine core names no card, so adding one
+  adds data, not engine code: the open/closed principle, with the registry
+  as the extension point.
+- **Information hiding at the type level.** Each user gets a distinct
+  projection built by one function whose *type* cannot hold what that user
+  may not see. A visible object is named; a hidden one is counted.
 - **A typed service boundary.** Two NestJS processes: the lobby/auth server
   (HTTP plus Server-Sent Events) and the game server (Socket.IO), talking to
   each other over Nest's TCP microservice transport. The wire contract lives
@@ -100,6 +109,21 @@ This engine takes the second route, and the reason is not only simplicity.
 The engine already has to serialize the full state to broadcast it. The same
 clone does both jobs, so "what the state is" has one definition that is
 exercised constantly rather than a second one that runs only on rollback.
+
+### Seamless play, the original driver
+
+The first design let play continue while a contest was open: a card resolved
+at once, later actions stacked on top, and a losing reaction rolled the whole
+sequence back. Each modifier could flip the outcome again, so "undo" meant
+undoing and re-running everything downstream, possibly several times. An undo
+log cannot express that; swapping a snapshot in and re-running the parked
+continuation can. That requirement is what settled the engine on snapshots.
+
+Seamless play itself was built, tested and then removed. The printed rules do
+not survive it: a card stolen during the contested play could not be played
+into the still-open window, and only modifiers are allowed to wait for their
+target. The table now pauses while a window is open. The snapshot design
+stayed, because it is still the simplest answer to nested interruptions.
 
 Three consequences shape most of the engine:
 
@@ -190,28 +214,44 @@ decides about itself, never about its siblings.
 ## Repository layout
 
 ```
+.github/workflows/          CI: typecheck and the server suite on every push
+server/src/
+  main.ts  main.game.ts     the two bootstraps: lobby/auth process, game-server process
+  game/                     the engine (expanded below)
+  game-server/              Socket.IO gateway, table registry, command dispatch, snapshot publisher
+  lobby/  auth/             the lobby (HTTP + SSE); registration, login, sessions
+  persistence/  stores/     PostgreSQL stores and their in-memory counterparts, chosen at boot
+  data/                     the 136 card records
+  utils/                    dice
 server/src/game/
   game-engine.ts            wires the pipelines together
   interfaces.ts             the contract layer everything else depends on
   pipelines/                turn-manager, task-manager, reaction-manager, game-state
   abilities/                trigger matching, effect lifecycle, expiry vocabulary
-  repositories/
-    ability-repository/     one file per rule + the registry
+  repositories/ability-repository/   one file per rule + the registry
   actions/  tasks/          the two pipelines' units of work
   reactions/                the window classes
   state-structures/         player, party, face-down stack, face-up pile
   views/                    the per-user projection and the per-seat game log
   setup/                    createGame, plus the real-clock integration tests
-  conditions/ events/ config/ cards/
-server/src/
-  game-server/              Socket.IO gateway, table registry, command dispatch, snapshot publisher
-  lobby/  auth/             the lobby (HTTP + SSE) and registration, login, sessions
-  persistence/  stores/     PostgreSQL stores and their in-memory counterparts
-  data/                     the domain records
-shared/src/                 the wire contract and the types every process shares
-client/                     React lobby and board, coded against the contract
+  cards/                    one class per card type, built from the records by a factory
+  events/                   the event types and the emitter both pipelines speak
+  conditions/  config/      win conditions; game and time-control settings
+shared/src/
+  contracts/                zod schemas: commands, snapshots, settings, log, lobby-to-game RPC
+  enums.ts  types.ts  views.ts   the types every server process shares
+client/
+  src/ports/                the only door to the servers, with fake ports for offline work
+  src/state/                command queue and snapshot hooks
+  src/lobby/  auth/  board/ the screens
+  src/loading/  audio/      asset readiness; music and sound effects
+  src/contract/             the client's own typed copy of the wire contract
+  scripts/bot-seat.mjs      a headless seat that plays a legal game, for solo playtests
+  public/                   static assets; card art is absent in this mirror
+docs/                       design records: engine, wire contract, database and logs, playtests; schema diagrams
 Dockerfile  compose.yaml    the whole stack in containers, for a local playtest
-docs/                       design records: engine, wire contract, database and logs
+compose.internet.yaml  docker/   the same stack behind a Caddy edge and a tunnel, for remote playtests
+scripts/                    asset pipeline for the removed art and music; the remote-playtest launcher
 ```
 
 ## Running it
@@ -254,12 +294,23 @@ The card descriptions in `server/src/data/base-game-cards.ts` are the
 author's own paraphrases of the rules. Commits older than the one that
 introduced them still carry the printed wording.
 
-The React client began as an AI-generated harness for playing the engine by
-hand, coded against the wire contract; the design work this README describes
-is in the engine and the servers.
+The React client was run as an exercise in working with a separate team. It
+was produced from prompts alone, against the written contract in
+[docs/API_AND_SOCKETS_CONTRACT.md](docs/API_AND_SOCKETS_CONTRACT.md) and the
+client brief beside it, with no access to the engine or the servers. That is
+why it carries its own typed copy of the wire contract under
+`client/src/contract` and reaches the servers only through it. The design
+work this README describes is in the engine and the servers. Claude Code and
+Astra were the tools; the card images removed from this mirror were
+generated with OpenAI tools.
 
 The project was built with [Claude Code](https://claude.com/claude-code) as a
-pair programmer.
+pair programmer. The design records in `docs/`, the engine architecture above
+all, were written alongside the work rather than generated from it afterwards.
+Each section records a decision that was weighed against its alternatives at
+the time it was made; the tool's part was to write the reasoning down so that
+later sessions, tools and readers start from the same understanding instead
+of rediscovering it from the code.
 
 ## A note on the engine's `GameState`
 

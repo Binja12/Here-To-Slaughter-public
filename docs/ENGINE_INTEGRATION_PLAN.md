@@ -1,32 +1,9 @@
-# Engine integration plan — game server, commands in, views out
+# Game server — commands in, views out
 
-Status: IN PROGRESS on worktree `htsr-4-api-contract` (branch
-`HTSR-4-API-And-Sockets`, which is `develop` = engine + HTSR-6 lobby/auth).
-Built so far: §4.1 steps 1-2 — `game.create` over TCP, `GameRegistryService`,
-`GameServerModule`, `main.game.ts` and the `start:game` scripts; §4.2 steps 1
-and 3-4 — the command contract (`shared/src/contracts/game-commands.ts`) and
-`CommandDispatcherService`, tested through a real dealt table; the Socket.IO
-dependencies; the hybrid bootstrap (`main.game.ts`: HTTP 3001 with CORS for
-the socket, TCP 4001 for the lobby, addresses in `game-server.config.ts`);
-and §4.1 step 4's resolver (`session/`: `IGameSessionResolver` + the TCP
-adapter, tested against the real lobby auth controller); the registry's
-`RunningGame` and `findByAccount`; the gateway (`game.gateway.ts`:
-handshake in middleware, seat rooms, `game:command` with ack through the
-dispatcher, `commandId` dedupe in `command-ledger.ts`, resend of a live
-table on (re)connect) with `shared/src/contracts/game-snapshots.ts`, all
-driven by real socket.io clients in `game.gateway.spec.ts`; the start
-lifecycle (`GameRegistryService.arrive`: the arrival completing the table
-starts it, every seat hears `game-started` — Q5 answered); §4.3 steps 1-3,
-the snapshot publisher (`snapshot-publisher.service.ts`: mark on every
-event, one flush per burst on `setImmediate`, `version + 1`, one view per
-seat to its room); §4.3 step 4, completion (the ending flush pushes
-`game-completed`, tells the lobby over TCP, `LeaveGame` on the wire as
-`LeaveGameSchema`, `GameRegistryService.leave` forgets an emptied table).
-Seat names (Q7: `CreateGameRequest.players` carries usernames, E2 built);
-the capstone (`full-game-over-sockets.spec.ts`); the 0-byte placeholders
-deleted (E3). The ticket's list is DONE; what is left is in §10 and the
-findings at the end of §9. Decisions taken so far are in §9.
-Companion docs: `docs/ENGINE_ARCHITECTURE.md` (engine) and
+The design record for the game-server process: how commands enter,
+how views leave, the flows between lobby, engine and browser, and the
+decisions taken while building it. Companion docs:
+`docs/ENGINE_ARCHITECTURE.md` (engine) and
 `docs/API_AND_SOCKETS_CONTRACT.md` (wire contract).
 
 Running a built server reads `shared` through its COMPILED `shared/dist`
@@ -35,51 +12,7 @@ Running a built server reads `shared` through its COMPILED `shared/dist`
 after any change under `shared/src`, or the process boots against a stale
 contract and fails at the first message.
 
-## 0. Where things stand (verified 2026-09-03)
-
-- `develop` = `HTSR-4-API-And-Sockets` head (5aa8d4a) = latest engine
-  (`HTSR-3-Game-engine` 40157d5) + the HTSR-6 lobby/auth server, merged.
-- The lobby/auth server is DONE and tested: HTTP + SSE, in-memory stores behind
-  interfaces, and a Nest TCP client that already calls a game server that does
-  not exist yet (`CREATE_GAME_PATTERN` -> `{gameId, webSocketUrl}`), expects
-  it to call back `RESOLVE_SESSION_PATTERN`, and listens for
-  `GAME_COMPLETED_PATTERN`.
-- The engine exposes exactly four player doors, and its own play-through
-  harness (`setup/play-through-helpers.ts`) proves a whole game can be driven
-  through them without touching `GameState`:
-  `turnManager.enqueue(IAction)`, `reactionManager.submitReaction(IReaction)`,
-  `reactionManager.submitChoice(windowId, playerId, choice)`, and
-  `playerView(game, playerId)` to read.
-- Nothing existed between the two. `server/src/runtime/runtime.service.ts`,
-  `server/src/socket/socket.gateway.ts` and `server/src/lobby/lobby.ts` were
-  0-byte placeholders on every branch (deleted here 2026-09-03; the
-  game-server folder is what replaced them). The server had no Socket.IO
-  dependency at all until 2026-09-03, when `@nestjs/websockets`,
-  `@nestjs/platform-socket.io` and `socket.io` (plus `socket.io-client` for
-  specs) were added to the `server` workspace. The client on `HTSR-5-Frontend`
-  has `socket.io-client` and a PRE-contract `useGameState` (events
-  `game:action`, `game:state`, `game:catalog`, `game:event`).
-- Graphify (rebuilt from 40157d5): no import cycles; `GameState`,
-  `IGameEvent`, `GameEventEmitter` are the hubs. The graph covers the engine
-  checkout only, not the HTSR-6 lobby code.
-
-## 1. Scope of this ticket
-
-Three things, in the order the data flows:
-
-1. **Create game** — the game server process, its TCP endpoint that turns the
-   lobby's `CreateGameRequest` into a dealt table, and the Socket.IO handshake
-   that seats an account at it.
-2. **Commands in** — `game:command` envelope -> validated -> the right engine
-   door -> a truthful acknowledgement.
-3. **Output to users** — engine events -> one `PlayerView` per seat -> pushed
-   to that seat's socket, plus `game-started` / `game-completed`.
-
-Out of scope, named so they are not quietly pulled in: the React client
-rewrite to the new envelope (HTSR-5 ticket), a DB/Redis adapter, Docker,
-turn timers, the priority scheduler the contract defers, spectators.
-
-## 2. Architecture — MVC, and what sockets change
+## 1. Architecture — MVC, and what sockets change
 
 Classic MVC holds, and maps one-to-one onto what already exists:
 
@@ -117,7 +50,7 @@ What a socket changes is not the roles, it is the DIRECTION of the view:
   be in that process. That is why the lobby hands the browser a
   `webSocketUrl` from the game server itself — the seam for 1+n servers.
 
-## 3. Proposed module layout (game server process)
+## 2. Proposed module layout (game server process)
 
 Same `server` workspace, second Nest root and entry point (Q2):
 
@@ -163,9 +96,9 @@ play-through harness works under.
 
 The 0-byte placeholders had no readers and are gone (E3, done).
 
-## 4. Flows
+## 3. Flows
 
-### 4.1 Create game
+### 3.1 Create game
 
 1. Host `POST /lobby/start-game` -> `LobbyService.startGame` -> TCP
    `game.create { accountIds, gameConfig: 'default' }` (exists).
@@ -186,7 +119,7 @@ The 0-byte placeholders had no readers and are gone (E3, done).
    so reconnect is a resend, no replay. A seat still waiting for the others
    hears nothing.
 
-### 4.2 Commands in
+### 3.2 Commands in
 
 `game:command { commandId, type, payload }` with Socket.IO ack.
 
@@ -214,17 +147,17 @@ The 0-byte placeholders had no readers and are gone (E3, done).
 
    Emitter and reaction manager are constructor slots the dispatcher fills
    from `RunningGame`; they never appear on the wire. Note the contract's
-   `ApplyModifierPayload.value` is BACK (see §9): the value comes with the play,
+   `ApplyModifierPayload.value` is BACK (see §6): the value comes with the play,
    verified against the card. (Superseded note: it was briefly a `SubmitChoice` on the
    `ValueChoice` window the card opens (engine §7, "unforgeable").
-4. Ack truthfully. This needs the engine to SAY what it did (§5, E1).
+4. Ack truthfully. This needs the engine to SAY what it did (§4, E1).
    Today all three doors return `void` and drop silently.
 
 Commands run inline, synchronously, in arrival order per socket. The
 contract's priority scheduler stays deferred; nothing here precludes it
 because the dispatcher is the one place a queue would go.
 
-### 4.3 Output to users
+### 3.3 Output to users
 
 1. `SnapshotPublisher` adds ONE listener to the game's emitter, after
    `createGame` (so after `TaskManager` and `GameEngine`, preserving §8).
@@ -251,10 +184,10 @@ explicit that payloads are unfiltered and would leak by that route; the view
 already carries what a screen needs (`pendingWindows[].detail` has the dice,
 bonuses and requirement). An audience-filtered event feed is a later ticket.
 
-## 5. Engine touches this needs (each one is a consult)
+## 4. Engine touches the integration made
 
 - **E1 — doors return an outcome.** BUILT 2026-09-03 as `RequestResult`
-  (see §9). The text below is the design as it stood.
+  (see §6). The text below is the design as it stood.
   - `TurnManager.enqueue(action)` -> `Refused(NotYourTurn | Busy | WrongPhase)
     | Executed | Queued`. With an idle board and empty queue an action runs
     synchronously inside `enqueue`, so `canExecute` false can be reported as
@@ -281,7 +214,7 @@ bonuses and requirement). An audience-filtered event feed is a later ticket.
 Nothing else in `server/src/game/**` moves. No engine rule is duplicated in
 the transport: legality is asked of the doors, visibility of the view.
 
-## 6. Tests (the "full gameplay" milestone)
+## 5. Tests (the "full gameplay" milestone)
 
 All in `server/src/game-server/**/*.spec.ts`, in-process Nest test module,
 `socket.io-client` against a real listening gateway, an in-memory
@@ -309,24 +242,7 @@ hands.
 
 Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.json`.
 
-## 7. Open questions — answer before building
-
-- ~~Q1 Base branch~~ — answered: the HTSR-4 worktree (§9).
-- ~~Q2 Process layout~~ — answered: one workspace, two bootstraps (§9).
-- ~~Q3 E1 shape~~ — answered and built: `RequestResult` (§9).
-- **Q4 Output = snapshots only in v1.** The current client draws its log and
-  dice animation from raw events; the view has the numbers, the animation
-  becomes a client diff. Confirm, or ask for an audience-filtered event
-  feed now.
-- ~~Q5 Start timing~~ — answered 2026-09-03: every seat connected once
-  (§9). No-show timeout deferred (§10).
-- **Q6 Validation.** Add `zod` for wire schemas, as the contract proposed,
-  or hand-written guards. Recommended zod; one schema per command type is
-  the whole file.
-- ~~Q7 Names~~ — built 2026-09-03 as E2 proposed: `CreateGameOptions.names`
-  and `CreateGameRequest.players: { accountId, username }[]` (§9).
-
-## 9. Decisions log
+## 6. Decisions log
 
 2026-09-03, with the owner:
 
@@ -504,7 +420,7 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   `InternalError`: a correct client never sends one, since the view says
   `phase: Setup` and names no current player. A seat that never arrives
   holds the table in `Setup` for ever — the no-show timer that abandons it
-  is the owner's flagged edge case, deferred (§10).
+  is the owner's flagged edge case, deferred (§7).
 - **`RunningGame` is `{ game, arrived, version }`.** Seats, started and
   finished are all readable off `game.playerOrder` and `PlayerView.phase`,
   and a stored copy could only disagree with the board; `arrived` and
@@ -568,7 +484,7 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   the second. Then the lobby is told once, one-way, and an unreachable
   lobby is logged rather than thrown — the seats have their final board
   either way, and the assignment is the lobby's to clear when it is back.
-  Retry belongs with the outage story (§10).
+  Retry belongs with the outage story (§7).
 - **A table is forgotten when its last seat has left.** `RunningGame.left`
   is the second set the board cannot know (after `arrived`);
   `GameRegistryService.leave` refuses `GameNotOver` off the view's phase,
@@ -581,7 +497,7 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
 - **Specs seat a table they can win in one turn** (`spec-helpers.ts`,
   beside the specs the way `play-through-helpers.ts` is beside the
   engine's). `GameRegistryService.create` takes an optional `Deal` — the
-  printed pool and the config, which the wire never carries — as §6 planned.
+  printed pool and the config, which the wire never carries — as §5 planned.
   The win is the engine's own shortcut: a pool with one hero class makes
   `AllClassesInParty` mean "one hero", so the first Fighter played wins at
   the end of that turn, driven through the dispatcher on the harness's
@@ -591,7 +507,7 @@ Run with `npx jest --maxWorkers=4` plus `npx tsc --noEmit -p server/tsconfig.jso
   in place of `accountIds` — the lobby has the usernames and nothing else
   does — and the registry passes them to the engine as
   `CreateGameOptions.names`, the one-line engine touch E2 proposed, recorded
-  in the engine doc §11. `SeatView.name` is what a screen shows. The
+  in the engine doc §10. `SeatView.name` is what a screen shows. The
   lobby's request builder, its TCP client and three of its specs changed
   shape with the contract; that is the contract's reach, not a raid on
   HTSR-6.
@@ -630,7 +546,7 @@ Findings from building the transport, and what the owner decided
   `GameConfig`. Presets (`default`, `fast`) are derived from the values,
   never stored. The `REACTION_COUNTDOWN_MS` process override is gone: the
   settings own both clocks. The turn clock itself is the engine's
-  (`TurnManager`, engine doc §11) and pauses while any reaction window is
+  (`TurnManager`, engine doc §10) and pauses while any reaction window is
   open, anyone's (the owner, same day).
 - **Seamless reactions: built 2026-09-05, removed 2026-09-06.** A mode in
   which plays resolved at once under their reaction windows and rolled back
@@ -668,7 +584,7 @@ dist/...` — that is exactly what happened on the first try. One build, two
 `node` processes. Three seats need three browser profiles (three cookie
 jars), all reaching the servers as `localhost`.
 
-## 10. Deferred (recorded so they are not reinvented)
+## 7. Deferred (recorded so they are not reinvented)
 
 n game servers (lobby holds a list of clients + pick; each server already
 announces its own url), no-show / abandoned-game teardown, a turn-clock

@@ -39,7 +39,7 @@ import { InMemorySessionResolver, dealStacked, tokenOf } from './spec-helpers'
 // played in the harness and not here, the transport is the bug.
 //
 // The harness reads events to confirm what happened; a browser has no
-// events, only the board (plan §4.3, Q4). So every assertion below is one a
+// events, only the board (plan §3.3). So every assertion below is one a
 // screen could make: where a card is, whose turn it is, what a window says.
 // ---------------------------------------------------------------------------
 

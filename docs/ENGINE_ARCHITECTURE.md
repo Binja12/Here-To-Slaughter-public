@@ -23,6 +23,52 @@ finishes as a later step of itself. Read `snowball-ability.ts`,
 `wise-shield-ability.ts` and `critical-boost-ability.ts` in
 `repositories/ability-repository/` with their specs before adding a card.
 
+## Summary
+
+One line per section, for orientation. Sections 1, 4, 6 and 7 carry the
+design; the rest are the rules around it.
+
+- **§0 Folder layout.** What each folder under the engine holds, and why a
+  face-down stack only draws while a face-up pile only picks.
+- **§1 Two pipelines.** Actions are player requests, built per request with
+  their targets already chosen. Tasks are built once inside ability
+  declarations and must discover targets at runtime. Each player mechanic is
+  one action and one task over a shared base, and a played card's position on
+  the board is the only record of what happened to it.
+- **§2 AbilityContext.** The blackboard one ability run uses between its
+  steps: every slot is a list, only windows write choice slots, absent means
+  a mistake and empty means the step ran and found nothing.
+- **§3 Frames.** Snapshot and continuation as one object. Rollback is
+  cancellation, rollback means an outcome failed rather than a player
+  declining, and where the snapshot is taken decides what a rollback keeps.
+- **§4 Reaction windows.** Modifier and challenge windows take many
+  respondents and reset the clock on each play; choice windows take one
+  respondent and always release. A timeout resolves and never rolls back.
+  Refusals carry a reason, a stale pick throws, an unoffered pick is refused.
+- **§5 Choice filters and the view.** Zone and Owner as two independent axes,
+  with a late-binding owner. Events tell the full truth; the per-player view
+  is the one place visibility is enforced, and its type cannot hold a hidden
+  card.
+- **§6 Abilities.** Live abilities are found by scanning the board each event,
+  never stored, so a stolen hero's ability moves with it for free. An ability
+  that pauses is split into several registry entries, never parked.
+- **§7 Effect lifetime.** An ability is a one-time run; an effect is a
+  standing fact with a lifetime and no behaviour, read at four places.
+  Trigger and expiry are both game events.
+- **§8 Known limitations.** No failure branch after a rollback, no else on a
+  condition, card objects shared across snapshots, and why the state class
+  is long.
+- **§9 Dependency direction.** The interface file imports no implementation,
+  and how the one type-only edge that every cycle ran through was removed.
+- **§10 Setup.** The one function that builds a game, the exhaustive card
+  factory, the ordering rules that fail silently, clocks as config, and the
+  four doors the integration test uses.
+- **§11 Late mechanics.** The six additions the last cards needed, each a
+  task, a filter field or an effect type rather than a new construct.
+- **§12 Working principles.** The seven rules the code is held to.
+- **Connection and dice.** Config travels once per connection, snapshots carry
+  only the view, and every roll is two independent d6.
+
 ## 0. Folder layout
 
 Two files sit at the root of `server/src/game/`: `game-engine.ts`, which wires
@@ -248,7 +294,7 @@ obligation instead of something a new removal path can forget.
 refuses an occupied hero, so the action's `canExecute` says no and the task
 skips. `playItem` THROWS if it is reached anyway: both wrappers are contracted
 to ask first, so arriving with gear already on the hero is an engine mistake
-rather than an illegal request, and it fails where the mistake was made (§11.2).
+rather than an illegal request, and it fails where the mistake was made (§12.2).
 
 **Any bare hero on the table may wear an item, cursed or plain** (the owner,
 2026-09-04: the rules do not say whose hero; a plain item on an opponent is a
@@ -701,7 +747,7 @@ checks game logic and nothing below it. The SHAPE of a request — every field
 present and typed — is the transport's job (zod, in `shared/src/contracts`),
 so no guard here re-checks it. And a player id that the table never seated is
 neither: the transport bound it at the handshake, so an unseated id is an
-engine mistake and `GameState.requirePlayer` THROWS on it (§11.2) — no
+engine mistake and `GameState.requirePlayer` THROWS on it (§12.2) — no
 `RefusalReason` names it. An action never holds a `Player`: it asks the
 BOARD — `getActionPoints`, `decreaseActionPoints`, `hasInHand`,
 `getHandSize`, each of which goes through `requirePlayer` — so an action
@@ -1597,78 +1643,7 @@ inside a window would have turned a harmless type edge into a real bug.
 
 Worth adding as a guard: eslint `@typescript-eslint/consistent-type-imports`.
 
-## 10. Repo gaps blocking play
-
-- **`CONFIRM` / `DISMISS` live in `reactions/task-choice-window.ts`.** They are
-  wire vocabulary — the options a `TaskChoice` window offers and the value a
-  client sends back — so they belong in `shared` beside the rest of it. Left
-  where they are because moving them touches 95 call sites.
-- **No `TriggerScope` matches "the event TARGETS my owner".** `ModifierPlayed`
-  names the player who spent the card, and `targetPlayerId` — whose roll it was
-  aimed at — is readable only from the payload. The Abyss Queen wanted it and
-  no longer needs it, since the bonus became an effect the windows read; a
-  future steal or challenge wording may bring it back.
-- **Ten of the fifteen monsters are unwritten.** The five that are done
-  (`monster-123`, `129`, `131`, `134`, `135`) are the pattern for the rest.
-- **68 card ids declare an ability** — 3 heroes, 8 items, 7 magic, 5 monsters,
-  all 6 leaders, all 25 modifiers (one declaration between them) and all 14
-  challenges (another). Every printed leader is written; every printed
-  modifier and challenge shares one declaration with its copies.
-- **The thirteen one-off declarations** — `hero-028` (Wise Shield), `hero-036`
-  (Wiggles), `hero-040` (Snowball), Critical Boost (`magic-053`, `magic-054` —
-  two printed copies sharing one declaration), Really Big Ring (`item-064`,
-  `item-065`), Suspiciously Shiny Coin (`item-073`) and all six leaders
-  (`leader-116` … `leader-121`). The Shadow Claw (`leader-117`) is the
-  reference ACTIVATED card: it declares none of "once per turn, you may spend
-  an action point", because every clause of that is a guard in
-  `RollOnLeaderAction`.
-  Critical Boost is the reference MAGIC card: one entry that pauses on a choice
-  and finishes as a later step of the same run. The Destructive Spell
-  (`magic-049`/`050`) is the same shape stretched over TWO choices — price then
-  payoff, in printed order, with each acting step directly behind its own
-  choice because the second pick overwrites `CTX_CHOSEN_CARD`. Forced Exchange
-  (`magic-057`) takes a hero out of ANY other party and hands one back to
-  whichever party that was: two windows, one entry, the seat derived from the
-  stolen hero (`CTX_STOLEN_FROM_PLAYER`) rather than asked for, and the gear
-  travels both ways for free. `Owner.Chosen` is the late binding §5 exists for
-  and Heavy Bear (`hero-004`) is its reference — a card that acts on the SEAT,
-  so the seat is worth a window of its own. The
-  Enchanted Spell (`magic-055`/`056`) is Wise Shield's wording on a magic card
-  and shares its declaration exactly — what a card IS has no bearing on the
-  shape of what it does. Really Big Ring is the
-  reference ITEM — an on-equip effect that ends with its carrier — and
-  Suspiciously Shiny Coin the reference CURSED item, riding an opponent's hero
-  and taxing that opponent on `CarrierCard` scope. The Cloaked Sage
-  (`leader-120`) is the reference for a leader reacting to a card its owner
-  plays: `MagicPlayed` scoped `OwnerEvent`, because `FrameResolved` carries no
-  playerId and names the played card rather than the leader.
-  `abilityRegistry` is sectioned by card type and sorted by id inside each
-  section, so a card has one obvious home.
-- **No monster carries a fight-back wording yet.** The path is whole —
-  `MonsterFoughtBack` goes out naming the attacker, the pile is scanned for
-  sources, and `TriggerScope.Attacker` runs the monster's entry as that player
-  — but `abilityRegistry` holds no monster, so nothing answers it in a real
-  game. Pinned by tests with a stand-in registry.
-- **A monster's face-up penalty has no reader.** The ruleset gives every
-  monster a table-wide roll penalty while it sits face up in the row, and
-  `GameEventType.MonsterFlipped` is declared with no emitter.
-  Nothing turns a monster face up, there is no face-up state to turn, and a
-  table-wide roll penalty has no home: `IEffect` names an `ownerId` and lives on
-  a `Player`.
-- **`DecisionType.PickMonster` still has no reader.** `ChooseMonsterTask` and
-  `ReactionWindowType.MonsterChoice` cover the mechanic; the `DecisionType`
-  enum is a parallel vocabulary nothing consults.
-- ~~`views/player-view.spec.ts` "shows the whole table a roll as it stands" is
-  nondeterministic~~ — FIXED 2026-09-04: the case deals from quiet leaders
-  (`dealtQuiet`), so `bonuses: []` is true by construction.
-- **`IRollResolver` has no implementers.** Declared in `interfaces.ts`, shaped
-  like `MonsterCard.trySlay`, and read by nothing.
-- **Add `tsc --noEmit` to CI** — ts-jest runs diagnostics off; type breakage
-  passes the suite silently.
-- **`npm ci` is incomplete in some checkouts** — `@nestjs/testing` and eslint's
-  deps are declared but unresolvable. Unrelated to engine code.
-
-## 11. Setup
+## 10. Setup
 
 `setup/create-game.ts` turns `GameConfig` plus a list of player ids into a
 dealt, wired game. It is the only thing that builds a `GameState` — everything
@@ -1803,7 +1778,7 @@ ability registry; that gate was removed once every printed id had a registry
 entry. `AllClassesInParty` continues to require `HeroClass`'s six members,
 whatever custom pool was supplied.
 
-## 11b. HTSR-8 — the mechanics the remaining cards needed (2026-09-04)
+## 11. The mechanics the last cards needed
 
 Six additions, each named by the card wordings it unlocks. Every one is a
 task, a filter field or an effect type — no new pipeline construct — and the

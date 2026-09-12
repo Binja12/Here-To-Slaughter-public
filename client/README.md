@@ -18,8 +18,8 @@ the lobby assignment is the source of truth.
 
 `.env` pins the dev server to port 3002 because the lobby owns 3000. Reach
 everything as `localhost` (never `127.0.0.1`) so the session cookie also
-reaches the game server. The real servers are started from the HTSR-4
-worktree; see `docs/CLIENT_PLAYTEST_TODO.md` for the run book.
+reaches the game server. The servers are started from the repository
+root; see the root README.
 
 ## Bot seats
 

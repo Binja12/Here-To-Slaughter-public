@@ -14,7 +14,7 @@ const LOBBY_TIMEOUT_MS = 5_000
 /**
  * The resolver over Nest TCP: `lobby/nest-tcp-game-server.client.ts` pointed
  * the other way, landing on `auth/internal-auth.controller.ts`. Until a
- * shared session store replaces it (plan §10), this is how the game process
+ * shared session store replaces it (plan §7), this is how the game process
  * learns who is at the door.
  */
 @Injectable()
